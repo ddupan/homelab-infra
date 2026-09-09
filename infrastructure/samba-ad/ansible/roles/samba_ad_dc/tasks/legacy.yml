@@ -6,7 +6,7 @@
 - name: Inject legacy protocol settings into smb.conf [global]
   ansible.builtin.blockinfile:
     path: /etc/samba/smb.conf
-    marker: "\t# {mark} ANSIBLE MANAGED — legacy clients (INSECURE)"
+    marker: "\t# {mark} ANSIBLE MANAGED — legacy clients (INSECURE)"  # noqa no-tabs
     insertafter: '^\[global\]'
     block: |2
             server min protocol = NT1

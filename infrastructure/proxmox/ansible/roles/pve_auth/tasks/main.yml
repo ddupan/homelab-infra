@@ -56,7 +56,7 @@
   # --check-connection makes PVE actually bind before saving, so a wrong DN,
   # password, or an untrusted certificate fails HERE instead of silently
   # producing a realm nobody can log in to.
-  ansible.builtin.shell:
+  ansible.builtin.shell:  # noqa command-instead-of-shell
     cmd: >-
       pveum realm add {{ pve_auth_realm }} --type ad {{ _realm_opts }}
       --password '{{ pve_auth_bind_password }}'
@@ -95,7 +95,7 @@
   run_once: true
 
 - name: Update the realm
-  ansible.builtin.shell:
+  ansible.builtin.shell:  # noqa command-instead-of-shell
     cmd: >-
       pveum realm modify {{ pve_auth_realm }} {{ _realm_opts }}
       --password '{{ pve_auth_bind_password }}'
