@@ -29,6 +29,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
 
       - name: Install yamllint
         # The WAN drops at random (see CLAUDE.md); retry rather than fail a run.
@@ -52,6 +53,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
 
       - name: Install ansible-lint and collections
         # pywinrm is not optional — without it every ansible.windows.* task dies
@@ -89,6 +91,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
 
       - name: fmt and validate
         # -backend=false so validate never touches real state or needs credentials.
