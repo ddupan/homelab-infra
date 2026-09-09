@@ -32,12 +32,12 @@ spec:
       # http-01, not dns01: bao resolves ad.ddupan.top and can reach LAN hosts
       # directly (noted as verified in openbao/terraform/pki.tf), so it can fetch
       # the challenge over the LAN with no public exposure. cert-manager creates a
-      # temporary HTTPRoute on the shared Contour gateway to answer it.
+      # temporary HTTPRoute on the shared Envoy Gateway to answer it.
       - http01:
           gatewayHTTPRoute:
             parentRefs:
-              - name: contour-gateway
-                namespace: projectcontour
+              - name: eg
+                namespace: envoy-gateway-system
                 kind: Gateway
                 group: gateway.networking.k8s.io
                 sectionName: http     # the plaintext :80 listener

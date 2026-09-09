@@ -1,15 +1,37 @@
-# Homelab cluster
+# Homelab 集群
 
-This directory will become the Flux reconciliation entrypoint for the homelab
-k3s cluster. It is intentionally documentation-only until a Git remote, CI
-checks and a low-risk bootstrap workload have been verified.
+这里是单节点 k3s 集群的 Flux reconciliation 入口。集群当前运行 Kubernetes
+`v1.36.4+k3s1`，Flux 固定为 `v2.9.5`。
 
-Planned reconciliation order:
+## 首次 bootstrap
 
-1. namespaces and CRDs;
-2. shared platform controllers;
-3. secret references and storage;
-4. applications.
+仓库经过 PR 审查并合并后，在本机从合并后的 `main` 执行：
 
-Do not enable pruning for a path until its live resources and field ownership
-have been audited.
+```bash
+sudo k3s kubectl apply -f clusters/homelab/flux-system/gotk-components.yaml
+sudo k3s kubectl apply -f clusters/homelab/flux-system/gotk-sync.yaml
+```
+
+`GitRepository/flux-system` 通过集群内 Gitea Service 读取公开仓库，不需要长期
+管理员 token，也不依赖 Cloudflare、公网 DNS 或 Envoy Gateway。Gitea 暂时不可用
+时，已经应用的资源继续运行，Flux 在 Gitea 恢复后重新同步。
+
+root Kustomization 从 `./clusters/homelab` 开始 reconciliation。初始设置
+`prune: false`；在逐项审计现有资源和 field ownership 之前不得开启全局 prune。
+
+计划中的 reconciliation 顺序：
+
+1. namespaces 和 CRD；
+2. platform controllers；
+3. secret references 和 storage；
+4. applications。
+
+首次部署后的最低验证：
+
+```bash
+sudo k3s kubectl -n flux-system get pods
+sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
+```
+
+四个 controller、GitRepository 和 root Kustomization 都必须为 Ready，随后才能
+通过单独 PR 引入低风险 canary workload。
