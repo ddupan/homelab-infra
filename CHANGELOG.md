@@ -28,17 +28,17 @@ What changed in this homelab, when, and why. Newest first.
 | cleanup | Removed the retired NapCat tree, the Contour and Kanidm archive trees, and seven generated Terraform plan files before establishing the clean Git baseline; plans may embed complete state and remain globally ignored |
 | CI | Added a review-first Gitea Actions runner bootstrap: official actions chart 0.1.1, pinned runner 2.3.0, one persistent instance-scoped Kubernetes runner with capacity four, plus an ESO reference to its registration token in OpenBao. The first deployment proved that rootlesskit is blocked by the node's AppArmor unprivileged-userns policy; because the chart requires privileged DinD in either mode, the reviewed fix uses regular DinD instead of weakening the host-wide policy. The runner image intentionally carries neither `uv` nor Terraform: Terraform uses its versioned setup action, while `uv` is pinned and installed from official PyPI because the nested job network reaches PyPI but times out against the GitHub API queried by `setup-uv`. Ansible installs only `ansible-core` in its tool venv and puts declared Galaxy collections in a shared path visible to ansible-lint; installing the `ansible` meta-package had made Galaxy falsely skip that shared installation |
 | identity | Declared the Samba AD `gitea-admins` group with `panxiao81` as its initial member. Gitea already maps this OIDC group to site administrators; the local `gitea_admin` account remains as break-glass access |
-| docs | Reconciled the redesign and CI status with reality: the Gitea remote, instance-scoped runner, OpenBao-projected registration token and green Stage 1 are live; Flux, off-site mirroring and recovery verification remain pending |
+| docs | Reconciled the redesign and CI status with reality: the Gitea remote, instance-scoped runner, OpenBao-projected registration token, green Stage 1 and Flux bootstrap are live; off-site mirroring and recovery verification remain pending |
 | 协作规范 | 在 `AGENTS.md` 中明确：homelab 向 `git.ddupan.top` 提交的 commit message、PR、issue 与项目文档默认优先使用中文，同时保留必要的英文技术标识符 |
 | k3s | 在本机逐级从 `v1.33.6+k3s1` 升级到 `v1.33.13+k3s2`、`v1.34.11+k3s1`、`v1.35.8+k3s1`，最终到 `v1.36.4+k3s1`；每一级均建立 SQLite/server 冷备份并验证节点、工作负载、PVC、Gateway、DNS 与 Gitea。k3s 每次重启都会覆盖 CoreDNS 的手工 `serve_stale`，已按 `platform/k3s/Corefile.desired` 恢复 |
-| GitOps | 加入固定 Flux `v2.9.5` 的四个核心 controller、集群内只读 Gitea source 和 `prune: false` 的 root Kustomization，等待 PR 合并后从本机首次 bootstrap |
-| cleanup | 准备彻底删除集群内不再承载流量的 Contour provisioner、RBAC、GatewayClass 和 CRD；先把 `bao-acme` HTTP-01 solver 从已不存在的 Contour Gateway 改到 Envoy Gateway 的明文 listener |
+| GitOps | Flux `v2.9.5` 的四个核心 controller 已上线；集群内只读 Gitea source 与 `prune: false` 的 root Kustomization 均在合并 revision `aaa54a1` 上 Ready，完成了首个 pull reconciliation 闭环 |
+| cleanup | 已把 `bao-acme` HTTP-01 solver 改到 Envoy Gateway 的明文 listener，并删除不再承载流量的 Contour namespace、provisioner、RBAC、GatewayClass 和全部 `projectcontour.io` CRD；Envoy Gateway、证书、DNS 与 Gitea 复查正常 |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure an off-site Git mirror; plan the Gitea upgrade beyond 1.25.5;
 take an encrypted independent OCI state copy before enabling bucket versioning;
-reconstruct the missing root to a zero-change plan; bootstrap Gitea Actions and Flux on a low-risk
-service; then move Tunnel origins to Envoy one hostname at a time.
+reconstruct the missing root to a zero-change plan; add a low-risk Flux canary workload;
+then move Tunnel origins to Envoy one hostname at a time.
 
 ## 2026-08-15
 

@@ -1,6 +1,6 @@
 # Homelab GitOps and IaC redesign
 
-Status: **implementation in progress; CI bootstrap is live, Flux is not yet installed.**
+Status: **implementation in progress; CI and Flux bootstrap are live.**
 
 Started 2026-09-09. This is the durable record of the redesign discussion. It
 separates observations, decisions and open work so an assumption cannot silently
