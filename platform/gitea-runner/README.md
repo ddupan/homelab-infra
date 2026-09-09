@@ -2,9 +2,14 @@
 
 This is the bootstrap runner for Gitea Actions. One persistent runner Pod accepts
 up to four jobs; each job runs in a dynamically created container inside a
-rootless Docker-in-Docker daemon. Rootless DinD still requires a privileged Pod
-to create its user namespace, so this runner is restricted to this repository
-and trusted workflows.
+Docker-in-Docker daemon. The official chart runs DinD privileged. Rootless DinD
+would still be privileged and is blocked by the node's AppArmor user-namespace
+policy, so this deployment uses regular DinD instead of weakening that host-wide
+policy. Only trusted workflows may target this runner.
+
+The runner is registered at instance scope so it is available to every repository
+on this Gitea instance. Repository permissions and protected-branch review are
+therefore the security boundary; do not enable Actions for untrusted repositories.
 
 The runner registration token is authoritative in OpenBao at
 `kv/k8s/gitea-runner`. External Secrets Operator projects its `token` property to
@@ -16,7 +21,8 @@ command line.
 This is a one-time manual deployment because Flux is not installed yet:
 
 1. Merge the reviewed PR.
-2. Create a repository-scoped runner registration token in Gitea.
+2. As a Gitea site administrator, create an instance-scoped runner registration
+   token under **Site Administration → Actions → Runners**.
 3. Store it as the `token` property at `kv/k8s/gitea-runner` without exposing it
    in shell history:
 

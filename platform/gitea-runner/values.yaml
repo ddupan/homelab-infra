@@ -44,14 +44,10 @@ statefulset:
         docker_timeout: 300s
 
   dind:
-    rootless: true
-    uid: 1000
+    # The node enforces AppArmor's unprivileged-userns restriction, which blocks
+    # rootlesskit even though this chart must run DinD privileged either way.
+    rootless: false
     registry: docker.io
     repository: docker
-    tag: 29.7.1-dind-rootless
+    tag: 29.7.1-dind
     pullPolicy: IfNotPresent
-    extraEnvs:
-      - name: DOCKERD_ROOTLESS_ROOTLESSKIT_NET
-        value: slirp4netns
-      - name: DOCKERD_ROOTLESS_ROOTLESSKIT_MTU
-        value: "65520"
