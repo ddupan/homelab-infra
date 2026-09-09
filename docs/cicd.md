@@ -84,19 +84,22 @@ doing once the pipeline is trustworthy. A documented break-glass path must
 survive it: the playbooks still have to run by hand from the laptop during an
 incident, or enforcement locks you out exactly when you need in.
 
-## Substrate — open
+## Substrate — decided
 
-**Requirement:** a light always-on orchestrator with ephemeral workers. Not a VM
-or LXC parked idle waiting for work. Something must always listen — that is
-inherent to event-driven CI — but it should be a controller, not a pet.
+Gitea Actions is the CI control plane. It integrates directly with repository
+permissions and status checks and preserves GitHub Actions workflow syntax.
 
-| option | verdict |
-|---|---|
-| **Woodpecker CI** | **Front-runner.** Kubernetes backend runs each step as a standalone Pod; first-class Gitea (OAuth2 + auto-created webhooks); server + agent, both light; stable. Costs a different pipeline syntax, which for shell-step lint jobs is ~20 lines |
-| `act_runner` (Gitea native) | Docker or host execution **only** — no Kubernetes executor. Confirmed in source: `labels.go` has just `SchemeDocker`/`SchemeHost`, and `run_context.go` branches only to `startHostEnvironment` or `startJobContainer`. Cheapest (one pod) but leaves a persistent worker |
-| Gitea ARC | Real pod-per-job operator, but **Enterprise Edition only** |
-| GARM + `garm-provider-k8s` | Right shape. GARM supports Gitea from 1.24, but latest is **v0.2.0-beta1** and the provider documents GitHub runners only — the Gitea pairing is unverified |
-| Write a runner from zero | The protocol (`actions-proto-go`) is approachable; reimplementing execution is not — `act_runner` delegates that to a vendored `nektos/act`. A shim spawning one-shot pods is blocked on ephemeral registration (`go-apps/gitea/gitea#32461`) |
+The bootstrap worker is the official Gitea Runner chart in Kubernetes: one
+persistent StatefulSet Pod, rootless Docker-in-Docker and capacity four. Job
+containers are dynamic, while the runner and its Docker daemon remain resident.
+Rootless DinD still needs a privileged Pod to establish its user namespace, so
+the runner is repository-scoped and restricted to trusted workflows. See
+`platform/gitea-runner/`.
+
+This is not native pod-per-job execution. If stronger isolation becomes useful,
+the runner's ephemeral registration and Gitea `workflow_job` webhook can later
+drive a small controller that creates one runner Pod per job. That complexity is
+not required for the bootstrap.
 
 **Where runners run** is a separate axis. Argument for Proxmox: pve1–3 have clean
 egress, while the k3s node carries `openvpn-client@naist`, whose 58 split-tunnel
@@ -107,19 +110,16 @@ Proxmox provider exists, so ephemeral Proxmox VMs would mean writing one.
 
 ## Prerequisites
 
-Blocking, in order:
+Bootstrap dependencies and current status:
 
-1. **Externalise secrets.** `apps/gitea/gitea-values.yaml`, `apps/authelia/values.yaml`,
-   `infrastructure/cloudflared/cloudflared.yaml` and `litellm-gateway/docker-compose.yml` are
-   gitignored because they embed live credentials. GitOps requires the opposite —
-   a reconciler can only apply what is in git. OpenBao + External Secrets is the
-   natural fit; `openbao_bootstrap/tasks/auth_kubernetes.yml` already exists.
-2. **A git remote.** Gitea is the obvious host, but it runs *on* the cluster it
-   would deploy, so keep an off-cluster mirror for disaster recovery.
-3. **Terraform: shared state.** All four roots use local `*.tfstate`. Any
-   pipeline that applies needs shared state — the S3-compatible SeaweedFS/rustfs
-   already on the cluster is a candidate, with the caveat that cluster state
-   living on the cluster is the same circularity as hosting git there.
+1. **Secret delivery exists.** OpenBao and External Secrets Operator already
+   synchronize five Secrets. Add the repository-scoped runner registration token
+   at `kv/k8s/gitea-runner`; Git contains only its `ExternalSecret` reference.
+2. **Git remote exists.** `homelab-infra` is hosted in Gitea. An off-cluster
+   read-only mirror remains required for disaster recovery.
+3. **Terraform state is mixed.** Local roots currently use SeaweedFS S3. Gitea
+   1.27 State Registry is the preferred future backend for local roots, but the
+   running Gitea is 1.25.5. OCI recovery state remains in OCI Object Storage.
 
 **Not a blocker: non-interactive auth.** An earlier draft of this document
 called `bao login -method=oidc` and `az login` hard blockers that would widen the

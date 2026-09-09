@@ -1,0 +1,57 @@
+enabled: true
+
+giteaRootURL: http://gitea-http.gitea.svc.cluster.local:3000
+existingSecret: gitea-runner-token
+existingSecretKey: token
+
+statefulset:
+  replicas: 1
+  timezone: Etc/UTC
+  securityContext:
+    fsGroup: 1000
+  # Chart 0.1.1 applies this block to both runner and DinD containers.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+      ephemeral-storage: 2Gi
+    limits:
+      cpu: "4"
+      memory: 6Gi
+      ephemeral-storage: 20Gi
+  persistence:
+    size: 1Gi
+
+  runner:
+    registry: docker.io
+    repository: gitea/runner
+    tag: 2.3.0
+    pullPolicy: IfNotPresent
+    config: |
+      log:
+        level: info
+      runner:
+        file: .runner
+        capacity: 4
+        timeout: 3h
+        shutdown_timeout: 3h
+        labels:
+          - self-hosted:docker://docker.gitea.com/runner-images:ubuntu-latest
+      cache:
+        enabled: false
+      container:
+        require_docker: true
+        docker_timeout: 300s
+
+  dind:
+    rootless: true
+    uid: 1000
+    registry: docker.io
+    repository: docker
+    tag: 29.7.1-dind-rootless
+    pullPolicy: IfNotPresent
+    extraEnvs:
+      - name: DOCKERD_ROOTLESS_ROOTLESSKIT_NET
+        value: slirp4netns
+      - name: DOCKERD_ROOTLESS_ROOTLESSKIT_MTU
+        value: "65520"

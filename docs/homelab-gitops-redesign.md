@@ -83,8 +83,11 @@ without becoming another deployment controller.
 
 ### CI execution
 
-Most CI runs as ephemeral Kubernetes Pods through Woodpecker's Kubernetes
-backend: lint, formatting, manifest rendering, unit tests and ordinary plans.
+Most CI uses Gitea Actions for its GitHub Actions compatibility. A persistent
+Gitea Runner StatefulSet runs in Kubernetes with rootless Docker-in-Docker and
+capacity four; individual job containers are created dynamically. Rootless DinD
+still requires a privileged Pod, so the runner is repository-scoped and accepts
+trusted workflows only.
 
 Only explicitly labelled jobs needing privilege, nested virtualization,
 amd64-only software or isolation from k3s use an ephemeral Proxmox VM. IaC owns
@@ -198,8 +201,8 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
    remaining manually managed Secrets, then migrate them incrementally.
 3. Configure Gitea remote plus a one-way off-site mirror. Confirm whether the
    running Gitea supports the 1.27 Terraform State Registry.
-4. Deploy Woodpecker, then bootstrap Flux on `http-echo` or `marker` without
-   enabling prune until live ownership is audited.
+4. Manually deploy the reviewed Gitea Runner bootstrap, then bootstrap Flux on
+   `http-echo` or `marker` without enabling prune until live ownership is audited.
 5. Move Tunnel origins to Envoy and consolidate split DNS through Blocky.
 6. Deploy Backstage read-only with Catalog, Kubernetes, Flux and TechDocs.
 7. Reconstruct the OCI root to a zero-change plan and add libvirt drift reports.
