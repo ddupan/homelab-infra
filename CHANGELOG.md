@@ -27,6 +27,7 @@ What changed in this homelab, when, and why. Newest first.
 | Terraform | Recorded Gitea 1.27 State Registry as the preferred candidate for local roots after version and recovery testing; the OCI recovery root remains in OCI Object Storage to avoid a home-control-plane dependency loop |
 | cleanup | Removed the retired NapCat tree, the Contour and Kanidm archive trees, and seven generated Terraform plan files before establishing the clean Git baseline; plans may embed complete state and remain globally ignored |
 | CI | Added a review-first Gitea Actions runner bootstrap: official actions chart 0.1.1, pinned runner 2.3.0, one persistent Kubernetes runner with capacity four and rootless DinD, plus an ESO reference to a repository-scoped registration token in OpenBao. It is not deployed until the PR is merged |
+| identity | Declared the Samba AD `gitea-admins` group with `panxiao81` as its initial member. Gitea already maps this OIDC group to site administrators; the local `gitea_admin` account remains as break-glass access |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure a Git remote and off-site mirror; confirm the running Gitea version;
