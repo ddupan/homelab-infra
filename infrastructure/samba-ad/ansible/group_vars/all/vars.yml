@@ -69,6 +69,11 @@ samba_ad_groups:
   - name: pve-admins
     members: [panxiao81]
 
+  # Gitea maps this OIDC group to site administrators through oauth2.adminGroup.
+  # Keep at least one human administrator independent of the local break-glass account.
+  - name: gitea-admins
+    members: [panxiao81]
+
   # NetBox: Authelia forward-auth restricts the site to this group, and NetBox maps it
   # to is_superuser + is_staff via REMOTE_AUTH_SUPERUSER_GROUPS / STAFF_GROUPS
   # (../../../apps/netbox). Membership is re-evaluated on every request, so removing someone
