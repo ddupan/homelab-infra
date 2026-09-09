@@ -12,12 +12,6 @@ on:
   pull_request:
 
 env:
-  # pypi.org is NOT reachable from this network — it resolves fine but TCP/443 to
-  # Fastly (151.101.x) times out, while github.com and cloudflare.com are fine.
-  # This is not the usual flaky-WAN symptom and a plain `uv tool install` will
-  # hang until timeout. Use a mirror; verified reachable 2026-07-28.
-  UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
-
   # ansible-lint and ansible-core install as SEPARATE uv tools, each with its own
   # venv. Collections installed under the ansible-core tool are invisible to
   # ansible-lint, which then reports every module as `syntax-check[unknown-module]`
@@ -29,7 +23,14 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+
+      - name: Bootstrap uv
+        # setup-uv queries api.github.com, which is unreachable from the nested
+        # job network. Official PyPI is reachable; pin the tool for reproducibility.
+        run: |
+          python3 -m pip install --user --break-system-packages \
+            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install yamllint
         # The WAN drops at random (see CLAUDE.md); retry rather than fail a run.
@@ -53,7 +54,12 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+
+      - name: Bootstrap uv
+        run: |
+          python3 -m pip install --user --break-system-packages \
+            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install ansible-lint and collections
         # pywinrm is not optional — without it every ansible.windows.* task dies
