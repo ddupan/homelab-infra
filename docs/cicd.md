@@ -90,11 +90,13 @@ Gitea Actions is the CI control plane. It integrates directly with repository
 permissions and status checks and preserves GitHub Actions workflow syntax.
 
 The bootstrap worker is the official Gitea Runner chart in Kubernetes: one
-persistent StatefulSet Pod, rootless Docker-in-Docker and capacity four. Job
+persistent StatefulSet Pod, Docker-in-Docker and capacity four. Job
 containers are dynamic, while the runner and its Docker daemon remain resident.
-Rootless DinD still needs a privileged Pod to establish its user namespace, so
-the runner is repository-scoped and restricted to trusted workflows. See
-`platform/gitea-runner/`.
+The chart's DinD container is privileged in both modes. Rootless mode is blocked
+by the node's AppArmor unprivileged-userns policy, so regular DinD avoids weakening
+that host-wide policy without pretending the Pod has a stronger isolation boundary.
+The runner is instance-scoped and restricted to trusted repositories and workflows.
+See `platform/gitea-runner/`.
 
 This is not native pod-per-job execution. If stronger isolation becomes useful,
 the runner's ephemeral registration and Gitea `workflow_job` webhook can later
@@ -113,7 +115,7 @@ Proxmox provider exists, so ephemeral Proxmox VMs would mean writing one.
 Bootstrap dependencies and current status:
 
 1. **Secret delivery exists.** OpenBao and External Secrets Operator already
-   synchronize five Secrets. Add the repository-scoped runner registration token
+   synchronize five Secrets. Add the instance-scoped runner registration token
    at `kv/k8s/gitea-runner`; Git contains only its `ExternalSecret` reference.
 2. **Git remote exists.** `homelab-infra` is hosted in Gitea. An off-cluster
    read-only mirror remains required for disaster recovery.
