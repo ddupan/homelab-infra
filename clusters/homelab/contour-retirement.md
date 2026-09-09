@@ -17,4 +17,3 @@ gateway provisioner、RBAC、旧 `GatewayClass` 和没有实例的 CRD，不再�
 这些对象是 Flux 启用前留下的孤立资源，首次清理由本机 `kubectl` 完成。Flux 的
 root Kustomization 初始保持 `prune: false`，不会借 bootstrap 顺带删除 brownfield
 资源。
-
