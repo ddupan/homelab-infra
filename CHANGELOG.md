@@ -28,9 +28,10 @@ What changed in this homelab, when, and why. Newest first.
 | cleanup | Removed the retired NapCat tree, the Contour and Kanidm archive trees, and seven generated Terraform plan files before establishing the clean Git baseline; plans may embed complete state and remain globally ignored |
 | CI | Added a review-first Gitea Actions runner bootstrap: official actions chart 0.1.1, pinned runner 2.3.0, one persistent instance-scoped Kubernetes runner with capacity four, plus an ESO reference to its registration token in OpenBao. The first deployment proved that rootlesskit is blocked by the node's AppArmor unprivileged-userns policy; because the chart requires privileged DinD in either mode, the reviewed fix uses regular DinD instead of weakening the host-wide policy. The runner image intentionally carries neither `uv` nor Terraform: Terraform uses its versioned setup action, while `uv` is pinned and installed from official PyPI because the nested job network reaches PyPI but times out against the GitHub API queried by `setup-uv`. Ansible installs only `ansible-core` in its tool venv and puts declared Galaxy collections in a shared path visible to ansible-lint; installing the `ansible` meta-package had made Galaxy falsely skip that shared installation |
 | identity | Declared the Samba AD `gitea-admins` group with `panxiao81` as its initial member. Gitea already maps this OIDC group to site administrators; the local `gitea_admin` account remains as break-glass access |
+| docs | Reconciled the redesign and CI status with reality: the Gitea remote, instance-scoped runner, OpenBao-projected registration token and green Stage 1 are live; Flux, off-site mirroring and recovery verification remain pending |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
-configure a Git remote and off-site mirror; confirm the running Gitea version;
+configure an off-site Git mirror; plan the Gitea upgrade beyond 1.25.5;
 take an encrypted independent OCI state copy before enabling bucket versioning;
 reconstruct the missing root to a zero-change plan; bootstrap Gitea Actions and Flux on a low-risk
 service; then move Tunnel origins to Envoy one hostname at a time.
