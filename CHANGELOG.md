@@ -30,6 +30,9 @@ What changed in this homelab, when, and why. Newest first.
 | identity | Declared the Samba AD `gitea-admins` group with `panxiao81` as its initial member. Gitea already maps this OIDC group to site administrators; the local `gitea_admin` account remains as break-glass access |
 | docs | Reconciled the redesign and CI status with reality: the Gitea remote, instance-scoped runner, OpenBao-projected registration token and green Stage 1 are live; Flux, off-site mirroring and recovery verification remain pending |
 | 协作规范 | 在 `AGENTS.md` 中明确：homelab 向 `git.ddupan.top` 提交的 commit message、PR、issue 与项目文档默认优先使用中文，同时保留必要的英文技术标识符 |
+| k3s | 在本机逐级从 `v1.33.6+k3s1` 升级到 `v1.33.13+k3s2`、`v1.34.11+k3s1`、`v1.35.8+k3s1`，最终到 `v1.36.4+k3s1`；每一级均建立 SQLite/server 冷备份并验证节点、工作负载、PVC、Gateway、DNS 与 Gitea。k3s 每次重启都会覆盖 CoreDNS 的手工 `serve_stale`，已按 `platform/k3s/Corefile.desired` 恢复 |
+| GitOps | 加入固定 Flux `v2.9.5` 的四个核心 controller、集群内只读 Gitea source 和 `prune: false` 的 root Kustomization，等待 PR 合并后从本机首次 bootstrap |
+| cleanup | 准备彻底删除集群内不再承载流量的 Contour provisioner、RBAC、GatewayClass 和 CRD；先把 `bao-acme` HTTP-01 solver 从已不存在的 Contour Gateway 改到 Envoy Gateway 的明文 listener |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure an off-site Git mirror; plan the Gitea upgrade beyond 1.25.5;
