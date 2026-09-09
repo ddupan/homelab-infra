@@ -7,7 +7,8 @@ Flux 将它部署到独立的 `gitops-canary` namespace。
 | --- | --- |
 | `deployment.yaml` | 两个 `hashicorp/http-echo` 副本。 |
 | `service.yaml` | 只在集群内可达的 ClusterIP Service。 |
-| `kustomization.yaml` | Flux 实际构建入口，只包含 Deployment 和 Service。 |
+| `prune-canary-configmap.yaml` | 无业务依赖的临时资源，用于验证 Flux 受控删除。 |
+| `kustomization.yaml` | Flux 实际构建入口；明确排除历史 HTTPRoute。 |
 | `httproute.yaml` | 保留的历史 Contour 示例，**不在 Kustomization 中，不会部署**。 |
 
 ## 验证
@@ -22,3 +23,7 @@ sudo k3s kubectl -n gitops-canary get deployment,service,pod
 初始 `prune: false`。验证自动部署后，可以手动把 Deployment replicas 改成 1，
 确认 Flux 恢复为 Git 中的 2。删除行为应使用单独的无业务 ConfigMap 和 PR 测试，
 验证完成前不得为此路径启用 prune。
+
+`flux-prune-canary` ConfigMap 分两次 PR 验证：第一次在 `prune: false` 时创建并
+确认进入 Flux inventory；第二次从清单删除它，同时仅为 `http-echo`
+Kustomization 开启 prune，确认 Flux 只删除这个测试对象。

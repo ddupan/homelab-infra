@@ -34,6 +34,7 @@ What changed in this homelab, when, and why. Newest first.
 | GitOps | Flux `v2.9.5` 的四个核心 controller 已上线；集群内只读 Gitea source 与 `prune: false` 的 root Kustomization 均在合并 revision `aaa54a1` 上 Ready，完成了首个 pull reconciliation 闭环 |
 | cleanup | 已把 `bao-acme` HTTP-01 solver 改到 Envoy Gateway 的明文 listener，并删除不再承载流量的 Contour namespace、provisioner、RBAC、GatewayClass 和全部 `projectcontour.io` CRD；Envoy Gateway、证书、DNS 与 Gitea 复查正常 |
 | GitOps canary | 加入由 Flux 部署到独立 `gitops-canary` namespace 的 `http-echo` Deployment 和 Service；历史 Contour HTTPRoute 明确排除在 Kustomization 之外，初始保持 `prune: false` |
+| prune 验证 | 为 `http-echo` 加入无业务依赖的 `flux-prune-canary` ConfigMap；先在 `prune: false` 下确认 Flux inventory，后续通过独立 PR 删除并仅为 canary 开启 prune |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure an off-site Git mirror; plan the Gitea upgrade beyond 1.25.5;
