@@ -37,6 +37,7 @@ What changed in this homelab, when, and why. Newest first.
 | prune 验证 | 为 `http-echo` 加入无业务依赖的 `flux-prune-canary` ConfigMap；先在 `prune: false` 下确认 Flux inventory，后续通过独立 PR 删除并仅为 canary 开启 prune |
 | prune 验证第二阶段 | 第一阶段已确认 `flux-prune-canary` 带 Flux ownership 标签并进入 `http-echo` inventory；从 Git 删除该测试对象，同时仅为 `http-echo` 开启 `prune: true`，root 继续保持 `prune: false` |
 | prune 验证修正 | 第二阶段证明“同一 revision 开启 prune 并删除旧对象”不会回收该对象：Flux 已从 inventory 移除它，但 live ConfigMap 保留。将 ConfigMap 在已经生效的 `prune: true` 下重新纳管，下一 revision 只做删除 |
+| prune 验证最终阶段 | 已确认 `prune: true` 生效且测试 ConfigMap 重新进入 Flux inventory；本次只从 Git 删除该对象，不修改 canary 或 root 的 prune 设置，用于完成精确垃圾回收验证 |
 
 ### Incident: prune 启用与对象删除放在同一 revision
 
