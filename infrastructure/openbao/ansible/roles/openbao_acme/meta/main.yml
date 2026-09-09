@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: openbao_acme
+  description: Publicly-trusted Let's Encrypt cert for bao's listener via lego + Cloudflare DNS-01, with SIGHUP reload and auto-renewal.
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [bookworm]
+    - name: Ubuntu
+      versions: [jammy, noble]
+dependencies: []

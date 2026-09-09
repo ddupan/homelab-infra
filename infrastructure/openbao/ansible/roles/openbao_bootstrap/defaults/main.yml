@@ -1,0 +1,98 @@
+---
+# openbao_bootstrap role defaults. Secrets come from group_vars/all/vault.yml.
+
+# --- Connection to the running, unsealed bao (local to the host) ---
+openbao_api_port: 8200
+openbao_tls_dir: "/etc/openbao/tls"
+# ⚠ MUST be the hostname, not 127.0.0.1. Since openbao_acme gave bao a real Let's
+# Encrypt cert, that cert carries a DNS SAN only — so a loopback connection dies
+# with "cannot validate certificate for 127.0.0.1 because it doesn't contain any
+# IP SANs". Same trap as dc1's LDAPS cert and as reaching bao on 192.168.10.8.
+# bao1 resolves its own name via the DC (verified: HTTP 200, tls ok).
+openbao_addr: "https://bao.ad.ddupan.top:{{ openbao_api_port }}"
+openbao_token: "{{ lookup('env', 'BAO_TOKEN') }}"    # export BAO_TOKEN before running
+openbao_no_log: true                                 # -e openbao_no_log=false to debug
+
+# Reusable CLI environment (token-bearing → tasks using it set no_log).
+openbao_cli_env:
+  BAO_ADDR: "{{ openbao_addr }}"
+  BAO_CACERT: "{{ openbao_tls_dir }}/cert.pem"
+  BAO_TOKEN: "{{ openbao_token }}"
+
+# --- KV v2 (static agent secrets) ---
+openbao_kv_path: "kv"
+
+# --- SSH certificate authority (short-lived agent certs) ---
+openbao_ssh_mount: "ssh-client-signer"
+# Principals allowed at sign time. "*" is permissive — real per-node scoping is the
+# `principals="..."` option on each target's `cert-authority` authorized_keys line.
+# Tighten to an explicit list (e.g. "nodeA,nodeB,ansible") for a second gate.
+openbao_ssh_allowed_users: "*"
+openbao_ssh_default_user: "ansible"
+openbao_ssh_cert_ttl: "5m"
+openbao_ssh_cert_max_ttl: "15m"
+openbao_ssh_ca_pub_path: "/etc/openbao/ssh-ca.pub"
+
+# --- OIDC human login via Authelia ---
+openbao_oidc_discovery_url: "https://auth.ddupan.top"
+openbao_oidc_client_id: "openbao"
+openbao_oidc_client_secret: "{{ vault_openbao_oidc_client_secret | default('') }}"
+openbao_oidc_default_role: "admin"
+openbao_oidc_admin_group: "vault-admins"   # AD group whose members get the admin policy
+openbao_oidc_redirect_uris:
+  - "https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc/oidc/callback"
+  - "http://localhost:8250/oidc/callback"
+
+# --- Kubernetes auth (in-cluster agents, e.g. hermes) — OFF until inputs are ready ---
+# Was opt-in (false) and had therefore never run — the backend did not exist at all
+# until 2026-07-28. Now ON by default: the External Secrets Operator authenticates
+# through it, so every cluster Secret depends on it. Prerequisites, both satisfied:
+# the cluster CA at openbao_k8s_ca_cert_file, and vault_openbao_k8s_reviewer_jwt.
+openbao_enable_k8s_auth: true
+# The k3s API server, as bao must reach it. NOT the address in your kubeconfig —
+# k3s writes https://127.0.0.1:6443 there, which is meaningless from another host.
+# Was 192.168.10.10 (wrong, nothing listens there); corrected 2026-07-28 after
+# verifying from bao1: curl --cacert /etc/openbao/k8s-ca.crt -> HTTP 401, tls ok.
+openbao_k8s_host: "https://192.168.10.127:6443"
+openbao_k8s_ca_cert_file: "/etc/openbao/k8s-ca.crt"        # cluster CA, placed on the bao host
+openbao_k8s_reviewer_jwt: "{{ vault_openbao_k8s_reviewer_jwt | default('') }}"
+openbao_k8s_agent_sa: "ai-agent"
+openbao_k8s_agent_ns: "agents"
+
+# --- PKI (internal TLS; can replace the self-signed listener cert) ---
+openbao_pki_mount: "pki"
+openbao_pki_ca_cn: "ddupan.top Internal CA"
+openbao_pki_max_lease_ttl: "87600h"        # 10y
+openbao_pki_server_role: "bao-server"
+openbao_pki_allowed_domains: "ad.ddupan.top"
+# GATED: issue bao's own listener cert from this PKI and restart. Off by default so
+# bootstrap never risks the listener. Clients must then trust the PKI CA (printed out).
+openbao_pki_replace_listener_cert: false
+
+# --- Raft snapshots (local timer; ship the dir off-box yourself) ---
+openbao_snapshot_dir: "/var/backups/openbao"
+openbao_snapshot_keep: 14
+openbao_snapshot_oncalendar: "*-*-* 02:00:00"
+
+# ── Terraform / Ansible ownership boundary ───────────────────────────────
+# TRUE (default) = OpenBao's API-level CONFIGURATION lives in ../terraform:
+# mounts, roles, policies, auth mounts+roles, PKI URLs/ACME. This role then
+# does ONLY what Terraform cannot sensibly own:
+#   * the daemon, TLS files, systemd, init/unseal  (openbao_deploy role)
+#   * ROOT-OF-TRUST KEY MATERIAL — the PKI root CA and the SSH CA signing key.
+#     Terraform would treat drift on those as "regenerate", silently
+#     invalidating every issued cert and every TrustedUserCAKeys line.
+#   * the OIDC client SECRET (Terraform cannot read it back; managing it would
+#     put plaintext in tfstate and cause a perpetual diff)
+#   * the snapshot token + script + systemd timer (host-level, and a secret)
+#
+# Set FALSE only to bootstrap a brand-new instance entirely from Ansible, or to
+# fall back if Terraform is unavailable. Leaving it FALSE against an instance
+# Terraform manages makes the two overwrite each other on alternate runs.
+#
+# FRESH-INSTALL ORDER when true:
+#   1. ansible-playbook deploy-openbao.yml      # daemon, TLS, systemd
+#   2. bao operator init / unseal               # manual, PGP-wrapped
+#   3. terraform apply                          # mounts, roles, policies
+#   4. ansible-playbook bootstrap-openbao.yml   # CA material, OIDC secret, snapshots
+openbao_config_managed_by_terraform: true

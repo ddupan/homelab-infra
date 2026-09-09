@@ -1,0 +1,38 @@
+# Serves auth.ddupan.top from the LAN gateway.
+#
+# Pairs with ../../platform/cert-manager/certificate-auth-ddupan.yaml (the TLS cert) and the
+# `https-auth` listener in ../../platform/envoy-gateway/gateway.yaml. Read the certificate
+# manifest for the full reasoning — in short, auth.ddupan.top resolves to
+# Cloudflare proxy IPs that are unroutable from this network, so every in-cluster
+# consumer of Authelia's OIDC endpoints was hairpinning through an internet path
+# that does not work.
+#
+# This is only the LAN path. The PUBLIC path is unchanged: Cloudflare -> tunnel ->
+# cloudflared pod -> authelia Service. Both terminate at the same Service, so there
+# is one Authelia, one issuer, one set of redirect URIs.
+#
+# NOTE: this does NOT get an Authelia SecurityPolicy. Authelia must never sit
+# behind its own forward-auth — that is an infinite redirect. Only the apps it
+# protects get one (see ../netbox/securitypolicy.yaml).
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authelia
+  namespace: authelia
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      # Pin to the dedicated listener. Without sectionName the route would also try
+      # to attach to the `https` listener, whose hostname *.ad.ddupan.top cannot
+      # match auth.ddupan.top — an unnecessary "no matching listener" condition.
+      sectionName: https-auth
+  hostnames:
+    - auth.ddupan.top
+  rules:
+    - backendRefs:
+        # Service port 80 -> container 9091. Authelia speaks plain HTTP here; TLS is
+        # terminated at the gateway, same as the public path terminates at Cloudflare.
+        - name: authelia
+          port: 80

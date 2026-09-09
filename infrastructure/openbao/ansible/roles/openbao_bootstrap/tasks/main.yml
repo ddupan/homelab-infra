@@ -1,0 +1,59 @@
+---
+# Orchestrator. Preflight, then each concern as its own tagged task file.
+
+- name: Assert a bao token is provided
+  ansible.builtin.assert:
+    that:
+      - openbao_token | length > 0
+    fail_msg: >-
+      No token. Decrypt the PGP-wrapped root token and export it:
+      echo "<b64>" | base64 -d | gpg -dq  →  export BAO_TOKEN=<plaintext>
+
+- name: Preflight — bao is reachable, initialized and UNSEALED
+  ansible.builtin.command: "bao status -format=json"
+  environment:
+    BAO_ADDR: "{{ openbao_addr }}"
+    BAO_CACERT: "{{ openbao_tls_dir }}/cert.pem"
+  register: bao_status
+  changed_when: false
+  failed_when: bao_status.rc != 0   # 0 = unsealed; 2 = sealed → unseal first
+
+- name: Preflight — the provided token is valid
+  ansible.builtin.command: "bao token lookup"
+  environment: "{{ openbao_cli_env }}"
+  register: bao_tok
+  changed_when: false
+  failed_when: bao_tok.rc != 0
+  no_log: "{{ openbao_no_log }}"
+
+- name: Policies
+  # Terraform owns ALL policies (../terraform/policies.tf + policies/*.hcl).
+  # Kept for a Terraform-less bootstrap; see openbao_config_managed_by_terraform.
+  ansible.builtin.import_tasks: policies.yml
+  tags: [policies]
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: KV v2 engine
+  ansible.builtin.import_tasks: kv.yml
+  tags: [kv]
+
+- name: SSH certificate authority
+  ansible.builtin.import_tasks: ssh_ca.yml
+  tags: [ssh_ca]
+
+- name: OIDC auth (Authelia)
+  ansible.builtin.import_tasks: auth_oidc.yml
+  tags: [oidc]
+
+- name: Kubernetes auth
+  ansible.builtin.import_tasks: auth_kubernetes.yml
+  tags: [k8s]
+  when: openbao_enable_k8s_auth | bool
+
+- name: PKI engine
+  ansible.builtin.import_tasks: pki.yml
+  tags: [pki]
+
+- name: Raft snapshot timer
+  ansible.builtin.import_tasks: snapshots.yml
+  tags: [snapshots]

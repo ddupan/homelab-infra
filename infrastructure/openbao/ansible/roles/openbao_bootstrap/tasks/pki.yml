@@ -1,0 +1,106 @@
+---
+# PKI engine — internal TLS CA. Optionally re-issues bao's own listener cert.
+
+- name: Enable the PKI secrets engine at {{ openbao_pki_mount }}/
+  ansible.builtin.command: "bao secrets enable -path={{ openbao_pki_mount }} pki"
+  environment: "{{ openbao_cli_env }}"
+  register: pki_enable
+  changed_when: pki_enable.rc == 0
+  failed_when:
+    - pki_enable.rc != 0
+    - "'already in use' not in (pki_enable.stderr | default('')) + (pki_enable.stdout | default(''))"
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: Tune PKI max lease TTL
+  ansible.builtin.command: "bao secrets tune -max-lease-ttl={{ openbao_pki_max_lease_ttl }} {{ openbao_pki_mount }}"
+  environment: "{{ openbao_cli_env }}"
+  register: pki_tune
+  changed_when: pki_tune.rc == 0
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: Check whether the root CA already exists
+  ansible.builtin.command: "bao read -field=certificate {{ openbao_pki_mount }}/cert/ca"
+  environment: "{{ openbao_cli_env }}"
+  register: pki_ca_check
+  changed_when: false
+  failed_when: false
+  no_log: "{{ openbao_no_log }}"
+
+- name: Generate the internal root CA (once)
+  ansible.builtin.command: >-
+    bao write {{ openbao_pki_mount }}/root/generate/internal
+    common_name="{{ openbao_pki_ca_cn }}" ttl={{ openbao_pki_max_lease_ttl }}
+  environment: "{{ openbao_cli_env }}"
+  when: "'BEGIN CERTIFICATE' not in (pki_ca_check.stdout | default(''))"
+  register: pki_root
+  changed_when: pki_root.rc == 0
+  no_log: "{{ openbao_no_log }}"
+
+- name: Configure issuing/CRL URLs
+  ansible.builtin.command: >-
+    bao write {{ openbao_pki_mount }}/config/urls
+    issuing_certificates={{ openbao_addr }}/v1/{{ openbao_pki_mount }}/ca
+    crl_distribution_points={{ openbao_addr }}/v1/{{ openbao_pki_mount }}/crl
+  environment: "{{ openbao_cli_env }}"
+  register: pki_urls
+  changed_when: pki_urls.rc == 0
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: Create/update the server-cert role
+  ansible.builtin.command: >-
+    bao write {{ openbao_pki_mount }}/roles/{{ openbao_pki_server_role }}
+    allowed_domains={{ openbao_pki_allowed_domains }}
+    allow_subdomains=true allow_ip_sans=true max_ttl=8760h
+  environment: "{{ openbao_cli_env }}"
+  register: pki_role
+  changed_when: pki_role.rc == 0
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+# --- GATED: replace the self-signed listener cert with a PKI-issued one ----------
+- name: Replace bao's listener cert from PKI
+  when: openbao_pki_replace_listener_cert | bool
+  block:
+    - name: Issue a listener certificate
+      ansible.builtin.command: >-
+        bao write -format=json {{ openbao_pki_mount }}/issue/{{ openbao_pki_server_role }}
+        common_name={{ openbao_fqdn }}
+        ip_sans={{ openbao_lan_ip }},127.0.0.1
+        ttl=8760h
+      environment: "{{ openbao_cli_env }}"
+      register: pki_issue
+      changed_when: true
+      no_log: true
+
+    - name: Install listener private key
+      ansible.builtin.copy:
+        content: "{{ (pki_issue.stdout | from_json).data.private_key }}\n"
+        dest: "{{ openbao_tls_dir }}/key.pem"
+        owner: openbao
+        group: openbao
+        mode: "0640"
+      no_log: true
+      notify: restart openbao
+
+    - name: Install listener certificate (leaf + issuing CA chain)
+      ansible.builtin.copy:
+        content: "{{ (pki_issue.stdout | from_json).data.certificate }}\n{{ (pki_issue.stdout | from_json).data.issuing_ca }}\n"
+        dest: "{{ openbao_tls_dir }}/cert.pem"
+        owner: openbao
+        group: openbao
+        mode: "0644"
+      notify: restart openbao
+
+    - name: Print the PKI root CA (clients must trust this)
+      ansible.builtin.debug:
+        msg: >-
+          Listener now uses a PKI-issued cert. Distribute the root CA to clients:
+          bao read -field=certificate {{ openbao_pki_mount }}/cert/ca
+          (NOTE: a Shamir-sealed node re-seals on restart — unseal it afterwards.)

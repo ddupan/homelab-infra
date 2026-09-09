@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[Unit]
+Description=OpenBao ACME certificate (lego, Cloudflare DNS-01)
+After=network-online.target openbao.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile={{ openbao_acme_dir }}/cloudflare.env
+ExecStart=/usr/local/bin/openbao-acme.sh

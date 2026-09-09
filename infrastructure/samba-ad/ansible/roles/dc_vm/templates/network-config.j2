@@ -1,0 +1,20 @@
+version: 2
+ethernets:
+  primary:
+    # Match the (single) ethernet NIC by kernel name and configure it in place.
+    # NOTE: do NOT add set-name here — netplan only supports set-name when matching
+    # on mac/driver, not on name, and a name-match + rename leaves the NIC unconfigured.
+    match:
+      name: "en*"
+    dhcp4: false
+    dhcp6: false
+    addresses:
+      - {{ dc_vm_ip }}/{{ dc_vm_prefix }}
+    routes:
+      - to: default
+        via: {{ dc_vm_gateway }}
+    nameservers:
+      addresses:
+        - {{ dc_vm_boot_dns }}
+      search:
+        - {{ samba_ad_realm | lower }}

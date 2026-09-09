@@ -1,0 +1,54 @@
+# Blocky — LAN DNS. STAGED, NOT DEPLOYED. See README.md.
+#
+# WHY compose on the laptop and NOT a k3s Deployment, given everything else here
+# is Kubernetes:
+#   * Only the laptop is always-on, so the PVE nodes are not an option.
+#   * DNS is the most foundational service on the network. Running it inside k3s
+#     means a CrashLoopBackOff or a bad `helm upgrade` takes LAN name resolution
+#     with it — and the cluster broke twice on 2026-07-28 alone.
+#   * A compose unit starts earlier in boot and has fewer moving parts than
+#     kubelet -> CNI -> CoreDNS -> Deployment.
+# k3s CoreDNS is unaffected and keeps doing its pod-only job.
+services:
+  blocky:
+    image: spx01/blocky:v0.26
+    container_name: blocky
+    restart: unless-stopped
+
+    # Bridge networking with an EXPLICIT host IP, not network_mode: host. The
+    # laptop already has :53 bound on 192.168.100.1, 192.168.122.1 and the
+    # systemd-resolved stub; host networking plus a 0.0.0.0 bind would collide.
+    # Binding br0 only also means the libvirt networks keep their own resolvers.
+    ports:
+      - "192.168.10.127:53:53/udp"
+      - "192.168.10.127:53:53/tcp"
+      - "192.168.10.127:4000:4000/tcp"   # REST API + /metrics
+
+    # The image runs as uid 100 by default, which cannot write to ./logs (created
+    # as the invoking user, uid 1000) — Blocky then logs
+    # "fileQueryLogWriter: permission denied" every query and silently keeps no
+    # query log at all. Running as the directory owner is more reproducible than a
+    # chown, because a fresh clone creates ./logs as uid 1000 anyway.
+    user: "1000:1000"
+
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./logs:/logs
+
+    environment:
+      TZ: Asia/Tokyo
+
+    # Blocky answers its own health check. If DNS stops resolving, restart rather
+    # than sit there accepting queries it cannot serve.
+    healthcheck:
+      test: ["CMD", "/app/blocky", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

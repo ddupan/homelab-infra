@@ -1,0 +1,40 @@
+services:
+  jina-embeddings:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda12-b8914
+    container_name: jina-embeddings
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "127.0.0.1:${JINA_HTTP_PORT:-8081}:8080"
+    volumes:
+      - ./models:/root/.cache/huggingface
+    command:
+      - -hf
+      - jinaai/jina-embeddings-v5-omni-small-clustering-GGUF:Q2_M
+      - --embedding
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+    restart: unless-stopped
+
+  openviking:
+    image: ghcr.io/volcengine/openviking:latest
+    container_name: openviking
+    depends_on:
+      - jina-embeddings
+    ports:
+      - "${OPENVIKING_HTTP_PORT:-1933}:1933"
+      - "${OPENVIKING_UI_PORT:-8020}:8020"
+    volumes:
+      - ./data:/app/.openviking
+    environment:
+      - OPENVIKING_CONFIG_FILE=/app/.openviking/ov.conf
+      - OPENVIKING_CLI_CONFIG_FILE=/app/.openviking/ovcli.conf
+      - OPENVIKING_WITH_BOT=${OPENVIKING_WITH_BOT:-1}
+    restart: unless-stopped

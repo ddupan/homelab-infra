@@ -1,0 +1,26 @@
+---
+# Bootstrap a running, INITIALIZED + UNSEALED OpenBao: enable engines/auth/policies.
+# Idempotent — safe to re-run. Authenticates with a token you export after decrypting
+# the PGP-wrapped root token:
+#
+#   echo "<encrypted-root-token-b64>" | base64 -d | gpg -dq   # touch YubiKey
+#   export BAO_TOKEN=<that-plaintext-root-token>
+#   ansible-playbook bootstrap-openbao.yml --ask-vault-pass
+#
+# Run selectively with tags: --tags kv,ssh_ca,oidc,pki,k8s,policies,snapshots,verify
+# Debug a step by disabling no_log:  -e openbao_no_log=false
+#
+# After bootstrap, create a scoped admin token/OIDC login and REVOKE the root token:
+#   bao token revoke -self
+- name: Bootstrap OpenBao (engines, auth, policies)
+  hosts: openbao
+  become: true
+  gather_facts: true
+  roles:
+    - role: openbao_bootstrap
+  post_tasks:
+    - name: Smoke tests
+      ansible.builtin.import_role:
+        name: openbao_bootstrap
+        tasks_from: verify.yml
+      tags: [verify, never]

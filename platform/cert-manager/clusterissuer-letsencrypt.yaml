@@ -1,0 +1,37 @@
+# Let's Encrypt via DNS-01 (Cloudflare).
+#
+# WHY DNS-01 and not HTTP-01: ad.ddupan.top names resolve ONLY on the LAN, so
+# Let's Encrypt cannot reach http://<host>/.well-known/... to validate. DNS-01
+# proves control of the name by writing a TXT record into the PUBLIC ddupan.top
+# Cloudflare zone, which needs no inbound reachability at all. It is also the only
+# challenge type that can issue a WILDCARD.
+#
+# CT-LOG NOTE: every LE-issued name is published to Certificate Transparency logs.
+# Issuing the single wildcard *.ad.ddupan.top (see certificate-wildcard-ad.yaml)
+# means only that one entry appears — individual internal hostnames stay private.
+# For anything that must not appear at all, use the bao-acme issuer instead.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: panxiao81@outlook.com
+    # Account key. cert-manager creates this; losing it just means a new account.
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            # Token is reused from cloudflared/terraform (see cert-manager/README.md).
+            # ⚠ It also carries Account·Cloudflare Tunnel:Edit, so anything able to
+            # read this Secret can rewrite tunnel routing, not just DNS. Narrowing it
+            # to Zone·DNS:Edit is a worthwhile follow-up.
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          dnsZones:
+            - ddupan.top

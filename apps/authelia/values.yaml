@@ -1,0 +1,288 @@
+# Authelia — official Helm chart (authelia/authelia). Config-as-code lives here.
+# Install:  helm upgrade --install authelia authelia/authelia -n authelia --create-namespace -f values.yaml
+# Exposure: via cloudflared (auth.ddupan.top -> authelia.authelia.svc:9091), NOT the chart ingress.
+# Secrets: NONE are inline here. All seven live in Kubernetes Secrets and are referenced
+#          by path — see secret.example.yaml. This file is safe to commit.
+
+image:
+  tag: '4.39.20'
+
+# We expose via cloudflared, so the chart's own ingress stays off.
+ingress:
+  enabled: false
+
+# Mount our own Secret instead of letting the chart generate one from inline
+# `value:` fields. Its keys are exactly the ones the chart used to generate, plus
+# identity_providers.oidc.jwks.main.pem for the OIDC signing key — so every
+# `path:` below resolves, and no key material changed when this was introduced
+# (the Secret was built from the live chart-generated one). See secret.example.yaml.
+secret:
+  existingSecret: authelia-secrets
+
+  # The JWKS signing key needs its OWN Secret, mounted separately.
+  #
+  # ⚠ WHY not just add a 7th key to authelia-secrets: the chart projects the
+  # existingSecret volume with an explicit `items:` list containing only the six
+  # keys it generates. An extra key is stored in the Secret but NEVER mounted, so
+  # the file is missing at runtime and Authelia dies with
+  # "no such file or directory" — which cascades into every other config option
+  # appearing "required". Verified the hard way 2026-07-28.
+  #
+  # additionalSecrets mounts at {secret.mountPath}/{key} = /secrets/authelia-oidc-jwks
+  additionalSecrets:
+    authelia-oidc-jwks:
+      items:
+        - key: 'main.pem'
+          path: 'main.pem'
+
+configMap:
+  authentication_backend:
+    password_reset:
+      disable: true            # AD owns passwords (reset via ADUC / Windows)
+    refresh_interval: '5 minutes'
+    ldap:
+      enabled: true
+      implementation: 'activedirectory'
+      # MUST be the hostname, NOT 192.168.10.5: dc1's LDAPS cert is issued by
+      # OpenBao's ACME with a DNS SAN only (no IP SAN), so connecting by IP fails
+      # verification with "IP address mismatch". In-cluster pods resolve this name.
+      address: 'ldaps://dc1.ad.ddupan.top:636'
+      tls:
+        # Was skip_verify: true ("DC self-signed cert; add CA to trust later").
+        # Later arrived: dc1 now serves a cert from the OpenBao internal CA, which
+        # is mounted below via certificates.values, so the bind is really verified.
+        skip_verify: false
+      base_dn: 'DC=ad,DC=ddupan,DC=top'
+      additional_users_dn: 'CN=Users'
+      additional_groups_dn: 'CN=Users'
+      user: 'CN=svc-authelia,CN=Users,DC=ad,DC=ddupan,DC=top'
+      password:
+        # From the authelia-secrets Secret (secret.example.yaml). Relative path
+        # resolves to {secret.mountPath}/{secret.existingSecret}/{path}.
+        path: 'authentication.ldap.password.txt'
+
+  # Authorization endpoints. `ext-authz` is what Envoy Gateway's SecurityPolicy calls
+  # (Envoy's HTTP ExtAuthz filter). Declared explicitly rather than relying on the
+  # default set, so the contract with ../../platform/envoy-gateway is visible here.
+  server:
+    endpoints:
+      authz:
+        ext-authz:
+          implementation: 'ExtAuthz'
+
+  access_control:
+    default_policy: 'two_factor'   # require a second factor for every request
+    rules:
+      # ⚠ ORDER MATTERS — Authelia evaluates top-down, FIRST MATCH WINS. This bypass
+      # must precede the two_factor rule below or the API stays unreachable.
+      #
+      # WHY BYPASS: forward-auth intercepts every request, including API calls that
+      # carry a valid NetBox token — Authelia has no idea what a NetBox token is, sees
+      # no session cookie, and 302s the caller to the login portal. That breaks the
+      # entire point of a source of truth (Ansible/Terraform reading from it).
+      #
+      # This is NOT unauthenticated access: NetBox enforces its own token auth on these
+      # paths and LOGIN_REQUIRED makes an anonymous call return 403. We are choosing
+      # which authenticator guards the API — NetBox's tokens — not removing one.
+      - domain: 'netbox.ad.ddupan.top'
+        resources:
+          - '^/api/'
+          - '^/graphql/'
+        policy: 'bypass'
+
+      # Everything else on NetBox: browser traffic. default_policy would already force
+      # 2FA, but this rule additionally restricts WHO gets in — without a subject match
+      # any AD account passing 2FA would be auto-provisioned a NetBox user.
+      - domain: 'netbox.ad.ddupan.top'
+        policy: 'two_factor'
+        subject:
+          - 'group:netbox-admins'
+
+  # Second factors. Both are on by chart default; we brand them and enable passkeys.
+  totp:
+    disable: false
+    issuer: 'ddupan.top'           # shown in authenticator apps
+  webauthn:
+    disable: false
+    display_name: 'ddupan.top'     # shown in the browser passkey/security-key prompt
+    enable_passkey_login: true     # allow usernameless passkey login at the portal
+
+  session:
+    expiration: '1 hour'
+    inactivity: '5 minutes'
+    cookies:
+      - subdomain: 'auth'
+        domain: 'ddupan.top'      # -> https://auth.ddupan.top, SSO across *.ddupan.top
+
+  regulation:
+    max_retries: 3
+    find_time: '2 minutes'
+    ban_time: '5 minutes'
+
+  storage:
+    encryption_key:
+      path: 'storage.encryption.key'
+    postgres:
+      enabled: true
+      address: 'tcp://shared-postgresql.shared-db.svc.cluster.local:5432'
+      database: 'authelia'
+      username: 'authelia'
+      password:
+        path: 'storage.postgres.password.txt'
+
+  notifier:
+    # Sends via the in-cluster Postfix+OAuth relay (see ../smtp-relay/). Plain hop on
+    # :25 — the relay handles STARTTLS + OAuth to Microsoft 365. No auth to the relay
+    # (it trusts the pod network).
+    smtp:
+      enabled: true
+      address: 'smtp://smtp-relay.smtp-relay.svc.cluster.local:25'
+      sender: 'Authelia <noreply@ddupan.top>'
+      subject: '[Authelia] {title}'
+      disable_require_tls: true
+      disable_starttls: true
+      startup_check_address: 'noreply@ddupan.top'
+      username: ''
+      password:
+        disabled: true          # relay needs no auth; stop Authelia attempting SMTP AUTH
+
+  # OIDC provider — replaces Keycloak as the SSO/OIDC issuer (https://auth.ddupan.top).
+  # Crypto material generated with `authelia crypto` (hmac_secret, RSA JWKS key). Client
+  # secrets are stored HASHED here (pbkdf2-sha512); the RP (Gitea) holds the plaintext.
+  identity_providers:
+    oidc:
+      enabled: true
+      hmac_secret:
+        path: 'identity_providers.oidc.hmac.key'
+      # Authelia 4.39 only returns standard claims from the UserInfo endpoint by
+      # default. Gitea reads email/preferred_username from the ID Token, so we
+      # inject them there via a claims policy referenced by the client below.
+      claims_policies:
+        gitea:
+          id_token:
+            - 'preferred_username'
+            - 'email'
+            - 'email_verified'
+            - 'name'
+            - 'groups'
+        # Grafana maps AD groups -> roles from the `groups` claim; inject it (and
+        # profile/email) into the ID Token so role_attribute_path can resolve.
+        grafana:
+          id_token:
+            - 'preferred_username'
+            - 'email'
+            - 'email_verified'
+            - 'name'
+            - 'groups'
+        # NOTE: there is deliberately no `netbox` claims policy. NetBox was migrated
+        # off OIDC to forward-auth (../netbox/securitypolicy.yaml) precisely because
+        # NetBox has no SSO group->role mapping — see netbox/README.md.
+        # OpenBao maps user_claim=preferred_username and groups_claim=groups onto
+        # policies; inject those (Authelia returns only standard claims by default).
+        openbao:
+          id_token:
+            - 'preferred_username'
+            - 'email'
+            - 'email_verified'
+            - 'name'
+            - 'groups'
+      jwks:
+        - key_id: 'main'
+          algorithm: 'RS256'
+          use: 'sig'
+          key:
+            # ⚠ WHY path and NOT value: the chart inlines a `value:` jwks key
+            # straight into the ConfigMap (files/configuration.oidc.jwk.yaml), so
+            # the OIDC SIGNING KEY ends up in a ConfigMap in plaintext. `path:`
+            # reads it from the mounted Secret instead.
+            #
+            # NOTE the two different mount points: the existingSecret volume lands
+            # at /secrets/internal (not /secrets/<secretName>), while each
+            # additionalSecrets entry lands at /secrets/<its own name>.
+            path: '/secrets/authelia-oidc-jwks/main.pem'
+      clients:
+        - client_id: 'gitea'
+          client_name: 'Gitea'
+          # pbkdf2-sha512 hash of the plaintext secret Gitea holds (gitea-keycloak-secret).
+          client_secret: '$pbkdf2-sha512$310000$M7VHgkBsYT.PDUH99k4JWw$qI6vVq1zDp.3z2oNecBP5bwzPu.XHtmA.tGW4osvHlp1rwZISak5pG7.fctHa5eNdeSEIuhaZ6HSeajtPzSkOw'
+          public: false
+          authorization_policy: 'two_factor'   # SSO logins also require a second factor
+          claims_policy: 'gitea'        # inject email/preferred_username into the ID Token
+          require_pkce: false
+          token_endpoint_auth_method: 'client_secret_basic'
+          redirect_uris:
+            - 'https://git.ddupan.top/user/oauth2/authelia/callback'
+          scopes:
+            - 'openid'
+            - 'profile'
+            - 'email'
+            - 'groups'
+          userinfo_signed_response_alg: 'none'
+        - client_id: 'grafana'
+          client_name: 'Grafana'
+          # pbkdf2-sha512 hash of the plaintext secret Grafana holds (grafana-oidc Secret).
+          # Generate the pair: authelia crypto hash generate pbkdf2 --variant sha512 --random --random.length 72
+          client_secret: '$pbkdf2-sha512$310000$Hhni5VBeqfz3IM1ULxbKbQ$o/Q7xRp82OI2Y43qSpGZig8Md3uMLkm6SGViJ6XszMLw2MNZYYJizOyQfRLvQvGz7Q1p5DK2v10lOfdhs8gHpg'
+          public: false
+          authorization_policy: 'two_factor'   # SSO logins also require a second factor
+          claims_policy: 'grafana'             # inject groups/email into the ID Token
+          require_pkce: false
+          token_endpoint_auth_method: 'client_secret_basic'
+          redirect_uris:
+            - 'https://grafana.tail7e769.ts.net/login/generic_oauth'
+          scopes:
+            - 'openid'
+            - 'profile'
+            - 'email'
+            - 'groups'
+          userinfo_signed_response_alg: 'none'
+        - client_id: 'openbao'
+          client_name: 'OpenBao'
+          # pbkdf2-sha512 hash; OpenBao holds the plaintext (its oidc config / vault).
+          # Regenerate: authelia crypto hash generate pbkdf2 --variant sha512 --random --random.length 72
+          client_secret: '$pbkdf2-sha512$310000$un1B3DyN5dgvwfedazLFtw$ORSxfE4EkkSfSUtXGERV5Wmzxnmsw8hJw37frksHgbYFHppRaHVAfpaUxQ/2XCXgVefyVfMxU8K.FcgBC7c35A'
+          public: false
+          authorization_policy: 'two_factor'   # SSO logins also require a second factor
+          claims_policy: 'openbao'             # inject groups/email into the ID Token
+          require_pkce: false
+          token_endpoint_auth_method: 'client_secret_basic'
+          grant_types:
+            - 'authorization_code'                             # UI + CLI (client/direct callback modes)
+            - 'urn:ietf:params:oauth:grant-type:device_code'   # headless: bao login -method=oidc callbackmode=device
+          redirect_uris:
+            - 'https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc/oidc/callback'  # UI login
+            - 'http://localhost:8250/oidc/callback'                              # CLI: bao login -method=oidc
+          scopes:
+            - 'openid'
+            - 'profile'
+            - 'email'
+            - 'groups'
+          userinfo_signed_response_alg: 'none'
+
+# Trust anchors mounted into the container and loaded by Authelia. Needed so the
+# LDAPS bind to dc1 can be VERIFIED rather than skipped. Fetched from OpenBao's
+# unauthenticated PKI endpoint: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+certificates:
+  values:
+    - name: 'ddupan_internal_ca.pem'
+      value: |
+        -----BEGIN CERTIFICATE-----
+        MIIDMzCCAhugAwIBAgIUMs0iV657yC9UhA2p2vomLIbFnzgwDQYJKoZIhvcNAQEL
+        BQAwITEfMB0GA1UEAxMWZGR1cGFuLnRvcCBJbnRlcm5hbCBDQTAeFw0yNjA3MjQy
+        MDE1MDFaFw0zNjA3MjEyMDE1MzFaMCExHzAdBgNVBAMTFmRkdXBhbi50b3AgSW50
+        ZXJuYWwgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC6QWlwBe6f
+        t7Ca3KCTvr4Pz+jVO60WrMBoEDYYM8Mp04btBHzhAQHf9Pp8+15aEW9iUcQhqqm+
+        2vT6H0JEhIbplyCWY6Guv0mTu8f+lvFknJIl2b3JqnMLHJKjh/rBrsE12XZ3i17M
+        2tCr34BWcei85IZyQl5HMW6dB8lAE6bdom+YynK4oLJdej9DD6bSyM8WcL0OsneZ
+        NsjwOlNMy3zjbtaH6mH71SgbFinxLp3AAAuLVe1DIKhFxuTQeVr/WaPum5y/oOsc
+        0gJp9If6nsC33lpRGcPLiZE9kfFZa4fPe8laCaN8q1K253qZ0rjRiDhbTAppW4Fy
+        r5P67h+2D+TbAgMBAAGjYzBhMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTAD
+        AQH/MB0GA1UdDgQWBBSOgk1fR0qhz/Bo4wD9g2BnOAzDXzAfBgNVHSMEGDAWgBSO
+        gk1fR0qhz/Bo4wD9g2BnOAzDXzANBgkqhkiG9w0BAQsFAAOCAQEANm5kKkts1Ar2
+        7IlS+TxLFrZ/C9yhIdGcBk2SL5E+5E8S3skQWLEPGLRwvV4RmiB8gQ2V6UyGLrCx
+        1MuuSmCDaSYL9G66sGX1MIHlQ0F0bHIOxxtsTwIYzb5Sl8h3MfsARabmOhE3xUkn
+        jaAT9YUweHhjF4vi0U1Q4F8oOSvu4eJp5dMx1r7b2bLN90A1xh9sfdkEenSBX0tm
+        xK82ROYXI2Ejv/EO+lPUIn3jfqbqrS2itw75Xz/ECHjIfSxvW98puP69U54a1gf6
+        gWdXslr0pGkyMHqxw4dmaecpK0QK3jvqCNycNwNBfMdCypS2QRy03adcUosEAP3O
+        LZU7Kd8aeg==
+        -----END CERTIFICATE-----

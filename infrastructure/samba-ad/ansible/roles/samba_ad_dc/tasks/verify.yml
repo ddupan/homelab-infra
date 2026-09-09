@@ -1,0 +1,36 @@
+---
+# Smoke tests — run via the `verify` tag: ansible-playbook provision-dc.yml --tags verify
+# Fails the play if the DC is not answering LDAP/Kerberos/DNS/SMB correctly.
+
+- name: LDAP / domain level responds
+  ansible.builtin.command: samba-tool domain level show
+  changed_when: false
+
+- name: DNS SRV record for LDAP resolves
+  ansible.builtin.command: "host -t SRV _ldap._tcp.{{ samba_ad_realm | lower }}."
+  register: srv_ldap
+  changed_when: false
+  failed_when: "'has SRV record' not in srv_ldap.stdout"
+
+- name: DNS SRV record for Kerberos resolves
+  ansible.builtin.command: "host -t SRV _kerberos._udp.{{ samba_ad_realm | lower }}."
+  register: srv_krb
+  changed_when: false
+  failed_when: "'has SRV record' not in srv_krb.stdout"
+
+- name: DC A record resolves to its own IP
+  ansible.builtin.command: "host -t A {{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}."
+  register: dc_a
+  changed_when: false
+  failed_when: samba_ad_dc_ip not in dc_a.stdout
+
+- name: SMB default shares are listable
+  ansible.builtin.command: "smbclient -L localhost -U administrator%{{ samba_ad_admin_password }}"
+  register: smb_list
+  changed_when: false
+  no_log: true
+  failed_when: "'sysvol' not in (smb_list.stdout | lower)"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "Samba AD DC smoke tests passed: LDAP + Kerberos SRV + DC A record + SMB shares OK."

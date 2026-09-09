@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marker
+  namespace: default
+  labels:
+    app: marker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marker
+  template:
+    metadata:
+      labels:
+        app: marker
+    spec:
+      containers:
+        - name: marker
+          image: <your-registry>/marker:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - marker_server
+          args:
+            - --port
+            - "8001"
+          env:
+            - name: TORCH_DEVICE
+              value: cuda
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - containerPort: 8001
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "2"
+              memory: 4Gi
+              nvidia.com/gpu: "1"
+          readinessProbe:
+            tcpSocket:
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 20

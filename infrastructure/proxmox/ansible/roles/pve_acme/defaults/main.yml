@@ -1,0 +1,61 @@
+---
+# pve_acme role defaults.
+#
+# Gives pveproxy (the :8006 web UI) a real certificate from the homelab's own CA,
+# using PVE's BUILT-IN ACME client rather than a bolted-on lego/certbot. PVE then
+# owns the whole lifecycle itself: it writes the cert, restarts pveproxy, and
+# renews daily via pve-daily-update.timer. Nothing extra to install or babysit.
+
+# --- Which certificate this role touches -------------------------------------
+# ONLY /etc/pve/local/pveproxy-ssl.pem -- the optional override pveproxy serves.
+#
+# It must NEVER be confused with /etc/pve/local/pve-ssl.pem, which is signed by
+# the per-cluster "PVE Cluster Manager CA" and is what the nodes use to
+# authenticate each other for the cluster API, live migration and replication.
+# PVE owns that one and rotates it itself; replacing it breaks the cluster.
+# When pveproxy-ssl.pem is absent, pveproxy falls back to pve-ssl.pem -- which is
+# exactly the untrusted-cert warning this role exists to remove.
+pve_acme_cert_file: /etc/pve/local/pveproxy-ssl.pem
+
+# --- CA / directory ----------------------------------------------------------
+# OpenBao's internal PKI, via the ROLE-SCOPED ACME directory (same endpoint shape
+# as samba-ad's samba_ad_acme role). The role scope matters for security: the
+# unscoped /v1/pki/acme/directory would fall back to whatever
+# default_directory_policy is set to, whereas this URL pins issuance to
+# bao-server, whose allowed_domains caps it at subdomains of ad.ddupan.top.
+#
+# WHY the internal CA and not Let's Encrypt (decided 2026-07-26):
+#   * renewal must not depend on the WAN -- the uplink drops at random and the
+#     hypervisor management plane is the last thing that should need the internet
+#   * per-node names pve1/2/3.ad.ddupan.top would otherwise be published to public
+#     Certificate Transparency logs, which is precisely what the wildcard
+#     convention in services/cert-manager/ exists to avoid
+#   * it keeps the Cloudflare DNS token off all three hypervisors
+# COST: browsers must trust "ddupan.top Internal CA". The nodes themselves already
+# do (role pve_ca_trust); your workstation needs it installed once.
+pve_acme_directory: "https://bao.ad.ddupan.top:8200/v1/pki/roles/bao-server/acme/directory"
+
+# ACME account name. Lives in /etc/pve/priv/acme/<name>, which is on the pmxcfs --
+# so it is CLUSTER-WIDE and only ever registered once, not once per node.
+pve_acme_account: default
+
+# OpenBao ignores the contact address, but the ACME protocol requires one.
+pve_acme_email: panxiao81@outlook.com
+
+# --- Challenge ---------------------------------------------------------------
+# "standalone" is PVE's built-in http-01 plugin: it starts a throwaway listener on
+# port 80 for the duration of the challenge. That works here -- and would NOT work
+# against Let's Encrypt -- because bao is on the same flat LAN, resolves
+# ad.ddupan.top via the DC, and fetches the challenge directly. Nothing is exposed
+# to the internet and no port forward is involved.
+#
+# Requires port 80 to be free on the node. Verified 2026-07-26: PVE listens on
+# 8006/3128/111 but nothing on 80, and the PVE firewall is disabled cluster-wide.
+pve_acme_plugin: standalone
+
+# The name to certify. Per-node, unlike the account and plugin config.
+pve_acme_domain: "{{ inventory_hostname }}.{{ pve_domain }}"
+
+# The CA's subject, used to decide whether an existing pveproxy-ssl.pem already
+# came from us or is a leftover that should be replaced.
+pve_acme_issuer_cn: "ddupan.top Internal CA"

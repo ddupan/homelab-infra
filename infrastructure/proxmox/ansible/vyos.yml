@@ -1,0 +1,9 @@
+---
+# VyOS router configuration.
+#   ansible-playbook vyos.yml --check --diff
+#   ansible-playbook vyos.yml
+- name: VyOS router
+  hosts: vyos-rtr
+  gather_facts: false
+  roles:
+    - vyos_router

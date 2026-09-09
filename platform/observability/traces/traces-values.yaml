@@ -1,0 +1,21 @@
+# victoria-traces-single — single-node distributed tracing backend. No external
+# storage deps. Ingests OTLP (from the OTel Collector) and exposes a Jaeger Query
+# API that Grafana reads via a Jaeger datasource.
+# Service: victoria-traces-single-server.monitoring.svc:10428
+#
+# NOTE: confirm key names against the installed chart before applying:
+#   helm show values vm/victoria-traces-single
+
+server:
+  retentionPeriod: 30d
+  persistentVolume:
+    enabled: true
+    storageClassName: localpv-zfs-ceph
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi

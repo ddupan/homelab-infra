@@ -1,0 +1,76 @@
+---
+# Proxmox HA. Read roles/pve_ha/defaults/main.yml first — it explains why the
+# resource list is short and why the watchdog choice is not cosmetic.
+
+# --- Watchdog ---------------------------------------------------------------
+# Done BEFORE registering resources: adding a resource arms fencing, and arming
+# fencing on a software watchdog is the weakest configuration.
+- name: Select the hardware watchdog module
+  ansible.builtin.lineinfile:
+    path: /etc/default/pve-ha-manager
+    regexp: '^#?\s*WATCHDOG_MODULE='
+    line: "WATCHDOG_MODULE={{ pve_ha_watchdog_module }}"
+    create: false
+  when: pve_ha_watchdog_module | length > 0
+  notify: reboot required for watchdog
+  tags: [ha, watchdog]
+
+# watchdog-mux opens /dev/watchdog, which belongs to whichever watchdog registered
+# FIRST. PVE loads softdog at boot, so it wins and the hardware module ends up as
+# an unused watchdog1. Blacklisting softdog is what actually makes the hardware
+# one take effect — setting WATCHDOG_MODULE alone does nothing.
+- name: Blacklist softdog so the hardware watchdog claims /dev/watchdog
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/pve-ha-watchdog.conf
+    mode: "0644"
+    content: |
+      # Managed by ansible (roles/pve_ha). See that role for the reasoning.
+      # softdog cannot fence a frozen kernel; blacklisting it lets
+      # {{ pve_ha_watchdog_module }} register as watchdog0 and own /dev/watchdog.
+      blacklist softdog
+  when: pve_ha_watchdog_module | length > 0
+  notify: reboot required for watchdog
+  tags: [ha, watchdog]
+
+# ⚠ NOT DONE LIVE ON PURPOSE. Swapping the watchdog on a running node means
+# stopping watchdog-mux and unloading softdog while fencing is armed — get the
+# order wrong and the node self-fences (reboots). The safe live procedure is
+# documented in ../../README-ha.md; otherwise it simply takes effect on the next
+# reboot, which is why the handler only WARNS rather than rebooting anything.
+
+# --- Resources ---------------------------------------------------------------
+- name: Read current HA resources
+  ansible.builtin.command: ha-manager status
+  register: pve_ha_status
+  changed_when: false
+  failed_when: false
+  run_once: true
+  tags: [ha]
+
+- name: Register HA resources
+  ansible.builtin.command: >-
+    ha-manager add {{ item.sid }}
+    --state {{ item.state }}
+    --max_restart {{ item.max_restart }}
+    --max_relocate {{ item.max_relocate }}
+  loop: "{{ pve_ha_resources }}"
+  loop_control:
+    label: "{{ item.sid }}"
+  # `ha-manager add` errors if the resource already exists, so gate on the status
+  # output. This is what keeps a second run at changed=0.
+  when: "'service ' ~ item.sid not in (pve_ha_status.stdout | default(''))"
+  run_once: true
+  tags: [ha]
+
+- name: Verify HA is armed and the resource is known
+  ansible.builtin.command: ha-manager status
+  register: pve_ha_verify
+  changed_when: false
+  run_once: true
+  tags: [ha]
+
+- name: Show HA state
+  ansible.builtin.debug:
+    msg: "{{ pve_ha_verify.stdout_lines }}"
+  run_once: true
+  tags: [ha]

@@ -1,0 +1,37 @@
+# LAN route to Gitea.
+#
+# Pairs with ../../platform/cert-manager/certificate-git-ddupan.yaml and the `https-git`
+# listener in ../../platform/envoy-gateway/gateway.yaml. Split-horizon on the PUBLIC hostname:
+# git.ddupan.top resolves to the gateway on the LAN and to Cloudflare from
+# outside, so a clone URL works unchanged in both places and nothing that already
+# has a remote configured needs touching.
+#
+# NOTE Gitea's chart also renders an Ingress (ingress.enabled: true in
+# gitea-values.yaml) for git.ddupan.top. That Ingress is INERT — it declares no
+# class, and the only IngressClasses present are `contour` (retired 2026-07-25)
+# and `tailscale`. Nothing serves it. This HTTPRoute is what actually works; the
+# Ingress should be turned off in the values rather than left to look meaningful.
+#
+# NO SecurityPolicy here on purpose. Gitea does its own authentication (local
+# accounts plus Authelia OIDC), and git over HTTPS uses token/basic auth that
+# forward-auth would intercept and 302 to a login page — the same breakage
+# documented for NetBox's API in ../netbox/securitypolicy.yaml.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-git
+  hostnames:
+    - git.ddupan.top
+  rules:
+    - backendRefs:
+        # Same Service the Cloudflare tunnel targets, so both paths terminate in
+        # exactly one place.
+        - name: gitea-http
+          port: 3000

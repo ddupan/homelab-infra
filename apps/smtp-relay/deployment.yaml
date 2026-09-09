@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp-relay
+  namespace: smtp-relay
+  labels:
+    app: smtp-relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # single writer on the token PVC (RWO)
+  selector:
+    matchLabels:
+      app: smtp-relay
+  template:
+    metadata:
+      labels:
+        app: smtp-relay
+    spec:
+      containers:
+        - name: postfix
+          # Postfix + sasl-xoauth2 (OAuth2/XOAUTH2 to M365). Refreshes tokens in the
+          # SASL layer — no sidecar. https://github.com/mauroreggio/postfix-365
+          image: ghcr.io/mauroreggio/postfix-365:1.0.0
+          envFrom:
+            - secretRef:
+                name: smtp-relay-secret   # CLIENT_ID, CLIENT_SECRET, TENANT_ID
+          env:
+            - name: TIMEZONE
+              value: 'Asia/Shanghai'
+            - name: HOSTNAME
+              value: 'smtp-relay.ddupan.top'   # HELO name
+            - name: DOMAIN_NAME
+              value: 'ddupan.top'
+            # Submitters trusted without SMTP AUTH. k3s pod + service CIDRs, plus the
+            # three Proxmox nodes by /32 so they can relay system mail (PVE alerts,
+            # smartd, cron) to M365 — they have no other way off a residential IP.
+            # Deliberately /32s, NOT 192.168.10.0/24: everything else on the LAN still
+            # hits `defer_unauth_destination`, so this stays a closed relay.
+            # Exposed to those nodes via service-lan.yaml (LoadBalancer :25).
+            - name: MY_NETWORK
+              value: '10.42.0.0/16, 10.43.0.0/16, 192.168.10.4/32, 192.168.10.7/32, 192.168.10.9/32'
+            - name: DISABLE_SMTP_AUTH_ON_PORT_25
+              value: 'true'
+            - name: MESSAGE_SIZE_LIMIT
+              value: '26214400'                # 25 MiB
+            # The M365 mailbox we authenticate + send AS (device-code refresh token
+            # lives at /etc/tokens/<AUTH_USER> on the PVC).
+            - name: AUTH_USER
+              value: 'noreply@ddupan.top'
+            - name: RELAY_HOST
+              value: 'smtp.office365.com'
+            - name: RELAY_HOST_PORT
+              value: '587'
+          ports:
+            - name: smtp
+              containerPort: 25
+          volumeMounts:
+            # Writable + persistent: sasl-xoauth2 rewrites the token file on refresh.
+            - name: tokens
+              mountPath: /etc/tokens
+          readinessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: tokens
+          persistentVolumeClaim:
+            claimName: smtp-relay-tokens

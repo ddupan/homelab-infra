@@ -1,0 +1,42 @@
+---
+# Post-join smoke tests. Run standalone with:
+#   ansible-playbook join-member.yml --tags verify
+
+- name: Secure channel to the DC is healthy (net ads testjoin)
+  ansible.builtin.command: net ads testjoin
+  register: v_testjoin
+  changed_when: false
+  failed_when: "'Join is OK' not in v_testjoin.stdout"
+
+- name: winbind can reach the domain (wbinfo -p / --online-status)
+  ansible.builtin.command: wbinfo -P
+  register: v_wbping
+  changed_when: false
+  failed_when: v_wbping.rc != 0
+
+- name: Domain users are enumerable via winbind
+  ansible.builtin.command: wbinfo -u
+  register: v_wbusers
+  changed_when: false
+  failed_when: v_wbusers.rc != 0
+
+- name: AD Administrator resolves through NSS (winbind idmap works)
+  ansible.builtin.command: >-
+    getent passwd {{ 'administrator' if samba_member_use_default_domain
+                     else samba_ad_domain ~ '\\administrator' }}
+  register: v_getent
+  changed_when: false
+  failed_when: v_getent.rc != 0
+
+- name: smbd is serving our shares (guest listing includes [win])
+  ansible.builtin.command: smbclient -L localhost -N
+  register: v_shares
+  changed_when: false
+  failed_when: "'win' not in (v_shares.stdout | lower)"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: >-
+      Member join OK: secure channel up, winbind online, AD users resolve via NSS,
+      and smbd is serving shares. Resolved Administrator ->
+      {{ v_getent.stdout | default('n/a') }}

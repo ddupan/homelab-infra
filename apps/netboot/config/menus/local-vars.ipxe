@@ -1,0 +1,22 @@
+#!ipxe
+### local overrides for this self-hosted netboot.xyz instance
+
+# Use the proxyDHCP-provided TFTP server (192.168.10.127) without prompting for a keypress
+set use_proxydhcp_settings true
+
+# Windows: where wimboot fetches WinPE from (files live in assets/WinPE/x64/,
+# served by the appliance nginx on :8080). The Windows menu appends /x64/...
+set win_base_url http://192.168.10.127:8080/WinPE
+
+# ─── Proxmox VE 9.2 reinstall auto-boot (per-node MAC-match) ───
+# Re-add ONE line at a time, only for the node you're actively reinstalling, then
+# remove it once that node is up — this prevents a network-boot reinstall loop.
+# Runs after DHCP so ${mac} is set; non-matching machines fall through (||) to the menu.
+#   iseq ${mac} 6c:4b:90:c9:f8:0a && chain --replace http://192.168.10.127:8080/proxmox/pve3.ipxe ||   # pve3 -> .9
+#   iseq ${mac} 6c:4b:90:c9:f8:53 && chain --replace http://192.168.10.127:8080/proxmox/pve2.ipxe ||   # pve2 -> .7
+#   pve1 (NUC) needs pve1-net.ipxe, NOT pve1.ipxe: its UEFI cannot unpack a
+#   ~1.8GB initramfs ("initramfs unpacking failed: write error"), so the ISO
+#   must be staged to a local disk over the network instead of riding along in
+#   the initrd. See services/netboot/assets/proxmox/pve1-net.ipxe for details.
+#   iseq ${mac} b8:ae:ed:ea:0f:30 && chain --replace http://192.168.10.127:8080/proxmox/pve1-net.ipxe ||   # pve1 -> .4
+# ALL THREE NODES REINSTALLED 2026-07-25 — every line above is disarmed on purpose.

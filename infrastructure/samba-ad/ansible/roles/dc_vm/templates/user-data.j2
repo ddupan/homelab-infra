@@ -1,0 +1,20 @@
+#cloud-config
+# NoCloud user-data for the Samba AD DC base VM.
+hostname: {{ dc_vm_name }}
+fqdn: {{ dc_vm_name }}.{{ samba_ad_realm | lower }}
+# /etc/hosts is owned by the samba_ad_dc role (pins FQDN to the real IP), not cloud-init.
+manage_etc_hosts: false
+preserve_hostname: false
+
+users:
+  - name: {{ dc_vm_user }}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+      - {{ dc_vm_ssh_pubkey }}
+
+ssh_pwauth: false
+package_update: true
+package_upgrade: false

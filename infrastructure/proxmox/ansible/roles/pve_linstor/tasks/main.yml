@@ -1,0 +1,15 @@
+---
+# LINSTOR/DRBD hyperconverged storage. Split into stages so the destructive part
+# (disk wiping) is separately gated and cannot run by accident.
+
+- name: Install packages
+  ansible.builtin.import_tasks: packages.yml
+  tags: [linstor_pkgs]
+
+- name: Prepare backing storage (LVM)
+  ansible.builtin.import_tasks: storage.yml
+  tags: [linstor_storage]
+
+- name: Configure the LINSTOR cluster
+  ansible.builtin.import_tasks: linstor.yml
+  tags: [linstor_config]

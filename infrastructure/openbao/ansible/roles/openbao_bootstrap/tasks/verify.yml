@@ -1,0 +1,45 @@
+---
+# Smoke tests — ansible-playbook bootstrap-openbao.yml --tags verify
+# Confirms the engines/auth are mounted and the SSH CA actually signs.
+
+- name: Secrets engines are mounted
+  ansible.builtin.command: "bao secrets list -format=json"
+  environment: "{{ openbao_cli_env }}"
+  register: v_secrets
+  changed_when: false
+  no_log: "{{ openbao_no_log }}"
+
+- name: Auth methods are enabled
+  ansible.builtin.command: "bao auth list -format=json"
+  environment: "{{ openbao_cli_env }}"
+  register: v_auth
+  changed_when: false
+  no_log: "{{ openbao_no_log }}"
+
+- name: Assert expected mounts exist
+  ansible.builtin.assert:
+    that:
+      - "'{{ openbao_kv_path }}/' in (v_secrets.stdout | from_json)"
+      - "'{{ openbao_ssh_mount }}/' in (v_secrets.stdout | from_json)"
+      - "'{{ openbao_pki_mount }}/' in (v_secrets.stdout | from_json)"
+      - "'oidc/' in (v_auth.stdout | from_json)"
+    fail_msg: "Expected mounts missing — check the bootstrap run."
+
+- name: SSH CA signs a throwaway key (end-to-end)
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    ssh-keygen -t ed25519 -f /tmp/bao-verify -N '' -q -C verify <<<y >/dev/null 2>&1;
+    bao write -field=signed_key {{ openbao_ssh_mount }}/sign/ai-agent
+    public_key=@/tmp/bao-verify.pub valid_principals={{ openbao_ssh_default_user }};
+    rm -f /tmp/bao-verify /tmp/bao-verify.pub
+  args:
+    executable: /bin/bash
+  environment: "{{ openbao_cli_env }}"
+  register: v_sign
+  changed_when: false
+  failed_when: "'ssh-ed25519-cert' not in (v_sign.stdout | default('')) and 'ssh-rsa-cert' not in (v_sign.stdout | default(''))"
+  no_log: "{{ openbao_no_log }}"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "Bootstrap verified: kv/ ssh-client-signer/ pki/ + oidc auth mounted; SSH CA signed a test cert."

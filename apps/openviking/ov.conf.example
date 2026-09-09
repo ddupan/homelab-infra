@@ -1,0 +1,26 @@
+{
+  "storage": {
+    "workspace": "/app/.openviking/workspace",
+    "vectordb": {
+      "name": "context",
+      "backend": "local"
+    },
+    "agfs": {
+      "backend": "local"
+    }
+  },
+  "embedding": {
+    "dense": {
+      "api_base": "http://jina-embeddings:8080/v1",
+      "api_key": "local-jina",
+      "provider": "openai",
+      "dimension": 1024,
+      "model": "jinaai/jina-embeddings-v5-omni-small-text-matching-GGUF"
+    }
+  },
+  "vlm": {
+    "api_base": "https://chatgpt.com/backend-api/codex",
+    "provider": "openai-codex",
+    "model": "gpt-5.3-codex"
+  }
+}

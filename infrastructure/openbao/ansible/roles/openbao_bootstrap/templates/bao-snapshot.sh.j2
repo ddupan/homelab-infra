@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Take a Raft snapshot and prune old ones. Ship {{ openbao_snapshot_dir }} off-box
+# separately (rsync/restic/scp) — a snapshot on the same host is not a backup.
+set -euo pipefail
+
+export BAO_ADDR="{{ openbao_addr }}"
+export BAO_CACERT="{{ openbao_tls_dir }}/cert.pem"
+BAO_TOKEN="$(cat /etc/openbao/snapshot.token)"
+export BAO_TOKEN
+
+dir="{{ openbao_snapshot_dir }}"
+stamp="$(date +%Y%m%d-%H%M%S)"
+out="${dir}/openbao-${stamp}.snap"
+
+bao operator raft snapshot save "${out}"
+chmod 600 "${out}"
+
+# Retention: keep the newest {{ openbao_snapshot_keep }}.
+ls -1t "${dir}"/openbao-*.snap 2>/dev/null | tail -n +{{ openbao_snapshot_keep + 1 }} | xargs -r rm -f

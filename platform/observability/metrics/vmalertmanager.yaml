@@ -1,0 +1,30 @@
+# Alert router/notifier. Ported 1:1 from ../../../apps/victoriametrics/alertmanager.yaml,
+# which currently blackholes everything. Wire real receivers here (email via the
+# in-cluster smtp-relay, or a webhook) when you want notifications.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlertmanager
+metadata:
+  name: main
+  namespace: monitoring
+spec:
+  replicaCount: 1
+  configRawYaml: |
+    route:
+      receiver: blackhole
+    receivers:
+      - name: blackhole
+    # Example email receiver via the in-cluster Postfix relay (smtp-relay/):
+    # receivers:
+    #   - name: email
+    #     email_configs:
+    #       - to: 'panxiao81@outlook.com'
+    #         from: 'Alertmanager <noreply@ddupan.top>'
+    #         smarthost: 'smtp-relay.smtp-relay.svc.cluster.local:25'
+    #         require_tls: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

@@ -1,0 +1,52 @@
+---
+# Kubernetes auth — in-cluster agents (e.g. hermes) authenticate with their SA JWT.
+# External bao, so we must supply the cluster host, CA cert and a reviewer JWT.
+# Get them from the cluster:
+#   kubectl -n agents create sa bao-reviewer
+#   kubectl create clusterrolebinding bao-reviewer --clusterrole=system:auth-delegator \
+#     --serviceaccount=agents:bao-reviewer
+#   kubectl -n agents create token bao-reviewer --duration=87600h   → openbao_k8s_reviewer_jwt
+#   kubectl get cm kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' > k8s-ca.crt  → on the bao host
+
+- name: Assert Kubernetes auth inputs are provided
+  ansible.builtin.assert:
+    that:
+      - openbao_k8s_reviewer_jwt | length > 0
+      - openbao_k8s_host | length > 0
+    fail_msg: "Set openbao_k8s_host and vault_openbao_k8s_reviewer_jwt, and place the cluster CA at openbao_k8s_ca_cert_file."
+
+- name: Enable the Kubernetes auth method
+  ansible.builtin.command: "bao auth enable kubernetes"
+  environment: "{{ openbao_cli_env }}"
+  register: k8s_enable
+  changed_when: k8s_enable.rc == 0
+  failed_when:
+    - k8s_enable.rc != 0
+    - "'already in use' not in (k8s_enable.stderr | default('')) + (k8s_enable.stdout | default(''))"
+  no_log: "{{ openbao_no_log }}"
+
+# RECONCILE ACTION — always reports "changed". `bao write` returns 0 whether or
+# not anything differed, and detecting a real diff would mean reading the config
+# back, which never returns token_reviewer_jwt. So a second run showing changed=2
+# for this file means "re-applied", NOT "drift was found". See CLAUDE.md on
+# idempotency being the acceptance test, and the exception for reconcile actions.
+- name: Configure the Kubernetes auth method
+  ansible.builtin.command: >-
+    bao write auth/kubernetes/config
+    kubernetes_host={{ openbao_k8s_host }}
+    kubernetes_ca_cert=@{{ openbao_k8s_ca_cert_file }}
+    token_reviewer_jwt={{ openbao_k8s_reviewer_jwt }}
+    disable_local_ca_jwt=true
+  environment: "{{ openbao_cli_env }}"
+  register: k8s_config
+  changed_when: k8s_config.rc == 0
+  no_log: true    # carries the reviewer JWT
+
+- name: Create/update the ai-agent Kubernetes role
+  ansible.builtin.command: "bao write auth/kubernetes/role/ai-agent -"
+  args:
+    stdin: "{{ lookup('template', 'k8s-ai-agent-role.json.j2') }}"
+  environment: "{{ openbao_cli_env }}"
+  register: k8s_role
+  changed_when: k8s_role.rc == 0
+  no_log: "{{ openbao_no_log }}"

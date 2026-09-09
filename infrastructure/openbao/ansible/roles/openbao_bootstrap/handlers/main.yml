@@ -1,0 +1,8 @@
+---
+# Only fired by the gated PKI listener-cert swap.
+# NOTE: a Shamir-sealed node re-seals on restart — unseal it afterwards.
+# With transit auto-unseal it re-unseals automatically.
+- name: restart openbao
+  ansible.builtin.systemd:
+    name: openbao
+    state: restarted

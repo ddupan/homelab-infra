@@ -1,0 +1,69 @@
+---
+# Apply the desired VyOS configuration. `vyos_config` compares the rendered
+# `set` lines against the running config and issues only the differences, so
+# re-runs are no-ops. Supports --check and --diff.
+
+- name: Render the desired configuration
+  ansible.builtin.set_fact:
+    _vyos_lines: >-
+      {{ lookup('template', 'vyos.conf.j2').splitlines()
+         | map('trim') | reject('equalto', '') | list }}
+
+- name: Apply configuration
+  vyos.vyos.vyos_config:
+    lines: "{{ _vyos_lines }}"
+    # Persist to config.boot; without this the config is lost on reboot.
+    save: true
+    # Pull the PRE-change running config back to the control host. VyOS also
+    # keeps its own commit revisions (`show system commit`, `rollback N`), but
+    # those are only reachable if the box is still reachable -- which is exactly
+    # what a bad change takes away.
+    backup: true
+    backup_options:
+      dir_path: "{{ playbook_dir }}/../vyos/backups"
+      filename: "config.boot"
+    comment: "ansible {{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  register: _vyos_cfg
+  # `backup: true` fetches the running config every run, which the module counts
+  # as a change. Report changed ONLY when commands were actually issued,
+  # otherwise real drift is indistinguishable from a routine backup.
+  changed_when: (_vyos_cfg.commands | default([]) | length) > 0
+
+- name: Show what changed
+  ansible.builtin.debug:
+    msg: "{{ _vyos_cfg.commands | default(['(no changes)']) }}"
+
+# ── post-deploy verification ──────────────────────────────────────────────
+# Proving the config was WRITTEN is not the same as proving the network still
+# WORKS. These assert operational state, which is the part a bad change breaks.
+- name: Collect operational state
+  vyos.vyos.vyos_command:
+    commands:
+      - show ip ospf neighbor
+      - show interfaces
+  register: _vyos_state
+  changed_when: false
+
+- name: Assert OSPF adjacency with the upstream router is Full
+  ansible.builtin.assert:
+    that: "'Full' in _vyos_state.stdout[0] and vyos_lan_gateway in _vyos_state.stdout[0]"
+    fail_msg: >-
+      No Full OSPF adjacency with {{ vyos_lan_gateway }}. The SDN subnets are
+      NOT being advertised, so nothing can reach them.
+      Neighbors seen:\n{{ _vyos_state.stdout[0] }}
+    success_msg: "OSPF adjacency with {{ vyos_lan_gateway }} is Full"
+
+- name: Assert each SDN gateway address is actually live
+  ansible.builtin.assert:
+    that: "item.address in _vyos_state.stdout[1]"
+    fail_msg: >-
+      {{ item.iface }} ({{ item.description }}) is missing {{ item.address }} --
+      guests on that VNet have no gateway.
+    quiet: true
+  loop: "{{ vyos_sdn_interfaces }}"
+  loop_control:
+    label: "{{ item.iface }} {{ item.address }}"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "{{ _vyos_state.stdout[0].splitlines() | select('search', 'Full') | list }}"

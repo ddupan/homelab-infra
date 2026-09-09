@@ -1,0 +1,76 @@
+---
+# 86Box + Avalonia86, installed as AppImages.
+#
+# WHY AppImage: 86Box is not in the Ubuntu archive. The alternatives were a
+# Flatpak (adds a ~1-2GB runtime, and its sandbox complicates letting the
+# manager pass per-VM config paths) or building from source (large Qt6/SDL2
+# toolchain, manual updates). Upstream publishes official Linux AppImages for
+# BOTH 86Box and Avalonia86, so this is a single file each, no runtime, no
+# sandbox, and the manager can point straight at the binary.
+
+retro_86box_dir: /opt/86box
+
+# Pinned. Bump deliberately — a silent upstream change to the emulator is not
+# something you want arriving with an unrelated play run.
+retro_86box_version: "6.0"
+retro_86box_build: "b9001"
+retro_86box_url: "https://github.com/86Box/86Box/releases/download/v{{ retro_86box_version }}/86Box-Linux-x86_64-{{ retro_86box_build }}.AppImage"
+
+retro_86box_mgr_version: "1.5.1"
+retro_86box_mgr_url: "https://github.com/notBald/Avalonia86/releases/download/v{{ retro_86box_mgr_version }}/Avalonia-86-for-Linux-x64-{{ retro_86box_mgr_version }}.AppImage"
+
+# ROMs are NOT bundled with 86Box (licensing). Without them no machine will
+# boot — the emulator starts and then cannot find a system BIOS.
+retro_86box_roms_url: "https://github.com/86Box/roms/archive/refs/tags/v{{ retro_86box_version }}.tar.gz"
+
+# AppImages need FUSE. Ubuntu 24.04 does not ship libfuse2 by default; without
+# it an AppImage fails with "dlopen(): error loading libfuse.so.2".
+# patchelf + setcap are needed to make TAP networking work (see below).
+retro_86box_packages:
+  - libfuse2t64
+  - patchelf
+  - libcap2-bin
+
+# ---------------------------------------------------------------------------
+# TAP networking: why the AppImage is extracted instead of run as-is
+# ---------------------------------------------------------------------------
+# 86Box's TAP backend creates the tap device itself and enslaves it to a
+# bridge (verified in src/network/net_tap.c):
+#     ifr.ifr_flags = IFF_TAP | IFF_NO_PI;  ioctl(fd, TUNSETIFF, &ifr);
+#     ioctl_or_fail(sock, SIOCBRADDBR, &ifr_bridge);   /* create bridge  */
+#     ioctl_or_fail(sock, SIOCBRADDIF, &ifr_bridge);   /* enslave the tap */
+# so it needs CAP_NET_ADMIN (upstream's own error text says as much). There is
+# no "pre-create the tap and hand it over" path -- the setting is a BRIDGE
+# name, not a tap name.
+#
+# File capabilities cannot be applied to the AppImage: the real ELF lives
+# inside a read-only squashfs mounted through FUSE with nosuid, where the
+# kernel ignores file caps entirely. So the AppImage is extracted once and the
+# extracted binary carries the caps.
+#
+# That in turn breaks the AppImage's own library loading, because a file with
+# capabilities runs in secure-execution mode (AT_SECURE=1) and glibc drops
+# LD_LIBRARY_PATH -- which is exactly how AppRun points the binary at its
+# bundled Qt. Two patches fix it, and BOTH are load-bearing:
+#   1. PT_INTERP is the RELATIVE path "lib64/ld-linux-x86-64.so.2"; it must be
+#      made absolute or exec fails with "required file not found".
+#   2. The rpath must be DT_RPATH (--force-rpath), NOT the modern DT_RUNPATH.
+#      RUNPATH is not inherited by transitive dependencies, and 8 of the
+#      bundled libraries (libicuuc, libpcre2-16, libFLAC, ...) are needed by
+#      Qt itself rather than by 86Box, so with RUNPATH they are "not found".
+retro_86box_app_dir: "{{ retro_86box_dir }}/app"
+retro_86box_bin: "{{ retro_86box_app_dir }}/usr/local/bin/86Box"
+retro_86box_wrapper: /usr/local/bin/86box
+retro_86box_interp: /lib64/ld-linux-x86-64.so.2
+retro_86box_caps: "CAP_NET_RAW,CAP_NET_ADMIN=eip"
+
+# Taken from the AppImage's own AppRun.env (APPDIR_LIBRARY_PATH), made
+# absolute. Keep in sync if a future 86Box release changes its bundle layout.
+retro_86box_rpath_dirs:
+  - "{{ retro_86box_app_dir }}/lib/x86_64-linux-gnu"
+  - "{{ retro_86box_app_dir }}/usr/lib"
+  - "{{ retro_86box_app_dir }}/usr/lib/x86_64-linux-gnu"
+  - "{{ retro_86box_app_dir }}/lib/x86_64"
+
+# The bridge 86Box should attach its taps to. Must match tap_bridge_name.
+retro_86box_tap_bridge: br-retro

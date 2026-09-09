@@ -1,0 +1,38 @@
+# victoria-metrics-operator — manages the VM* CRDs (VMSingle, VMAgent, VMAlert,
+# VMAlertmanager, VMRule, VMServiceScrape, VMNodeScrape, ...) AND VLSingle (VictoriaLogs).
+# One operator reconciles the whole metrics + logs stack declaratively.
+#
+# Install: ./helm.sh    (chart: vm/victoria-metrics-operator)
+
+# Let the chart install/upgrade the CRDs.
+crds:
+  plain: true
+  cleanup:
+    enabled: false        # keep CRDs (and thus CRs) if the operator is uninstalled
+
+# Watch every namespace so app-owned VMServiceScrape/VMPodScrape/VMRule are picked up.
+operator:
+  # convert legacy Prometheus-operator CRs too, harmless if none exist
+  disable_prometheus_converter: false
+
+# Pin VictoriaMetrics' native config-reloader (this is already the operator default).
+# NOTE: this reloader watches the config Secret via a client-go informer (list+watch).
+# The operator-generated vmagent Role grants secrets [get,watch] but NOT [list], so on
+# k3s the informer fails and scrape-config hot-reload stalls until vmagent is restarted.
+# See ../metrics/README-reload.md for the fix options.
+env:
+  - name: VM_USECUSTOMCONFIGRELOADER
+    value: "true"
+
+# The operator only reconciles CRs; the actual components (vmsingle, vmagent, ...) are
+# defined as CRs under ../metrics and ../logs. Keep the operator itself lean.
+resources:
+  requests:
+    cpu: 50m
+    memory: 150Mi
+  limits:
+    cpu: 500m
+    memory: 500Mi
+
+serviceMonitor:
+  enabled: true          # let the operator self-scrape via a VMServiceScrape

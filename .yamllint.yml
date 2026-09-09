@@ -1,0 +1,51 @@
+# Stage-1 lint config. Deliberately permissive: the goal is to catch YAML that is
+# broken or surprising, not to reformat 200+ working files. Tighten over time.
+extends: default
+
+ignore: |
+  netboot.xyz/
+  apps/netboot/buildout/
+  apps/netboot/config/menus/
+  node_modules/
+  # Upstream-derived VictoriaMetrics alert rules and stock Grafana datasource
+  # provisioning. Their trailing spaces sit INSIDE `|` literal block scalars, so
+  # they are part of the alert description text, not formatting — stripping them
+  # edits upstream content and creates diff noise on the next chart bump.
+  # Verified: a whitespace strip changes the parsed document, so it is not safe.
+  apps/victoriametrics/rules/
+  apps/victoriametrics/provisioning/
+
+rules:
+  # Ansible and Helm values here carry long inline comments explaining WHY a
+  # setting exists (see CLAUDE.md) — that density is intentional, so length is a
+  # warning rather than an error.
+  line-length:
+    max: 120
+    level: warning
+
+  # k8s manifests and Ansible both use `on:`/`yes`/`no` idiomatically.
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no']
+    check-keys: false
+
+  # `---` is used inconsistently across manifests vs multi-doc files; not worth
+  # churning every file over.
+  document-start: disable
+
+  # Helm values and manifests both nest lists under keys without extra indent.
+  indentation:
+    spaces: consistent
+    indent-sequences: consistent
+
+  comments:
+    min-spaces-from-content: 1
+
+  comments-indentation: disable
+
+  # Disabled deliberately, not as a cop-out: codex-proxy/config/models.yaml and
+  # netbox/terraform/topology.yml column-align flow mappings
+  #   - { reasoningEffort: low,    description: "..." }
+  # which is more readable for tabular data. These two rules produced 268 of 293
+  # findings, all of it that alignment. Real hygiene rules below stay ON.
+  braces: disable
+  commas: disable

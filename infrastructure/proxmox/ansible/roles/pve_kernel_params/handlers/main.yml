@@ -1,0 +1,7 @@
+---
+- name: Update grub
+  # Rewrites /boot/grub/grub.cfg. Takes effect on the NEXT boot only -- this
+  # role intentionally never reboots a node on its own.
+  ansible.builtin.command:
+    cmd: update-grub
+  changed_when: true

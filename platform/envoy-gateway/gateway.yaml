@@ -1,0 +1,116 @@
+# LAN ingress for k3s services on ad.ddupan.top.
+#
+# Replaced Contour 2026-07-25. Contour was dropped for one concrete reason: it
+# supports ONLY the gRPC Envoy ext_authz protocol ("Only the Envoy GRPC authorization
+# protocol will be supported" — Contour 1.33 docs), while Authelia implements the
+# HTTP ExtAuthz filter. That made Authelia forward-auth impossible, which in turn made
+# AD-group -> role mapping impossible for apps like NetBox whose SSO support has no
+# group mapping. Envoy Gateway's SecurityPolicy supports extAuth.http, so it works.
+#
+# Everything else carried over unchanged: the Gateway API objects, the wildcard cert
+# from ../cert-manager, and the DNS A records in ../../infrastructure/samba-ad.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: eg
+  namespace: envoy-gateway-system
+spec:
+  gatewayClassName: eg
+  listeners:
+    # Plaintext :80 — ACME http-01 (the bao-acme ClusterIssuer solves through here)
+    # and HTTP->HTTPS redirects. Never serve anything sensitive on it.
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+
+    # HTTPS :443. One wildcard covers every LAN service, so adding a service is an
+    # HTTPRoute + a DNS A record — no cert work and no edit here.
+    #
+    # ⚠ The cert Secret MUST live in this Gateway's namespace (a listener may only
+    # reference a Secret in its own namespace without a ReferenceGrant), which is why
+    # cert-manager/certificate-wildcard-ad.yaml issues into envoy-gateway-system.
+    #
+    # ⚠ Never point this at a Secret the gateway controller generates for its own
+    # internal use. Doing exactly that with Contour's `contourcert-*` xDS secret killed
+    # its dataplane for 141 days — see the legacy Git history.
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.ad.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-ad-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+
+    # HTTPS :443 for auth.ddupan.top specifically.
+    #
+    # WHY a second listener rather than another hostname on the one above: a
+    # listener carries exactly one hostname, and `*.ad.ddupan.top` cannot match
+    # `auth.ddupan.top` — different zone (Cloudflare is authoritative for
+    # ddupan.top, the DC only for ad.ddupan.top) and one label shallower. Envoy
+    # selects between them by SNI, so both coexist on :443 cleanly.
+    #
+    # This exists so in-cluster clients reach Authelia over the LAN instead of
+    # hairpinning through Cloudflare proxy IPs that are unroutable from this
+    # network. Full reasoning in ../cert-manager/certificate-auth-ddupan.yaml;
+    # the route is ../../apps/authelia/httproute.yaml.
+    - name: https-auth
+      protocol: HTTPS
+      port: 443
+      hostname: "auth.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: auth-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+
+    # HTTPS :443 for git.ddupan.top. Third listener for the same reason as the
+    # second: one hostname per listener, and the *.ad.ddupan.top wildcard cannot
+    # match a name in the ddupan.top zone. Envoy picks between all three by SNI.
+    #
+    # Exists so `git push` stays on the LAN instead of going out to Cloudflare and
+    # back down the tunnel into this same cluster. The repo is what you need during
+    # an incident, so it must not depend on the WAN. Cert:
+    # ../cert-manager/certificate-git-ddupan.yaml; route: ../../apps/gitea/httproute.yaml.
+    - name: https-git
+      protocol: HTTPS
+      port: 443
+      hostname: "git.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: git-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute

@@ -1,0 +1,217 @@
+---
+# Provision a Samba Active Directory Domain Controller.
+# Idempotent: the provision step is guarded by the existence of the sam.ldb database,
+# so re-running the playbook against an already-provisioned DC is a no-op there.
+#
+# DNS ordering is deliberate: the box keeps using its normal upstream resolver for
+# apt + provisioning, and is only repointed at its OWN Samba DNS *after* samba-ad-dc
+# is up and serving :53. That way an interruption can never strand the DC on dead DNS.
+
+- name: Assert required variables are set
+  ansible.builtin.assert:
+    that:
+      - samba_ad_realm | length > 0
+      - samba_ad_domain | length > 0
+      - samba_ad_dc_ip | length > 0
+      - samba_ad_admin_password is defined
+      - samba_ad_admin_password | length >= 8
+    fail_msg: >-
+      Set samba_ad_realm/domain/dc_ip and provide samba_ad_admin_password from vault.
+
+- name: Set hostname to the DC FQDN
+  ansible.builtin.hostname:
+    name: "{{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}"
+
+- name: Pin DC FQDN to its real IP in /etc/hosts (never 127.0.1.1)
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '\s{{ samba_ad_dc_hostname }}\.{{ samba_ad_realm | lower | regex_escape }}\b'
+    line: "{{ samba_ad_dc_ip }}  {{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}  {{ samba_ad_dc_hostname }}"
+    state: present
+
+- name: Install Samba AD DC packages
+  ansible.builtin.apt:
+    name: "{{ samba_ad_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure time sync is active (Kerberos dies on >5min skew)
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+
+# --- Stop conflicting daemons --------------------------------------------------
+- name: Disable distro smbd/nmbd/winbind (AD DC uses the unified samba service)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: false
+  loop:
+    - smbd
+    - nmbd
+    - winbind
+  failed_when: false
+
+- name: Unmask samba-ad-dc service
+  ansible.builtin.systemd:
+    name: samba-ad-dc
+    masked: false
+
+# --- Provision the domain (guarded) --------------------------------------------
+- name: Check whether the domain is already provisioned
+  ansible.builtin.stat:
+    path: /var/lib/samba/private/sam.ldb
+  register: samba_sam_db
+
+- name: Move stock smb.conf aside before first provision
+  ansible.builtin.command:
+    cmd: mv /etc/samba/smb.conf /etc/samba/smb.conf.orig
+    removes: /etc/samba/smb.conf
+  when: not samba_sam_db.stat.exists
+
+- name: Provision the Active Directory domain
+  ansible.builtin.command:
+    argv:
+      - samba-tool
+      - domain
+      - provision
+      - "--use-rfc2307"
+      - "--realm={{ samba_ad_realm }}"
+      - "--domain={{ samba_ad_domain }}"
+      - "--server-role=dc"
+      - "--dns-backend=SAMBA_INTERNAL"
+      - "--adminpass={{ samba_ad_admin_password }}"
+      - "--option=dns forwarder = {{ samba_ad_dns_forwarder }}"
+    creates: /var/lib/samba/private/sam.ldb
+  no_log: true   # keep the admin password out of logs
+
+- name: Install the generated krb5.conf system-wide
+  ansible.builtin.copy:
+    src: /var/lib/samba/private/krb5.conf
+    dest: /etc/krb5.conf
+    remote_src: true
+    mode: "0644"
+
+- name: Replace default LDAPS cert (positive serial + SANs) for modern Go clients
+  ansible.builtin.import_tasks: tls.yml
+
+# --- Free port 53, then bring Samba's internal DNS online ----------------------
+# Do this only now: up to here the box still resolves via its upstream (DHCP/cloud-init)
+# resolver, so apt + provision above always had working DNS.
+- name: Ensure resolved.conf.d drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Disable systemd-resolved stub listener (frees :53 for Samba)
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/no-stub.conf
+    content: |
+      [Resolve]
+      DNSStubListener=no
+    mode: "0644"
+  register: stub_dropin
+
+- name: Restart systemd-resolved to release :53 before Samba binds it
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+  when: stub_dropin is changed
+
+- name: Enable and start samba-ad-dc
+  ansible.builtin.systemd:
+    name: samba-ad-dc
+    state: started
+    enabled: true
+
+- name: Point the DC at its own Samba DNS (now that it is serving :53)
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver {{ samba_ad_dc_ip }}
+      search {{ samba_ad_realm | lower }}
+    follow: false
+    force: true
+    mode: "0644"
+
+- name: Legacy client support (Win9x/NT4/2000/XP)
+  ansible.builtin.import_tasks: legacy.yml
+  when: samba_ad_legacy_clients | default(false) | bool
+
+# --- Post-provision: reverse DNS zone (optional) -------------------------------
+- name: Create reverse DNS zone
+  ansible.builtin.command:
+    cmd: >-
+      samba-tool dns zonecreate {{ samba_ad_dc_ip }} {{ samba_ad_reverse_zone }}
+      -U administrator%{{ samba_ad_admin_password }}
+  when: samba_ad_reverse_zone | length > 0
+  register: revzone
+  changed_when: "'already exists' not in (revzone.stderr | default(''))"
+  failed_when:
+    - revzone.rc != 0
+    - "'already exists' not in (revzone.stderr | default(''))"
+  no_log: true
+
+- name: Register the DC's own PTR record in the reverse zone
+  ansible.builtin.command:
+    cmd: >-
+      samba-tool dns add {{ samba_ad_dc_ip }} {{ samba_ad_reverse_zone }}
+      {{ samba_ad_dc_ip.split('.')[3] }} PTR {{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}.
+      -U administrator%{{ samba_ad_admin_password }}
+  when: samba_ad_reverse_zone | length > 0
+  register: ptr_add
+  changed_when: "'Record added successfully' in (ptr_add.stdout | default(''))"
+  failed_when:
+    - ptr_add.rc != 0
+    - "'already exists' not in (ptr_add.stderr | default('')) + (ptr_add.stdout | default(''))"
+  no_log: true
+
+# --- KMS auto-activation records (_vlmcs SRV → vlmcsd) --------------------------
+- name: Register the KMS host A record (SRV target)
+  ansible.builtin.command:
+    cmd: >-
+      samba-tool dns add {{ samba_ad_dc_ip }} {{ samba_ad_realm | lower }}
+      {{ samba_ad_kms_hostname }} A {{ samba_ad_kms_host_ip }}
+      -U administrator%{{ samba_ad_admin_password }}
+  when: samba_ad_kms_host_ip | length > 0
+  register: kms_a
+  changed_when: "'Record added successfully' in (kms_a.stdout | default(''))"
+  failed_when:
+    - kms_a.rc != 0
+    - "'already exists' not in (kms_a.stderr | default('')) + (kms_a.stdout | default(''))"
+  no_log: true
+
+- name: Register the _vlmcs._tcp SRV record for KMS auto-discovery
+  ansible.builtin.command:
+    cmd: >-
+      samba-tool dns add {{ samba_ad_dc_ip }} {{ samba_ad_realm | lower }}
+      _vlmcs._tcp SRV "{{ samba_ad_kms_hostname }}.{{ samba_ad_realm | lower }} {{ samba_ad_kms_port }} 0 100"
+      -U administrator%{{ samba_ad_admin_password }}
+  when: samba_ad_kms_host_ip | length > 0
+  register: kms_srv
+  changed_when: "'Record added successfully' in (kms_srv.stdout | default(''))"
+  failed_when:
+    - kms_srv.rc != 0
+    - "'already exists' not in (kms_srv.stderr | default('')) + (kms_srv.stdout | default(''))"
+  no_log: true
+
+# --- Extra A records for non-domain hosts (e.g. OpenBao) -----------------------
+- name: Service accounts and RBAC groups
+  ansible.builtin.import_tasks: directory_objects.yml
+  tags: [directory, accounts]
+
+- name: Register extra A records in the AD DNS zone
+  ansible.builtin.command:
+    cmd: >-
+      samba-tool dns add {{ samba_ad_dc_ip }} {{ samba_ad_realm | lower }}
+      {{ item.name }} A {{ item.ip }} -P
+  loop: "{{ samba_ad_extra_a_records }}"
+  register: extra_a
+  changed_when: "'Record added successfully' in (extra_a.stdout | default(''))"
+  failed_when:
+    - extra_a.rc != 0
+    - "'already exists' not in (extra_a.stderr | default('')) + (extra_a.stdout | default(''))"
+  tags: [dns]

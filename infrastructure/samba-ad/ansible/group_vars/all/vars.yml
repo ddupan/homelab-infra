@@ -1,0 +1,84 @@
+---
+# Non-secret variables shared by all plays. EDIT THESE to your environment.
+# Secrets live in group_vars/vault.yml (encrypted) — see vault.example.yml.
+
+# --- Domain identity (used by both the DC and the Windows join) ---
+samba_ad_realm: "AD.DDUPAN.TOP"
+samba_ad_domain: "DDUPAN"
+samba_ad_dc_hostname: "dc1"
+samba_ad_dc_ip: "192.168.10.5"
+samba_ad_dns_forwarder: "192.168.10.1"
+samba_ad_reverse_zone: "10.168.192.in-addr.arpa"   # reverse of 192.168.10.0/24
+
+# Extra A records for non-domain hosts published in the AD DNS zone.
+samba_ad_extra_a_records:
+  - { name: "bao", ip: "192.168.10.8" }            # OpenBao (../openbao), not domain-joined
+  # Proxmox cluster nodes (../proxmox). Not domain-joined; they authenticate
+  # USERS against this DC rather than being members themselves.
+  - { name: "pve1", ip: "192.168.10.4" }
+  - { name: "pve2", ip: "192.168.10.7" }
+  - { name: "pve3", ip: "192.168.10.9" }
+  # Lab VMs on the SDN VNets (routed via the VyOS router, see ../../proxmox).
+  # These are NOT on 192.168.10.0/24, so they have no PTR in the existing
+  # reverse zone — forward resolution only unless a 0.60.10.in-addr.arpa zone
+  # is added later.
+  - { name: "retrolab", ip: "10.60.0.10" }
+  # k3s services exposed on the LAN through the Envoy gateway (../../../platform/envoy-gateway;
+  # Contour was retired 2026-07-25). They all point at the k3s node, which is where
+  # Envoy's LoadBalancer lands; the gateway routes by Host header and serves the
+  # *.ad.ddupan.top wildcard cert.
+  # Adding another such service = one more line here + an HTTPRoute, nothing else.
+  - { name: "netbox", ip: "192.168.10.127" }        # NetBox (../../../apps/netbox)
+  # SeaweedFS S3. Exists so Terraform state does NOT ride the Cloudflare tunnel:
+  # obj.ddupan.top works, but it hairpins through the WAN, and on 2026-07-28 that
+  # path was blackholed for hours by a dead VPN tunnel. State must stay on the LAN.
+  - { name: "s3", ip: "192.168.10.127" }            # SeaweedFS S3 (../../../apps/seaweedfs)
+
+# Support legacy clients (Win9x/NT4/2000/XP)? INSECURE — see README "Retro clients".
+samba_ad_legacy_clients: false
+
+# --- KMS auto-activation via DNS ---
+# Adds a _vlmcs._tcp SRV record so any domain-joined Windows self-activates against
+# vlmcsd. Set the IP where vlmcsd listens (:1688); empty string disables.
+samba_ad_kms_host_ip: "192.168.10.127"    # vlmcsd runs here (docker, 0.0.0.0:1688)
+samba_ad_kms_hostname: "kms"              # A record kms.ad.ddupan.top -> that IP
+samba_ad_kms_port: 1688
+
+# --- Windows admin box ---
+win_dc_ip: "{{ samba_ad_dc_ip }}"
+win_domain_dns_name: "{{ samba_ad_realm | lower }}"
+win_domain_admin_user: "{{ samba_ad_domain }}\\Administrator"
+win_kms_host: ""                       # e.g. "kms.example.com:1688" (existing vlmcsd)
+win_kms_client_key: ""                 # public GVLK for the Windows edition
+
+# --- Secret indirection: real values come from the encrypted vault ---
+samba_ad_admin_password: "{{ vault_samba_ad_admin_password }}"
+win_domain_admin_password: "{{ vault_samba_ad_admin_password }}"
+
+# --- Service accounts for apps that BIND to LDAP (passwords in vault.yml) ---
+# Previously created by hand (svc-authelia); codified so a DC rebuild restores them.
+samba_ad_service_accounts:
+  - name: svc-pve
+    password: "{{ vault_pve_bind_password }}"
+    description: "Proxmox VE realm bind + user/group sync (read-only)"
+
+# --- Groups used for RBAC by downstream apps ---
+# NOTE: PVE renames synced groups to "<name>-<realm>", so pve-admins becomes
+# "pve-admins-ad" inside Proxmox. Grant ACLs to THAT name, not this one.
+samba_ad_groups:
+  - name: pve-admins
+    members: [panxiao81]
+
+  # NetBox: Authelia forward-auth restricts the site to this group, and NetBox maps it
+  # to is_superuser + is_staff via REMOTE_AUTH_SUPERUSER_GROUPS / STAFF_GROUPS
+  # (../../../apps/netbox). Membership is re-evaluated on every request, so removing someone
+  # here revokes their NetBox admin immediately.
+  - name: netbox-admins
+    members: [panxiao81]
+
+  # Who may log in to AD-joined workstations (SSSD simple_allow_groups).
+  # NESTING DIRECTION MATTERS: pve-admins is a MEMBER OF this group, so admins
+  # get lab access. The reverse (this group inside pve-admins) would hand every
+  # lab user Proxmox Administrator on / — see the ACL in proxmox/ansible.
+  - name: retrolab-users
+    members: [pve-admins]

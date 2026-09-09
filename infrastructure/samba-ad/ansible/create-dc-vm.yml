@@ -1,0 +1,13 @@
+---
+# Create the DC's Ubuntu VM locally via libvirt + cloud-init.
+# Runs on the libvirt host itself (localhost / qemu:///system).
+#   ansible-playbook create-dc-vm.yml
+# Then provision the domain:
+#   ansible-playbook provision-dc.yml --ask-vault-pass
+- name: Create the Samba AD DC VM
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  roles:
+    - role: dc_vm

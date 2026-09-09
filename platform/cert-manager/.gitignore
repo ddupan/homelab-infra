@@ -1,0 +1,2 @@
+# Real Cloudflare API token — keep secret.example.yaml as the committed template.
+secret.yaml

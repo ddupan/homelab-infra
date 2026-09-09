@@ -1,0 +1,3 @@
+# Hardware watchdog for HA fencing. Verified present 2026-07-26 (iTCO_wdt).
+# softdog cannot fence a frozen kernel; see roles/pve_ha.
+pve_ha_watchdog_module: "iTCO_wdt"

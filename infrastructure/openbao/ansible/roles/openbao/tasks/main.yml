@@ -1,0 +1,138 @@
+---
+# Deploy OpenBao as a systemd service with integrated Raft storage + a TLS listener.
+# This role ONLY installs and runs the daemon. It does NOT initialize/unseal or enable
+# any secrets engines/auth methods — that is the separate bootstrap play.
+#
+# NOTE: restarting a running, Shamir-sealed node re-seals it (needs manual unseal).
+# On first deploy the node is uninitialized, so the restart handler is harmless; with
+# transit auto-unseal a restart re-unseals automatically.
+
+- name: Assert required variables are set
+  ansible.builtin.assert:
+    that:
+      - openbao_version | length > 0
+      - openbao_download_checksum | length > 0
+      - openbao_fqdn | length > 0
+      - openbao_lan_ip | length > 0
+      - (not openbao_auto_unseal) or (openbao_transit_address | length > 0 and openbao_transit_token | length > 0)
+    fail_msg: >-
+      Set openbao_version + openbao_download_checksum (sha256:...), openbao_fqdn and
+      openbao_lan_ip. If openbao_auto_unseal is true you must also provide
+      openbao_transit_address and openbao_transit_token (from vault).
+
+- name: Install runtime dependencies
+  ansible.builtin.apt:
+    name:
+      - tar
+      - python3-cryptography     # community.crypto (bootstrap TLS cert)
+    state: present
+    update_cache: true
+
+# --- Service account + directories --------------------------------------------
+- name: Create openbao group
+  ansible.builtin.group:
+    name: "{{ openbao_group }}"
+    system: true
+
+- name: Create openbao system user
+  ansible.builtin.user:
+    name: "{{ openbao_user }}"
+    group: "{{ openbao_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ openbao_data_dir }}"
+    create_home: false
+
+- name: Create config, tls and data directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ openbao_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ openbao_config_dir }}", owner: "root", mode: "0755" }
+    - { path: "{{ openbao_tls_dir }}", owner: "root", mode: "0750" }
+    - { path: "{{ openbao_data_dir }}", owner: "{{ openbao_user }}", mode: "0700" }
+
+# --- Install binary (checksum-verified release tarball) ------------------------
+- name: Check installed bao version
+  ansible.builtin.command: "{{ openbao_bin }} version"
+  register: bao_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install OpenBao when missing or version mismatch
+  when: openbao_version not in (bao_installed.stdout | default(''))
+  block:
+    - name: Download OpenBao release tarball (checksum-verified)
+      ansible.builtin.get_url:
+        url: "{{ openbao_download_url }}"
+        dest: "/tmp/openbao_{{ openbao_version }}.tar.gz"
+        checksum: "{{ openbao_download_checksum }}"
+        mode: "0644"
+
+    - name: Create staging directory for extraction
+      ansible.builtin.file:
+        path: "/tmp/openbao_{{ openbao_version }}"
+        state: directory
+        mode: "0755"
+
+    - name: Extract tarball
+      ansible.builtin.unarchive:
+        src: "/tmp/openbao_{{ openbao_version }}.tar.gz"
+        dest: "/tmp/openbao_{{ openbao_version }}"
+        remote_src: true
+
+    - name: Install bao binary
+      ansible.builtin.copy:
+        src: "/tmp/openbao_{{ openbao_version }}/bao"
+        dest: "{{ openbao_bin }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: restart openbao
+
+# --- Bootstrap TLS listener cert (replace with PKI-issued later) ---------------
+- name: Generate bootstrap TLS certificate
+  ansible.builtin.import_tasks: tls.yml
+
+# --- Config + service ----------------------------------------------------------
+- name: Write OpenBao config
+  ansible.builtin.template:
+    src: config.hcl.j2
+    dest: "{{ openbao_config_dir }}/config.hcl"
+    owner: root
+    group: "{{ openbao_group }}"
+    mode: "0640"
+  no_log: "{{ openbao_auto_unseal }}"    # config carries the transit token when auto-unseal is on
+  notify: restart openbao
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: openbao.service.j2
+    dest: /etc/systemd/system/openbao.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart openbao
+
+- name: Enable and start OpenBao
+  ansible.builtin.systemd:
+    name: openbao
+    state: started
+    enabled: true
+    daemon_reload: true
+
+# --- Optional host firewall ----------------------------------------------------
+- name: Restrict API/cluster ports to tailnet + cluster CIDRs
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.0 }}"
+    proto: tcp
+    from_ip: "{{ item.1 }}"
+  loop: "{{ [openbao_api_port, openbao_cluster_port] | product(openbao_allowed_cidrs) | list }}"
+  when: openbao_manage_firewall | bool

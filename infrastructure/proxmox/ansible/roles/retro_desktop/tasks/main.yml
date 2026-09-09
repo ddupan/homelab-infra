@@ -1,0 +1,183 @@
+---
+- name: Install the desktop and xrdp
+  ansible.builtin.apt:
+    name: "{{ retro_desktop_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _pkgs
+  retries: 3
+  delay: 15
+  until: _pkgs is succeeded          # the WAN drops out; do not fail a long run on one blip
+
+- name: Install audio support
+  ansible.builtin.apt:
+    name: "{{ retro_desktop_audio_packages }}"
+    state: present
+  register: _apkgs
+  retries: 3
+  delay: 15
+  until: _apkgs is succeeded
+  when: retro_desktop_audio | bool
+
+- name: Use XFCE for xrdp sessions
+  ansible.builtin.copy:
+    dest: /etc/skel/.xsession
+    content: "xfce4-session\n"
+    mode: "0644"
+
+- name: Give the existing user an .xsession too
+  ansible.builtin.copy:
+    dest: "/home/{{ ansible_user }}/.xsession"
+    content: "xfce4-session\n"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+
+# ⚠️ NO WINDOW MANAGER after login? It is a saved session, and it is
+# self-perpetuating. xfce4-session restores exactly the client list in
+# ~/.cache/sessions/xfce4-session-<host>:<display>, so once xfwm4 is missing
+# from that list every later login is WM-less too — no title bars, no
+# Applications menu, hence no way to log out and no way to fix it from inside.
+# Seen 2026-07-28: the file listed only xfsettingsd, xfce4-panel, Thunar and
+# xfdesktop. The distro's failsafe session does NOT cover this — it only runs
+# when you pick Failsafe at the greeter, which xrdp never offers.
+#
+# How xfwm4 falls out of the list: any xfwm4 started outside the session
+# manager. `xfwm4 --replace` over SSH has no SESSION_MANAGER in its environment
+# and says so ("Failed to connect to session manager"), so the next save does
+# not record it. That is what happened here — the recovery caused the relapse.
+#
+# Recovery, from SSH:
+#   DISPLAY=:10 XAUTHORITY=~/.Xauthority xfwm4 --replace &
+#   rm ~/.cache/sessions/xfce4-session-*
+# Prevention, applied on this host by hand rather than by a task:
+#   xfconf-query -c xfce4-session -p /general/SaveOnExit -n -t bool -s false
+# Deliberately NOT automated: the system-wide xfce4-session.xml also defines
+# the failsafe session, so a role would have to either template the whole
+# distro file or add python3-lxml for the xml module, and the per-user file it
+# would otherwise write is rewritten by xfconfd at every logout — a permanently
+# "changed" task guarding against an operator mistake.
+
+# ---------------------------------------------------------------------------
+# Mouse capture in 86Box: rename xorgxrdp's pointer device
+# ---------------------------------------------------------------------------
+# xorgxrdp's pointer LIES about itself. xrdpmouse/rdpMouse.c labels its two
+# valuators REL_X/REL_Y — so XInput2 advertises "Mode: relative" with the dummy
+# range -1..-1 — and then posts every event as
+#     xf86PostMotionEvent(device, TRUE /* is_absolute */, 0, 2, x, y)
+# i.e. ABSOLUTE screen coordinates down a nominally RELATIVE axis. RDP itself
+# carries no relative motion, so it has nothing else to send.
+#
+# 86Box's X11 input backend (src/qt/xinput2_mouse.cpp) reads XI_RawMotion and
+# branches on exactly that axis mode: for a "relative" axis it feeds the raw
+# valuator straight in as a movement delta. Under xrdp that "delta" is an
+# absolute pixel coordinate, so the instant you click to capture, the emulated
+# pointer is thrown into a corner and stays pinned — which presents as the
+# mouse not being captured at all.
+#
+# Upstream already handles this failure mode, just not for us: VNC servers
+# inject through XTEST, which tells the same lie, so 86Box keeps an allow-list
+# of pointer device NAMES it treats as absolute — "TigerVNC pointer" and
+# "Virtual core XTEST pointer" — and those take a correct absolute->delta path.
+# An X input device is named after its xorg.conf Identifier, so renaming xrdp's
+# pointer onto that list is the whole fix. Verified safe on this host: the
+# identifier occurs only in the two lines this task rewrites (ServerLayout and
+# the InputDevice section), and xrdp binds the device by DRIVER ("xrdpmouse"),
+# never by identifier.
+#
+# Known limit, not fixable here: motion still stops when the CLIENT's cursor
+# hits the edge of the remote screen, because there is no relative-motion event
+# to send. xrdp PR #3091 (TS_RELPOINTER) is still an unmerged draft as of
+# 0.9.24 / xorgxrdp 0.9.19. Escaping that needs a different transport, not a
+# different setting.
+#
+# sesman starts a fresh Xorg per login, so nothing needs restarting — but a
+# session that is already running keeps the old device until the user LOGS OUT.
+# Disconnecting is not enough (that is the point of this host's setup).
+- name: Present the xrdp pointer to 86Box as the absolute device it really is
+  ansible.builtin.replace:
+    path: "{{ retro_desktop_xrdp_xorg_conf }}"
+    regexp: '"xrdpMouse"'
+    replace: '"{{ retro_desktop_xrdp_pointer_name }}"'
+
+# Stop needrestart from ever restarting xrdp-sesman. It has stranded a live
+# desktop twice now: 2026-07-25 (our own `apt install` pulled libcap2) and
+# 2026-07-28 (unattended-upgrades pulled libc6 at 06:28). Both times sesman came
+# back with an EMPTY session table, so it could no longer reattach the running
+# display — every reconnect started a new one, xfce4-session refused to run
+# twice for the same user, and each new session died in about a second. The
+# desktop and its 86Box VM keep running, just permanently unreachable.
+#
+# `NEEDRESTART_MODE: l` in retrolab.yml only covers playbook runs. It does
+# nothing about unattended-upgrades, which is what actually did it the second
+# time — so the exemption has to live on the host.
+#
+# This is not a novel idea: needrestart.conf already ships `override_rc`
+# entries pinning gdm, sddm, xdm and friends to 0, because restarting the thing
+# that owns your login sessions costs more than it fixes. xrdp-sesman is the
+# same class of service and simply is not on that list.
+#
+# The trade, stated plainly: sesman keeps running against the old libc until
+# the host is rebooted. That is the intended outcome — a stale session manager
+# that works beats a fresh one that has orphaned every session.
+- name: Never let needrestart bounce the xrdp session manager
+  ansible.builtin.copy:
+    dest: /etc/needrestart/conf.d/50-xrdp.conf
+    # conf.d is parsed after needrestart.conf and merges into the hash, so this
+    # ADDS a key rather than replacing the shipped defaults. Assigning
+    # $nrconf{override_rc} wholesale here would silently drop them.
+    content: |
+      # Managed by Ansible (proxmox/ansible/roles/retro_desktop). See that role
+      # for why: restarting sesman empties its session table and strands every
+      # live xrdp desktop until the user logs out.
+      $nrconf{override_rc}{qr(^xrdp)} = 0;
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable xrdp
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [xrdp, xrdp-sesman]
+
+# Audio silently not working is the classic xrdp complaint; assert the pieces
+# rather than discover it mid-session.
+- name: Read the xrdp channel configuration
+  ansible.builtin.command:
+    cmd: sed -n '/^\[Channels\]/,/^\[/p' /etc/xrdp/xrdp.ini
+  register: _chan
+  changed_when: false
+  # Reads nothing and writes nothing, but `command` is skipped under --check by
+  # default, which left `_chan.stdout` empty and made the assert below fail
+  # every dry run with a false "audio is broken".
+  check_mode: false
+  when: retro_desktop_audio | bool
+
+- name: Assert the audio channels are enabled
+  ansible.builtin.assert:
+    that: "'{{ item }}=true' in _chan.stdout"
+    fail_msg: "xrdp channel {{ item }} is not enabled — audio will not reach the client."
+    quiet: true
+  loop: "{{ retro_desktop_audio_channels }}"
+  when: retro_desktop_audio | bool
+
+- name: Assert the PipeWire xrdp module is present
+  ansible.builtin.stat:
+    path: /etc/xdg/autostart/pipewire-xrdp.desktop
+  register: _pwx
+  when: retro_desktop_audio | bool
+
+- name: Fail if the audio module is missing
+  ansible.builtin.assert:
+    that: _pwx.stat.exists
+    fail_msg: "pipewire-module-xrdp is not installed; xrdp sessions will have no sound."
+    quiet: true
+  when: retro_desktop_audio | bool
+
+- name: Confirm xrdp is listening on 3389
+  ansible.builtin.wait_for:
+    port: 3389
+    timeout: 30

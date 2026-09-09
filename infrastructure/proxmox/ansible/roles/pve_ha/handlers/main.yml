@@ -1,0 +1,10 @@
+---
+# Deliberately does NOT reboot. Swapping the watchdog under an armed cluster is a
+# manual, ordered operation (see ../../../README-ha.md); a surprise rolling reboot
+# of all three nodes is exactly what you do not want an idempotent play to do.
+- name: reboot required for watchdog
+  ansible.builtin.debug:
+    msg: >-
+      Watchdog config changed on {{ inventory_hostname }}. It takes effect on the
+      NEXT REBOOT of this node. Until then fencing still uses softdog, which cannot
+      fence a frozen kernel. See proxmox/README-ha.md for the live-swap procedure.

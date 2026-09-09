@@ -1,0 +1,39 @@
+# Stage-1 Ansible lint. Starting at `basic` on purpose: this is an existing,
+# working 33-role codebase, so the first pass must be adoptable rather than a
+# wall of findings. Ratchet to `moderate` -> `safety` -> `production` once each
+# level is clean; that ordering is ansible-lint's own progression.
+profile: basic
+
+exclude_paths:
+  - netboot.xyz/          # pristine upstream clone, not ours
+  - apps/napcat/
+  - node_modules/
+  - .git/
+
+# Roles here are referenced by relative roles_path from each service's
+# ansible.cfg, not installed as galaxy collections, so name-prefix rules that
+# assume a collection layout do not apply.
+skip_list:
+  - role-name             # roles are local (pve_auth, dc_vm), not namespaced
+
+  # 265 of the 300 findings were this single rule. It demands every in-role
+  # variable carry the full role name, turning `win_vm_disk_gb` (role
+  # windows_vm) into `windows_vm_disk_gb` and `vyos_lan_address` (role
+  # vyos_router) into `vyos_router_lan_address`. That is a repo-wide rename of
+  # working code for no behavioural gain, and `_`-prefixed registers are already
+  # a clear private-variable convention here. Revisit only if these roles are
+  # ever published as a collection, where the prefix genuinely prevents clashes.
+  - var-naming[no-role-prefix]
+
+# Visible but non-blocking, so the first gate can pass on an existing codebase.
+# Ratchet: clear these, move them out of warn_list, then raise `profile` to
+# moderate -> safety -> production. Each step should be its own change.
+warn_list:
+  - command-instead-of-module   # VyOS has no Python interpreter; module equivalents
+                                # do not exist for much of the PVE CLI surface either
+  - no-changed-when             # several tasks are reconcile ACTIONS (pveum realm sync)
+                                # with no no-op signal to key off — documented in-role
+  - name[casing]                # 14 findings, cosmetic
+  - schema[meta]                # 6 roles lack galaxy_info.author; only matters if published
+  - yaml[line-length]           # already governed by .yamllint.yml
+  - jinja[spacing]

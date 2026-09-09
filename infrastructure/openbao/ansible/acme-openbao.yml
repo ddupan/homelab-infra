@@ -1,0 +1,19 @@
+---
+# Obtain a publicly-trusted Let's Encrypt cert for bao's listener via ACME DNS-01
+# (Cloudflare), replacing the self-signed bootstrap cert, and set up auto-renewal.
+#
+# ad.ddupan.top is split-horizon: the DC serves it internally, but it is NOT delegated
+# in public DNS, so Cloudflare answers *.ad.ddupan.top authoritatively. lego drops a
+# transient _acme-challenge.bao.ad.ddupan.top TXT into the Cloudflare ddupan.top zone,
+# LE validates it, and the cert is issued for the internal name — no permanent record,
+# no IP leak. Renewal reloads bao via SIGHUP (no restart, no reseal).
+#
+#   ansible-playbook acme-openbao.yml --ask-vault-pass
+#
+# Needs vault_openbao_cf_dns_token — a Cloudflare API token with Zone:DNS:Edit on ddupan.top.
+- name: OpenBao ACME certificate (Let's Encrypt via Cloudflare DNS-01)
+  hosts: openbao
+  become: true
+  gather_facts: true
+  roles:
+    - role: openbao_acme

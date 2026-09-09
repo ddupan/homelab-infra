@@ -1,0 +1,62 @@
+# Cloudflare tunnel — the PUBLIC ingress for *.ddupan.top.
+#
+# The tunnel is TOKEN-MANAGED: `TUNNEL_TOKEN` is the whole credential, and the
+# routing/ingress rules live server-side, managed by ../cloudflared/terraform
+# (`cloudflare_zero_trust_tunnel_cloudflared_config`). There is deliberately no
+# local config.yml and no credentials-file here.
+#
+# A ConfigMap + credentials Secret used to be embedded in this file. Both were
+# dead and were removed 2026-07-28, with three independent proofs:
+#   1. the config routed idm.ddupan.top -> keycloak, RETIRED 2026-07-10;
+#   2. it pointed auth.ddupan.top at authelia:9091, which 502s — Terraform
+#      corrected that to :80 and auth works, so Terraform's config is the live one;
+#   3. the credentials volume mounted subPath `<uuid>.json` while the Secret's
+#      key was `credentials-file`, so that mount never resolved at all.
+# `origin_request.no_tls_verify` is likewise set API-side by Terraform.
+#
+# The token itself is NOT in this file — see secret.example.yaml.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflared
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          # NOTE: :latest on the public ingress. Pinning is desirable but a wrong
+          # pin is worse than an unpinned upgrade here; left as-is deliberately.
+          image: cloudflare/cloudflared:latest
+          command:
+            - cloudflared
+            - tunnel
+            - --no-autoupdate
+            - --loglevel
+            - info
+            - --metrics
+            - 0.0.0.0:2000
+            # No --config: with TUNNEL_TOKEN set, cloudflared pulls its ingress
+            # rules from the Cloudflare API. A --config pointing at a file that
+            # no longer exists would be a hard startup error.
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflared-tunnel
+                  key: token
+      restartPolicy: Always

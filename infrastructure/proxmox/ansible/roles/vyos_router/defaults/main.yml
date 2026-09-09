@@ -1,0 +1,73 @@
+---
+# VyOS router VM (VM 100) — gateway for the PVE SDN VNets, OSPF peer to the NEC IX.
+#
+# HOW THIS IS MANAGED — and why not the obvious way:
+# We drive `vyos.vyos.vyos_config` with explicit `set` lines from a template,
+# NOT the collection's resource modules (vyos_interfaces / vyos_ospfv2 /
+# vyos_firewall_rules). Reason, verified 2026-07-25 on this box:
+#   * VyOS 2025.11 REJECTS the old syntax: `set firewall name X ...` ->
+#     "Configuration path: firewall [name] is not valid"
+#   * vyos.vyos 6.0.0 still EMITS `firewall name` (grepped the module_utils)
+# So the resource modules would generate config this release cannot parse. On a
+# Stream/tech-preview build the safe move is to own the syntax ourselves;
+# vyos_config still gives idempotency by diffing against the running config.
+
+vyos_router_hostname: vyos-rtr
+
+# LAN leg — OSPF adjacency with the NEC IX (and the laptop, which is also an
+# OSPF speaker on this segment).
+vyos_lan_interface: eth0
+vyos_lan_address: "192.168.10.2/24"
+vyos_lan_gateway: "192.168.10.1"
+
+vyos_nameserver: "192.168.10.5"
+vyos_dhcp_nameserver: "192.168.10.5"     # the Samba DC — see the flaky-WAN notes
+
+# SDN legs. `vnet` is the PVE VNet the NIC is attached to; `passive` keeps OSPF
+# from trying to form adjacencies with guests on these segments.
+# `dhcp.subnet_id` MUST be unique across the whole dhcp-server config (VyOS 1.4+
+# requires it explicitly). Ranges deliberately start at .100 so .2-.99 stay free
+# for anything that wants a static address inside a VNet.
+vyos_sdn_interfaces:
+  - iface: eth1
+    vnet: labnet
+    address: "10.60.0.1/24"
+    network: "10.60.0.0/24"
+    description: "labnet VLAN100 gateway"
+    dhcp:
+      subnet_id: 1
+      start: "10.60.0.100"
+      stop: "10.60.0.200"
+      domain: "ad.ddupan.top"
+      # Reservations sit BELOW the .100 pool start so they never collide with it.
+      # Keyed on the VM's pinned MAC (see proxmox/ansible/roles/pve_vm).
+      reservations:
+        - { name: retrolab, mac: "bc:24:11:68:a0:51", address: "10.60.0.10" }
+  - iface: eth2
+    vnet: retronet
+    address: "10.61.0.1/24"
+    network: "10.61.0.0/24"
+    description: "retronet VLAN110 gateway"
+    dhcp:
+      subnet_id: 2
+      start: "10.61.0.100"
+      stop: "10.61.0.200"
+      domain: "ad.ddupan.top"
+      # Retro Windows (9x/NT/2000) resolves names via NetBIOS, not DNS, so the
+      # segment needs a WINS server -- this is the whole reason retronet exists.
+      # Was 192.168.10.5 (the Samba DC); now retro-pdc, which is the PDC of the
+      # RETRONET domain, so browser elections and domain logons resolve on-segment
+      # and retronet keeps no dependency on the production DC.
+      # PRECONDITION: the WINS service must actually be installed and running on
+      # retro-pdc -- an unanswering wins-server option is worse than the old one.
+      wins: "10.61.0.5"
+
+# OSPF. The SDN subnets are declared as INTRA-AREA networks, deliberately.
+# Do NOT switch this to `redistribute connected`: that advertises every connected
+# interface (so any future NIC leaks automatically) and injects E2 routes whose
+# metric does not accumulate path cost. Verified on the IX: the same prefix went
+# from `O E2 ... [110/20]` to `O ... [110/2]` after this change.
+vyos_ospf_router_id: "192.168.10.2"
+vyos_ospf_area: "0"
+vyos_ospf_networks:
+  - "192.168.10.0/24"

@@ -1,0 +1,33 @@
+#!ipxe
+# ─────────────────────────────────────────────────────────────────────────
+# Proxmox VE 9.2 install — pve1 (Intel NUC) → 192.168.10.4, target sdb
+#
+# The NUC's UEFI CANNOT unpack a ~1.8GB initramfs — it dies with
+# "initramfs unpacking failed: write error", leaving a TRUNCATED /proxmox.iso,
+# which then fails to loop-mount → "no device with valid ISO found".
+# (The ISO itself is fine and the HTTP transfer completes — verified in the
+# nginx log. RAM is fine too: 15881 MB. It's a firmware/early-boot limit.)
+#
+# So we DON'T ship the ISO in the initrd here. We boot only the kernel + a
+# lean initrd augmented with e1000e (the stock installer initrd has NO network
+# drivers at all). The ISO search fails, init drops to a debug shell, and you
+# run ONE command:
+#
+#     sh /netfetch.sh
+#
+# which brings up the NIC, streams the ISO onto /dev/sda (the 1TB HDD), and
+# re-execs init — which then finds it via the normal block-device path and
+# auto-installs to sdb. Nothing oversized ever goes through initramfs.
+# ─────────────────────────────────────────────────────────────────────────
+echo
+echo Proxmox VE 9.2 — pve1 (NUC) network-staged install
+echo Loading kernel + net-enabled initrd (no ISO in initramfs)...
+echo
+echo ">>> At the debug shell that appears, type:   sh /netfetch.sh"
+echo
+kernel http://192.168.10.127:8080/proxmox/linux26 ro ramdisk_size=16777216 rw quiet splash=silent proxmox-start-auto-installer
+initrd http://192.168.10.127:8080/proxmox/initrd-net.img
+boot || goto failed
+:failed
+echo Proxmox netboot failed. Dropping to shell.
+shell

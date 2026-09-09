@@ -1,0 +1,41 @@
+---
+# Baseline configuration for the 3-node Proxmox cluster.
+#
+#   ansible-playbook site.yml --check      # dry run first
+#   ansible-playbook site.yml
+#   ansible-playbook site.yml --limit pve2
+#   ansible-playbook site.yml -e pve_dist_upgrade=true
+#
+# Cluster formation and LINSTOR are deliberately NOT here yet -- this playbook
+# is safe to re-run against nodes at any time.
+- name: Baseline Proxmox nodes
+  hosts: pve
+  gather_facts: true
+  # One node at a time. These are cluster members; a mistake applied in parallel
+  # to all three is a mistake with no healthy node left to compare against.
+  serial: 1
+  roles:
+    - pve_network
+    - pve_dns
+    - pve_post_install
+    - pve_ca_trust
+    # Must follow pve_ca_trust: the node has to trust the internal CA before a
+    # cert issued by it is any use, and the CA fetch is the cheaper thing to fail.
+    - role: pve_acme
+      # Tagged so cert work can be re-run or audited on its own:
+      #   ansible-playbook site.yml --tags acme
+      tags: [acme]
+    - pve_mail_relay
+    - pve_kernel_params
+    - pve_nfs
+
+# Deliberately its own play, on ONE node: the role must not be part of the
+# serial:1 loop above, which would put three instances of the same UI on the LAN.
+# pvesh proxies to whichever node owns a VM, so one is enough for the cluster.
+#   ansible-playbook site.yml --tags floppy
+- name: Floppy drive UI
+  hosts: pve1
+  gather_facts: false
+  tags: [floppy]
+  roles:
+    - pve_floppy

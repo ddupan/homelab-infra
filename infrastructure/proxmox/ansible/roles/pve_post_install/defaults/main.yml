@@ -1,0 +1,4 @@
+---
+# Path to the web-UI JS carrying the subscription check. Kept here (not inline)
+# because it appears in both the patch task and the apt hook.
+_pve_nag_file: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js

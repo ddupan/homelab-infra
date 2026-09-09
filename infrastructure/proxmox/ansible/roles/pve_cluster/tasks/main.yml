@@ -1,0 +1,98 @@
+---
+# Form the PVE cluster. THIS IS THE ONE STEP IN THIS REPO THAT IS NOT EASILY
+# REVERSIBLE: undoing a join effectively means reinstalling the node. Everything
+# guards on "already clustered" so re-runs are safe.
+
+- name: Detect existing cluster membership
+  ansible.builtin.stat:
+    path: /etc/pve/corosync.conf
+  register: _corosync
+  changed_when: false
+
+- name: Record membership
+  ansible.builtin.set_fact:
+    _in_cluster: "{{ _corosync.stat.exists }}"
+
+# ── SSH trust, needed for a non-interactive `pvecm add` ───────────────────
+# `pvecm add --use_ssh` authenticates over SSH from the JOINING node to the
+# primary. Without pre-shared keys it prompts for the root password, which
+# cannot be automated cleanly.
+- name: Ensure root has an SSH keypair
+  ansible.builtin.user:
+    name: root
+    generate_ssh_key: true
+    ssh_key_type: ed25519
+    ssh_key_file: .ssh/id_ed25519
+  when: not _in_cluster
+  check_mode: false          # --check would otherwise leave the next task nothing to read
+
+- name: Read this node's root public key
+  ansible.builtin.slurp:
+    src: /root/.ssh/id_ed25519.pub
+  register: _rootpub
+  when: not _in_cluster
+  check_mode: false
+
+- name: Authorise THIS node's root key on the primary
+  # Each joining node pushes its OWN key. Do NOT loop over groups['pve'] reading
+  # hostvars[item]._rootpub: with serial:1 the later nodes have not run yet, so
+  # their facts are undefined and their keys would silently never be installed —
+  # `pvecm add --use_ssh` would then sit waiting for a password.
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ _rootpub.content | b64decode }}"
+    state: present
+  delegate_to: "{{ pve_cluster_primary }}"
+  when:
+    - not _in_cluster
+    - inventory_hostname != pve_cluster_primary
+
+- name: Pre-seed the primary's host key so SSH does not prompt
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ hostvars[pve_cluster_primary].ansible_host }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 ' + hostvars[pve_cluster_primary].ansible_host + ' 2>/dev/null') }}"
+    state: present
+  when:
+    - not _in_cluster
+    - inventory_hostname != pve_cluster_primary
+
+# ── create / join ─────────────────────────────────────────────────────────
+- name: Create the cluster on the primary
+  ansible.builtin.command:
+    cmd: "pvecm create {{ pve_cluster_name }} --link0 {{ pve_cluster_link0 }}"
+  when:
+    - not _in_cluster
+    - inventory_hostname == pve_cluster_primary
+
+- name: Wait for the primary to report quorum before anyone joins
+  ansible.builtin.command:
+    cmd: pvecm status
+  register: _primary_q
+  until: _primary_q.stdout is search('Quorate:\s+Yes')
+  retries: 12
+  delay: 5
+  changed_when: false
+  # No cluster exists during --check (the create is skipped), so there is nothing
+  # to wait for; skip rather than fail the dry run.
+  when:
+    - inventory_hostname == pve_cluster_primary
+    - not ansible_check_mode
+
+- name: Join the cluster
+  # --use_ssh avoids the interactive API-ticket password prompt.
+  ansible.builtin.command:
+    cmd: "pvecm add {{ hostvars[pve_cluster_primary].ansible_host }} --link0 {{ pve_cluster_link0 }} --use_ssh"
+  when:
+    - not _in_cluster
+    - inventory_hostname != pve_cluster_primary
+
+- name: Wait for this node to be quorate
+  ansible.builtin.command:
+    cmd: pvecm status
+  register: _q
+  until: _q.stdout is search('Quorate:\s+Yes')
+  retries: 24
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode

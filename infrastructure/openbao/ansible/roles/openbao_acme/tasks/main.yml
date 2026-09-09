@@ -1,0 +1,105 @@
+---
+# Install lego, obtain the initial cert (DNS-01 via Cloudflare), deploy it to bao's
+# listener + reload, and enable a renewal timer. Idempotent.
+
+- name: Assert a Cloudflare DNS token is available
+  ansible.builtin.assert:
+    that:
+      - openbao_acme_cf_token | length > 0
+    fail_msg: >-
+      Set vault_openbao_cf_dns_token in group_vars/all/vault.yml — a Cloudflare API
+      token with Zone:DNS:Edit on ddupan.top.
+
+# --- Install lego (checksum-verified) -----------------------------------------
+- name: Check installed lego version
+  ansible.builtin.command: "{{ openbao_acme_bin }} --version"
+  register: lego_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install lego when missing or version mismatch
+  when: openbao_acme_version not in (lego_installed.stdout | default(''))
+  block:
+    - name: Download lego release tarball (checksum-verified)
+      ansible.builtin.get_url:
+        url: "{{ openbao_acme_url }}"
+        dest: "/tmp/lego_{{ openbao_acme_version }}.tar.gz"
+        checksum: "{{ openbao_acme_checksum }}"
+        mode: "0644"
+
+    - name: Create lego staging dir
+      ansible.builtin.file:
+        path: "/tmp/lego_{{ openbao_acme_version }}"
+        state: directory
+        mode: "0755"
+
+    - name: Extract lego
+      ansible.builtin.unarchive:
+        src: "/tmp/lego_{{ openbao_acme_version }}.tar.gz"
+        dest: "/tmp/lego_{{ openbao_acme_version }}"
+        remote_src: true
+
+    - name: Install lego binary
+      ansible.builtin.copy:
+        src: "/tmp/lego_{{ openbao_acme_version }}/lego"
+        dest: "{{ openbao_acme_bin }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+# --- State dir + credentials + scripts ----------------------------------------
+- name: Create ACME state directory
+  ansible.builtin.file:
+    path: "{{ openbao_acme_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write Cloudflare credentials env file
+  ansible.builtin.copy:
+    content: "CLOUDFLARE_DNS_API_TOKEN={{ openbao_acme_cf_token }}\n"
+    dest: "{{ openbao_acme_dir }}/cloudflare.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Install the obtain/renew wrapper and deploy hook
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/usr/local/bin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - openbao-acme.sh
+    - openbao-acme-deploy.sh
+
+- name: Install the ACME systemd service + timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - openbao-acme.service
+    - openbao-acme.timer
+
+# --- Obtain the first cert (deploys to bao + reloads via SIGHUP) ---------------
+- name: Obtain the initial certificate and deploy it
+  ansible.builtin.command: /usr/local/bin/openbao-acme.sh
+  environment:
+    CLOUDFLARE_DNS_API_TOKEN: "{{ openbao_acme_cf_token }}"
+  args:
+    creates: "{{ openbao_acme_dir }}/certificates/{{ openbao_acme_domain }}.crt"
+  no_log: true
+
+- name: Enable and start the renewal timer
+  ansible.builtin.systemd:
+    name: openbao-acme.timer
+    state: started
+    enabled: true
+    daemon_reload: true

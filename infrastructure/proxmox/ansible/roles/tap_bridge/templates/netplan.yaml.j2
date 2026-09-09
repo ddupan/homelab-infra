@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+# Bridge for emulator TAP interfaces. Separate from 50-cloud-init.yaml on
+# purpose: cloud-init rewrites its own file, and it only claims the primary
+# NIC (matched by MAC), so this file can own the second NIC without conflict.
+network:
+  version: 2
+  ethernets:
+    {{ tap_bridge_member }}:
+      match:
+        macaddress: "{{ tap_bridge_member_mac }}"
+      set-name: {{ tap_bridge_member }}
+      dhcp4: false
+      dhcp6: false
+      accept-ra: false
+      # optional: do not let systemd-networkd-wait-online block boot for a port
+      # that has no L3 config and may have nothing plugged behind it.
+      optional: true
+  bridges:
+    {{ tap_bridge_name }}:
+      interfaces: [{{ tap_bridge_member }}]
+      dhcp4: false
+      dhcp6: false
+      accept-ra: false
+      optional: true
+      parameters:
+        # STP off + zero forward delay: taps appear and disappear every time an
+        # emulated machine is powered on. With STP the bridge would hold each
+        # new port in learning state for ~15s and silently drop the guest's
+        # first packets, which looks exactly like a broken guest TCP/IP stack.
+        # Safe here because this bridge has a single uplink -- no loop is
+        # possible.
+        stp: false
+        forward-delay: 0

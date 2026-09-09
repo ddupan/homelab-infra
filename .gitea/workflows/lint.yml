@@ -1,0 +1,107 @@
+---
+# Stage 1 of the infra pipeline: static checks only. No cluster access, no
+# credentials, no mutation — so this is safe to run on every push from day one.
+#
+# Stages 2 (kubectl --dry-run=server) and 3 (k3d / molecule) come later and DO
+# need cluster access; keep them in separate workflows so a credential problem
+# there can never block this one.
+name: lint
+
+on:
+  push:
+  pull_request:
+
+env:
+  # pypi.org is NOT reachable from this network — it resolves fine but TCP/443 to
+  # Fastly (151.101.x) times out, while github.com and cloudflare.com are fine.
+  # This is not the usual flaky-WAN symptom and a plain `uv tool install` will
+  # hang until timeout. Use a mirror; verified reachable 2026-07-28.
+  UV_DEFAULT_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
+
+  # ansible-lint and ansible-core install as SEPARATE uv tools, each with its own
+  # venv. Collections installed under the ansible-core tool are invisible to
+  # ansible-lint, which then reports every module as `syntax-check[unknown-module]`
+  # — a false failure that looks exactly like a real one. Pin both to a shared path.
+  ANSIBLE_COLLECTIONS_PATH: /root/.ansible/collections
+
+jobs:
+  yaml:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        # The WAN drops at random (see CLAUDE.md); retry rather than fail a run.
+        run: |
+          for i in 1 2 3 4 5; do
+            uv tool install yamllint --quiet && break
+            echo "attempt $i failed"; sleep 10
+          done
+          uv tool list | grep -q yamllint
+
+      - name: yamllint
+        # --no-warnings so line-length stays advisory. Errors block.
+        # netboot/ is vendored upstream and excluded in .yamllint.yml,
+        # but they are also excluded here so the file list stays small.
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          files=$(git ls-files '*.yaml' '*.yml' | grep -vE '^apps/netboot/')
+          yamllint -c .yamllint.yml --no-warnings -f parsable $files
+
+  ansible:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ansible-lint and collections
+        # pywinrm is not optional — without it every ansible.windows.* task dies
+        # with "No module named 'winrm'" (CLAUDE.md documents this trap).
+        run: |
+          for i in 1 2 3 4 5; do
+            uv tool install ansible-core --with ansible --with paramiko --with pywinrm --quiet && break
+            echo "attempt $i failed"; sleep 10
+          done
+          for i in 1 2 3 4 5; do
+            uv tool install ansible-lint --quiet && break
+            echo "attempt $i failed"; sleep 10
+          done
+          export PATH="$HOME/.local/bin:$PATH"
+          for p in infrastructure/proxmox infrastructure/samba-ad infrastructure/openbao; do
+            ansible-galaxy collection install \
+              -r "$p/ansible/requirements.yml" -p "$ANSIBLE_COLLECTIONS_PATH"
+          done
+
+      - name: ansible-lint
+        # Each project has its own ansible.cfg and relative roles_path, so lint
+        # must run from inside each one — a single run at the repo root resolves
+        # roles_path incorrectly and reports spurious missing-role errors.
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          rc=0
+          for p in infrastructure/openbao infrastructure/samba-ad infrastructure/proxmox; do
+            echo "::group::$p"
+            (cd "$p/ansible" && ansible-lint -c ../../../.ansible-lint --nocolor -f pep8 .) || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+  terraform:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: fmt and validate
+        # -backend=false so validate never touches real state or needs credentials.
+        # These roots deliberately use different providers AND different interactive
+        # auth (bao login -method=oidc, az login), which is exactly why they are not
+        # merged — so validate is as far as static checking can go here.
+        run: |
+          rc=0
+          for d in $(git ls-files '*.tf' | xargs -n1 dirname | sort -u); do
+            echo "::group::$d"
+            terraform -chdir="$d" fmt -check -diff || rc=1
+            terraform -chdir="$d" init -backend=false -input=false || rc=1
+            terraform -chdir="$d" validate || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc

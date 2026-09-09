@@ -1,0 +1,41 @@
+# One wildcard cert serving every LAN service on the shared Contour gateway.
+#
+# WHY A WILDCARD rather than a cert per service:
+#   1. Certificate Transparency. Per-host LE certs publish every internal hostname
+#      to public CT logs, making the whole internal estate enumerable. A single
+#      *.ad.ddupan.top entry leaks one name and hides the rest.
+#   2. The Gateway's HTTPS listener needs exactly one certificateRef to cover all
+#      hostnames; a new service then needs only an HTTPRoute + a DNS A record, with
+#      no cert work and no Gateway edit at all.
+#   3. Fewer ACME orders against Let's Encrypt rate limits.
+#
+# Lives in envoy-gateway-system because a Gateway listener may only reference a Secret
+# in the Gateway's OWN namespace (cross-namespace refs need a ReferenceGrant).
+# Was projectcontour until the gateway moved to Envoy Gateway — see ../envoy-gateway.
+#
+# NOTE the bare apex `ad.ddupan.top` is listed as well: a wildcard covers
+# one label only, so `*.ad.ddupan.top` does NOT match `ad.ddupan.top` itself.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-ad-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: wildcard-ad-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "*.ad.ddupan.top"
+  dnsNames:
+    - "*.ad.ddupan.top"
+    - "ad.ddupan.top"
+  # Renew with 30 days to spare. The WAN is unreliable, so leave a wide window for
+  # retries rather than the default cutting it fine.
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always

@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars (gitignored) and fill in, or export TF_VAR_netbox_token.
+netbox_token = "nbt_xxxxxxxx.yyyyyyyy"

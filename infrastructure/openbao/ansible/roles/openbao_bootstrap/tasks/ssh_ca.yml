@@ -1,0 +1,62 @@
+---
+# SSH certificate authority: sign short-lived client certs for the ai-agent role.
+
+- name: Enable the SSH secrets engine at {{ openbao_ssh_mount }}/
+  ansible.builtin.command: "bao secrets enable -path={{ openbao_ssh_mount }} ssh"
+  environment: "{{ openbao_cli_env }}"
+  register: ssh_enable
+  changed_when: ssh_enable.rc == 0
+  failed_when:
+    - ssh_enable.rc != 0
+    - "'already in use' not in (ssh_enable.stderr | default('')) + (ssh_enable.stdout | default(''))"
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: Check whether the SSH CA signing key already exists
+  ansible.builtin.command: "bao read -field=public_key {{ openbao_ssh_mount }}/config/ca"
+  environment: "{{ openbao_cli_env }}"
+  register: ssh_ca_check
+  changed_when: false
+  failed_when: false
+  no_log: "{{ openbao_no_log }}"
+
+- name: Generate the SSH CA signing key (once)
+  ansible.builtin.command: "bao write {{ openbao_ssh_mount }}/config/ca generate_signing_key=true"
+  environment: "{{ openbao_cli_env }}"
+  when: ssh_ca_check.rc != 0
+  register: ssh_ca_gen
+  changed_when: ssh_ca_gen.rc == 0
+  no_log: "{{ openbao_no_log }}"
+
+- name: Create/update the ai-agent signing role
+  ansible.builtin.command: "bao write {{ openbao_ssh_mount }}/roles/ai-agent -"
+  args:
+    stdin: "{{ lookup('template', 'ssh-ai-agent-role.json.j2') }}"
+  environment: "{{ openbao_cli_env }}"
+  register: ssh_role
+  changed_when: ssh_role.rc == 0
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool
+
+- name: Fetch the SSH CA public key
+  ansible.builtin.command: "bao read -field=public_key {{ openbao_ssh_mount }}/config/ca"
+  environment: "{{ openbao_cli_env }}"
+  register: ssh_ca_public
+  changed_when: false
+  no_log: "{{ openbao_no_log }}"
+
+- name: Save the SSH CA public key on the bao host (for cert-authority lines)
+  ansible.builtin.copy:
+    content: "{{ ssh_ca_public.stdout }}\n"
+    dest: "{{ openbao_ssh_ca_pub_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Show the cert-authority line for no-root target hosts
+  ansible.builtin.debug:
+    msg: >-
+      Add to ~/.ssh/authorized_keys on each target (scope per node):
+      cert-authority,principals="<node>",restrict,pty {{ ssh_ca_public.stdout }}

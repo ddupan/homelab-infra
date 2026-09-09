@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# SSSD in AD mode: identity + authentication for interactive login.
+[sssd]
+domains = {{ samba_ad_realm | lower }}
+config_file_version = 2
+services = nss, pam
+
+[domain/{{ samba_ad_realm | lower }}]
+id_provider = ad
+access_provider = {{ 'simple' if ad_sssd_allow_groups else 'ad' }}
+{% if ad_sssd_allow_groups %}
+simple_allow_groups = {{ ad_sssd_allow_groups | join(', ') }}
+{% endif %}
+ad_domain = {{ samba_ad_realm | lower }}
+krb5_realm = {{ samba_ad_realm | upper }}
+realmd_tags = manages-system joined-with-adcli
+cache_credentials = true
+krb5_store_password_if_offline = true
+# Log in as `alice`, not `alice@ad.ddupan.top`.
+use_fully_qualified_names = {{ 'true' if ad_sssd_use_fqn else 'false' }}
+fallback_homedir = {{ ad_sssd_fallback_homedir }}
+default_shell = {{ ad_sssd_shell }}
+ldap_id_mapping = true

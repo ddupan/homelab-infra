@@ -1,0 +1,37 @@
+---
+# samba_ad_dc role defaults — override in group_vars/host_vars.
+# Secrets (samba_ad_admin_password) MUST come from an Ansible Vault file, not here.
+
+samba_ad_realm: "AD.EXAMPLE.COM"        # DNS realm, uppercase. Delegated subdomain you own.
+samba_ad_domain: "EXAMPLE"              # NetBIOS / short name, <=15 chars, uppercase, no dots.
+samba_ad_dc_hostname: "dc1"             # short hostname of this DC
+samba_ad_dc_ip: "10.10.10.10"          # this DC's static IP (used for /etc/hosts + resolv.conf)
+samba_ad_dns_forwarder: "10.10.10.1"   # where the DC forwards non-AD lookups
+
+# Reverse DNS zone to create after provision (optional; empty string skips it).
+# Give the in-addr.arpa name directly, e.g. "10.10.10.in-addr.arpa" for 10.10.10.0/24.
+samba_ad_reverse_zone: ""
+
+# Extra A records to publish in the AD DNS zone for non-domain hosts (e.g. OpenBao).
+# List of {name, ip}. Added with the DC machine account (-P) — no admin password.
+samba_ad_extra_a_records: []
+
+# Re-enable legacy protocols (SMB1/NTLMv1/LANMAN) for Win9x/NT4/2000/XP. INSECURE.
+samba_ad_legacy_clients: false
+
+# Package set (Debian/Ubuntu). RHEL-family names differ — adjust if you switch base.
+samba_ad_packages:
+  - samba
+  - krb5-config
+  - krb5-user        # kinit/klist for admin + smoke tests
+  - winbind
+  - smbclient
+  - ldb-tools
+  - chrony
+
+# Distro daemons that MUST be stopped on an AD DC (the unified `samba` service owns these roles).
+samba_ad_conflicting_services:
+  - smbd
+  - nmbd
+  - winbind
+  - systemd-resolved   # stub listener freed separately; service left running but stub disabled

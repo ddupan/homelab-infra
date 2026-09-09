@@ -1,0 +1,47 @@
+---
+# Storage config lives in /etc/pve/storage.cfg, which is replicated cluster-wide,
+# so this runs once against a single node.
+
+- name: Check whether the storage is already defined
+  ansible.builtin.command:
+    cmd: "pvesm status --storage {{ pve_nfs_storage_id }}"
+  register: _nfs_exists
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Add the NFS storage
+  ansible.builtin.command:
+    cmd: >-
+      pvesm add nfs {{ pve_nfs_storage_id }}
+      --server {{ pve_nfs_server }}
+      --export {{ pve_nfs_export }}
+      --content {{ pve_nfs_content }}
+      {% if pve_nfs_options %}--options {{ pve_nfs_options }}{% endif %}
+  when: _nfs_exists.rc != 0
+  run_once: true
+
+- name: Wait for it to come active
+  # NFS storage is only usable once every node has mounted it; PVE mounts lazily.
+  ansible.builtin.command:
+    cmd: "pvesm status --storage {{ pve_nfs_storage_id }}"
+  register: _nfs_status
+  until: "'active' in (_nfs_status.stdout | default(''))"
+  retries: 12
+  delay: 5
+  changed_when: false
+  run_once: true
+
+- name: Verify every node can actually see it
+  # A cluster-wide storage entry that only ONE node can mount is a silent trap:
+  # migrations and backups fail on the others. Check per-node, not just once.
+  ansible.builtin.command:
+    cmd: "pvesm status --storage {{ pve_nfs_storage_id }}"
+  register: _nfs_node
+  changed_when: false
+  failed_when: "'active' not in (_nfs_node.stdout | default(''))"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ _nfs_node.stdout_lines | select('search', pve_nfs_storage_id) | list }}"

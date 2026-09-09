@@ -1,0 +1,120 @@
+# Root ignore rules. Per-service .gitignore files (samba-ad/, proxmox/, openbao/,
+# smtp-relay/, netbox/, cert-manager/) still own their own vault/secret paths —
+# this file covers everything added since those were written.
+
+# ─── Secrets ───────────────────────────────────────────────────────────────
+# Real values only; the committed *.example.* templates are the documentation.
+
+# The ansible-vault password. Shared by every project's ansible.cfg via a
+# relative path. The ENCRYPTED group_vars/all/vault.yml files ARE committed —
+# this file is the only thing that must never be. A copy lives in OpenBao at
+# kv/infra/ansible-vault for recovery.
+.vault_pass
+.env
+*/certs/*.key
+**/certs/*.key
+# live Tailscale OAuth clientId + clientSecret on argv
+tailscale/helm.sh
+gitea/gitea-oidc-secret.yaml
+# Cloudflare tunnel credentials: TunnelSecret grants full control of the tunnel.
+# (root:root 0640 on disk, which is what made `git add` fail rather than commit it.)
+cloudflared/backup/
+# Real tunnel token; secret.example.yaml is the committed template.
+cloudflared/secret.yaml
+
+# Live OpenAI OAuth material — these carry refresh_tokens, which do not expire
+# when the access_token does. Innocuous filenames, so no pattern rule catches them.
+codex-proxy/data/
+litellm-gateway/auth.json
+
+# Hardcoded Keycloak admin password (bootstrap curl + manifest). The stack is
+# RETIRED and its namespace deleted, so the credential should be dead — but it is
+# a real password, so it stays out. RETIRED.md documents what these did.
+keycloak/keycloak-bootstrap-configmap.yaml
+keycloak/keycloak.yaml
+
+# Real Gitea DB password; secret.example.yaml is the committed template.
+# gitea-values.yaml itself is now tracked — it references this Secret via
+# additionalConfigFromEnvs instead of embedding the credential.
+gitea/secret.yaml
+
+# Real Authelia secret material (LDAP bind, storage/session encryption keys,
+# OIDC hmac and the JWKS signing key). secret.example.yaml is the template.
+authelia/secret.yaml
+
+# These location-independent forms keep secrets ignored when service directories
+# move under apps/, platform/ or infrastructure/.
+**/.vault_pass
+**/.env
+**/secret.yaml
+**/credentials.yml
+**/terraform.tfvars
+**/tailscale/helm.sh
+**/cloudflared/backup/
+**/cloudflared/secret.yaml
+**/codex-proxy/data/
+**/litellm-gateway/auth.json
+**/gitea/gitea-oidc-secret.yaml
+**/keycloak/keycloak-bootstrap-configmap.yaml
+**/keycloak/keycloak.yaml
+**/proxmox/pxe/
+**/smtp-relay/.noreply-password
+
+
+# ─── Terraform ─────────────────────────────────────────────────────────────
+# A .tfplan is a zip that EMBEDS a full tfstate, so it walks straight past the
+# *.tfstate rules below. Ignore plans everywhere, not just in openbao/.
+*.tfplan
+*.tfstate
+*.tfstate.*
+.terraform/
+# Terraform's default saved-plan names have no extension. A plan embeds the
+# complete state, so ignore both the conventional name and numbered variants.
+tfplan*
+
+# Python bytecode is generated locally and is never infrastructure source.
+__pycache__/
+*.py[cod]
+# NOTE: .terraform.lock.hcl is deliberately NOT ignored — provider versions must
+# be pinned and reproducible. openbao/ and netbox/ currently ignore it locally;
+# that is backwards and should be removed from those two files.
+
+# ─── Vendored / generated ──────────────────────────────────────────────────
+node_modules/
+# prebuilt .node binaries, ~23MB each
+
+# ─── Large binary artifacts ────────────────────────────────────────────────
+# ML model blobs (~3.6GB), refetched from HuggingFace on demand.
+apps/openviking/models/
+
+# netboot.xyz: keep the hand-written sources, drop the bulk and the mirrors.
+#
+# assets/ is 8.5GB of ISOs, WIMs and initrds — but assets/proxmox/ also holds
+# hand-written per-node iPXE scripts and pve-iso-2-pxe.sh, which ARE the
+# reinstall procedure. Exclude the tree, then re-admit source files.
+apps/netboot/assets/**
+!apps/netboot/assets/**/
+!apps/netboot/assets/**/*.ipxe
+!apps/netboot/assets/**/*.sh
+
+# buildout/ is container-generated (root-owned, uniform mtime) rolling upstream.
+apps/netboot/buildout/
+
+# Pristine upstream clone of netbootxyz/netboot.xyz (development @ 3.0.2-104, no
+# local commits). Staging it would create a gitlink with no .gitmodules — a
+# broken half-submodule. Re-clone it instead of vendoring it.
+netboot.xyz/
+
+# config/menus/ is the pinned upstream 3.0.2 menu release, re-downloaded by the
+# container. Only boot.cfg (local win_base_url) and local-vars.ipxe are ours.
+apps/netboot/config/menus/**
+!apps/netboot/config/menus/**/
+!apps/netboot/config/menus/boot.cfg
+!apps/netboot/config/menus/local-vars.ipxe
+
+# Runtime logs from the netboot appliance nginx.
+apps/netboot/config/log/
+
+# Blocky's per-day query logs. Bind-mounted into the container, one file per
+# day, and every DNS query the LAN makes ends up in them.
+apps/blocky/logs/

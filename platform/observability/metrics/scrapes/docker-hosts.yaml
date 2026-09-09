@@ -1,0 +1,29 @@
+# Pull metrics from Docker hosts running ../../docker-hosts/compose.yaml.
+# vmagent scrapes each host's node-exporter (:9100) and cAdvisor (:8080) over the LAN.
+# Add one target block per host; keep the `host` label in sync with its HOST_LABEL.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: docker-hosts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  jobName: docker-hosts
+  targetEndpoints:
+    # --- docker-01 (192.168.10.127) ---
+    - targets:
+        - "192.168.10.127:9100"
+      labels:
+        job: node-exporter
+        host: docker-01
+    - targets:
+        - "192.168.10.127:8080"
+      labels:
+        job: cadvisor
+        host: docker-01
+    # --- add more hosts below, mirroring the two blocks above ---
+    # - targets: ["192.168.10.x:9100"]
+    #   labels: { job: node-exporter, host: docker-02 }
+    # - targets: ["192.168.10.x:8080"]
+    #   labels: { job: cadvisor, host: docker-02 }

@@ -1,0 +1,55 @@
+---
+# Resolver configuration.
+#
+# ORDER MATTERS AND IS NOT ARBITRARY:
+#   .5  = Samba AD DC (dc1) -- AUTHORITATIVE for ad.ddupan.top AND forwards
+#         external queries onward. Resolves both internal and public names.
+#   .1  = LAN router -- resolves public names ONLY. Internal ad.ddupan.top
+#         lookups return EMPTY here (verified 2026-07-25: `dig @192.168.10.1
+#         bao.ad.ddupan.top` -> nothing, while @192.168.10.5 -> 192.168.10.8).
+#
+# The installer left these nodes pointing at .1 alone, which silently broke
+# every internal name -- including the OpenBao CA fetch and, later, the AD
+# realm. .1 is kept as a SECOND entry purely so public DNS survives the DC
+# being down (dc1 is a VM on the laptop); internal names correctly fail then.
+
+- name: Configure resolv.conf
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (services/proxmox/ansible, role pve_dns).
+      search {{ pve_dns_search }}
+      {% for ns in pve_nameservers %}
+      nameserver {{ ns }}
+      {% endfor %}
+
+- name: Verify an internal name now resolves
+  # Guards against a regression that would otherwise only surface much later as
+  # a confusing failure in an unrelated role.
+  ansible.builtin.command:
+    cmd: getent hosts {{ pve_dns_probe_name }}
+  register: _dns_probe
+  changed_when: false
+  failed_when: _dns_probe.rc != 0
+  retries: 3
+  delay: 5
+  until: _dns_probe is succeeded
+
+# ── address-family preference ─────────────────────────────────────────────
+# These nodes are IPv4-ONLY: no global IPv6 address, no default IPv6 route
+# (verified 2026-07-25). But the DC returns AAAA records and glibc hands those
+# out first, so anything resolving a dual-stack name tries a dead IPv6 path.
+# That is exactly how `apt update` against packages.linbit.com stalled: it
+# resolved to 2a01:4f8:1c1c:6ab9::1 and hung, while IPv4 answered fine.
+#
+# Prefer IPv4 system-wide until this LAN actually has IPv6 egress.
+- name: Prefer IPv4 over IPv6 in glibc resolution
+  ansible.builtin.copy:
+    dest: /etc/gai.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (services/proxmox/ansible, role pve_dns).
+      # Raise the precedence of IPv4-mapped addresses above native IPv6 so
+      # getaddrinfo() returns A records first on this IPv4-only network.
+      precedence ::ffff:0:0/96  100

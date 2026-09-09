@@ -1,0 +1,37 @@
+---
+# Join a Linux host to AD for INTERACTIVE LOGIN, via realmd + SSSD.
+#
+# WHY NOT `samba_member`: that role makes a host an AD member FILE SERVER —
+# smb.conf, smbd/nmbd, winbind in NSS only, and its own comment says
+# "no PAM/login change". It deliberately cannot log a domain user in.
+# This role is the other half: PAM/SSSD so domain users can actually sign in
+# (RDP, console, ssh), with no SMB serving at all.
+#
+# Use samba_member for a fileserver, this for a workstation. A host could run
+# both, but neither implies the other.
+
+ad_sssd_packages:
+  - sssd-ad
+  - sssd-tools
+  - realmd
+  - adcli
+  - krb5-user
+  - oddjob
+  - oddjob-mkhomedir
+  - libnss-sss
+  - libpam-sss
+
+# Domain users log in as `user` rather than `user@realm`.
+ad_sssd_use_fqn: false
+ad_sssd_fallback_homedir: "/home/%u"
+ad_sssd_shell: "/bin/bash"
+
+# Restrict who may log in. EMPTY = every domain user can, which on a lab box
+# reachable from the LAN is broader than it looks. Prefer naming a group.
+# pve-admins is nested INSIDE retrolab-users, so admins get lab login without
+# lab users gaining Proxmox rights. SSSD resolves nested AD groups.
+ad_sssd_allow_groups: [retrolab-users]
+
+# Credentials for the join itself (creates a computer account in AD).
+ad_sssd_join_user: Administrator
+ad_sssd_join_password: "{{ vault_samba_ad_admin_password }}"

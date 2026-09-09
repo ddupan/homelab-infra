@@ -1,0 +1,50 @@
+# Per-Docker-host monitoring sidecar. Deploy this compose on every Docker host you
+# want visible in the observability stack. It exposes host + container metrics for the
+# cluster's vmagent to PULL over the LAN, and pushes container logs to VictoriaLogs.
+#
+#   cp .env.example .env   # set HOST_LABEL + VLOGS_ENDPOINT
+#   docker compose up -d
+#
+# Then add this host's IP to ../metrics/scrapes/docker-hosts.yaml (VMStaticScrape).
+services:
+  # Host metrics (CPU/mem/disk/net/fs). host networking -> listens on <hostIP>:9100.
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.9.1
+    command:
+      - --path.rootfs=/host
+    network_mode: host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+
+  # Container metrics. Published on <hostIP>:8080. If 8080 is taken on this host,
+  # remap the left side (e.g. "8098:8080") and update the VMStaticScrape target.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    command:
+      - --housekeeping_interval=30s
+      - --docker_only=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    privileged: true
+    restart: unless-stopped
+
+  # Ships every container's logs to VictoriaLogs (pushed over the tailnet).
+  vector:
+    image: timberio/vector:0.44.0-debian
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+    environment:
+      VLOGS_ENDPOINT: ${VLOGS_ENDPOINT}
+      HOST_LABEL: ${HOST_LABEL}
+    restart: unless-stopped

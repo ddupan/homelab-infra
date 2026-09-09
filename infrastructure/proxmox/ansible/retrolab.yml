@@ -1,0 +1,41 @@
+---
+# 86Box host: desktop + RDP. AD join is NOT here — that uses the shared
+# `ad_sssd_join` role in ../../samba-ad/ansible (join-sssd.yml), so every
+# Linux host joins the domain the same way.
+- name: Retro lab desktop
+  hosts: retrolab
+  gather_facts: true
+
+  environment:
+    # DO NOT REMOVE. This host holds long-lived interactive desktop sessions.
+    # Ubuntu's needrestart hooks apt and, in non-interactive mode, RESTARTS any
+    # service linked against an upgraded library. On 2026-07-25 an unrelated
+    # `apt install patchelf libcap2-bin` pulled in a libcap2 upgrade, which made
+    # needrestart restart xrdp-sesman. sesman came back with an empty session
+    # table and could no longer reattach the running :10 session, stranding a
+    # live 86Box VM: every reconnect created a NEW session, and xfce4-session
+    # refuses to start twice for one user, so each new session died instantly.
+    # `l` = list what would need restarting, restart nothing.
+    NEEDRESTART_MODE: l
+
+  vars:
+    # ISO library, served from the laptop (the same export PVE mounts as its
+    # `laptop` storage). Mounted READ-ONLY: it is where 86Box picks CD images
+    # from, and nothing on the retro side should ever write to the library.
+    nfs_mounts:
+      - src: "192.168.10.127:/mnt/pool/proxmox/template/iso"
+        path: /mnt/iso
+
+    # The bridge 86Box attaches its TAP interfaces to. net1 (retronet, VLAN
+    # 110) deliberately has no IP on the host — see roles/tap_bridge/defaults.
+    tap_bridge_name: br-retro
+    tap_bridge_member: enp6s19
+    tap_bridge_member_mac: "bc:24:11:9f:63:ed"
+    retro_86box_tap_bridge: br-retro
+
+  roles:
+    - guest_base
+    - retro_desktop
+    - nfs_mounts
+    - tap_bridge
+    - retro_86box

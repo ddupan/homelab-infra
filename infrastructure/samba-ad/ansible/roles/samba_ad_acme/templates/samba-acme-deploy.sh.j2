@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Install a freshly issued/renewed cert into Samba's TLS dir.
+# lego passes the paths in LEGO_CERT_PATH / LEGO_CERT_KEY_PATH.
+set -euo pipefail
+
+TLS="{{ samba_ad_acme_tls_dir }}"
+CRT="${LEGO_CERT_PATH:-{{ samba_ad_acme_dir }}/certificates/{{ samba_ad_acme_domain }}.crt}"
+KEY="${LEGO_CERT_KEY_PATH:-{{ samba_ad_acme_dir }}/certificates/{{ samba_ad_acme_domain }}.key}"
+ISS="${CRT%.crt}.issuer.crt"
+
+install -o root -g root -m 0644 "${CRT}" "${TLS}/cert.pem"
+install -o root -g root -m 0600 "${KEY}" "${TLS}/key.pem"
+[ -s "${ISS}" ] && install -o root -g root -m 0644 "${ISS}" "${TLS}/ca.pem"
+
+# Samba re-reads its TLS credentials PER CONNECTION, so a renewal normally goes
+# live with no restart and no LDAPS downtime (observed 2026-07-25). Do not assume
+# it though: if the served cert does not match what we just installed, the old one
+# is still being handed out and would eventually expire in place. Verify, and only
+# restart if we must — that keeps the common path at zero downtime while making
+# the failure mode loud instead of silent.
+new="$(openssl x509 -noout -fingerprint -sha256 -in "${TLS}/cert.pem" | cut -d= -f2)"
+served="$(echo | timeout 10 openssl s_client -connect 127.0.0.1:636 2>/dev/null \
+          | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 || true)"
+
+if [ "${new}" != "${served}" ]; then
+    echo "served cert != installed cert; restarting samba-ad-dc to load it"
+    systemctl restart samba-ad-dc
+else
+    echo "samba already serving the new cert; no restart needed"
+fi

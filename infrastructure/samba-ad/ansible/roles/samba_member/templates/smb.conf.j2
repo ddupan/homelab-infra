@@ -1,0 +1,72 @@
+#
+# smb.conf — Samba as an Active Directory DOMAIN MEMBER (fileserver).
+# MANAGED BY ANSIBLE (role: samba_member). Manual edits WILL be overwritten.
+# Converted from the previous standalone config, backed up to smb.conf.pre-ads.
+#
+[global]
+   # --- AD domain membership ---
+   workgroup = {{ samba_ad_domain }}
+   realm = {{ samba_ad_realm }}
+   security = ADS
+   netbios name = {{ samba_member_netbios_name }}
+   server string = %h server (Samba, Ubuntu)
+
+   # Authenticate against the DC; keep the machine-account keytab in sync.
+   kerberos method = secrets and keytab
+   winbind refresh tickets = yes
+   winbind use default domain = {{ 'yes' if samba_member_use_default_domain else 'no' }}
+   winbind offline logon = yes
+   winbind enum users = no
+   winbind enum groups = no
+
+   # --- ID mapping (algorithmic RID — no RFC2307 attrs required) ---
+   idmap config * : backend = tdb
+   idmap config * : range = {{ samba_member_idmap_default_range }}
+   idmap config {{ samba_ad_domain }} : backend = rid
+   idmap config {{ samba_ad_domain }} : range = {{ samba_member_idmap_domain_range }}
+
+   template shell = {{ samba_member_template_shell }}
+   template homedir = {{ samba_member_template_homedir }}
+
+   # --- logging ---
+   log file = /var/log/samba/log.%m
+   max log size = 1000
+   logging = file
+   panic action = /usr/share/samba/panic-action %d
+
+   # --- guest handling (kept for the guest [win] share) ---
+   map to guest = bad user
+   usershare allow guests = yes
+
+   # Cockpit-managed ZFS shares (file created on demand by Cockpit; skipped if absent).
+   include = /etc/cockpit/zfs/shares.conf
+
+# ---------------------------------------------------------------------------
+# Printer sharing (stock Ubuntu defaults, preserved)
+# ---------------------------------------------------------------------------
+[printers]
+   comment = All Printers
+   browseable = no
+   path = /var/tmp
+   printable = yes
+   guest ok = no
+   read only = yes
+   create mask = 0700
+
+[print$]
+   comment = Printer Drivers
+   path = /var/lib/samba/printers
+   browseable = yes
+   read only = yes
+   guest ok = no
+
+# ---------------------------------------------------------------------------
+# Custom shares (preserved from the pre-join standalone config)
+# ---------------------------------------------------------------------------
+{% for s in samba_member_shares %}
+[{{ s.name }}]
+{% for k, v in s.options.items() %}
+   {{ k }} = {{ v }}
+{% endfor %}
+
+{% endfor %}

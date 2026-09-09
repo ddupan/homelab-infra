@@ -1,0 +1,31 @@
+---
+# Non-secret variables for the OpenBao deploy. EDIT to your environment.
+# Secrets (transit unseal token) live in group_vars/all/vault.yml — see vault.example.yml.
+
+# --- Release (pinned + checksum-verified) ---
+# Bump both together. Get the checksum from the release's checksums.txt:
+#   curl -sL https://github.com/openbao/openbao/releases/download/v<VER>/checksums.txt \
+#     | grep openbao_<VER>_linux_amd64.tar.gz
+openbao_version: "2.6.1"
+openbao_download_checksum: "sha256:ca8d836eb3a5c80407e45e762300b64e7138c419e78826955f2e4ba4ce6d8a6b"
+
+# --- Identity / addresses ---
+openbao_fqdn: "bao.ad.ddupan.top"       # A record on the Samba DC (ad.ddupan.top zone)
+openbao_lan_ip: "192.168.10.8"          # bao's LAN IP — pods use this; also the VM's static IP
+
+# --- Optional host firewall ---
+# Restrict the API/cluster ports to tailnet + cluster once you're ready (needs ufw).
+openbao_manage_firewall: false
+openbao_allowed_cidrs:
+  - "100.64.0.0/10"       # Tailscale CGNAT range (remote humans + laptop agent)
+  - "192.168.10.0/24"     # LAN / k8s cluster
+
+# --- Auto-unseal (transit) ---
+# Leave OFF for the first init so you do a normal Shamir init (keys handed to you).
+# Turn ON once a second bao/transit source exists, then supply the token from vault
+# and re-run the play (a restart re-reads config; auto-unseal makes restarts hands-off).
+openbao_auto_unseal: false
+openbao_transit_address: "https://bao-seal.ddupan.top:8200"
+openbao_transit_key_name: "autounseal"
+openbao_transit_mount_path: "transit/"
+openbao_transit_token: "{{ vault_openbao_transit_token | default('') }}"

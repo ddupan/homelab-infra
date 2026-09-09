@@ -1,0 +1,6 @@
+---
+- name: Restart pve-floppy-ui
+  ansible.builtin.systemd_service:
+    name: pve-floppy-ui
+    state: restarted
+    daemon_reload: true

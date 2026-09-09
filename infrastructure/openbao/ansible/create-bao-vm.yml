@@ -1,0 +1,16 @@
+---
+# Create the OpenBao host as a small Ubuntu VM locally via libvirt + cloud-init.
+# Runs on the libvirt host itself (localhost / qemu:///system).
+#   ansible-playbook create-bao-vm.yml
+# Then deploy + initialize OpenBao:
+#   ansible-playbook provision-openbao.yml --ask-vault-pass
+#
+# Deliberately its own minimal VM — NOT co-located on the DC or the k8s host — so the
+# secrets/CA root-of-trust stays out of the blast radius of what it protects.
+- name: Create the OpenBao VM
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  roles:
+    - role: bao_vm

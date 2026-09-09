@@ -1,0 +1,43 @@
+# OpenBao's internal PKI over ACME (../../infrastructure/openbao/terraform/pki.tf).
+#
+# WHEN TO PREFER THIS OVER letsencrypt:
+#   * the name must never appear in a public Certificate Transparency log
+#   * issuance/renewal must not depend on the WAN (see netbox/CONTEXT.md §6)
+#   * it is a non-web service (LDAPS, Postgres, syslog) where "browser trusts it
+#     out of the box" buys nothing and the internal CA is already distributed
+#
+# COST: clients must trust the ddupan.top internal CA. Already true for the PVE
+# nodes (pve_ca_trust), Authelia, and the DC — generally NOT true of a fresh browser.
+#
+# Verified 2026-07-25:
+#   * directory live, "externalAccountRequired": false  -> no EAB stanza needed,
+#     matching acme_eab_policy = "not-required" in openbao/terraform
+#   * bao.ad.ddupan.top:8200 serves a REAL Let's Encrypt cert (issuer CN=YE1), so
+#     cert-manager validates it against public roots — no spec.acme.caBundle required
+#   * issuance is capped by default_directory_policy = role:bao-server, which permits
+#     subdomains of ad.ddupan.top only
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: bao-acme
+spec:
+  acme:
+    server: https://bao.ad.ddupan.top:8200/v1/pki/acme/directory
+    # OpenBao ignores the contact address, but ACME clients must send something.
+    email: panxiao81@outlook.com
+    privateKeySecretRef:
+      name: bao-acme-account-key
+    solvers:
+      # http-01, not dns01: bao resolves ad.ddupan.top and can reach LAN hosts
+      # directly (noted as verified in openbao/terraform/pki.tf), so it can fetch
+      # the challenge over the LAN with no public exposure. cert-manager creates a
+      # temporary HTTPRoute on the shared Contour gateway to answer it.
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: contour-gateway
+                namespace: projectcontour
+                kind: Gateway
+                group: gateway.networking.k8s.io
+                sectionName: http     # the plaintext :80 listener

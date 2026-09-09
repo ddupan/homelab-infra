@@ -1,0 +1,33 @@
+---
+# Per-host kernel cmdline additions, driven by `pve_kernel_cmdline_extra` in the
+# inventory. Currently only pve2 sets it (Raven Ridge random-freeze workaround);
+# pve3 is identical silicon but is deliberately left alone -- see inventory.
+#
+# This is a no-op on hosts that do not define the variable.
+
+- name: Set GRUB_CMDLINE_LINUX_DEFAULT
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ pve_kernel_cmdline_extra }}"'
+    backup: true
+  when: pve_kernel_cmdline_extra is defined and pve_kernel_cmdline_extra | length > 0
+  notify: Update grub
+
+- name: Check which extra params are actually active
+  # /proc/cmdline is the only honest source: editing grub without running
+  # update-grub, or rebooting, silently leaves the fix inactive.
+  ansible.builtin.command:
+    cmd: cat /proc/cmdline
+  register: _cmdline
+  changed_when: false
+
+- name: Warn when a configured param is not yet live
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: "{{ item }}" is configured but NOT active in
+      /proc/cmdline -- a reboot is required for it to take effect.
+  loop: "{{ pve_kernel_cmdline_extra.split() }}"
+  when:
+    - pve_kernel_cmdline_extra is defined and pve_kernel_cmdline_extra | length > 0
+    - item not in _cmdline.stdout

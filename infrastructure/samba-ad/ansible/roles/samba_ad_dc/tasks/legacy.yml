@@ -1,0 +1,32 @@
+---
+# Legacy client support — Win9x / NT4 / Win2000 / XP.
+# INSECURE: re-enables SMB1, NTLMv1 and LANMAN auth. Only run on an isolated network.
+# Gated by samba_ad_legacy_clients (default false).
+
+- name: Inject legacy protocol settings into smb.conf [global]
+  ansible.builtin.blockinfile:
+    path: /etc/samba/smb.conf
+    marker: "\t# {mark} ANSIBLE MANAGED — legacy clients (INSECURE)"
+    insertafter: '^\[global\]'
+    block: |2
+            server min protocol = NT1
+            ntlm auth = ntlmv1-permitted
+            lanman auth = yes
+            client lanman auth = yes
+            allow nt4 crypto = yes
+            wins support = yes
+  notify: restart samba-ad-dc
+
+- name: Allow weak Kerberos crypto for Windows 2000 (DES enctypes)
+  ansible.builtin.lineinfile:
+    path: /etc/krb5.conf
+    insertafter: '^\[libdefaults\]'
+    line: "    allow_weak_crypto = true"
+    state: present
+  notify: restart samba-ad-dc
+
+- name: Legacy warning
+  ansible.builtin.debug:
+    msg: >-
+      Legacy client support ENABLED (SMB1/NTLMv1/LANMAN). This materially weakens the
+      domain — keep retro machines on an isolated VLAN. See README "Retro clients".

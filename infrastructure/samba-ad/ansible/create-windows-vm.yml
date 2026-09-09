@@ -1,0 +1,13 @@
+---
+# Create + unattended-install the Windows Server 2025 admin box on local libvirt.
+# Runs on the libvirt host (localhost / qemu:///system).
+#   ansible-playbook create-windows-vm.yml --ask-vault-pass
+# Then join it to the domain + install RSAT + activate:
+#   ansible-playbook join-windows.yml --ask-vault-pass
+- name: Create the Windows Server 2025 admin VM
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  roles:
+    - role: windows_vm

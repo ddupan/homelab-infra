@@ -1,0 +1,30 @@
+---
+# Jumbo frames on the LAN.
+#
+# VERIFIED 2026-07-25: the unmanaged switch passes 8972-byte payloads with DF set
+# between all three nodes, so jumbo works despite there being no managed switch.
+#
+# WHY: (1) DRBD/LINSTOR replicates every write across this single 1G link —
+# larger frames mean fewer interrupts and better throughput on the storage path.
+# (2) It gives VXLAN room for its ~50-byte overhead, so SDN guests keep a normal
+# 1500 MTU instead of being cut to 1450 (retro OSes handle PMTUD badly).
+#
+# SAFETY on a mixed-MTU segment (router/DC/laptop remain 1500): TCP exchanges MSS
+# in the SYN, so each side sends no more than the other advertised — verified,
+# 1472B pings to all three still pass. The residual risk is only large UDP to a
+# 1500-MTU host; there is none here (corosync uses its own netmtu 1500, DNS is
+# small, NFS is TCP).
+pve_network_mtu: 9000
+
+# Make vmbr0 VLAN-aware so PVE SDN "vlan" zones can hang tagged VNets off it.
+#
+# VERIFIED on this LAN 2026-07-25: the unmanaged switch forwards 802.1Q-tagged
+# frames untouched (tested VLAN 100 between nodes at both 1472B and 8972B). Dumb
+# switches forward on MAC only — the tag is opaque payload to them.
+#
+# So VLAN zones beat VXLAN here: native forwarding, no encapsulation overhead, no
+# MTU maths. Trade-off: a dumb switch enforces no isolation, so VLANs give
+# SEGMENTATION, not security — anything on the LAN could inject tagged frames.
+# Fine for lab networks; do not treat a VLAN here as a security boundary.
+pve_network_vlan_aware: true
+pve_network_bridge_vids: "2-4094"

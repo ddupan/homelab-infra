@@ -1,0 +1,26 @@
+---
+# win_ca_trust role defaults.
+#
+# Windows counterpart to services/proxmox/ansible/roles/pve_ca_trust: installs the
+# homelab's internal CA into the machine-wide Trusted Root store so browsers and
+# .NET/PowerShell on this box validate certificates issued by OpenBao's pki/ mount.
+#
+# WHY it is needed now: the Proxmox web UI (:8006) is moving from its self-signed
+# cluster cert to one issued by the internal CA (services/proxmox, role pve_acme).
+# The internal CA is deliberately NOT publicly trusted, so every machine that
+# administers the lab has to be told about it once. Same applies to bao's own PKI
+# consumers and anything else issued off ad.ddupan.top.
+
+# Unauthenticated by design -- the CA is public information, so no token is needed
+# and a CA rotation is picked up simply by re-running this role.
+win_ca_trust_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+
+# Where the PEM is staged on disk. Kept on disk (rather than imported and deleted)
+# so the installed anchor is auditable and the next run can diff against it.
+win_ca_trust_dir: C:\ProgramData\ddupan
+win_ca_trust_file: C:\ProgramData\ddupan\ddupan-internal-ca.crt
+
+# LocalMachine\Root = trusted by every user on the box, including services.
+# CurrentUser would only cover the account Ansible happens to connect as.
+win_ca_trust_store_location: LocalMachine
+win_ca_trust_store_name: Root

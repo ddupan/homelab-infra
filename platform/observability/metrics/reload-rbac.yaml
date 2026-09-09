@@ -1,0 +1,29 @@
+# Enables vmagent scrape-config hot-reload. The operator-generated Role grants the
+# vmagent-main SA secrets [get,watch] but omits [list], which its config-reloader's
+# informer requires — so scrape-config changes stall until vmagent restarts.
+# This supplementary, namespace-scoped Role covers secrets get/list/watch so the
+# reloader works regardless of the operator Role. Scope: Secrets in `monitoring` only.
+# See README-reload.md for background.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vmagent-main-secret-lister
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vmagent-main-secret-lister
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vmagent-main-secret-lister
+subjects:
+  - kind: ServiceAccount
+    name: vmagent-main
+    namespace: monitoring

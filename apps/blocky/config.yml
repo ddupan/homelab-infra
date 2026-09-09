@@ -1,0 +1,109 @@
+# Blocky — LAN resolver, ad-blocker and split-horizon DNS.
+#
+# DEPLOYED 2026-07-28 and verified, but NOT yet the LAN resolver — clients still
+# get the DC/router pair from DHCP. Making it the resolver needs a DHCP change on
+# the NEC IX; see README.md. Until then only clients that query 192.168.10.127
+# explicitly are affected, so this is safely reversible.
+
+ports:
+  # These are the CONTAINER's listen addresses, so they must be unqualified —
+  # 192.168.10.127 does not exist inside a bridge-networked container, and Blocky
+  # exits with "cannot assign requested address" if you put it here.
+  #
+  # Restricting to the LAN address is done on the HOST side, by the explicit
+  # 192.168.10.127:53:53 mapping in compose.yaml. That matters because the laptop
+  # already has :53 bound on 192.168.100.1, 192.168.122.1 (libvirt bridges) and
+  # 127.0.0.53/54 (the resolved stub) — a plain 53:53 mapping would collide.
+  dns: 53
+  # REST API + Prometheus metrics. Not :80, which Envoy already holds.
+  http: 4000
+
+upstreams:
+  # strict = try the group in order rather than racing them. One upstream here,
+  # so the practical effect is "no surprises".
+  strategy: strict
+  groups:
+    default:
+      # The NEC IX, deliberately. NOT a DoH/DoT resolver at Cloudflare:
+      # cloudflare-dns.com lives in 104.21/16 and 172.67/16, exactly the ranges
+      # the NAIST VPN's 58 split-tunnel routes swallow when the tunnel dies. That
+      # would make DNS fail completely in the same silent way that cost hours on
+      # 2026-07-28. Plain UDP to the router keeps working when the tunnel does not.
+      - 192.168.10.1
+
+conditional:
+  # Queries for the AD zone go straight to the DC, which is authoritative. This
+  # replaces the "DC first, router second" resolver ordering that clients use today.
+  mapping:
+    ad.ddupan.top: 192.168.10.5
+    # Reverse lookups for LAN hosts — the DC holds the reverse zone.
+    10.168.192.in-addr.arpa: 192.168.10.5
+
+customDNS:
+  customTTL: 1h
+  # Split-horizon. These names are PUBLIC (Cloudflare is authoritative for
+  # ddupan.top) and resolve to Cloudflare from outside, which is correct. On the
+  # LAN they must resolve to the Envoy gateway instead, so traffic never leaves
+  # the network to reach a service hosted on it.
+  #
+  # Each has a real Let's Encrypt cert for the exact name on the gateway, so TLS
+  # verifies identically inside and out and no client config differs.
+  #
+  # filterUnmappedTypes defaults to true, which returns an empty answer for AAAA.
+  # That is deliberate and matches what k3s CoreDNS does for the same names — the
+  # laptop's only global IPv6 belongs to tun0, so a AAAA answer would send LAN
+  # traffic into the VPN. See CLAUDE.md.
+  mapping:
+    git.ddupan.top: 192.168.10.127
+    auth.ddupan.top: 192.168.10.127
+    obj.ddupan.top: 192.168.10.127
+
+blocking:
+  denylists:
+    ads:
+      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+      - https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  clientGroupsBlock:
+    default:
+      - ads
+  # nxDomain rather than zeroIp: some clients retry forever against 0.0.0.0,
+  # whereas NXDOMAIN is an unambiguous "stop asking".
+  blockType: nxDomain
+  loading:
+    # The WAN is unreliable. Do not fail startup because a denylist could not be
+    # fetched — start with what is cached and refresh later. A resolver that
+    # refuses to boot without the internet is a worse outcome than stale lists.
+    strategy: fast
+    refreshPeriod: 24h
+    downloads:
+      timeout: 60s
+      attempts: 5
+      cooldown: 10s
+
+caching:
+  # serve-stale equivalent: keep answering from cache while upstream is
+  # unreachable. Same reasoning as the CoreDNS `serve_stale` note in
+  # ../../platform/k3s/coredns-custom.yaml — WAN blips must not become resolution failures.
+  minTime: 5m
+  maxTime: 30m
+  maxItemsCount: 0
+  prefetching: true
+  prefetchExpires: 2h
+  prefetchThreshold: 5
+  cacheTimeNegative: 30s
+
+prometheus:
+  enable: true
+  path: /metrics
+
+# queryLog gives the DNS visibility that does not exist today. Sizing this at 7
+# days on purpose: long enough to answer "what was resolving when X broke",
+# short enough not to grow unbounded on the laptop's disk.
+queryLog:
+  type: csv
+  target: /logs
+  logRetentionDays: 7
+
+log:
+  level: info
+  format: text

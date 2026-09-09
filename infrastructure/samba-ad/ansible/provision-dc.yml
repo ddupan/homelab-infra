@@ -1,0 +1,16 @@
+---
+# Provision the Samba AD Domain Controller.
+#   ansible-playbook provision-dc.yml --ask-vault-pass
+#   ansible-playbook provision-dc.yml --tags verify      # smoke tests only
+- name: Samba AD Domain Controller
+  hosts: samba_dc
+  become: true
+  gather_facts: true
+  roles:
+    - role: samba_ad_dc
+  post_tasks:
+    - name: Smoke tests
+      ansible.builtin.import_role:
+        name: samba_ad_dc
+        tasks_from: verify.yml
+      tags: [verify, never]

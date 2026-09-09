@@ -1,0 +1,8 @@
+---
+# LDAPS certificate for the DC, issued and auto-renewed from OpenBao's ACME.
+#   ansible-playbook acme-dc.yml
+- name: Samba AD DC LDAPS certificate (OpenBao ACME)
+  hosts: samba_dc
+  become: true
+  roles:
+    - samba_ad_acme

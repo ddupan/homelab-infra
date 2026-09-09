@@ -1,0 +1,41 @@
+---
+# openbao_acme role defaults. Cloudflare token comes from group_vars/all/vault.yml.
+
+# --- lego (ACME client) release ---
+openbao_acme_version: "5.3.1"
+openbao_acme_checksum: "sha256:b3c71b122ee1947eacfe0b809b955647f6377239fe4bfc49f73b1a091ae1252a"
+openbao_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ openbao_acme_version }}/lego_v{{ openbao_acme_version }}_linux_amd64.tar.gz"
+openbao_acme_bin: "/usr/local/bin/lego"
+
+# --- Paths / identity ---
+openbao_acme_dir: "/etc/openbao/acme"          # lego state (account, certs, cloudflare.env)
+openbao_acme_tls_dir: "/etc/openbao/tls"       # where bao's listener reads cert.pem/key.pem
+openbao_user: "openbao"
+openbao_group: "openbao"
+
+# --- Certificate ---
+openbao_acme_domain: "{{ openbao_fqdn }}"      # bao.ad.ddupan.top (from group_vars/all)
+openbao_acme_email: "panxiao81@outlook.com"    # ACME account / expiry-notice email
+
+# Cloudflare API token with Zone:DNS:Edit on ddupan.top. Set vault_openbao_cf_dns_token
+# in group_vars/all/vault.yml (you can copy the value from the cloudflared tunnel's
+# terraform.tfvars, which is scoped the same).
+openbao_acme_cf_token: "{{ vault_openbao_cf_dns_token | default('') }}"
+
+# Empty = Let's Encrypt production. To dry-run without burning rate limits, set:
+#   https://acme-staging-v02.api.letsencrypt.org/directory
+openbao_acme_server: ""
+
+# Resolvers for lego's zone/apex detection. Must give the PUBLIC view: both the DC AND
+# the LAN gateway forward ad.ddupan.top to the DC (split-horizon) → they'd resolve the
+# zone to the non-existent CF zone "ad.ddupan.top". Only real public resolvers see that
+# ad.ddupan.top isn't delegated and return the ddupan.top apex. List several so a flaky
+# WAN query to one falls through to another.
+openbao_acme_dns_resolvers: "1.1.1.1:53,1.0.0.1:53,8.8.8.8:53,9.9.9.9:53"
+openbao_acme_dns_timeout: 30           # per-query DNS timeout (s); default 10 is tight over a flaky WAN
+# Skip the 2-min propagation polling (many WAN DNS queries); just wait, then ask LE to
+# validate (LE queries public DNS itself, independent of this host's WAN).
+openbao_acme_propagation_wait: "120s"
+
+# Renewal timer (lego only renews within --days of expiry).
+openbao_acme_renew_oncalendar: "*-*-* 03:17:00"

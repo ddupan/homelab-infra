@@ -1,0 +1,42 @@
+---
+# Remote desktop for the 86Box host.
+#
+# RDP, not VNC — because 86Box needs SOUND and VNC carries no audio. xrdp
+# redirects audio; that is the whole reason for this choice.
+#
+# xrdp destroys a session only on explicit LOGOUT, not on disconnect, so
+# emulator instances survive closing the client. That is why 86Box is left as a
+# normal desktop app rather than forced into a systemd unit: several GUI
+# instances under a manager is a desktop, and pretending otherwise fights the
+# tooling for no benefit.
+
+retro_desktop_packages:
+  - xfce4                 # light, and xrdp-friendly
+  - xfce4-terminal
+  - dbus-x11
+  - xrdp
+  - xorgxrdp
+
+# Audio over RDP — the whole reason this box uses RDP rather than VNC.
+#
+# Ubuntu 24.04 is PipeWire-based, and it ships a PIPEWIRE-native xrdp module
+# (`pipewire-module-xrdp`), so the old pulseaudio-module-xrdp build dance is not
+# needed. It currently arrives as a transitive dependency of xrdp — listed here
+# EXPLICITLY so a future dependency change cannot silently kill sound.
+retro_desktop_audio: true
+retro_desktop_audio_packages:
+  - pipewire-module-xrdp   # provides /etc/xdg/autostart/pipewire-xrdp.desktop
+  - pipewire-pulse
+  - pulseaudio-utils       # paplay/pactl, for testing inside a session
+
+# Channels that must be enabled in xrdp.ini for audio to reach the client.
+retro_desktop_audio_channels: [rdpsnd, drdynvc]
+
+# What to rename xorgxrdp's pointer to, so 86Box can capture the mouse.
+#
+# This string is not cosmetic: it is matched CHARACTER FOR CHARACTER against
+# 86Box's allow-list of pointer devices that report absolute coordinates
+# (src/qt/xinput2_mouse.cpp, xinput2_get_xtest_pointer()). Change it and mouse
+# capture breaks again. The full reasoning is in tasks/main.yml.
+retro_desktop_xrdp_pointer_name: "TigerVNC pointer"
+retro_desktop_xrdp_xorg_conf: /etc/X11/xrdp/xorg.conf

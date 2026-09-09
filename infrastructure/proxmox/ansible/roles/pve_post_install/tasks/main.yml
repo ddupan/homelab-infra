@@ -1,0 +1,174 @@
+---
+# Declarative equivalent of the community "post-pve-install.sh" script.
+# Written as a role rather than piping curl into bash as root, so it is
+# idempotent, reviewable, and survives a node rebuild.
+
+- name: Confirm we are actually on a Proxmox node
+  ansible.builtin.stat:
+    path: /usr/bin/pveversion
+  register: _pveversion
+  changed_when: false
+
+- name: Fail early on a non-PVE host
+  ansible.builtin.fail:
+    msg: "{{ inventory_hostname }} has no /usr/bin/pveversion -- this role only targets PVE nodes."
+  when: not _pveversion.stat.exists
+
+- name: Force apt to use IPv4
+  # MUST come before any apt operation. These nodes have NO IPv6 egress (no
+  # global v6 address, no default v6 route) but DNS still returns AAAA records,
+  # so apt tries a dead IPv6 path first and stalls per-mirror. This is what hung
+  # `apt update` against packages.linbit.com (resolved to 2a01:4f8:1c1c:6ab9::1).
+  # Complements the gai.conf precedence set by pve_dns.
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99force-ipv4
+    mode: "0644"
+    content: |
+      // Managed by Ansible (role pve_post_install). Nodes have no IPv6 egress.
+      Acquire::ForceIPv4 "true";
+
+# ── repositories ────────────────────────────────────────────────────────
+# PVE 9 / Debian 13 uses deb822 (.sources) files, NOT the old one-line .list
+# format, so these use deb822_repository rather than apt_repository.
+#
+# NOTE the FQCN: deb822_repository has been promoted INTO ansible-core, so it is
+# `ansible.builtin.deb822_repository`. It is NOT in community.general (which
+# ships only apt_repo, for openSUSE) -- reaching for the community.general name
+# fails with "couldn't resolve module/action".
+
+- name: Disable the pve-enterprise repository
+  # 401s on every apt update without a subscription.
+  ansible.builtin.deb822_repository:
+    name: pve-enterprise
+    types: [deb]
+    uris: https://enterprise.proxmox.com/debian/pve
+    suites: ["{{ ansible_facts['distribution_release'] | default(pve_suite) }}"]
+    components: [pve-enterprise]
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    enabled: false
+    state: present
+  when: pve_disable_enterprise_repo
+  notify: Refresh apt cache
+
+- name: Disable the enterprise Ceph repository
+  # This cluster uses LINSTOR/DRBD, not Ceph -- Ceph on HDD OSDs was tried and
+  # was far too slow. Leaving this enabled only produces 401s.
+  ansible.builtin.deb822_repository:
+    name: ceph
+    types: [deb]
+    uris: https://enterprise.proxmox.com/debian/ceph-squid
+    suites: ["{{ ansible_facts['distribution_release'] | default(pve_suite) }}"]
+    components: [enterprise]
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    enabled: false
+    state: present
+  when: pve_disable_ceph_repo
+  notify: Refresh apt cache
+
+- name: Enable the pve-no-subscription repository
+  ansible.builtin.deb822_repository:
+    name: pve-no-subscription
+    types: [deb]
+    uris: http://download.proxmox.com/debian/pve
+    suites: ["{{ ansible_facts['distribution_release'] | default(pve_suite) }}"]
+    components: [pve-no-subscription]
+    signed_by: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    enabled: true
+    state: present
+  when: pve_enable_no_subscription_repo
+  notify: Refresh apt cache
+
+- name: Apply repository changes now
+  ansible.builtin.meta: flush_handlers
+
+# ── subscription nag ────────────────────────────────────────────────────
+# The web UI shows a "No valid subscription" modal on every login. The check is
+# a single JS expression; forcing it false removes the dialog.
+
+- name: Back up proxmoxlib.js before patching
+  ansible.builtin.copy:
+    src: "{{ _pve_nag_file }}"
+    dest: "{{ _pve_nag_file }}.orig"
+    remote_src: true
+    force: false          # never clobber an existing pristine backup
+    mode: "0644"
+  when: pve_remove_subscription_nag
+
+- name: Remove the subscription nag dialog
+  # In PVE 9 the expression is `res.data.status.toLowerCase() !== 'active'`.
+  # The widely-copied sed matches only `data.status...` and so leaves `res.false`
+  # behind -- broken-looking JS that happens to work only because `res.false`
+  # evaluates to undefined (falsy). Match the optional `res.` prefix too so the
+  # result is a clean `false` instead of relying on that accident.
+  ansible.builtin.replace:
+    path: "{{ _pve_nag_file }}"
+    regexp: "(?:res\\.)?data\\.status\\.toLowerCase\\(\\) !== 'active'"
+    replace: "false"
+  when: pve_remove_subscription_nag
+  notify: Restart pveproxy
+
+- name: Install the nag re-patch helper script
+  # The sed lives in a script, NOT inlined in the apt hook: apt.conf's own
+  # quoting cannot carry a regex full of backslashes and quotes, and an invalid
+  # file there breaks EVERY apt invocation ("Extra junk after value") -- which
+  # is a much worse failure than the nag itself.
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/pve-remove-nag.sh
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      # Managed by Ansible (services/proxmox/ansible, role pve_post_install).
+      # Re-strips the "No valid subscription" dialog, which a
+      # proxmox-widget-toolkit upgrade restores.
+      # The (res\.)? prefix matters: without it this leaves `res.false`.
+      F={{ _pve_nag_file }}
+      [ -s "$F" ] || exit 0
+      sed -i -E "s/(res\.)?data\.status\.toLowerCase\(\) !== 'active'/false/g" "$F"
+      exit 0
+  when: pve_remove_subscription_nag
+
+- name: Re-apply the nag patch after any proxmox-widget-toolkit upgrade
+  # An apt upgrade reinstates the original file, so without this hook the nag
+  # silently returns. This is what makes the change durable rather than one-shot.
+  # `|| true` so a failure here can never block a package operation.
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/no-nag-script
+    mode: "0644"
+    content: |
+      // Managed by Ansible (services/proxmox/ansible, role pve_post_install).
+      DPkg::Post-Invoke { "/usr/local/sbin/pve-remove-nag.sh || true"; };
+  when: pve_remove_subscription_nag
+
+# ── updates ─────────────────────────────────────────────────────────────
+
+- name: Update the apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+  register: _apt_update
+  # The home uplink drops out regularly (observed mid-session), so a single
+  # transient failure must not abort the play.
+  retries: 3
+  delay: 15
+  until: _apt_update is succeeded
+
+- name: Perform a full dist-upgrade
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+  register: _apt_upgrade
+  retries: 2
+  delay: 30
+  until: _apt_upgrade is succeeded
+  when: pve_dist_upgrade
+
+- name: Report whether a reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: _reboot_required
+  changed_when: false
+
+- name: Show reboot notice
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} requires a reboot (kernel or core library updated)."
+  when: _reboot_required.stat.exists

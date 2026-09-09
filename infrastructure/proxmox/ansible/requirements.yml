@@ -1,0 +1,15 @@
+---
+# Install with: ansible-galaxy collection install -r requirements.yml
+#
+# This file did not exist until ansible-lint flagged unresolvable modules: the
+# other two projects (samba-ad/, openbao/) declared their collections but this
+# one relied on whatever happened to be in the operator's environment. A fresh
+# checkout or a CI runner could not reproduce it.
+collections:
+  - name: ansible.netcommon     # network_cli connection for VyOS — it has no Python
+                                # interpreter, so the usual ssh+python path cannot work
+  - name: vyos.vyos             # vyos_config; see CLAUDE.md on preferring explicit
+                                # `set` lines over the resource modules, which lag upstream
+  - name: ansible.posix         # mount, authorized_key
+  - name: community.general     # proxmox_kvm (guest lifecycle). NOTE: deb822_repository
+                                # is ansible.builtin, NOT community.general — see CLAUDE.md

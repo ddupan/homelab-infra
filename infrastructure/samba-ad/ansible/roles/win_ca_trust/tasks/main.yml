@@ -1,0 +1,62 @@
+---
+# Install the ddupan.top internal CA into LocalMachine\Root on the Windows box.
+# Requires collection: ansible.windows.
+
+# Fetched on the CONTROL NODE, not the target. Two reasons: the content can be
+# sanity-checked before anything is written to the trust store, and it keeps the
+# fetch off a host whose proxy/TLS settings we do not manage.
+- name: Fetch the internal CA from OpenBao
+  ansible.builtin.uri:
+    url: "{{ win_ca_trust_url }}"
+    return_content: true
+    # bao serves a real Let's Encrypt cert (openbao_acme role), so normal
+    # verification works here -- do NOT relax this.
+    validate_certs: true
+  register: _bao_ca
+  delegate_to: localhost
+  changed_when: false
+  # uri does not support check mode and would otherwise skip, leaving every later
+  # task with an empty register. Fetching is read-only, so running it is safe.
+  check_mode: false
+  # The WAN is unreliable and bao is a VM that may still be unsealing.
+  retries: 3
+  delay: 10
+  until: _bao_ca is succeeded
+
+- name: Sanity-check that we actually got a CA certificate
+  # Without this, a captive-portal HTML page or an error body would be installed
+  # as a trust anchor -- silently, and in the store that matters most.
+  ansible.builtin.assert:
+    that:
+      - "'BEGIN CERTIFICATE' in _bao_ca.content"
+    fail_msg: "OpenBao did not return a PEM certificate -- refusing to install it as a trust anchor."
+    quiet: true
+
+- name: Ensure the staging directory exists
+  ansible.windows.win_file:
+    path: "{{ win_ca_trust_dir }}"
+    state: directory
+
+- name: Stage the CA certificate on the target
+  ansible.windows.win_copy:
+    content: "{{ _bao_ca.content }}"
+    dest: "{{ win_ca_trust_file }}"
+
+- name: Install the CA into the machine-wide Trusted Root store
+  # Idempotent: the module matches on thumbprint, so a re-run is a no-op.
+  #
+  # NOTE ON ROTATION: this ADDS a trust anchor, it does not replace one. If the
+  # internal CA is ever re-keyed, the superseded certificate stays in the store
+  # and must be removed explicitly (state: absent with its thumbprint). That is
+  # deliberate -- silently dropping the old anchor mid-rotation would break every
+  # certificate still chaining to it.
+  ansible.windows.win_certificate_store:
+    path: "{{ win_ca_trust_file }}"
+    store_location: "{{ win_ca_trust_store_location }}"
+    store_name: "{{ win_ca_trust_store_name }}"
+    state: present
+  register: _ca_store
+
+- name: Report the installed thumbprint
+  ansible.builtin.debug:
+    msg: "Trusted root installed: {{ _ca_store.thumbprints | default([]) | join(', ') }}"

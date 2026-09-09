@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marker
+  namespace: default
+spec:
+  selector:
+    app: marker
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001

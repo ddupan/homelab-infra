@@ -1,0 +1,60 @@
+---
+# SDN config is cluster-wide (/etc/pve/sdn/), so everything runs once.
+
+- name: Read existing zones
+  ansible.builtin.command:
+    cmd: "pvesh get /cluster/sdn/zones --output-format json"
+  register: _zones
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Create the VLAN zone
+  ansible.builtin.command:
+    cmd: >-
+      pvesh create /cluster/sdn/zones --zone {{ pve_sdn_zone }} --type vlan
+      --bridge {{ pve_sdn_bridge }} --mtu {{ pve_sdn_mtu }}
+      --nodes {{ groups['pve'] | join(',') }}
+  when: pve_sdn_zone not in (_zones.stdout | from_json | map(attribute='zone') | list)
+  run_once: true
+
+- name: Read existing vnets
+  ansible.builtin.command:
+    cmd: "pvesh get /cluster/sdn/vnets --output-format json"
+  register: _vnets
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Create the VNets
+  ansible.builtin.command:
+    cmd: >-
+      pvesh create /cluster/sdn/vnets --vnet {{ item.name }}
+      --zone {{ pve_sdn_zone }} --tag {{ item.tag }}
+      --alias '{{ item.alias }}'
+  loop: "{{ pve_sdn_vnets }}"
+  loop_control:
+    label: "{{ item.name }} (vlan {{ item.tag }})"
+  when: item.name not in (_vnets.stdout | from_json | map(attribute='vnet') | list)
+  run_once: true
+
+- name: Apply the SDN configuration
+  # SDN changes stay PENDING until applied; without this the VNet bridges are
+  # never actually created on the nodes.
+  ansible.builtin.command:
+    cmd: "pvesh set /cluster/sdn"
+  register: _apply
+  changed_when: true
+  run_once: true
+
+- name: Report
+  ansible.builtin.shell:
+    cmd: "pvesh get /cluster/sdn/vnets --output-format json | python3 -c \"import json,sys;[print('   ',v['vnet'],'vlan',v.get('tag'),'zone',v.get('zone')) for v in json.load(sys.stdin)]\""
+  register: _rep
+  changed_when: false
+  run_once: true
+
+- name: Show it
+  ansible.builtin.debug:
+    msg: "{{ _rep.stdout_lines }}"
+  run_once: true

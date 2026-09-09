@@ -1,0 +1,39 @@
+# LAN route to the SeaweedFS S3 endpoint.
+#
+# WHY, when obj.ddupan.top already works: that hostname resolves to Cloudflare and
+# hairpins the request out through the WAN and back down the tunnel. It is fine for
+# a browser. It is a bad dependency for **Terraform state**, which is exactly what
+# you need during an incident — and on 2026-07-28 that path was blackholed for
+# hours by a dead `openvpn-client@naist` tunnel whose 58 split-tunnel routes
+# swallowed Cloudflare's ranges. State operations must not leave the LAN.
+#
+# The public obj.ddupan.top route is unchanged and still served via cloudflared;
+# both terminate at the same Service.
+#
+# No cert work: s3.ad.ddupan.top is covered by the existing *.ad.ddupan.top
+# wildcard on the gateway's `https` listener, so this is an HTTPRoute plus one DNS
+# A record in ../../infrastructure/samba-ad — the documented way to add a LAN service.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: seaweedfs-s3
+  namespace: seaweedfs
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      # Pin to the wildcard listener; the https-auth listener only matches
+      # auth.ddupan.top and would report a needless "no matching listener".
+      sectionName: https
+  hostnames:
+    - s3.ad.ddupan.top
+  rules:
+    - backendRefs:
+        - name: seaweedfs-s3
+          port: 8333
+      # S3 PUTs of Terraform state can be large (smtp-relay's is already ~1.1MB
+      # because the azuread app registration carries a lot). Envoy's default
+      # per-try timeout is comfortably above that, but the retry policy matters
+      # more: a half-written state file is far worse than a failed apply, so do
+      # not add retries here. Terraform handles its own locking and retry.

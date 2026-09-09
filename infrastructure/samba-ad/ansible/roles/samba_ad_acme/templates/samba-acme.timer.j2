@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Samba AD DC LDAPS certificate renewal timer
+
+[Timer]
+OnCalendar={{ samba_ad_acme_renew_oncalendar }}
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

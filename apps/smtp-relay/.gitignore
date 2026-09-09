@@ -1,0 +1,4 @@
+# Never commit the real credentials or minted tokens
+secret.yaml
+tokens/
+.noreply-password

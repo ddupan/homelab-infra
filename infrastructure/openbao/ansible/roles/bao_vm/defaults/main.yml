@@ -1,0 +1,37 @@
+---
+# bao_vm role — create the OpenBao host as a small Ubuntu VM via libvirt + cloud-init
+# (NoCloud). Runs on the libvirt host (localhost). Configures nothing inside the OS
+# beyond the cloud-init seed; the openbao role installs the daemon afterward.
+
+bao_vm_name: "bao1"
+bao_vm_domain: "ddupan.top"
+
+# Tiny footprint — OpenBao idle is ~50-150 MB RAM, one Go process.
+bao_vm_vcpus: 1
+bao_vm_memory_mb: 1024
+bao_vm_disk_gb: 10
+
+# Latest Ubuntu LTS cloud image (24.04 Noble). "current" always points at the newest build.
+bao_vm_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+bao_vm_osinfo: "ubuntu24.04"
+
+# libvirt placement (matches the dc_vm convention).
+bao_vm_images_dir: "/var/lib/libvirt/images"
+bao_vm_bridge: "br0"                 # LAN bridge → puts bao on 192.168.10.0/24
+
+# ZFS zvol for the root disk. Thin-provisioned (sparse) — bao stores very little.
+bao_vm_zvol_parent: "data/vm"
+bao_vm_zvol: "{{ bao_vm_zvol_parent }}/{{ bao_vm_name }}"
+bao_vm_zvol_dev: "/dev/zvol/{{ bao_vm_zvol }}"
+bao_vm_zvol_volblocksize: "16K"
+bao_vm_zvol_sparse: true
+
+# Guest networking (static). IP comes from group_vars/all/vars.yml (openbao_lan_ip).
+bao_vm_ip: "{{ openbao_lan_ip }}"
+bao_vm_prefix: 24
+bao_vm_gateway: "192.168.10.1"
+bao_vm_boot_dns: "192.168.10.5"     # internal resolver (the Samba DC); or the gateway
+
+# Cloud-init login user + the public key Ansible will connect with.
+bao_vm_user: "ansible"
+bao_vm_ssh_pubkey_file: "~/.ssh/id_ed25519.pub"

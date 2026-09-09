@@ -1,0 +1,59 @@
+---
+- name: Check the bridge role is configured
+  ansible.builtin.assert:
+    that:
+      - tap_bridge_member | length > 0
+      - tap_bridge_member_mac | length > 0
+    fail_msg: "tap_bridge_member and tap_bridge_member_mac must be set"
+
+- name: Install bridge utilities
+  # bridge-utils is not needed by netplan (it uses netlink), but brctl is the
+  # quickest way to see which taps an emulator has attached while debugging.
+  ansible.builtin.apt:
+    name: bridge-utils
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _brutils
+  retries: 3
+  delay: 15
+  until: _brutils is succeeded
+
+- name: Configure the bridge in netplan
+  ansible.builtin.template:
+    src: netplan.yaml.j2
+    dest: "{{ tap_bridge_netplan_file }}"
+    # 0600: netplan warns loudly about world-readable config and ignores such
+    # files in newer releases.
+    mode: "0600"
+    owner: root
+    group: root
+  notify: Apply netplan
+
+- name: Flush handlers so the bridge exists before it is verified
+  ansible.builtin.meta: flush_handlers
+
+- name: Read back the bridge state
+  ansible.builtin.command:
+    cmd: "ip -br link show {{ tap_bridge_name }}"
+  register: _br
+  changed_when: false
+  failed_when: false
+
+- name: Read back the enslaved port
+  # `master <bridge>` in `ip link` output is the authoritative proof that the
+  # NIC is actually in the bridge -- netplan reporting success is not.
+  ansible.builtin.shell:
+    cmd: "ip -o link show {{ tap_bridge_member }} | grep -o 'master [^ ]*' || true"
+  register: _member
+  changed_when: false
+
+- name: Verify the bridge is up with the port enslaved
+  ansible.builtin.assert:
+    that:
+      - _br.rc == 0
+      - "'master ' ~ tap_bridge_name in _member.stdout"
+    fail_msg: >-
+      Bridge {{ tap_bridge_name }} is not correctly set up.
+      bridge: {{ _br.stdout | default('absent') }} / port: {{ _member.stdout | default('none') }}
+    success_msg: "{{ tap_bridge_name }} up, {{ tap_bridge_member }} enslaved"

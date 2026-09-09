@@ -1,0 +1,54 @@
+# Cert for the PUBLIC Authelia hostname, so it can also be served on the LAN.
+#
+# WHY this exists at all, when ../envoy-gateway/gateway.yaml says adding a service
+# needs no cert work: that promise holds only for `*.ad.ddupan.top`. Authelia is
+# reached at `auth.ddupan.top` — a different zone (Cloudflare is authoritative for
+# ddupan.top; the DC is authoritative only for ad.ddupan.top) and one label
+# shallower, so the wildcard cannot cover it.
+#
+# WHY serve a public name internally (split-horizon) rather than introduce an
+# internal alias: the OIDC issuer, every registered redirect_uri, and the session
+# cookie domain are all `auth.ddupan.top`. Changing the name Gitea talks to would
+# mean re-registering every client. Resolving the SAME name to the LAN changes
+# nothing Authelia knows about itself.
+#
+# WHAT BROKE WITHOUT IT (2026-07-28): auth.ddupan.top resolves to Cloudflare proxy
+# IPs (104.21.6.55 / 172.67.154.245). TCP/443 to both fails from this network,
+# persistently, while other Cloudflare IPs (104.16.132.229) connect fine. Gitea's
+# chart runs `gitea admin auth update-oauth` in an INIT container, which fetches
+# the discovery URL on every pod start — so Gitea CrashLoopBackOff'd on any
+# restart, and server-side token exchange timed out. Routing the name to the LAN
+# removes the public internet from an entirely in-cluster conversation. See
+# CLAUDE.md: "Internal name resolution must never depend on the WAN."
+#
+# CT-log note: ../cert-manager/certificate-wildcard-ad.yaml deliberately uses a
+# wildcard to keep internal hostnames out of Certificate Transparency logs. That
+# reasoning does not apply here — auth.ddupan.top is already public in CT via the
+# Cloudflare-facing cert, so naming it costs nothing.
+#
+# Lives in envoy-gateway-system because a Gateway listener may only reference a
+# Secret in the Gateway's own namespace.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: auth-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: auth-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "auth.ddupan.top"
+  dnsNames:
+    - "auth.ddupan.top"
+  # DNS-01 via Cloudflare (the letsencrypt ClusterIssuer's solver). Cloudflare stays
+  # authoritative for ddupan.top, so the challenge resolves publicly even though the
+  # A record we serve internally points at the LAN.
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always

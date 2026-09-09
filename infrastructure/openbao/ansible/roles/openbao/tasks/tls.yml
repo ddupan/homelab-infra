@@ -1,0 +1,40 @@
+---
+# Bootstrap TLS for the OpenBao listener: a self-signed server certificate with SANs
+# (FQDN + LAN IP + loopback), generated ONCE to get the listener up. It is never
+# regenerated once a cert exists — so the ACME (or PKI) cert that replaces it later is
+# never clobbered on a re-run. Delete cert.pem to force a fresh self-signed bootstrap.
+
+- name: Check for an existing listener certificate
+  ansible.builtin.stat:
+    path: "{{ openbao_tls_dir }}/cert.pem"
+  register: openbao_listener_cert
+
+- name: OpenBao server private key
+  community.crypto.openssl_privatekey:
+    path: "{{ openbao_tls_dir }}/key.pem"
+    size: 4096
+    owner: "{{ openbao_user }}"
+    group: "{{ openbao_group }}"
+    mode: "0640"
+  when: not openbao_listener_cert.stat.exists
+
+- name: OpenBao server CSR (FQDN + SANs)
+  community.crypto.openssl_csr:
+    path: "{{ openbao_tls_dir }}/server.csr"
+    privatekey_path: "{{ openbao_tls_dir }}/key.pem"
+    common_name: "{{ openbao_fqdn }}"
+    subject_alt_name: "{{ openbao_tls_sans }}"
+  when: not openbao_listener_cert.stat.exists
+
+- name: OpenBao server certificate (self-signed, positive serial)
+  community.crypto.x509_certificate:
+    path: "{{ openbao_tls_dir }}/cert.pem"
+    csr_path: "{{ openbao_tls_dir }}/server.csr"
+    privatekey_path: "{{ openbao_tls_dir }}/key.pem"
+    provider: selfsigned
+    selfsigned_not_after: "+825d"
+    owner: "{{ openbao_user }}"
+    group: "{{ openbao_group }}"
+    mode: "0644"
+  when: not openbao_listener_cert.stat.exists
+  notify: restart openbao

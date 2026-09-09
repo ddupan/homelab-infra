@@ -1,0 +1,80 @@
+---
+# samba_member role defaults — Samba as an Active Directory DOMAIN MEMBER (fileserver).
+# Joins the box to the domain provisioned by the samba_ad_dc role and lets AD users
+# authenticate to its SMB shares via winbind. The existing standalone shares are
+# preserved (see samba_member_shares below) and the machine's own login stack is
+# left untouched (NSS gains winbind, but PAM is NOT modified — no AD OS login).
+#
+# Domain identity (samba_ad_realm / samba_ad_domain / samba_ad_dc_ip) is inherited
+# from group_vars/all/vars.yml — the same values the DC was provisioned with.
+
+# NetBIOS name of THIS member (<=15 chars, uppercase). Defaults to the short hostname.
+samba_member_netbios_name: "{{ ansible_facts['hostname'] | upper }}"
+
+# --- ID mapping ---------------------------------------------------------------
+# Algorithmic RID backend: deterministic UIDs/GIDs from the AD RID, no RFC2307
+# attributes required. (The DC was provisioned --use-rfc2307, so switching to the
+# `ad` backend for centrally-managed uidNumber/gidNumber is possible later — see README.)
+samba_member_idmap_default_range: "3000-7999"       # idmap config * (local/builtin)
+samba_member_idmap_domain_range: "10000-999999"     # idmap config DOMAIN (rid)
+
+# Strip the DOMAIN\ prefix so AD users appear as bare names (e.g. `alice`, not
+# `DDUPAN\alice`). Only shadows a local account if an AD user shares its name.
+samba_member_use_default_domain: true
+
+# Shell/home template applied to AD users by winbind.
+samba_member_template_shell: "/bin/bash"
+samba_member_template_homedir: "/home/%U"
+
+# --- Split-DNS ----------------------------------------------------------------
+# The domain member MUST resolve _ldap._tcp / _kerberos._udp SRV records for the
+# realm to discover the DC. The LAN router does NOT forward ad.ddupan.top here, so
+# route just the realm to the DC via a systemd-resolved drop-in. Set false if your
+# resolver already answers realm SRV lookups.
+samba_member_configure_split_dns: true
+
+# --- Packages -----------------------------------------------------------------
+# Deliberately NO libpam-winbind: this is a fileserver join, not an OS-login join.
+# libnss-winbind IS included so `getent passwd` / `ls -l` resolve AD owners.
+#
+# Cache refresh is OFF by default: `apt update` refreshes EVERY repo in
+# sources.list.d, and this host's upstream DNS forwarder is unreliable, so a full
+# refresh routinely fails. The member packages are standard Ubuntu main and are
+# already in the local cache. Set true (with `-e samba_member_apt_update_cache=true`)
+# to force a refresh when DNS is healthy and you need newer versions.
+samba_member_apt_update_cache: false
+
+samba_member_packages:
+  - samba
+  - winbind
+  - libnss-winbind
+  - krb5-user          # kinit/klist for the join + smoke tests
+  - smbclient
+  - ldb-tools
+
+# --- Preserved shares ---------------------------------------------------------
+# Custom shares carried over verbatim from the pre-join standalone smb.conf.
+# [printers]/[print$] and the Cockpit `include` are emitted by the template itself.
+samba_member_shares:
+  # Guests (e.g. WinPE) get read-only access; the authenticated AD user panxiao81
+  # can write (write list). `guest only` is intentionally NOT set — that would force
+  # EVERY session to guest and defeat the write list. force user keeps all files
+  # owned by the local panxiao81 (uid 1000) that owns /mnt/pool/win.
+  - name: win
+    options:
+      comment: Windows install media (guest RO; panxiao81 RW)
+      path: /mnt/pool/win
+      browseable: "yes"
+      read only: "yes"
+      guest ok: "yes"
+      # Domain-qualified: a LOCAL panxiao81 (uid 1000) also exists, and a bare name
+      # resolves to the local SID, which won't match the connected AD user's SID.
+      write list: 'DDUPAN\panxiao81'
+      force user: panxiao81
+      hosts allow: 192.168.10.0/24 127.0.0.1
+      create mask: "0644"
+      directory mask: "0755"
+      # Files are written 0644 (no Unix +x). Since Samba 4.0, "open for execution"
+      # is denied without the execute bit, which blocks running setup.exe/dism off the
+      # share from WinPE. Allow execution regardless of the mode bit.
+      acl allow execute always: "yes"

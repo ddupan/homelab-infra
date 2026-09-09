@@ -1,0 +1,201 @@
+---
+# Realm config lives in /etc/pve/domains.cfg, which is REPLICATED cluster-wide,
+# so every task here runs once against a single node. Doing it per-host would
+# just have three nodes racing to write the same file.
+
+- name: Require the bind password
+  ansible.builtin.assert:
+    that: pve_auth_bind_password | length > 0
+    fail_msg: >-
+      pve_auth_bind_password is empty. It comes from vault_pve_bind_password in
+      samba-ad/ansible/group_vars/all/vault.yml — pass it via -e or a vars file.
+    quiet: true
+  run_once: true
+
+- name: Check whether the realm already exists
+  ansible.builtin.command:
+    cmd: "pveum realm list --output-format json"
+  register: _realms
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Decide create vs update
+  ansible.builtin.set_fact:
+    _realm_exists: "{{ pve_auth_realm in (_realms.stdout | from_json | map(attribute='realm') | list) }}"
+  run_once: true
+
+# --- shared option set, so create and update cannot drift apart -------------
+# `--type` is deliberately NOT in here: a realm's type is immutable, and
+# `pveum realm modify --type ad` fails with "Unknown option: type". It is passed
+# only on the create path below.
+- name: Build the realm option string
+  ansible.builtin.set_fact:
+    _realm_opts: >-
+      --domain {{ pve_auth_domain }}
+      --server1 {{ pve_auth_server1 }}
+      --port {{ pve_auth_port }}
+      --mode {{ pve_auth_mode }}
+      --verify {{ pve_auth_verify }}
+      --capath {{ pve_auth_capath }}
+      --base_dn '{{ pve_auth_base_dn }}'
+      --bind_dn '{{ pve_auth_bind_dn }}'
+      --user_attr {{ pve_auth_user_attr }}
+      --user_classes '{{ pve_auth_user_classes }}'
+      --group_dn '{{ pve_auth_group_dn }}'
+      --group_classes '{{ pve_auth_group_classes }}'
+      --filter '{{ pve_auth_filter }}'
+      --group_filter '{{ pve_auth_group_filter }}'
+      --sync_attributes '{{ pve_auth_sync_attributes }}'
+      --sync-defaults-options '{{ pve_auth_sync_defaults }}'
+      --case-sensitive {{ pve_auth_case_sensitive }}
+      --comment 'Samba AD (dc1) over verified LDAPS'
+  run_once: true
+
+- name: Create the realm
+  # --check-connection makes PVE actually bind before saving, so a wrong DN,
+  # password, or an untrusted certificate fails HERE instead of silently
+  # producing a realm nobody can log in to.
+  ansible.builtin.shell:
+    cmd: >-
+      pveum realm add {{ pve_auth_realm }} --type ad {{ _realm_opts }}
+      --password '{{ pve_auth_bind_password }}'
+      --check-connection 1
+  when: not _realm_exists
+  run_once: true
+  # no_log hides the bind password, but it also hides WHY a failure happened.
+  # Keep it on (the password is on the command line) and rely on
+  # --check-connection plus the manual `pveum realm modify` path for diagnosis.
+  no_log: true
+
+- name: Read the current realm config
+  ansible.builtin.command:
+    cmd: "pvesh get /access/domains/{{ pve_auth_realm }} --output-format json"
+  register: _realm_cur
+  changed_when: false
+  check_mode: false
+  when: _realm_exists
+  run_once: true
+
+- name: Detect realm drift
+  # pveum has no diff mode, so compare the fields we manage. Without this the
+  # role reported "changed" on every single run, which makes real drift invisible.
+  ansible.builtin.set_fact:
+    _realm_drift: "{{ _realm_exists and (
+        (_realm_cur.stdout | from_json).get('server1') != pve_auth_server1 or
+        (_realm_cur.stdout | from_json).get('base_dn') != pve_auth_base_dn or
+        (_realm_cur.stdout | from_json).get('bind_dn') != pve_auth_bind_dn or
+        (_realm_cur.stdout | from_json).get('mode') != pve_auth_mode or
+        (_realm_cur.stdout | from_json).get('verify') | default(0) | int != pve_auth_verify | int or
+        (_realm_cur.stdout | from_json).get('filter') != pve_auth_filter | trim or
+        (_realm_cur.stdout | from_json).get('group_filter') != pve_auth_group_filter or
+        (_realm_cur.stdout | from_json).get('user_attr') != pve_auth_user_attr or
+        (_realm_cur.stdout | from_json).get('sync_attributes') != pve_auth_sync_attributes
+      ) }}"
+  run_once: true
+
+- name: Update the realm
+  ansible.builtin.shell:
+    cmd: >-
+      pveum realm modify {{ pve_auth_realm }} {{ _realm_opts }}
+      --password '{{ pve_auth_bind_password }}'
+      --check-connection 1
+  when: _realm_drift | default(false)
+  run_once: true
+  no_log: true
+
+- name: Show the resulting realm
+  ansible.builtin.command:
+    cmd: "pveum realm list --output-format json"
+  register: _realm_after
+  changed_when: false
+  run_once: true
+
+- name: Report it
+  ansible.builtin.debug:
+    msg: "{{ _realm_after.stdout | from_json | selectattr('realm', 'equalto', pve_auth_realm) | list }}"
+  run_once: true
+
+# --- initial sync ----------------------------------------------------------
+- name: Dry-run the sync first
+  # Proves the bind and filters work, and shows what WOULD be imported, without
+  # writing to user.cfg.
+  ansible.builtin.command:
+    cmd: "pveum realm sync {{ pve_auth_realm }} --scope both --dry-run 1"
+  register: _sync_dry
+  changed_when: false
+  run_once: true
+
+- name: Show what the sync would import
+  ansible.builtin.debug:
+    msg: "{{ _sync_dry.stderr_lines | default([]) + _sync_dry.stdout_lines | default([]) }}"
+  run_once: true
+
+- name: Sync users and groups
+  # Always reports "changed": this is a reconcile ACTION against a live
+  # directory, not a declared state, and pveum gives no no-op signal to key off.
+  # The realm config and ACL above ARE drift-detected, so a re-run showing
+  # changed=1 means "sync ran", not "something was wrong".
+  ansible.builtin.command:
+    cmd: "pveum realm sync {{ pve_auth_realm }} --scope both --enable-new 1 --remove-vanished none"
+  register: _sync
+  changed_when: true
+  run_once: true
+
+# --- scheduled sync --------------------------------------------------------
+- name: List existing realm-sync jobs
+  ansible.builtin.command:
+    cmd: "pvesh get /cluster/jobs/realm-sync --output-format json"
+  register: _jobs
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Create the scheduled sync job
+  ansible.builtin.command:
+    cmd: >-
+      pvesh create /cluster/jobs/realm-sync/{{ pve_auth_sync_job }}
+      --realm {{ pve_auth_realm }}
+      --schedule '{{ pve_auth_sync_schedule }}'
+      --scope both --enable-new 1 --remove-vanished none --enabled 1
+      --comment 'Nightly AD user/group sync'
+  when: pve_auth_sync_job not in (_jobs.stdout | from_json | map(attribute='id') | list)
+  run_once: true
+
+# --- RBAC ------------------------------------------------------------------
+- name: Read current ACLs
+  ansible.builtin.command:
+    cmd: "pveum acl list --output-format json"
+  register: _acl_cur
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Grant the admin group its role
+  # NOTE the group name: PVE appends "-<realm>" to every synced group, so AD's
+  # `pve-admins` is `pve-admins-ad` here. Granting to the AD name matches nothing.
+  ansible.builtin.command:
+    cmd: >-
+      pveum acl modify {{ pve_auth_admin_path }}
+      --group {{ pve_auth_admin_group }} --role {{ pve_auth_admin_role }}
+  when: >-
+    (_acl_cur.stdout | from_json
+      | selectattr('path', 'equalto', pve_auth_admin_path)
+      | selectattr('ugid', 'equalto', pve_auth_admin_group)
+      | selectattr('roleid', 'equalto', pve_auth_admin_role) | list | length) == 0
+  run_once: true
+
+- name: Report users, groups and ACLs
+  ansible.builtin.shell:
+    cmd: |
+      echo "--- users ---";  pveum user list  --output-format json | python3 -c "import json,sys;[print('   ',u['userid']) for u in json.load(sys.stdin)]"
+      echo "--- groups ---"; pveum group list --output-format json | python3 -c "import json,sys;[print('   ',g['groupid'], g.get('users','')) for g in json.load(sys.stdin)]"
+      echo "--- acls ---";   pveum acl list   --output-format json | python3 -c "import json,sys;[print('   ',a['path'],a.get('ugid'),a.get('roleid')) for a in json.load(sys.stdin)]"
+  register: _final
+  changed_when: false
+  run_once: true
+
+- name: Show it
+  ansible.builtin.debug:
+    msg: "{{ _final.stdout_lines }}"
+  run_once: true

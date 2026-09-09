@@ -1,0 +1,20 @@
+---
+# Policies. Declaratively applied each run (bao policy write is an idempotent overwrite).
+
+- name: Write the ai-agent-ssh policy (sign SSH certs, nothing else)
+  ansible.builtin.command: "bao policy write ai-agent-ssh -"
+  args:
+    stdin: "{{ lookup('template', 'ai-agent-ssh-policy.hcl.j2') }}"
+  environment: "{{ openbao_cli_env }}"
+  register: pol_agent
+  changed_when: pol_agent.rc == 0
+  no_log: "{{ openbao_no_log }}"
+
+- name: Write the admin policy (human OIDC logins)
+  ansible.builtin.command: "bao policy write admin -"
+  args:
+    stdin: "{{ lookup('template', 'admin-policy.hcl.j2') }}"
+  environment: "{{ openbao_cli_env }}"
+  register: pol_admin
+  changed_when: pol_admin.rc == 0
+  no_log: "{{ openbao_no_log }}"

@@ -1,0 +1,26 @@
+# openebs umbrella chart (openebs/openebs) values — single-node homelab.
+# Install/upgrade:
+#   helm upgrade --install openebs openebs/openebs --version 4.4.0 -n openebs -f values.yaml
+
+# Local ZFS provisioner ON — backs the cluster's PVCs (StorageClass localpv-zfs-ceph on
+# pool data/ceph, see storageclasses.yaml). LVM + rawfile OFF (unused — no LVM
+# StorageClasses/PVs/volumes). Replicated (Mayastor) OFF. Pinned explicitly so a future
+# chart-default change can't silently flip storage engines.
+engines:
+  local:
+    zfs:
+      enabled: true
+    lvm:
+      enabled: false
+    rawfile:
+      enabled: false
+  replicated:
+    mayastor:
+      enabled: false
+
+# The bundled Loki (logging) defaults to 3 SingleBinary replicas with one-pod-per-node
+# anti-affinity. On this single node, replicas 2 & 3 are permanently Pending. Filesystem-
+# backed SingleBinary Loki should be 1 replica anyway.
+loki:
+  singleBinary:
+    replicas: 1

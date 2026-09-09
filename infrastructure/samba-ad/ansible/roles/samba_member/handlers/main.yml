@@ -1,0 +1,22 @@
+---
+- name: restart winbind
+  ansible.builtin.systemd:
+    name: winbind
+    state: restarted
+  when: not ansible_check_mode   # unit only exists after the package install (skipped under --check)
+
+- name: restart smbd
+  ansible.builtin.systemd:
+    name: smbd
+    state: restarted
+
+- name: restart nmbd
+  ansible.builtin.systemd:
+    name: nmbd
+    state: restarted
+  failed_when: false          # nmbd may be masked/absent on some setups
+
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted

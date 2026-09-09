@@ -1,0 +1,23 @@
+---
+# A bare Linux bridge with one physical port and NO IP address, used as the
+# attach point for emulator TAP interfaces (86Box, PCem, qemu, ...).
+#
+# WHY a bridge at all: 86Box's TAP backend creates its own tap device
+# (TUNSETIFF) and then enslaves it to a bridge you name (SIOCBRADDIF). It does
+# NOT bridge to a raw NIC, so the NIC has to already be in a bridge for the
+# emulated guests to reach the wire.
+#
+# WHY no IP on the bridge: the host deliberately does not sit on the retro
+# segment. Guests use the VyOS SDN gateway (10.61.0.1) directly. Giving the
+# host an address here would put an up-to-date Linux box inside the retro
+# broadcast domain for no reason, and would make the retro guests able to
+# reach this host's services.
+tap_bridge_name: br0
+
+# Matched by MAC, not by name: the kernel's predictable-interface name depends
+# on PCI slot ordering, which moves if the VM's NIC layout changes. The MACs
+# are pinned in pve_vm defaults precisely so they can be matched on.
+tap_bridge_member: ""
+tap_bridge_member_mac: ""
+
+tap_bridge_netplan_file: /etc/netplan/60-tap-bridge.yaml

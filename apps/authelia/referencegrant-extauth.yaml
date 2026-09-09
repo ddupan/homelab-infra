@@ -1,0 +1,22 @@
+# Lets SecurityPolicy objects in other namespaces send ext-authz requests to the
+# Authelia Service. Gateway API forbids cross-namespace backend references unless the
+# TARGET namespace grants them — this is that grant, and it lives here because the
+# authelia namespace is the one consenting to be referenced.
+#
+# Add a namespace to `from` for each service placed behind Authelia forward-auth.
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: extauth-from-services
+  namespace: authelia
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: netbox          # ../netbox/securitypolicy.yaml
+  to:
+    # Unnamed => any Service in this namespace. Only `authelia` exists here, and
+    # naming it would break on a chart-driven rename.
+    - group: ""
+      kind: Service

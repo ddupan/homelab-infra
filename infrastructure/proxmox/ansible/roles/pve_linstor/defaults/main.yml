@@ -1,0 +1,46 @@
+---
+# LINSTOR/DRBD replacing Ceph. Ceph was tried on HDD OSDs + SSD DB and was far
+# too slow; LINSTOR wins here through DATA LOCALITY — a VM reads from the copy on
+# its own node instead of pulling every block across a single flat 1G LAN.
+
+# --- LINBIT public repo (free, no subscription) ---
+pve_linstor_repo_suite: proxmox-9
+pve_linstor_repo_url: "http://packages.linbit.com/public/"
+pve_linstor_repo_key_url: "https://packages.linbit.com/package-signing-pubkey.asc"
+pve_linstor_keyring: /usr/share/keyrings/linbit-keyring.gpg
+
+# --- Roles ---
+# Controller on pve1: most RAM (16G vs 8G). Single controller, no HA — this
+# cluster deliberately holds nothing critical.
+pve_linstor_controller: pve1
+
+# --- Storage pools ---
+# SSD = VM disks (fast). Built from the space the installer left free beyond the
+# 60G `pve` VG: ~107G on pve1's SATA SSD, ~178G on the ThinkCentres' NVMe.
+pve_linstor_ssd_vg: vg_ssd
+pve_linstor_ssd_pool: ssd
+
+# HDD = bulk. Whole 1TB spindle. pve2/pve3 still carry STALE CEPH VGs here that
+# must be wiped first; pve1's was already cleared.
+pve_linstor_hdd_vg: vg_hdd
+pve_linstor_hdd_pool: hdd
+pve_linstor_hdd_disk: /dev/sda
+
+# --- Resource groups ---
+# place-count 2 = two replicas across three nodes: survives losing any one node
+# while costing 2x rather than 3x capacity.
+#
+# ONE PER STORAGE POOL. A resource group binds to a single pool, so without an
+# hdd group the ~2.7TB of spinning disk is provisioned in LINSTOR but completely
+# unreachable from Proxmox — pools exist, nothing can allocate from them.
+pve_linstor_place_count: 2
+pve_linstor_resource_groups:
+  - name: pve-rg            # fast: VM/CT root disks
+    pool: "{{ pve_linstor_ssd_pool }}"
+    content: images,rootdir
+  - name: pve-rg-hdd        # bulk: large/cold volumes on the 1TB spindles
+    pool: "{{ pve_linstor_hdd_pool }}"
+    content: images,rootdir
+
+# Safety: wiping a disk is destructive and irreversible. Must be set explicitly.
+pve_linstor_wipe_hdd: false

@@ -1,0 +1,67 @@
+---
+# Write a base image onto a freshly created VM disk.
+#
+# ⚠️ Deliberately NOT `qm importdisk`. On this LINSTOR/DRBD storage it reported
+# success ("transferred 3.5 GiB", exit 0) but left ZEROS where the partition
+# table belongs, producing a silently unbootable disk. `qemu-img convert`
+# straight to the DRBD device works and takes ~40s. (Verified 2026-07-25.)
+#
+# Also note: the source is named *.img.raw but is actually QCOW2 — always let
+# qemu detect the format rather than trusting the extension.
+
+- name: Resolve the DRBD device backing the VM disk
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      # scsi0: <storage>:<volume>,opts...  -> we want <volume>, i.e. field 3
+      vol=$(qm config {{ item.vmid }} | sed -n 's/^scsi0: *[^:]*:\([^,]*\).*/\1/p')
+      # PVE's volume is pm-xxxx_<vmid>, but the LINSTOR RESOURCE is just
+      # pm-xxxx -- strip the _<vmid> suffix or nothing ever matches.
+      res=${vol%_*}
+      linstor resource list-volumes 2>/dev/null \
+        | awk -v v="$res" -v n="$(hostname)" '$0 ~ v && $0 ~ n {print}' \
+        | grep -oE '/dev/drbd[0-9]+' | head -1
+    executable: /bin/bash
+  register: _drbd_dev
+  changed_when: false
+  delegate_to: "{{ pve_vm_node }}"
+
+- name: Fail if the device could not be resolved
+  ansible.builtin.fail:
+    msg: "Could not find the DRBD device for VM {{ item.vmid }} scsi0 — refusing to write an image blind."
+  delegate_to: "{{ pve_vm_node }}"
+  when: (_drbd_dev.stdout | trim) | length == 0
+
+- name: Check whether the disk already has a partition table
+  # Idempotency guard: never overwrite a disk that already looks installed.
+  ansible.builtin.shell:
+    cmd: |
+      python3 -c "
+      import sys
+      try:
+          d=open('{{ _drbd_dev.stdout | trim }}','rb').read(512)
+          sys.stdout.write('yes' if d[510:512]==b'\x55\xaa' else 'no')
+      except Exception:
+          sys.stdout.write('unreadable')"
+    executable: /bin/bash
+  register: _has_mbr
+  changed_when: false
+  delegate_to: "{{ pve_vm_node }}"
+
+- name: Write the base image
+  # DRBD must be Primary to accept writes; reading a Secondary returns ZEROS,
+  # which is its own excellent way to misdiagnose an empty disk.
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      drbdadm primary {{ _res }} 2>/dev/null || true
+      qemu-img convert -O raw "{{ item.image }}" "{{ _dev }}"
+      sync
+      drbdadm secondary {{ _res }} 2>/dev/null || true
+    executable: /bin/bash
+  vars:
+    _dev: "{{ _drbd_dev.stdout | trim }}"
+    _res: "{{ _drbd_dev.stdout | trim | regex_replace('.*drbd', '') }}"
+  when: _has_mbr.stdout is not search('yes')
+  changed_when: true
+  delegate_to: "{{ pve_vm_node }}"

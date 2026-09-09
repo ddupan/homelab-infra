@@ -1,0 +1,50 @@
+{# Desired VyOS config as `set` lines. vyos_config diffs these against the
+   running config, so only differences are applied. Written for VyOS 2025.11
+   syntax explicitly -- see defaults/main.yml for why we do not use the
+   collection's resource modules. #}
+set system host-name {{ vyos_router_hostname }}
+set system name-server {{ vyos_nameserver }}
+
+{# --- LAN leg: OSPF peer with the NEC IX --- #}
+set interfaces ethernet {{ vyos_lan_interface }} address {{ vyos_lan_address }}
+set interfaces ethernet {{ vyos_lan_interface }} description 'LAN / OSPF to NEC IX'
+
+{# --- SDN legs: gateways for the PVE VNets --- #}
+{% for i in vyos_sdn_interfaces %}
+set interfaces ethernet {{ i.iface }} address {{ i.address }}
+set interfaces ethernet {{ i.iface }} description '{{ i.description }}'
+{% endfor %}
+
+{# --- default route out; OSPF carries the rest --- #}
+set protocols static route 0.0.0.0/0 next-hop {{ vyos_lan_gateway }}
+
+{# --- OSPF: intra-area, NOT redistribute connected --- #}
+set protocols ospf parameters router-id {{ vyos_ospf_router_id }}
+{% for n in vyos_ospf_networks %}
+set protocols ospf area {{ vyos_ospf_area }} network {{ n }}
+{% endfor %}
+{% for i in vyos_sdn_interfaces %}
+set protocols ospf area {{ vyos_ospf_area }} network {{ i.network }}
+{# passive: advertise the subnet, but never try to peer with guests on it #}
+set protocols ospf interface {{ i.iface }} passive
+{% endfor %}
+
+{# --- management --- #}
+set service ssh port 22
+
+{# --- DHCP for the SDN VNets --- #}
+{% for i in vyos_sdn_interfaces if i.dhcp is defined %}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} subnet-id {{ i.dhcp.subnet_id }}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} option default-router {{ i.address.split('/')[0] }}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} option name-server {{ vyos_dhcp_nameserver }}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} option domain-name {{ i.dhcp.domain }}
+{% if i.dhcp.wins is defined %}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} option wins-server {{ i.dhcp.wins }}
+{% endif %}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} range 0 start {{ i.dhcp.start }}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} range 0 stop {{ i.dhcp.stop }}
+{% for r in i.dhcp.reservations | default([]) %}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} static-mapping {{ r.name }} mac {{ r.mac }}
+set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} static-mapping {{ r.name }} ip-address {{ r.address }}
+{% endfor %}
+{% endfor %}

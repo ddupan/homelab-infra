@@ -1,0 +1,17 @@
+---
+# openbao_ssh_ca_trust — make a (root-managed) host trust bao's SSH USER CA, so sshd
+# accepts the short-lived certs bao signs. Additive: normal key auth is unaffected.
+# For no-root hosts, use a `cert-authority` line in ~/.ssh/authorized_keys instead.
+
+openbao_ssh_mount: "ssh-client-signer"
+openbao_addr: "https://bao.ad.ddupan.top:8200"
+
+# The CA public key. Leave empty to fetch it (once, from the control node) from bao's
+# UNAUTHENTICATED public_key endpoint — so it stays current even after a CA rotation.
+# Set it explicitly to pin a key or work offline.
+openbao_ssh_ca_pubkey: ""
+openbao_ssh_ca_url: "{{ openbao_addr }}/v1/{{ openbao_ssh_mount }}/public_key"
+
+openbao_ssh_ca_file: "/etc/ssh/openbao_user_ca.pub"
+openbao_ssh_ca_dropin: "/etc/ssh/sshd_config.d/50-openbao-ca.conf"
+openbao_ssh_service: "ssh"        # Debian/Ubuntu; RHEL-family = "sshd"

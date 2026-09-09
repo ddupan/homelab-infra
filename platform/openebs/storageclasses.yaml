@@ -1,0 +1,22 @@
+# ZFS-backed StorageClass for openebs zfs-localpv (provisioner zfs.csi.openebs.io).
+# Standalone resource — NOT part of the openebs Helm release. Backs PVCs on ZFS pool
+# `data/ceph`. Apply with: kubectl apply -f storageclasses.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: localpv-zfs-ceph
+provisioner: zfs.csi.openebs.io
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  poolname: data/ceph        # ZFS dataset the volumes are carved from
+  csi.storage.k8s.io/fstype: xfs
+  compression: lz4
+  dedup: "off"
+  atime: "off"
+  relatime: "on"
+  recordsize: 128k
+  volblocksize: 4k
+  thinprovision: "yes"
+  xattr: sa

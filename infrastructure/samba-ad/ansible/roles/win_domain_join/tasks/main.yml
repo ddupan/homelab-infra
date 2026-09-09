@@ -1,0 +1,48 @@
+---
+# Join the Windows admin box to the domain, install RSAT, activate against KMS.
+# Requires collections: ansible.windows, community.windows.
+
+- name: Point primary DNS at the DC (mandatory before join)
+  ansible.windows.win_dns_client:
+    adapter_names: "*"
+    dns_servers:
+      - "{{ win_dc_ip }}"
+
+- name: Join the Active Directory domain (reboots automatically)
+  microsoft.ad.membership:
+    dns_domain_name: "{{ win_domain_dns_name }}"
+    domain_admin_user: "{{ win_domain_admin_user }}"
+    domain_admin_password: "{{ win_domain_admin_password }}"
+    state: domain
+    reboot: true
+  no_log: true
+
+- name: Install RSAT management features (GPMC, ADUC, DNS console) — Server SKU
+  ansible.windows.win_feature:
+    name: "{{ win_rsat_features }}"
+    state: present
+    include_management_tools: true
+  register: rsat_feature
+
+- name: Reboot if an RSAT feature asked for it
+  ansible.windows.win_reboot:
+  when: rsat_feature.reboot_required | default(false)
+
+- name: KMS activation (SRV auto-discovery unless a host is pinned)
+  when: win_activate | bool
+  block:
+    - name: Install GVLK (only if explicitly provided; normally already baked in)
+      ansible.windows.win_command: "cscript //nologo C:\\Windows\\System32\\slmgr.vbs /ipk {{ win_kms_client_key }}"
+      when: win_kms_client_key | length > 0
+      changed_when: true
+
+    - name: Pin KMS host (only if overriding the _vlmcs SRV auto-discovery)
+      ansible.windows.win_command: "cscript //nologo C:\\Windows\\System32\\slmgr.vbs /skms {{ win_kms_host }}"
+      when: win_kms_host | length > 0
+      changed_when: true
+
+    - name: Activate (discovers KMS via _vlmcs._tcp SRV in AD DNS)
+      ansible.windows.win_command: "cscript //nologo C:\\Windows\\System32\\slmgr.vbs /ato"
+      register: slmgr_ato
+      changed_when: true
+      failed_when: false    # first /ato can race the domain DNS; not fatal

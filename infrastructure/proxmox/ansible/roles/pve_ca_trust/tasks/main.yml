@@ -1,0 +1,38 @@
+---
+# Trust the homelab's internal CA (OpenBao pki/, "ddupan.top Internal CA").
+#
+# Needed so the PVE nodes can verify LDAPS against the Samba AD DC with
+# verify=1 instead of disabling verification -- an unverified directory bind is
+# trivially MITM-able on a flat LAN, and the whole point of running our own CA
+# is not having to do that.
+#
+# The CA is pulled from bao's UNAUTHENTICATED /v1/pki/ca/pem endpoint (same
+# approach as roles/openbao_ssh_ca_trust in services/openbao): no token needed,
+# and a CA rotation is picked up simply by re-running this.
+
+- name: Fetch the internal CA from OpenBao
+  ansible.builtin.uri:
+    url: "{{ pve_internal_ca_url }}"
+    return_content: true
+    # bao serves a real Let's Encrypt cert (openbao_acme role), so normal
+    # verification works here -- do NOT relax this.
+    validate_certs: true
+  register: _bao_ca
+  changed_when: false
+  retries: 3
+  delay: 10
+  until: _bao_ca is succeeded
+
+- name: Sanity-check that we actually got a CA certificate
+  ansible.builtin.assert:
+    that:
+      - "'BEGIN CERTIFICATE' in _bao_ca.content"
+    fail_msg: "OpenBao did not return a PEM certificate -- refusing to install it as a trust anchor."
+    quiet: true
+
+- name: Install the internal CA into the system trust store
+  ansible.builtin.copy:
+    dest: /usr/local/share/ca-certificates/ddupan-internal-ca.crt
+    content: "{{ _bao_ca.content }}"
+    mode: "0644"
+  notify: Update CA certificates

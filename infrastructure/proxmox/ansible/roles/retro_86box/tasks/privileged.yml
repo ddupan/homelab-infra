@@ -1,0 +1,102 @@
+---
+# Extract the AppImage and give the real binary CAP_NET_ADMIN so TAP
+# networking works. See the long comment in defaults/main.yml for why every
+# step here is necessary.
+
+- name: Read the extracted build id
+  # The extracted tree is a derived artifact; it must be rebuilt whenever the
+  # pinned AppImage build changes, or a version bump would leave the old
+  # binary in place while the AppImage next to it says otherwise.
+  ansible.builtin.slurp:
+    src: "{{ retro_86box_app_dir }}/.build-id"
+  register: _bid
+  failed_when: false
+  changed_when: false
+
+- name: Decide whether the AppImage must be re-extracted
+  ansible.builtin.set_fact:
+    _86box_extract: >-
+      {{ _bid.content is not defined
+         or (_bid.content | b64decode | trim) != retro_86box_build }}
+
+- name: Extract the AppImage
+  # --appimage-extract always writes ./squashfs-root in the CWD and refuses to
+  # target a directory, hence the extract-then-move.
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      rm -rf "{{ retro_86box_app_dir }}" "{{ retro_86box_dir }}/squashfs-root"
+      cd "{{ retro_86box_dir }}"
+      ./86Box.AppImage --appimage-extract >/dev/null
+      mv squashfs-root "{{ retro_86box_app_dir }}"
+  when: _86box_extract
+  changed_when: true
+
+- name: Read the current ELF interpreter
+  ansible.builtin.command:
+    cmd: "patchelf --print-interpreter {{ retro_86box_bin }}"
+  register: _interp
+  changed_when: false
+
+- name: Make the ELF interpreter absolute
+  ansible.builtin.command:
+    cmd: "patchelf --set-interpreter {{ retro_86box_interp }} {{ retro_86box_bin }}"
+  when: _interp.stdout | trim != retro_86box_interp
+  changed_when: true
+
+- name: Read the current rpath
+  ansible.builtin.command:
+    cmd: "patchelf --print-rpath {{ retro_86box_bin }}"
+  register: _rpath
+  changed_when: false
+
+- name: Bake the bundled library directories in as DT_RPATH
+  ansible.builtin.command:
+    cmd: >-
+      patchelf --force-rpath --set-rpath
+      "{{ retro_86box_rpath_dirs | join(':') }}" {{ retro_86box_bin }}
+  when: _rpath.stdout | trim != (retro_86box_rpath_dirs | join(':'))
+  changed_when: true
+
+- name: Verify no library is left unresolved
+  # Must pass BEFORE setcap is worth doing -- a capability binary that cannot
+  # load its libraries fails with a misleading "required file not found".
+  ansible.builtin.shell:
+    cmd: "ldd {{ retro_86box_bin }} 2>&1 | grep -c 'not found' || true"
+  register: _missing
+  changed_when: false
+  failed_when: (_missing.stdout | trim | int) != 0
+
+- name: Read the current capabilities
+  ansible.builtin.command:
+    cmd: "getcap {{ retro_86box_bin }}"
+  register: _caps
+  changed_when: false
+
+- name: Grant CAP_NET_ADMIN and CAP_NET_RAW
+  # NOTE: must run AFTER patchelf. patchelf rewrites the file and drops the
+  # security.capability xattr, so setting caps first silently loses them.
+  ansible.builtin.command:
+    cmd: "setcap '{{ retro_86box_caps }}' {{ retro_86box_bin }}"
+  when: "'cap_net_admin' not in _caps.stdout or 'cap_net_raw' not in _caps.stdout"
+  changed_when: true
+
+- name: Record the extracted build id
+  ansible.builtin.copy:
+    content: "{{ retro_86box_build }}\n"
+    dest: "{{ retro_86box_app_dir }}/.build-id"
+    mode: "0644"
+
+- name: Install the launcher wrapper
+  ansible.builtin.copy:
+    dest: "{{ retro_86box_wrapper }}"
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      # Managed by Ansible (roles/retro_86box).
+      #
+      # Runs the EXTRACTED 86Box, not the AppImage: only the extracted binary
+      # can carry CAP_NET_ADMIN, which 86Box needs to create its tap device
+      # and enslave it to {{ retro_86box_tap_bridge }}. Point Avalonia86 at
+      # this path, not at the .AppImage.
+      exec {{ retro_86box_bin }} "$@"

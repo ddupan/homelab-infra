@@ -1,0 +1,44 @@
+# Cert for the PUBLIC Gitea hostname, so it can also be served on the LAN.
+#
+# Same reasoning as certificate-auth-ddupan.yaml: `*.ad.ddupan.top` cannot cover
+# `git.ddupan.top` — different zone (Cloudflare is authoritative for ddupan.top,
+# the DC only for ad.ddupan.top) and one label shallower.
+#
+# WHY serve the public name internally rather than introduce git.ad.ddupan.top:
+# the remote URL ends up in every clone, every CI checkout, and every existing
+# working copy. Split-horizon on the SAME name means none of that has to change,
+# and a laptop that leaves the LAN still reaches Gitea through the tunnel with the
+# identical URL.
+#
+# WHAT IT AVOIDS: without this, `git push` goes laptop -> Cloudflare -> tunnel ->
+# back into the cluster the laptop is hosting. On 2026-07-28 that path was
+# blackholed for hours by a dead VPN tunnel, and the repo is exactly what you need
+# during an incident.
+#
+# CT-log note: the wildcard in certificate-wildcard-ad.yaml exists to keep internal
+# hostnames out of Certificate Transparency. That does not apply here —
+# git.ddupan.top is already public via the Cloudflare-facing cert.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: git-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: git-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "git.ddupan.top"
+  dnsNames:
+    - "git.ddupan.top"
+  # DNS-01 via Cloudflare, which stays authoritative for the zone — so the ACME
+  # challenge resolves publicly even though the A record we serve on the LAN
+  # points at the gateway.
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always

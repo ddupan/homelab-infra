@@ -1,0 +1,77 @@
+---
+# Declarative-ish VM definitions. Uses `qm` over SSH rather than
+# community.general.proxmox_kvm: that module needs `proxmoxer` plus API-token
+# auth, while every other role here already drives pvesh/qm on the node. Staying
+# consistent beats adding a dependency for one role.
+#
+# Creation is guarded by `qm status <vmid>`, so re-runs never touch an existing
+# VM. Changing a definition here does NOT retro-fit a live VM — adjust it with
+# `qm set` deliberately, or destroy and recreate.
+
+pve_vm_node: pve1          # where new VMs are created
+
+# Anything a VM needs to be MANAGEABLE, installed by cloud-init on first boot —
+# before Ansible ever connects. qemu-guest-agent especially: without it PVE
+# cannot see guest IPs, do a clean shutdown, or freeze the fs for snapshots.
+pve_vm_base_packages:
+  - qemu-guest-agent
+  - openssh-server
+  - python3            # Ansible needs an interpreter
+pve_vm_ssh_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+# PVE storage with `snippets` content enabled (see role pve_nfs).
+pve_vm_snippet_storage: laptop
+pve_vm_snippet_path: /mnt/pve/laptop/snippets
+
+pve_vms:
+  - vmid: 100
+    name: vyos-rtr
+    description: "VyOS router: OSPF peer to the NEC IX, gateway for the SDN VNets."
+    cores: 2
+    memory: 2048
+    disk: "pve-rg:8"
+    # Headless by design: UEFI + serial console, NO emulated VGA. VyOS's own
+    # kernel cmdline carries console=ttyS0, and the installer was answered with
+    # console=Serial, so `qm terminal 100` stays available out-of-band.
+    bios: ovmf
+    machine: q35
+    vga: serial0
+    serial: true
+    nets:
+      - { id: 0, bridge: vmbr0 }      # LAN / OSPF
+      - { id: 1, bridge: labnet }
+      - { id: 2, bridge: retronet }
+    onboot: 1
+    iso: "laptop:iso/vyos-2025.11-generic-amd64.iso"
+
+  - vmid: 101
+    name: retrolab
+    description: "86Box host. RDP in when you want it. net1 = retronet (no IP), for the emulated NICs."
+    # ⚠️ BELONGS ON pve2/pve3, NOT on the pve1 that `pve_vm_node` creates it on.
+    # 86Box is a single-threaded recompiler and pve1 is an i3-6100U (2c/4t,
+    # 2.3 GHz) that also carries vyos-rtr — emulation stuttered and the emulated
+    # Sound Blaster glitched. The Ryzen 5 PRO 2400GE nodes (4c/8t, 3.2 GHz) do
+    # not. Moved to pve3 on 2026-07-28. If this VM is ever recreated here,
+    # migrate it back off pve1 afterwards; `cpu: host` (kept, it is most of the
+    # win) makes that an OFFLINE migration, because pve1 is Intel and pve2/pve3
+    # are AMD.
+    cores: 4
+    memory: 4096
+    disk: "pve-rg:40"
+    bios: ovmf
+    machine: q35
+    vga: virtio             # a desktop, unlike the router
+    serial: true
+    # MACs are PINNED. Destroying and recreating a VM otherwise generates new
+    # ones, so its DHCP reservation stops matching and its address moves -- which
+    # is exactly what happened on the first rebuild.
+    nets:
+      - { id: 0, bridge: labnet, mac: "BC:24:11:68:A0:51" }   # DHCP-reserved to 10.60.0.10
+      - { id: 1, bridge: retronet, mac: "BC:24:11:9F:63:ED" } # no IP - handed to 86Box
+    onboot: 0
+    cloudinit: true
+    ciuser: panxiao81
+    # ⚠️ Do NOT use `qm importdisk` for this image. It reported success
+    # ("transferred 3.5 GiB", exit 0) but left ZEROS where the partition table
+    # belongs, producing a silently unbootable disk. Write it straight to the
+    # DRBD device instead (see tasks/image.yml).
+    image: "/mnt/pve/laptop/import/noble-server-cloudimg-amd64.img.raw"

@@ -1,0 +1,43 @@
+# External Secrets Operator — pulls secret material from OpenBao into Kubernetes
+# Secrets, so the Secrets themselves become declarative instead of hand-created.
+#
+# Install:
+#   helm upgrade --install external-secrets external-secrets/external-secrets \
+#     -n external-secrets --create-namespace -f values.yaml
+#
+# WHY this and not SOPS: OpenBao is already the secrets store and the internal CA
+# here, and its Kubernetes auth backend is already bootstrapped
+# (../../infrastructure/openbao/ansible/roles/openbao_bootstrap/tasks/auth_kubernetes.yml), so a pod
+# authenticates with its own ServiceAccount JWT and NOTHING long-lived is stored
+# in the cluster. SOPS would mean managing an age key and committing ciphertext.
+#
+# Single node, so one replica of each component. The webhook and cert-controller
+# are not optional — the CRDs use conversion/validating webhooks.
+replicaCount: 1
+
+webhook:
+  replicaCount: 1
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {memory: 128Mi}
+
+certController:
+  replicaCount: 1
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {memory: 128Mi}
+
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {memory: 256Mi}
+
+# The controller's own ServiceAccount is what the ClusterSecretStore presents to
+# OpenBao, so its name is part of the contract with the bao Kubernetes auth role
+# (bound_service_account_names). Pinned rather than left to the chart's default.
+serviceAccount:
+  create: true
+  name: external-secrets
+
+# ClusterSecretStore is cluster-scoped; leaving this on lets one store serve every
+# namespace, which is the point here (authelia, gitea and cloudflared all consume it).
+installCRDs: true

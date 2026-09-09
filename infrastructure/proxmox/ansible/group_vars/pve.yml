@@ -1,0 +1,50 @@
+---
+ansible_user: root
+ansible_python_interpreter: /usr/bin/python3
+
+# Internal domain. NOTE: ad.ddupan.top, NOT lab.ddupan.top -- the installer
+# answer files originally wrote "lab" and it was corrected post-install on
+# 2026-07-25. This is the Samba AD realm (see services/samba-ad/).
+pve_domain: ad.ddupan.top
+
+# ── apt / repositories ──────────────────────────────────────────────────
+# Debian codename PVE 9.2 is built on. Derived at runtime, but pinned here as a
+# fallback so a failed fact-gather cannot silently point apt at the wrong suite.
+pve_suite: trixie
+
+# The enterprise repos 401 without a subscription and make every apt run noisy.
+pve_disable_enterprise_repo: true
+pve_enable_no_subscription_repo: true
+
+# Ceph is deliberately NOT used on this cluster -- it was tried on HDD OSDs and
+# was far too slow. LINSTOR/DRBD replaces it, so the Ceph repo is disabled.
+pve_disable_ceph_repo: true
+
+# Strip the "No valid subscription" web-UI dialog.
+pve_remove_subscription_nag: true
+
+# Run a full dist-upgrade. Off by default: the home uplink is unstable and a
+# half-applied upgrade across a live cluster is worse than a stale one. Enable
+# deliberately:  -e pve_dist_upgrade=true
+pve_dist_upgrade: false
+
+# ── outbound mail ───────────────────────────────────────────────────────
+# These nodes cannot hand mail to M365 directly from a residential IP, so all
+# mail relays through the k3s smtp-relay on the laptop. See services/smtp-relay/.
+pve_mail_relayhost: "[192.168.10.127]:25"
+# M365 authenticates as this mailbox and REFUSES to send as anything else
+# (5.7.60 SendAsDenied), so every local sender is rewritten to it.
+pve_mail_from: noreply@ddupan.top
+
+# ── internal PKI ────────────────────────────────────────────────────────
+# OpenBao (192.168.10.8) is the homelab root-of-trust. This endpoint is
+# unauthenticated by design, so nodes can (re)fetch the CA without a token.
+pve_internal_ca_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+
+# ── DNS ─────────────────────────────────────────────────────────────────
+# See roles/pve_dns for WHY the DC must come first.
+pve_dns_search: ad.ddupan.top
+pve_nameservers:
+  - 192.168.10.5    # Samba AD DC: internal zone + external forwarding
+  - 192.168.10.1    # router: external only, NO internal zone
+pve_dns_probe_name: bao.ad.ddupan.top

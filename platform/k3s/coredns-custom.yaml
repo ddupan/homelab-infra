@@ -1,0 +1,128 @@
+# Route internal AD-zone lookups straight to the Samba DC instead of the LAN
+# router, for every pod in the cluster.
+#
+# WHY: k3s CoreDNS forwards to the node's /etc/resolv.conf, which lists the
+# router (192.168.10.1) — and that resolver flaps. When it hangs, CoreDNS's
+# forward plugin blocks and even CLUSTER-INTERNAL lookups
+# (*.svc.cluster.local) start timing out, which is how Authelia ended up in
+# CrashLoopBackOff: its startup check resolves both dc1.ad.ddupan.top and
+# smtp-relay.smtp-relay.svc.cluster.local, and a strict startup check turns a
+# transient DNS blip into a restart loop.
+#
+# dc1 is AUTHORITATIVE for ad.ddupan.top, so sending that zone directly to it
+# removes the router from the path entirely — no forwarding, no upstream
+# dependency, no flap.
+#
+# k3s picks this up via `import /etc/coredns/custom/*.server` in its Corefile.
+# The `reload` plugin applies it without restarting CoreDNS.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  ad-ddupan-top.server: |
+    ad.ddupan.top:53 {
+        errors
+        cache 30
+        forward . 192.168.10.5 {
+            policy sequential
+        }
+    }
+  # ── stop search-domain permutations from hanging on the router ──────────
+  # Pods get `options ndots:5` plus the NODE's search list, which still carries
+  # `lab.ddupan.top` (the RETIRED domain) and tailscale's MagicDNS suffix. A name
+  # like dc1.ad.ddupan.top has only 3 dots, so glibc tries EVERY suffix first:
+  #   dc1.ad.ddupan.top.tail7e769.ts.net
+  #   dc1.ad.ddupan.top.lab.ddupan.top
+  # Both are forwarded upstream to the flaky router and time out, so the client
+  # gives up before the bare name is ever tried. That is what put Authelia in
+  # CrashLoopBackOff -- and it hit the cluster-internal smtp-relay name too
+  # (4 dots < ndots:5).
+  #
+  # Answer these locally with an instant NXDOMAIN. Neither zone should ever
+  # resolve from inside the cluster.
+  dead-search-domains.server: |
+    lab.ddupan.top:53 {
+        errors
+        template ANY ANY {
+            rcode NXDOMAIN
+        }
+    }
+    tail7e769.ts.net:53 {
+        errors
+        template ANY ANY {
+            rcode NXDOMAIN
+        }
+    }
+  # ── split-horizon for the Authelia hostname ─────────────────────────────
+  # Cloudflare is authoritative for ddupan.top (the DC only holds ad.ddupan.top),
+  # so auth.ddupan.top publicly resolves to Cloudflare proxy IPs — 104.21.6.55 and
+  # 172.67.154.245. TCP/443 to BOTH fails from this network, persistently, while
+  # other Cloudflare IPs (104.16.132.229) connect fine. So every in-cluster
+  # consumer of Authelia was hairpinning out to an internet path that does not
+  # work, to reach a Service sitting in the same cluster.
+  #
+  # Concretely (2026-07-28): the Gitea chart runs `gitea admin auth update-oauth`
+  # in an INIT container, which FETCHES the OIDC discovery URL on every pod start.
+  # It timed out, so Gitea CrashLoopBackOff'd on any restart, and server-side
+  # token exchange failed for logins. This was latent — any restart would do it.
+  #
+  # Answer with the Envoy Gateway LAN address instead. The gateway terminates TLS
+  # with a real Let's Encrypt cert for this exact name
+  # (../cert-manager/certificate-auth-ddupan.yaml) and routes to the authelia
+  # Service (../../apps/authelia/httproute.yaml), so the name, issuer, redirect URIs and
+  # cookie domain are all unchanged — only the path stops leaving the LAN.
+  #
+  # A `template` block (not `hosts`) so it answers only A/AAAA-shaped queries and
+  # returns NOERROR/no-data rather than NXDOMAIN for anything else.
+  auth-ddupan-top.server: |
+    auth.ddupan.top:53 {
+        errors
+        template IN A {
+            answer "{{ .Name }} 60 IN A 192.168.10.127"
+        }
+        template IN AAAA {
+            rcode NOERROR
+        }
+    }
+  # ── split-horizon for Gitea ─────────────────────────────────────────────
+  # Same shape and same reason as auth.ddupan.top above: git.ddupan.top publicly
+  # resolves to Cloudflare, so an in-cluster client cloning from Gitea would leave
+  # the LAN, cross the WAN and come back down the tunnel into this same cluster.
+  #
+  # This matters for CI: an Actions runner checking out the repo, and anything
+  # else that clones from inside the cluster. Served by the `https-git` listener
+  # with a real LE cert for the name (../cert-manager/certificate-git-ddupan.yaml),
+  # so the clone URL is identical inside and outside — no remote needs rewriting.
+  #
+  # ⚠ This only covers PODS. LAN clients resolve via the DC, which forwards
+  # ddupan.top to the router — and the NEC IX has no static-host/proxy-DNS
+  # feature (`show dns` offers only fqdn-database). The DC therefore needs its own
+  # `git.ddupan.top` zone for laptops and PVE nodes to get the LAN answer.
+  git-ddupan-top.server: |
+    git.ddupan.top:53 {
+        errors
+        template IN A {
+            answer "{{ .Name }} 60 IN A 192.168.10.127"
+        }
+        template IN AAAA {
+            rcode NOERROR
+        }
+    }
+---
+# NOTE: `serve_stale` could NOT be added here.
+#
+# The cache plugin already exists in k3s's own Corefile (`cache 30`), and CoreDNS
+# rejects a duplicate plugin in the same server block — so the *.override import
+# cannot carry it. It was applied by patching the `coredns` ConfigMap directly;
+# the intended Corefile is kept alongside as `Corefile.desired`.
+#
+# ⚠️ A k3s restart/upgrade re-applies its bundled manifest and will REVERT that
+# patch. Re-apply from Corefile.desired if external name resolution starts
+# failing hard during WAN outages again.
+#
+# WHY: the ISP drops the WAN at random and it cannot be changed. serve_stale
+# keeps answering with expired entries while the upstream is unreachable, so
+# previously-resolved external names (smtp.office365.com, package mirrors) keep
+# working through a blip instead of hanging.

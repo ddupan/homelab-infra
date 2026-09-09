@@ -1,0 +1,66 @@
+---
+# Replace Samba's default self-signed LDAPS certificate with one that has a POSITIVE
+# serial number and proper SANs. Samba's auto-generated cert uses a negative serial,
+# which Go 1.23+ LDAP clients (Authelia 4.39, etc.) reject at PARSE time with
+# "x509: negative serial number" — so tls.skip_verify on the client can't help.
+# Idempotent via community.crypto (only regenerates when inputs change).
+
+- name: Ensure python cryptography is present (for community.crypto)
+  ansible.builtin.apt:
+    name: python3-cryptography
+    state: present
+
+# --- Internal CA ---
+- name: CA private key
+  community.crypto.openssl_privatekey:
+    path: /var/lib/samba/private/tls/ca-key.pem
+    size: 4096
+    mode: "0600"
+
+- name: CA CSR (carries subject + CA basic constraints)
+  community.crypto.openssl_csr:
+    path: /var/lib/samba/private/tls/ca.csr
+    privatekey_path: /var/lib/samba/private/tls/ca-key.pem
+    common_name: "ddupan-ad-ca"
+    basic_constraints:
+      - "CA:TRUE"
+    basic_constraints_critical: true
+    use_common_name_for_san: false
+
+- name: CA certificate (self-signed, positive serial)
+  community.crypto.x509_certificate:
+    path: /var/lib/samba/private/tls/ca.pem
+    csr_path: /var/lib/samba/private/tls/ca.csr
+    privatekey_path: /var/lib/samba/private/tls/ca-key.pem
+    provider: selfsigned
+    selfsigned_not_after: "+3650d"
+    mode: "0644"
+  notify: restart samba-ad-dc
+
+# --- Server (LDAPS) cert signed by our CA ---
+- name: Server private key
+  community.crypto.openssl_privatekey:
+    path: /var/lib/samba/private/tls/key.pem
+    size: 4096
+    mode: "0600"
+
+- name: Server CSR (FQDN + SANs)
+  community.crypto.openssl_csr:
+    path: /var/lib/samba/private/tls/server.csr
+    privatekey_path: /var/lib/samba/private/tls/key.pem
+    common_name: "{{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}"
+    subject_alt_name:
+      - "DNS:{{ samba_ad_dc_hostname }}.{{ samba_ad_realm | lower }}"
+      - "DNS:{{ samba_ad_realm | lower }}"
+      - "IP:{{ samba_ad_dc_ip }}"
+
+- name: Server certificate signed by our CA (positive serial)
+  community.crypto.x509_certificate:
+    path: /var/lib/samba/private/tls/cert.pem
+    csr_path: /var/lib/samba/private/tls/server.csr
+    ownca_path: /var/lib/samba/private/tls/ca.pem
+    ownca_privatekey_path: /var/lib/samba/private/tls/ca-key.pem
+    provider: ownca
+    ownca_not_after: "+3650d"
+    mode: "0644"
+  notify: restart samba-ad-dc

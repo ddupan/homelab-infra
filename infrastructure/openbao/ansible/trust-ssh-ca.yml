@@ -1,0 +1,10 @@
+---
+# Make each host in the ssh_ca_trust group trust bao's SSH user CA (TrustedUserCAKeys),
+# so it accepts the short-lived certs bao signs. Additive + validates before reload.
+#   ansible-playbook trust-ssh-ca.yml
+- name: Trust the OpenBao SSH CA
+  hosts: ssh_ca_trust
+  become: true
+  gather_facts: false
+  roles:
+    - role: openbao_ssh_ca_trust

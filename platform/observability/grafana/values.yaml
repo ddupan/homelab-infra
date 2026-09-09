@@ -1,0 +1,98 @@
+# Grafana — single pane over metrics (VictoriaMetrics), logs (VictoriaLogs) and
+# traces (VictoriaTraces via Jaeger API). Exposed privately on the tailnet
+# (grafana.tail7e769.ts.net) and authenticated via Authelia OIDC. Local admin is
+# break-glass only.
+#
+# Chart: grafana/grafana   (repo: https://grafana.github.io/helm-charts)
+
+# --- VictoriaLogs needs its Grafana datasource plugin ---
+plugins:
+  - victoriametrics-logs-datasource
+
+# --- Dashboard sidecar: auto-loads any ConfigMap labeled grafana_dashboard=1 in the
+# namespace. Migrated boards live in ./dashboards and are applied by ./dashboards/apply.sh ---
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: true
+
+# --- Provisioned datasources ---
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        type: prometheus
+        access: proxy
+        url: http://vmsingle-main.monitoring.svc:8428
+        isDefault: true
+        jsonData:
+          prometheusType: Prometheus
+      - name: VictoriaLogs
+        type: victoriametrics-logs-datasource
+        access: proxy
+        url: http://vlsingle-main.monitoring.svc:9428
+      - name: VictoriaTraces
+        type: jaeger
+        access: proxy
+        # VictoriaTraces (VTSingle CR) exposes a Jaeger-compatible query API under /select/jaeger.
+        url: http://vtsingle-main.monitoring.svc:10428/select/jaeger
+
+# --- Persistence on OpenEBS ZFS ---
+persistence:
+  enabled: true
+  storageClassName: localpv-zfs-ceph
+  size: 5Gi
+
+# --- Private exposure via the Tailscale ingress (like seaweedfs-admin) ---
+# The tailscale operator provisions grafana.<tailnet>.ts.net and a TLS cert.
+ingress:
+  enabled: true
+  ingressClassName: tailscale
+  hosts:
+    - grafana
+  tls:
+    - hosts:
+        - grafana
+
+# --- OIDC via Authelia (AD groups -> Grafana roles) ---
+# client_secret is injected from the grafana-oidc Secret (see oidc-secret.yaml),
+# which overrides any value in grafana.ini.
+envValueFrom:
+  GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+    secretKeyRef:
+      name: grafana-oidc
+      key: client_secret
+
+grafana.ini:
+  server:
+    root_url: "https://grafana.tail7e769.ts.net"   # must match the tailnet FQDN + Authelia redirect_uri
+  auth:
+    # Keep the local admin login available as break-glass; don't force OIDC-only.
+    disable_login_form: false
+    oauth_auto_login: false
+  auth.generic_oauth:
+    enabled: true
+    name: Authelia
+    client_id: grafana
+    scopes: "openid profile email groups"
+    auth_url: "https://auth.ddupan.top/api/oidc/authorization"
+    token_url: "https://auth.ddupan.top/api/oidc/token"
+    api_url: "https://auth.ddupan.top/api/oidc/userinfo"
+    login_attribute_path: preferred_username
+    name_attribute_path: name
+    email_attribute_path: email
+    groups_attribute_path: groups
+    # AD "Enterprise Admins" -> full Grafana server admin; "Domain Admins" -> org Admin;
+    # everyone else who can authenticate -> Viewer. Tune group names to taste.
+    role_attribute_path: "contains(groups[*], 'Enterprise Admins') && 'GrafanaAdmin' || contains(groups[*], 'Domain Admins') && 'Admin' || 'Viewer'"
+    allow_assign_grafana_admin: true
+    role_attribute_strict: false
+    use_pkce: true
+
+# Dashboards are loaded by the sidecar (above) from ConfigMaps created by
+# ./dashboards/apply.sh. Drop more JSON into ./dashboards and re-run that script.

@@ -1,0 +1,129 @@
+# Gitea holds a leveldb queue lock on its RWO /data volume, so two pods can't run
+# at once. The chart's default RollingUpdate (maxSurge 100%) deadlocks on upgrade;
+# Recreate terminates the old pod before starting the new one.
+strategy:
+  type: Recreate
+
+ingress:
+  enabled: true
+  hosts:
+    - host: git.ddupan.top
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - git.ddupan.top
+      secretName: git-ddupan-top-tls
+
+gitea:
+  config:
+    server:
+      ROOT_URL: https://git.ddupan.top/
+      APP_NAME: Gitea on ddupan.top
+    service:
+      ENABLE_SSH: false
+      ALLOW_ONLY_EXTERNAL_REGISTRATION: true
+      SHOW_REGISTRATION_BUTTON: false
+      ENABLE_PASSWORD_SIGNIN_FORM: false
+    auth:
+      AUTO_REGISTER: true
+    database:
+      DB_TYPE: postgres
+      HOST: shared-postgresql.shared-db.svc.cluster.local:5432
+      NAME: gitea
+      USER: gitea
+      # PASSWD is deliberately absent — it arrives via additionalConfigFromEnvs
+      # below, so this file carries no credential and stays in git.
+      SCHEMA: public
+    queue:
+      TYPE: database
+      QUEUE_TYPE: database
+    actions:
+      # CI for services/ (see .gitea/workflows/lint.yml). Enabling this only turns
+      # on the Actions API and UI — nothing runs until an act_runner registers
+      # against it, so this flag alone is inert.
+      ENABLED: true
+      # Where `uses:` steps are resolved from. Left at the github default because
+      # github.com is reachable from this network (verified 2026-07-28) even when
+      # pypi.org/Fastly is not — see the flaky-WAN notes in the lint workflow.
+      DEFAULT_ACTIONS_URL: github
+    mailer:
+      # Outbound mail via the in-cluster Postfix+OAuth relay (see ../smtp-relay/).
+      # Plain SMTP on :25 — the relay does STARTTLS + OAuth to M365. From must be the
+      # relay's send-as identity (noreply@ddupan.top) or O365 rejects with 5.7.60.
+      ENABLED: true
+      PROTOCOL: smtp
+      SMTP_ADDR: smtp-relay.smtp-relay.svc.cluster.local
+      SMTP_PORT: 25
+      FROM: Gitea <noreply@ddupan.top>
+    oauth2_client:
+      # Auto-link an OIDC login to an existing account with the same email
+      # (migrating panxiao81 from the retired Keycloak source to Authelia).
+      ACCOUNT_LINKING: auto
+      ENABLE_AUTO_REGISTRATION: true
+      USERNAME: preferred_username
+      UPDATE_AVATAR: true
+  # ⚠ FRAGILE BY DESIGN — this block is fetched at POD START, not at login.
+  # The chart's `configure-gitea` INIT container runs `gitea admin auth
+  # update-oauth`, which resolves and fetches autoDiscoverUrl before Gitea will
+  # start. So anything that makes this URL unreachable turns every restart into a
+  # CrashLoopBackOff, not merely a broken login.
+  #
+  # That happened on 2026-07-28: auth.ddupan.top resolved to Cloudflare proxy IPs
+  # (104.21.6.55 / 172.67.154.245) whose TCP/443 is persistently unroutable from
+  # this network, while other Cloudflare IPs (104.16.132.229) were fine. Gitea was
+  # hairpinning through the public internet to reach a Service in its own cluster.
+  #
+  # Fixed by resolving this hostname on the LAN instead — CoreDNS answers
+  # auth.ddupan.top with the Envoy gateway (../../platform/k3s/coredns-custom.yaml), which
+  # terminates TLS with a real LE cert for the name
+  # (../../platform/cert-manager/certificate-auth-ddupan.yaml) and routes to Authelia
+  # (../authelia/httproute.yaml). The URL below is deliberately UNCHANGED: the
+  # issuer, redirect URIs and cookie domain all stay auth.ddupan.top, so no OIDC
+  # client needed re-registering. Only the network path moved.
+
+  # The DB password, injected as an env var rather than written into this file.
+  # Gitea's env-to-ini step turns GITEA__DATABASE__PASSWD into `[database] PASSWD`,
+  # so the rendered app.ini is identical to hardcoding it — but the credential
+  # lives only in the `gitea-db` Secret (see secret.example.yaml), and this file
+  # stays in git.
+  #
+  # Next step for rotation: `gitea.extraEnvSourceFile` reads an env file written
+  # by an OpenBao agent-injector sidecar, which is the route to credentials from
+  # OpenBao's database secrets engine. See docs/cicd.md. Note Gitea reads app.ini
+  # once at startup, so rotation needs a restart — static roles suit it better
+  # than short-TTL dynamic credentials.
+  additionalConfigFromEnvs:
+    - name: GITEA__DATABASE__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: gitea-db
+          key: password
+
+  oauth:
+    - name: authelia
+      provider: openidConnect
+      existingSecret: gitea-oidc-secret
+      autoDiscoverUrl: https://auth.ddupan.top/.well-known/openid-configuration
+      # Without explicit scopes Gitea only requests `openid`, so email/preferred_username
+      # claims are never released. Space-joined into the OAuth scope request.
+      scopes: openid profile email groups
+      groupClaimName: groups
+      adminGroup: gitea-admins
+
+persistence:
+  size: 20Gi
+  claimName: gitea-shared-storage
+
+postgresql-ha:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+valkey-cluster:
+  enabled: false
+
+valkey:
+  enabled: false

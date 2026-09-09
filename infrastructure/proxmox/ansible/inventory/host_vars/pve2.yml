@@ -1,0 +1,3 @@
+# Hardware watchdog for HA fencing. Verified present 2026-07-26 (sp5100_tco).
+# softdog cannot fence a frozen kernel; see roles/pve_ha.
+pve_ha_watchdog_module: "sp5100_tco"

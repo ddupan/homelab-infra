@@ -1,0 +1,12 @@
+server {
+	listen 8080;
+	location / {
+		root /assets;
+		autoindex on;
+	}
+	# menus/binaries over HTTP — for UEFI HTTP Boot (serves the first-stage .efi)
+	location /menus/ {
+		alias /config/menus/;
+		autoindex on;
+	}
+}

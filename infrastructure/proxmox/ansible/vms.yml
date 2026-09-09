@@ -1,0 +1,8 @@
+---
+# VM definitions. Creation only — this does not reconcile live VMs.
+#   ansible-playbook vms.yml
+- name: Proxmox VMs
+  hosts: pve1
+  gather_facts: false
+  roles:
+    - pve_vm

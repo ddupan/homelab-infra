@@ -1,0 +1,45 @@
+#cloud-config
+# {{ ansible_managed }}
+# Full cloud-init user-data for {{ vm.name }} (vmid {{ vm.vmid }}).
+#
+# PVE's built-in cloud-init options only cover user/password/keys/network. That
+# left qemu-guest-agent uninstalled and bootstrap state fragile. Anything a VM
+# needs to be MANAGEABLE should happen here, on first boot, before Ansible ever
+# connects.
+#
+# NOTE: cloud-init runs `packages`/`runcmd` ONCE per instance. Adding entries
+# here does not retro-fit an already-provisioned VM — that needs Ansible (or a
+# `cloud-init clean` + reboot).
+
+hostname: {{ vm.name }}
+manage_etc_hosts: true
+
+users:
+  - name: {{ vm.ciuser }}
+    groups: [adm, sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: false
+    ssh_authorized_keys:
+      - "{{ pve_vm_ssh_key }}"
+
+package_update: true
+# Deliberately NO dist-upgrade at first boot. cloud-init has no retry, and on
+# this WAN `apt-get dist-upgrade` exits 100 the moment the link blips — which
+# aborts the whole package module, so qemu-guest-agent never installs and the VM
+# comes up unmanageable. Keep first boot minimal; Ansible does the rest WITH
+# retries. (Observed 2026-07-25.)
+package_upgrade: false
+packages:
+{% for p in vm.cloudinit_packages | default(pve_vm_base_packages) %}
+  - {{ p }}
+{% endfor %}
+
+runcmd:
+  # qemu-guest-agent gives PVE the guest's IPs, clean shutdown, and fsfreeze for
+  # snapshots. Without it `qm agent` fails and PVE cannot see inside the guest.
+  - [systemctl, enable, --now, qemu-guest-agent]
+  - [systemctl, enable, --now, ssh]
+
+# Keep the host keys stable across reboots so known_hosts does not churn.
+ssh_deletekeys: false

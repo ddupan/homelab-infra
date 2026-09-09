@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Or export TF_VAR_cloudflare_api_token.
+cloudflare_api_token = "CHANGE-ME"           # Account·Cloudflare Tunnel:Edit + Zone·DNS:Edit (ddupan.top)
+zone_id              = "CHANGE-ME"           # GET /zones?name=ddupan.top -> result[0].id
+# account_id / tunnel_id / zone_name have defaults in variables.tf

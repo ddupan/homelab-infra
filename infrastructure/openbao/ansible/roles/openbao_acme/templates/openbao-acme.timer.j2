@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=OpenBao ACME renewal timer
+
+[Timer]
+OnCalendar={{ openbao_acme_renew_oncalendar }}
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

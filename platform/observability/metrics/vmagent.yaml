@@ -1,0 +1,21 @@
+# Scrape agent. selectAllByDefault picks up every VMServiceScrape / VMPodScrape /
+# VMNodeScrape / VMStaticScrape in ALL namespaces, so app teams add their own
+# scrape CRs and vmagent discovers them automatically. Writes to VMSingle.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: main
+  namespace: monitoring
+spec:
+  replicaCount: 1
+  selectAllByDefault: true
+  scrapeInterval: 30s
+  remoteWrite:
+    - url: http://vmsingle-main.monitoring.svc:8428/api/v1/write
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

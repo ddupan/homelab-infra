@@ -1,0 +1,16 @@
+#!ipxe
+# ─────────────────────────────────────────────────────────────────────────
+# Proxmox VE 9.2 AUTOMATED install — pve1 → 192.168.10.4 (target: sdb, the SATA SSD)
+# Same --pxe-style method: lean kernel + gzip initrd, then the answer-embedded
+# ISO as a second initrd (proxmox.iso). WIPES sdb (HDD sda untouched).
+# NOTE: pve1 is the SSH jump host / build box — reinstall it LAST.
+# ─────────────────────────────────────────────────────────────────────────
+echo
+echo Proxmox VE 9.2 AUTOMATED install: pve1 -> 192.168.10.4 (wipes sdb)
+kernel http://192.168.10.127:8080/proxmox/linux26 ro ramdisk_size=16777216 rw quiet splash=silent proxmox-start-auto-installer
+initrd http://192.168.10.127:8080/proxmox/initrd.img
+initrd http://192.168.10.127:8080/proxmox/prepared-pve1.iso proxmox.iso
+boot || goto failed
+:failed
+echo Proxmox netboot failed. Dropping to shell.
+shell

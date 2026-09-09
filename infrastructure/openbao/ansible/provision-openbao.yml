@@ -1,0 +1,31 @@
+---
+# Deploy the OpenBao server: install binary + integrated Raft storage + TLS listener
+# + systemd unit. This play does NOT initialize, unseal, or configure any secrets
+# engines / auth methods — that is the separate bootstrap play (added later).
+#
+#   ansible-playbook provision-openbao.yml --ask-vault-pass
+#   ansible-playbook provision-openbao.yml --tags verify      # smoke tests only
+#
+# After the first run the node is UNINITIALIZED + SEALED. Initialize it once, by hand,
+# encrypting the unseal keys + root token to your YubiKey's GPG public key so they are
+# never printed in plaintext (add a backup offline GPG key as a second share):
+#   gpg --export <YUBIKEY_KEYID> | base64 > yubikey.pub.b64
+#   BAO_ADDR=https://127.0.0.1:8200 BAO_SKIP_VERIFY=true \
+#     bao operator init -key-shares=2 -key-threshold=1 \
+#       -pgp-keys="yubikey.pub.b64,backup.pub.b64" \
+#       -root-token-pgp-key="yubikey.pub.b64"
+#   # decrypt a key to unseal (touch YubiKey):
+#   echo "<encrypted-key-b64>" | base64 -d | gpg -dq | xargs bao operator unseal
+# With transit auto-unseal, use -recovery-pgp-keys instead (unseal is then automatic).
+- name: OpenBao server
+  hosts: openbao
+  become: true
+  gather_facts: true
+  roles:
+    - role: openbao
+  post_tasks:
+    - name: Smoke tests
+      ansible.builtin.import_role:
+        name: openbao
+        tasks_from: verify.yml
+      tags: [verify, never]

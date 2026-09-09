@@ -1,0 +1,11 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+# NOTE: restarting a running, Shamir-sealed node re-seals it (manual unseal needed).
+# Harmless before first init; automatic re-unseal when transit auto-unseal is on.
+- name: restart openbao
+  ansible.builtin.systemd:
+    name: openbao
+    state: restarted

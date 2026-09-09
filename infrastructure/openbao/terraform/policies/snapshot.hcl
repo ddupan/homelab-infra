@@ -1,0 +1,5 @@
+# Ansible managed
+# Read-only access to take Raft snapshots — used by the snapshot timer's token.
+path "sys/storage/raft/snapshot" {
+  capabilities = ["read"]
+}

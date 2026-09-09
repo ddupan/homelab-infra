@@ -1,0 +1,127 @@
+---
+- name: Install AppImage runtime dependency
+  ansible.builtin.apt:
+    name: "{{ retro_86box_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _fuse
+  retries: 3
+  delay: 15
+  until: _fuse is succeeded
+
+- name: Create the 86Box directory
+  ansible.builtin.file:
+    path: "{{ retro_86box_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download 86Box and Avalonia86
+  # The WAN drops out; get_url resumes rather than restarting from zero.
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ retro_86box_dir }}/{{ item.name }}"
+    mode: "0755"
+  loop:
+    - { name: "86Box.AppImage", url: "{{ retro_86box_url }}" }
+    - { name: "Avalonia86.AppImage", url: "{{ retro_86box_mgr_url }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  register: _dl
+  retries: 3
+  delay: 20
+  until: _dl is succeeded
+
+- name: Check whether ROMs are already extracted
+  ansible.builtin.stat:
+    path: "{{ retro_86box_dir }}/roms/machines"
+  register: _roms
+
+- name: Create the roms directory
+  ansible.builtin.file:
+    path: "{{ retro_86box_dir }}/roms"
+    state: directory
+    mode: "0755"
+
+- name: Download and extract the ROM set
+  # Extract INTO roms/, stripping the tarball's own roms-<ver>/ wrapper.
+  # Extracting to the parent with --strip-components=1 dumps machines/, floppy/,
+  # hdd/ ... loose next to the binaries, which is NOT the layout 86Box and
+  # Avalonia86 expect (they want everything under roms/).
+  ansible.builtin.unarchive:
+    src: "{{ retro_86box_roms_url }}"
+    dest: "{{ retro_86box_dir }}/roms"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    creates: "{{ retro_86box_dir }}/roms/machines"
+  when: not _roms.stat.exists
+  register: _romdl
+  retries: 3
+  delay: 20
+  until: _romdl is succeeded
+
+- name: Extract the AppImage and grant it CAP_NET_ADMIN for TAP networking
+  ansible.builtin.include_tasks: privileged.yml
+
+- name: Add desktop launchers
+  ansible.builtin.copy:
+    dest: "/usr/share/applications/{{ item.file }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name={{ item.name }}
+      Exec={{ item.bin }}
+      Icon=computer
+      Categories=System;Emulator;
+      Terminal=false
+  loop:
+    - file: "avalonia86.desktop"
+      name: "Avalonia86 (86Box manager)"
+      bin: "{{ retro_86box_dir }}/Avalonia86.AppImage"
+    # NOT the .AppImage: only the extracted binary carries CAP_NET_ADMIN, so
+    # launching the AppImage would silently lose TAP networking.
+    - file: "86box.desktop"
+      name: "86Box"
+      bin: "{{ retro_86box_wrapper }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Verify 86Box actually runs
+  # Runs the CAPABILITY-BEARING binary, which is the one that must work.
+  # QT_QPA_PLATFORM=offscreen is REQUIRED: 86Box is a Qt GUI app and still
+  # initialises a display for --help, so it dies headless with
+  # "could not connect to display / Could not load the Qt platform plugin xcb".
+  # This also proves the patchelf work: under secure-execution mode (which
+  # file capabilities trigger) glibc drops LD_LIBRARY_PATH, so if the RPATH or
+  # the interpreter were wrong this step fails with "required file not found".
+  ansible.builtin.command:
+    cmd: "{{ retro_86box_wrapper }} --help"
+  environment:
+    QT_QPA_PLATFORM: offscreen
+  register: _ver
+  changed_when: false
+  failed_when: "'86box' not in (_ver.stdout + _ver.stderr) | lower and 'usage' not in (_ver.stdout + _ver.stderr) | lower"
+
+- name: Read back the capabilities actually on the binary
+  ansible.builtin.command:
+    cmd: "getcap {{ retro_86box_bin }}"
+  register: _capcheck
+  changed_when: false
+
+- name: Verify the capabilities survived
+  ansible.builtin.assert:
+    that:
+      - "'cap_net_admin' in _capcheck.stdout"
+      - "'cap_net_raw' in _capcheck.stdout"
+    fail_msg: "86Box has no CAP_NET_ADMIN; TAP networking will fail to allocate a tap device"
+    success_msg: "{{ _capcheck.stdout | trim }}"
+
+- name: Report
+  ansible.builtin.debug:
+    msg:
+      - "86Box:  {{ retro_86box_wrapper }} -> {{ retro_86box_bin }}"
+      - "caps:   {{ _capcheck.stdout | trim }}"
+      - "roms:   {{ retro_86box_dir }}/roms"
+      - "ISOs:   /mnt/iso (read-only)"
+      - "TAP:    set each NIC to 'TAP' with bridge '{{ retro_86box_tap_bridge }}'"

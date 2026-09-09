@@ -1,0 +1,171 @@
+---
+# Join this host to the AD domain as a Samba member (fileserver).
+# Idempotent: the actual `net ads join` runs only when `net ads testjoin` fails,
+# so re-running the play against an already-joined member is a no-op there.
+#
+# Ordering matters: packages → krb5.conf → split-DNS (so realm SRV resolves) →
+# smb.conf + nsswitch → join → start winbind. The join needs working realm DNS,
+# a valid krb5.conf, and <5 min clock skew (verified separately) to reach the KDC.
+
+- name: Assert required variables are set
+  ansible.builtin.assert:
+    that:
+      - samba_ad_realm | length > 0
+      - samba_ad_domain | length > 0
+      - samba_ad_dc_ip | length > 0
+      - samba_member_netbios_name | length > 0
+      - samba_member_netbios_name | length <= 15
+      - samba_ad_admin_password is defined
+      - samba_ad_admin_password | length >= 8
+    fail_msg: >-
+      Need samba_ad_realm/domain/dc_ip, a <=15 char samba_member_netbios_name,
+      and samba_ad_admin_password from the vault.
+
+- name: Install Samba member + winbind packages
+  ansible.builtin.apt:
+    name: "{{ samba_member_packages }}"
+    state: present
+    update_cache: "{{ samba_member_apt_update_cache | bool }}"
+  register: apt_install
+  until: apt_install is succeeded
+  retries: 3
+  delay: 5
+
+- name: Warn if the clock is not NTP-synchronised (Kerberos fails on >5min skew)
+  ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+  register: ntp_synced
+  changed_when: false
+  failed_when: false
+  check_mode: false          # read-only probe; must run even under --check
+
+- name: Assert time is synchronised before attempting the Kerberos join
+  ansible.builtin.assert:
+    that: ntp_synced.stdout | trim == 'yes'
+    fail_msg: >-
+      Clock is not NTP-synchronised — the Kerberos join will fail on skew.
+      Fix time sync (systemd-timesyncd/chrony) first.
+    success_msg: "Clock is NTP-synchronised."
+
+- name: Install the Kerberos client config for the realm
+  ansible.builtin.template:
+    src: krb5.conf.j2
+    dest: /etc/krb5.conf
+    mode: "0644"
+    backup: true
+
+# --- Split-DNS: route the realm to the DC so SRV discovery works ----------------
+- name: Ensure resolved.conf.d drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+  when: samba_member_configure_split_dns | bool
+
+- name: Route the AD realm to the DC via systemd-resolved (split-DNS)
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/ad-realm.conf
+    content: |
+      # MANAGED BY ANSIBLE (role: samba_member)
+      # Send {{ samba_ad_realm | lower }} lookups to the DC; everything else stays
+      # on the per-link resolver. Needed because the LAN router does not forward the realm.
+      [Resolve]
+      DNS={{ samba_ad_dc_ip }}
+      Domains=~{{ samba_ad_realm | lower }}
+    mode: "0644"
+  when: samba_member_configure_split_dns | bool
+  register: dns_dropin
+
+- name: Restart systemd-resolved so realm DNS is live before the join
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+  when: dns_dropin is changed
+
+- name: Verify the realm's LDAP SRV record now resolves
+  ansible.builtin.command: "host -t SRV _ldap._tcp.{{ samba_ad_realm | lower }}."
+  register: srv_check
+  changed_when: false
+  retries: 5
+  delay: 2
+  until: "'has SRV record' in srv_check.stdout"
+  failed_when: "'has SRV record' not in srv_check.stdout"
+  when: not ansible_check_mode   # drop-in isn't really written under --check, so skip the probe
+
+# --- Samba config -------------------------------------------------------------
+- name: Back up the existing (standalone) smb.conf once
+  ansible.builtin.copy:
+    src: /etc/samba/smb.conf
+    dest: /etc/samba/smb.conf.pre-ads
+    remote_src: true
+    force: false            # never clobber the original backup on re-runs
+    mode: "0644"
+  failed_when: false        # tolerate a missing original
+
+- name: Deploy the AD-member smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    mode: "0644"
+    validate: "testparm -s %s"
+  notify:
+    - restart smbd
+    - restart nmbd
+    - restart winbind
+
+- name: Add winbind to NSS passwd/group (resolve AD owners; no PAM/login change)
+  ansible.builtin.lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: '^{{ item }}:(?!.*winbind)(.*)$'
+    line: '{{ item }}:\1 winbind'
+    backrefs: true
+  loop:
+    - passwd
+    - group
+
+# --- Join ---------------------------------------------------------------------
+- name: Check whether the host is already joined
+  ansible.builtin.command: net ads testjoin
+  register: testjoin
+  changed_when: false
+  failed_when: false
+  check_mode: false          # read-only; keep testjoin.rc defined under --check
+
+- name: Join the Active Directory domain as a member
+  ansible.builtin.command:
+    argv:
+      - net
+      - ads
+      - join
+      - "-U"
+      - "administrator%{{ samba_ad_admin_password }}"
+  when: testjoin.rc != 0
+  no_log: true
+  register: ads_join
+  changed_when: "'Joined' in (ads_join.stdout | default(''))"
+
+- name: Enable and (re)start winbind now that we are joined
+  ansible.builtin.systemd:
+    name: winbind
+    state: started
+    enabled: true
+  when: not ansible_check_mode   # unit only exists once the package is really installed
+
+- name: Ensure smbd/nmbd are enabled and running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - smbd
+    - nmbd
+  failed_when: false        # nmbd optional
+  when: not ansible_check_mode
+
+# Apply pending smbd/nmbd/winbind restarts from the smb.conf change.
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Smoke tests
+  ansible.builtin.import_tasks: verify.yml
+  when: not ansible_check_mode   # nothing is really joined under --check
+  tags: [verify]

@@ -1,0 +1,11 @@
+---
+# AD join for interactive login (workstations), via realmd + SSSD.
+# Distinct from join-member.yml, which makes a host an AD member FILESERVER
+# (samba/winbind, no PAM login).
+#
+#   ansible-playbook join-sssd.yml
+- name: AD workstation join (SSSD)
+  hosts: ad_workstations
+  become: true
+  roles:
+    - ad_sssd_join

@@ -1,0 +1,26 @@
+---
+# Web UI for the floppy drives PVE cannot express (see files/floppy-ui.py).
+#
+# ONE instance serves the cluster: every action goes through `pvesh`, which
+# proxies to whichever node owns the VM, so this does not need to run on the
+# node the guest happens to live on -- and keeps working after a migration.
+
+#
+# LOGIN is PVE's own: the app posts credentials to /access/ticket, so it accepts
+# whatever realms the cluster has -- `pam` for node-local accounts and `ad` for
+# Samba AD over verified LDAPS (role pve_auth) -- and stores no bind credential.
+# A session additionally needs Sys.Modify on / in PVE's ACL, which in practice
+# means the pve-admins-ad group. It serves TLS with the node's own ACME cert, so
+# reach it BY HOSTNAME: https://pve1.ad.ddupan.top:8088 (CN/SAN is the FQDN, and
+# there is no IP SAN -- the same trap as the DC's LDAPS cert).
+
+pve_floppy_listen: "0.0.0.0"
+pve_floppy_port: 8088
+# The shared ISO storage (`laptop`), mounted at the same path on every node.
+pve_floppy_image_dir: /mnt/pve/laptop/template/iso
+
+# The retro modem switchboard's phonebook (role retro_modem). It lives on
+# pmxcfs so this UI, running on pve1, edits the same file the switchboard reads
+# on pve3 -- no API and no IPC between them: the file IS the interface, and the
+# switchboard re-reads it on the next dial.
+pve_floppy_phonebook: /etc/pve/retro-phonebook

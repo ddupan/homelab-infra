@@ -1,0 +1,29 @@
+---
+# PVE SDN — VLAN zone on vmbr0.
+#
+# WHY VLAN AND NOT VXLAN: the unmanaged switch forwards 802.1Q-tagged frames
+# untouched (dumb switches forward on MAC; the tag is opaque payload). VERIFIED
+# on this LAN 2026-07-25 — a VLAN-100 ping between nodes passed at both 1472B and
+# 8972B. So VLAN gives cross-node L2 with NO encapsulation, no overhead, and no
+# MTU arithmetic. VXLAN would work too (jumbo leaves room for its ~50 bytes) but
+# buys nothing here and costs CPU.
+#
+# ⚠️ A dumb switch enforces nothing, so these VLANs are SEGMENTATION, not
+# security: anything on the LAN could inject tagged frames. Do not treat a VNet
+# here as an isolation boundary for anything that matters.
+#
+# NOTE: a VLAN zone is pure L2 — no gateway, no SNAT, no internet. That is the
+# point for lab/retro-OS networks. If a VNet later needs routing or internet
+# egress, that is an EVPN zone (frr is already installed) or a router VM.
+pve_sdn_zone: lab
+pve_sdn_bridge: vmbr0
+# Guests keep a standard 1500 MTU; the 9000 underlay carries it comfortably.
+pve_sdn_mtu: 1500
+
+pve_sdn_vnets:
+  - name: labnet          # general isolated lab L2
+    tag: 100
+    alias: "Isolated lab network (no gateway)"
+  - name: retronet        # retro OSes: keep ancient stacks off the real LAN
+    tag: 110
+    alias: "Retro OS network (no gateway, no internet)"

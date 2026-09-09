@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Install the freshly issued/renewed cert into bao's listener and reload (SIGHUP —
+# no restart, no reseal). Invoked by lego's --deploy-hook on create/renew; lego passes
+# the cert paths in LEGO_CERT_PATH / LEGO_CERT_KEY_PATH.
+set -euo pipefail
+
+CRT="${LEGO_CERT_PATH:-{{ openbao_acme_dir }}/certificates/{{ openbao_acme_domain }}.crt}"
+KEY="${LEGO_CERT_KEY_PATH:-{{ openbao_acme_dir }}/certificates/{{ openbao_acme_domain }}.key}"
+
+install -o {{ openbao_user }} -g {{ openbao_group }} -m 0644 "${CRT}" "{{ openbao_acme_tls_dir }}/cert.pem"
+install -o {{ openbao_user }} -g {{ openbao_group }} -m 0640 "${KEY}" "{{ openbao_acme_tls_dir }}/key.pem"
+
+systemctl reload openbao

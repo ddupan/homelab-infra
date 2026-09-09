@@ -1,0 +1,49 @@
+---
+# openbao role defaults — override in group_vars/host_vars.
+# Secrets (openbao_transit_token) MUST come from an Ansible Vault file, not here.
+
+# --- Release ---
+openbao_version: "2.6.1"
+openbao_download_checksum: ""           # "sha256:..."  REQUIRED — set in group_vars
+openbao_download_url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_version }}/openbao_{{ openbao_version }}_linux_amd64.tar.gz"
+
+# --- Service account ---
+openbao_user: "openbao"
+openbao_group: "openbao"
+
+# --- Paths ---
+openbao_bin: "/usr/local/bin/bao"
+openbao_config_dir: "/etc/openbao"
+openbao_tls_dir: "/etc/openbao/tls"
+openbao_data_dir: "/opt/openbao/data"   # integrated Raft storage
+
+# --- Identity / addresses ---
+openbao_fqdn: "bao.example.com"
+openbao_lan_ip: "10.10.10.10"
+openbao_api_port: 8200
+openbao_cluster_port: 8201
+openbao_ui: true
+openbao_node_id: "{{ ansible_facts['hostname'] }}"
+
+# Listener binds all interfaces; lock it down with the firewall vars below.
+openbao_listen_address: "0.0.0.0:{{ openbao_api_port }}"
+openbao_api_addr: "https://{{ openbao_lan_ip }}:{{ openbao_api_port }}"
+openbao_cluster_addr: "https://{{ openbao_lan_ip }}:{{ openbao_cluster_port }}"
+
+# SANs for the bootstrap self-signed listener cert (replace with PKI-issued later).
+openbao_tls_sans:
+  - "DNS:{{ openbao_fqdn }}"
+  - "IP:{{ openbao_lan_ip }}"
+  - "IP:127.0.0.1"
+
+# --- Auto-unseal (transit) — off by default (Shamir manual unseal on first init) ---
+openbao_auto_unseal: false
+openbao_transit_address: ""
+openbao_transit_token: ""
+openbao_transit_key_name: "autounseal"
+openbao_transit_mount_path: "transit/"
+
+# --- Optional host firewall ---
+openbao_manage_firewall: false
+openbao_allowed_cidrs:
+  - "100.64.0.0/10"

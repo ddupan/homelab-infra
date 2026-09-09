@@ -1,0 +1,26 @@
+---
+# Smoke tests — run via the `verify` tag:
+#   ansible-playbook provision-openbao.yml --tags verify
+# Confirms the daemon is up and the API answers. A sealed/uninitialized node is the
+# EXPECTED state before you run `bao operator init`, so that is treated as success.
+
+- name: OpenBao service is active
+  ansible.builtin.systemd:
+    name: openbao
+  register: bao_svc
+  changed_when: false
+  failed_when: bao_svc.status.ActiveState != "active"
+
+- name: API listener answers (sealed/uninitialized is OK)
+  ansible.builtin.command: "{{ openbao_bin }} status -address=https://127.0.0.1:{{ openbao_api_port }}"
+  environment:
+    BAO_SKIP_VERIFY: "true"
+  register: bao_status
+  changed_when: false
+  failed_when: bao_status.rc not in [0, 2]     # 0 = unsealed, 2 = sealed/uninitialized
+
+- name: Report
+  ansible.builtin.debug:
+    msg: >-
+      OpenBao {{ openbao_version }} is running and answering on :{{ openbao_api_port }}
+      (status rc={{ bao_status.rc }}; 2 = sealed/uninitialized, expected before init).

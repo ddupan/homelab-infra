@@ -1,0 +1,94 @@
+---
+# realmd + SSSD join, for INTERACTIVE LOGIN. See defaults for why this is
+# separate from samba_member.
+#
+# SSSD is Ubuntu's default AD backend (ADSys uses it unless winbind is
+# explicitly selected); winbind is for file/printer sharing and GPO.
+
+- name: Assert required variables
+  ansible.builtin.assert:
+    that:
+      - samba_ad_realm | length > 0
+      - ad_sssd_join_password | length > 0
+    fail_msg: "samba_ad_realm and ad_sssd_join_password (vault_samba_ad_admin_password) are required."
+    quiet: true
+
+- name: Install realmd + SSSD packages
+  ansible.builtin.apt:
+    name: "{{ ad_sssd_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _sssd_pkgs
+  retries: 3
+  delay: 15
+  until: _sssd_pkgs is succeeded
+
+# Kerberos rejects a skew over 5 minutes, and the resulting error names the
+# clock nowhere near clearly enough. Fail here with a useful message instead.
+- name: Check the clock is NTP-synchronised
+  ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+  register: _ntp
+  changed_when: false
+
+- name: Assert time is synchronised
+  ansible.builtin.assert:
+    that: "_ntp.stdout | trim == 'yes'"
+    fail_msg: "Clock is not NTP-synchronised; the Kerberos join will fail on skew."
+    quiet: true
+
+- name: Check whether already joined
+  ansible.builtin.command: "realm list {{ samba_ad_realm | lower }}"
+  register: _realm
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Join the domain
+  # adcli creates the computer account. no_log: the admin password is on argv.
+  ansible.builtin.shell:
+    cmd: >-
+      echo '{{ ad_sssd_join_password }}' |
+      realm join --user={{ ad_sssd_join_user }} {{ samba_ad_realm | lower }}
+  when: samba_ad_realm | lower not in (_realm.stdout | default(''))
+  no_log: true
+  notify: Restart sssd
+
+- name: Deploy sssd.conf
+  ansible.builtin.template:
+    src: sssd.conf.j2
+    dest: /etc/sssd/sssd.conf
+    owner: root
+    group: root
+    mode: "0600"          # sssd refuses to start if this is group/world readable
+  notify: Restart sssd
+
+- name: Create home directories on first login
+  # Without this a domain user logs in with no home and lands in /, which breaks
+  # anything expecting a desktop session.
+  ansible.builtin.command:
+    cmd: pam-auth-update --enable mkhomedir
+  register: _mkhome
+  changed_when: false
+
+- name: Enable and start sssd
+  ansible.builtin.systemd_service:
+    name: sssd
+    enabled: true
+    state: started
+
+- name: Flush handlers before verifying
+  ansible.builtin.meta: flush_handlers
+
+# --- verification: prove the join actually resolves a domain user ------------
+- name: Verify a domain user resolves through NSS
+  ansible.builtin.command: "id {{ ad_sssd_verify_user | default('Administrator') }}"
+  register: _id
+  changed_when: false
+  retries: 6
+  delay: 5
+  until: _id.rc == 0
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "{{ _id.stdout }}"

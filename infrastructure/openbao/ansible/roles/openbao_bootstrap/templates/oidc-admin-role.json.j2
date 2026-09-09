@@ -1,0 +1,11 @@
+{
+  "role_type": "oidc",
+  "user_claim": "preferred_username",
+  "groups_claim": "groups",
+  "bound_audiences": "{{ openbao_oidc_client_id }}",
+  "bound_claims": { "groups": "{{ openbao_oidc_admin_group }}" },
+  "oidc_scopes": ["profile", "email", "groups"],
+  "allowed_redirect_uris": {{ openbao_oidc_redirect_uris | to_json }},
+  "token_policies": ["admin"],
+  "token_ttl": "1h"
+}

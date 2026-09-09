@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+# The AI agent may sign short-lived SSH client certs for the ai-agent role — nothing else.
+path "{{ openbao_ssh_mount }}/sign/ai-agent" {
+  capabilities = ["create", "update"]
+}

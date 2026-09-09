@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  ps3netsrv:
+    image: shawly/ps3netsrv:latest
+    container_name: ps3netsrv
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Tokyo
+      USER_ID: "1000"
+      GROUP_ID: "1000"
+    ports:
+      - "38008:38008"
+    volumes:
+      - "/mnt/pool/games/ps3:/games:rw"

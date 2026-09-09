@@ -1,0 +1,262 @@
+# Homelab topology — the INPUT to NetBox, not a dump of it.
+#
+# This file is deliberately the authoritative artifact: git stays the source of truth
+# and NetBox is a derived mirror, populated by ./seed.py. That answers the design
+# question in ../CONTEXT.md §4 the way the rest of this repo works — a UI you must
+# click to change routing would be a regression against every other service here.
+#
+# Facts mirror CONTEXT.md §3 (verified live 2026-07-25). Interface names are verified,
+# not guessed, EXCEPT where marked `# placeholder`.
+
+site:
+  name: Homelab
+  slug: homelab
+  description: "Single flat 1G LAN on one unmanaged switch, 192.168.10.0/24"
+
+# --- Layer 3 -----------------------------------------------------------------
+prefixes:
+  - prefix: 192.168.10.0/24
+    role: lan
+    description: "LAN. Flat L2 across one dumb switch; OSPF area 0 runs here."
+  - prefix: 10.60.0.0/24
+    role: sdn
+    vlan: 100
+    description: "PVE SDN VNet labnet. Gateway 10.60.0.1 on vyos eth1."
+  - prefix: 10.61.0.0/24
+    role: sdn
+    vlan: 110
+    description: "PVE SDN VNet retronet. Gateway 10.61.0.1 on vyos eth2."
+  - prefix: 10.42.0.0/16
+    role: k3s
+    description: "k3s pod CIDR (laptop). Not routed off-node."
+  - prefix: 10.43.0.0/16
+    role: k3s
+    description: "k3s service CIDR (laptop). Not routed off-node."
+  - prefix: 10.1.72.0/24
+    role: wan
+    description: "WAN side of the NEC IX (GigaEthernet0.0)."
+
+prefix_roles:
+  - { name: LAN, slug: lan }
+  - { name: SDN VNet, slug: sdn }
+  - { name: Kubernetes, slug: k3s }
+  - { name: WAN, slug: wan }
+
+# The router's DHCP pool (CONTEXT.md §4 called this out specifically).
+#
+# There is no `dhcp` status — IPRange offers only active/reserved/deprecated. The pool
+# concept is the `mark_utilized` boolean ("Report space as fully utilized"), which makes
+# NetBox stop offering those addresses as available.
+#
+# Be precise about what this buys: it does NOT hard-block an allocation inside the
+# range. It makes the collision VISIBLE — the range shows 100% utilised and the
+# address never appears as a suggestion — where plain YAML shows nothing at all.
+ip_ranges:
+  - start: 192.168.10.10/24
+    end: 192.168.10.250/24
+    status: active
+    mark_utilized: true
+    description: "NEC IX DHCP pool — do NOT statically allocate inside this."
+
+vlan_group:
+  name: lab
+  slug: lab
+  description: "PVE SDN zone `lab` (type vlan, bridge vmbr0). Segmentation, NOT security."
+
+vlans:
+  - { vid: 100, name: labnet,   prefix: 10.60.0.0/24 }
+  - { vid: 110, name: retronet, prefix: 10.61.0.0/24 }
+
+# --- Wi-Fi -------------------------------------------------------------------
+# Broadcast by ap-buffalo (below). No `vlan:` on any of them: the AP bridges, so wireless
+# clients land UNTAGGED on the flat LAN and pick up an address from the IX DHCP pool.
+# They are on the same L2 as everything else — the Wi-Fi is not a separate segment.
+#
+# ⚠ NetBox has no WPA3 auth_type — the choices are open/wep/wpa-personal/wpa-enterprise,
+# so WPA2-PSK and WPA3-SAE both land on `wpa-personal`. The real difference is recorded in
+# the description because the model cannot express it.
+#
+# auth_psk is deliberately LEFT EMPTY. NetBox can store the passphrase, but that would put
+# the house Wi-Fi key in a system whose own DB backup story is untested; OpenBao is the
+# secrets store here (see ../../../infrastructure/openbao).
+wireless_lans:
+  - ssid: Buffalo-A-07B0-WPA3
+    auth_type: wpa-personal
+    auth_cipher: aes
+    description: "5 GHz, WPA3-SAE. Preferred SSID for clients that support it."
+  - ssid: Buffalo-A-07B0
+    auth_type: wpa-personal
+    auth_cipher: aes
+    description: "5 GHz, WPA2-PSK. Compatibility SSID for clients that cannot do WPA3."
+  - ssid: Buffalo-G-07B0
+    auth_type: wpa-personal
+    auth_cipher: aes
+    description: "2.4 GHz, WPA2-PSK. Range/IoT band."
+
+# --- Layer 2 / hardware ------------------------------------------------------
+# Model/serial values below are READ FROM THE HARDWARE (`dmidecode -s ...`), not guessed.
+manufacturers:
+  - { name: NEC,     slug: nec }
+  - { name: Intel,   slug: intel }
+  - { name: Lenovo,  slug: lenovo }
+  - { name: Dell,    slug: dell }
+  - { name: Buffalo, slug: buffalo }
+  - { name: Yamaha,  slug: yamaha }
+  - { name: Broadcom, slug: broadcom }
+
+device_types:
+  - { model: IX2215,        slug: ix2215,        manufacturer: nec }
+  # dmidecode: system-manufacturer/product/serial are all BLANK on this NUC (the OEM
+  # never programmed them). baseboard-product-name is the only real identifier, and it
+  # is SYB (the board), not the SYH chassis this was previously guessed to be.
+  - { model: NUC6i3SYB,     slug: nuc6i3syb,     manufacturer: intel }
+  # Lenovo's machine-type; this is the ThinkCentre M715q Tiny.
+  - { model: 10VGCTO1WW,    slug: 10vgcto1ww,    manufacturer: lenovo }
+  - { model: XPS 15 9570,   slug: xps-15-9570,   manufacturer: dell }
+  - { model: WSR-1800AX4S,  slug: wsr-1800ax4s,  manufacturer: buffalo }
+  - { model: RTX1200,       slug: rtx1200,       manufacturer: yamaha }
+
+device_roles:
+  - { name: Router,       slug: router,       color: f44336 }
+  - { name: Hypervisor,   slug: hypervisor,   color: 2196f3 }
+  - { name: Core Node,    slug: core-node,    color: 4caf50 }
+  - { name: Wireless AP,  slug: wireless-ap,  color: ff9800 }
+
+devices:
+  - name: ix2215
+    role: router
+    type: ix2215
+    description: "NEC IX. Gateway, OSPF area 0, BGP, DNS proxy, DHCP server."
+    interfaces:
+      - { name: GigaEthernet2.0, type: 1000base-t, ip: 192.168.10.1/24, primary: true, dns_name: gw.ad.ddupan.top }
+      - { name: GigaEthernet0.0, type: 1000base-t, ip: null, description: "WAN uplink, 10.1.72.0/24" }
+
+  - name: pve1
+    role: hypervisor
+    type: nuc6i3syb
+    description: "Proxmox VE 9.2. LINSTOR controller."
+    # No serial: this NUC reports blank system-serial-number (see device_types note).
+    comments: "Intel Core i3-6100U @ 2.30GHz, 4 threads, 15 GiB RAM. BIOS SYSKLi35.86A.0045.2016.0527.1055. Board NUC6i3SYB."
+    interfaces:
+      - { name: vmbr0, type: bridge, ip: 192.168.10.4/24, primary: true, mtu: 9000, dns_name: pve1.ad.ddupan.top }
+
+  - name: pve2
+    role: hypervisor
+    type: 10vgcto1ww
+    serial: PC1AGX1Q
+    description: "Proxmox VE 9.2. LINSTOR satellite. The node that randomly froze."
+    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT45A. Raven Ridge idle bug fixed in BIOS: Power Supply Idle Control = Typical Current Idle."
+    interfaces:
+      - { name: vmbr0, type: bridge, ip: 192.168.10.7/24, primary: true, mtu: 9000, dns_name: pve2.ad.ddupan.top }
+
+  - name: pve3
+    role: hypervisor
+    type: 10vgcto1ww
+    serial: PC1AGX1P
+    description: "Proxmox VE 9.2. LINSTOR satellite."
+    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT55A. Same silicon as pve2, so susceptible to the same idle bug in principle."
+    interfaces:
+      - { name: vmbr0, type: bridge, ip: 192.168.10.9/24, primary: true, mtu: 9000, dns_name: pve3.ad.ddupan.top }
+
+  - name: laptop
+    role: core-node
+    type: xps-15-9570
+    serial: 6R7CQQ2
+    description: "Core node, NOT a PVE cluster member. k3s, NFS, libvirt host, netboot.xyz, OSPF DR. Single point of failure for most of the lab."
+    comments: "Intel Core i7-8750H @ 2.20GHz, 12 threads, 30 GiB RAM. BIOS 1.20.0. Nvidia dGPU stays bare-metal for nvidia-container-toolkit. Built-in battery acts as a UPS."
+    interfaces:
+      - { name: br0, type: bridge, ip: 192.168.10.127/24, primary: true }
+    inventory_items:
+      # Present in hardware but NOT usable, so it is an inventory item rather than an
+      # interface — there is no netdev for it.
+      #
+      # `lspci -k` shows bcma-pci-bridge bound and b43 loaded, but b43 does NOT support
+      # BCM4360; that chip needs Broadcom's proprietary `wl` (broadcom-sta) driver with
+      # b43/bcma/ssb blacklisted. Until then the laptop cannot scan or join Wi-Fi.
+      - name: BCM4360 802.11ac
+        manufacturer: broadcom
+        part_id: "14e4:43a0"
+        description: "PCI 3b:00.0, Apple-subsystem card. No driver: b43 claims it but cannot drive BCM4360; needs broadcom-sta (wl)."
+
+  # Wi-Fi. Runs as an AP/bridge, not a router — the NEC IX is the gateway, so this box's
+  # routing, NAT and DHCP are not in play. Wireless clients land directly on the flat LAN.
+  #
+  # ⚠ Its address .10 is the FIRST ADDRESS OF THE DHCP POOL above. Either it holds a lease
+  # (so the address can move) or it is a static that overlaps the pool. NetBox surfaces
+  # the overlap; the underlying config still needs a decision. See ../README.md.
+  #
+  # Identified by MAC OUI d4:2c:46 = BUFFALO.INC plus the model string on its login page.
+  - name: ap-buffalo
+    role: wireless-ap
+    type: wsr-1800ax4s
+    description: "Buffalo AirStation, AP/bridge mode. Provides the house Wi-Fi."
+    comments: "Wi-Fi 6 (802.11ax) dual band. Web UI on http://192.168.10.10/. Model read from its login page; serial not recorded (needs the label or an authenticated session)."
+    interfaces:
+      - { name: lan1, type: 1000base-t, ip: 192.168.10.10/24, primary: true, mac: "d4:2c:46:09:07:b0", dns_name: ap.ad.ddupan.top, description: "Uplink to the dumb switch" }
+      # Buffalo's factory SSID scheme: A = 5 GHz, G = 2.4 GHz, and the suffix is the tail
+      # of this AP's own MAC (d4:2c:46:09:07:b0 -> 07B0), which independently corroborates
+      # that this device is the AP.
+      - name: wlan-2.4g
+        type: ieee802.11ax
+        rf_role: ap
+        description: "2.4 GHz radio"
+        wireless_lans: [Buffalo-G-07B0]
+      - name: wlan-5g
+        type: ieee802.11ax
+        rf_role: ap
+        description: "5 GHz radio"
+        wireless_lans: [Buffalo-A-07B0-WPA3, Buffalo-A-07B0]
+
+  # Spare/shelf kit. Recorded so it is not forgotten — knowing what you own and are NOT
+  # using is a legitimate reason to run a DCIM tool.
+  - name: rtx1200
+    role: router
+    type: rtx1200
+    status: inventory        # NOT active: unplugged, no addresses, not cabled
+    description: "Yamaha RTX1200. Spare — not in use."
+    comments: "Gigabit VPN router. Kept as a spare / potential replacement for the NEC IX. Serial not recorded (would need the chassis label)."
+    interfaces: []
+
+# --- Virtual machines --------------------------------------------------------
+cluster_types:
+  - { name: Proxmox VE, slug: proxmox }
+  - { name: libvirt,    slug: libvirt }
+
+clusters:
+  - { name: homelab,        type: proxmox, description: "3-node PVE cluster, no HA, LINSTOR place-count 2." }
+  - { name: laptop-libvirt, type: libvirt, description: "libvirt guests on the laptop." }
+
+virtual_machines:
+  - name: vyos-rtr
+    cluster: homelab
+    description: "VyOS 2025.11. SDN gateway, OSPF area 0. VM 100. Routed, not NAT'd."
+    interfaces:
+      - { name: eth0, ip: 192.168.10.2/24, primary: true, dns_name: vyos-rtr.ad.ddupan.top, description: "LAN" }
+      - { name: eth1, ip: 10.60.0.1/24,  description: "labnet gateway (VLAN 100), OSPF passive" }
+      - { name: eth2, ip: 10.61.0.1/24,  description: "retronet gateway (VLAN 110), OSPF passive" }
+
+  # Found by diffing NetBox against samba_ad_extra_a_records — it had a live A record and
+  # was missing from NetBox entirely. Verified up at 10.60.0.10.
+  - name: retrolab
+    cluster: homelab
+    description: "AD-joined XFCE/xrdp host for running 86Box. Lives on labnet (VLAN 100)."
+    interfaces:
+      - { name: eth0, ip: 10.60.0.10/24, primary: true, dns_name: retrolab.ad.ddupan.top }
+
+  - name: dc1
+    cluster: laptop-libvirt
+    description: "Samba AD DC, authoritative for ad.ddupan.top."
+    interfaces:
+      - { name: lan, ip: 192.168.10.5/24, primary: true }   # placeholder: NIC name not verified
+
+  - name: winadmin
+    cluster: laptop-libvirt
+    description: "Windows Server 2025 admin box."
+    interfaces:
+      - { name: lan, ip: 192.168.10.6/24, primary: true }   # placeholder: NIC name not verified
+
+  - name: bao1
+    cluster: laptop-libvirt
+    description: "OpenBao — internal CA + secrets store."
+    interfaces:
+      - { name: lan, ip: 192.168.10.8/24, primary: true, dns_name: bao.ad.ddupan.top }   # placeholder: NIC name not verified

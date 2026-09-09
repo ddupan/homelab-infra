@@ -1,0 +1,22 @@
+# victoria-logs-collector — deploys vlagent as a DaemonSet that discovers and tails
+# every pod's container logs on each node and ships them to VictoriaLogs. Buffers to
+# a local volume when VictoriaLogs is unavailable.
+#
+# NOTE: confirm key names against the installed chart before applying:
+#   helm show values vm/victoria-logs-collector
+# (chart value layout occasionally shifts between versions.)
+
+remoteWrite:
+  - url: "http://vlsingle-main.monitoring.svc:9428"
+
+# Tolerate control-plane taints so logs are collected from every node.
+tolerations:
+  - operator: Exists
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

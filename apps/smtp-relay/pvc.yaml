@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smtp-relay-tokens
+  namespace: smtp-relay
+  labels:
+    app: smtp-relay
+spec:
+  # Holds /etc/tokens/<AUTH_USER> — the OAuth refresh/access token that sasl-xoauth2
+  # rewrites as it refreshes. Must persist across restarts, so NOT a Secret mount.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 64Mi

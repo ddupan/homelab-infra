@@ -1,0 +1,14 @@
+---
+# KV v2 engine for static agent secrets.
+
+- name: Enable KV v2 at {{ openbao_kv_path }}/
+  ansible.builtin.command: "bao secrets enable -path={{ openbao_kv_path }} -version=2 kv"
+  environment: "{{ openbao_cli_env }}"
+  register: kv_enable
+  changed_when: kv_enable.rc == 0
+  failed_when:
+    - kv_enable.rc != 0
+    - "'already in use' not in (kv_enable.stderr | default('')) + (kv_enable.stdout | default(''))"
+  no_log: "{{ openbao_no_log }}"
+  # Terraform owns this (../terraform). See openbao_config_managed_by_terraform.
+  when: not openbao_config_managed_by_terraform | bool

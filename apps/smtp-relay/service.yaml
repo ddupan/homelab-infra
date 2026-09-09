@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-relay
+  namespace: smtp-relay
+  labels:
+    app: smtp-relay
+spec:
+  selector:
+    app: smtp-relay
+  ports:
+    # In-cluster apps send here: smtp-relay.smtp-relay.svc.cluster.local:25
+    - name: smtp
+      port: 25
+      targetPort: 25

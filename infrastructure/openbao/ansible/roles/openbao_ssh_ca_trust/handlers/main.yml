@@ -1,0 +1,14 @@
+---
+# Validate the config BEFORE reloading — a broken sshd config must never be applied
+# (lock-out risk). If `sshd -t` fails the play errors here and the reload never runs,
+# so the running sshd keeps its current (good) config.
+- name: reload sshd
+  ansible.builtin.command: sshd -t
+  changed_when: false
+  listen: reload sshd
+
+- name: reload sshd service
+  ansible.builtin.service:
+    name: "{{ openbao_ssh_service }}"
+    state: reloaded
+  listen: reload sshd

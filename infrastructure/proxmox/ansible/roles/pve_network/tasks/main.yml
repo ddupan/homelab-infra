@@ -1,0 +1,66 @@
+---
+- name: Find the bridge port behind vmbr0
+  # Differs per node (pve1 eno1, pve2/pve3 enp1s0f0), so detect rather than hardcode.
+  ansible.builtin.shell:
+    cmd: "ip -br link show master vmbr0 | awk '{print $1}' | head -1"
+  register: _phys
+  changed_when: false
+  check_mode: false
+
+- name: Set MTU persistently on the physical port
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    insertafter: "^iface {{ _phys.stdout | trim }} inet manual"
+    line: "\tmtu {{ pve_network_mtu }}"
+    regexp: "^\tmtu "
+    firstmatch: true
+    backup: true
+  register: _phys_mtu
+
+- name: Set MTU persistently on vmbr0
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    insertafter: "^\tbridge-fd 0"
+    marker: "#{mark} ANSIBLE pve_network mtu"
+    block: "\tmtu {{ pve_network_mtu }}"
+  register: _br_mtu
+
+- name: Make vmbr0 VLAN-aware
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    insertafter: "^\tbridge-fd 0"
+    marker: "#{mark} ANSIBLE pve_network vlan-aware"
+    # Double-quoted so \t is a YAML ESCAPE: a literal tab cannot be used
+    # for indentation inside a block scalar -- YAML rejects tabs outright.
+    block: "\tbridge-vlan-aware yes\n\tbridge-vids {{ pve_network_bridge_vids }}"
+  when: pve_network_vlan_aware | bool
+  register: _vlan_aware
+
+- name: Reload networking if the bridge definition changed
+  # ifreload applies in place; it does NOT drop the management IP for a simple
+  # vlan-aware flip, but this is still done serially (site.yml runs serial:1) so
+  # a mistake cannot take all three nodes at once.
+  ansible.builtin.command:
+    cmd: ifreload -a
+  when: _vlan_aware is changed
+  changed_when: true
+
+- name: Apply at runtime too (no reboot needed)
+  ansible.builtin.shell:
+    cmd: |
+      ip link set {{ _phys.stdout | trim }} mtu {{ pve_network_mtu }}
+      ip link set vmbr0 mtu {{ pve_network_mtu }}
+  when: _phys_mtu is changed or _br_mtu is changed
+  changed_when: true
+
+- name: Verify the MTU is live
+  ansible.builtin.shell:
+    cmd: "ip link show vmbr0 | grep -o 'mtu [0-9]*'"
+  register: _mtu_now
+  changed_when: false
+
+- name: Assert it took
+  ansible.builtin.assert:
+    that: "pve_network_mtu | string in _mtu_now.stdout"
+    fail_msg: "vmbr0 MTU is {{ _mtu_now.stdout }}, expected {{ pve_network_mtu }}"
+    quiet: true

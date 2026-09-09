@@ -1,0 +1,16 @@
+---
+# Generic NFS client mounts. Shareable: pass a list, get idempotent mounts.
+#
+# Each entry: { src, path, opts (optional), state (optional) }
+nfs_mounts: []
+
+# Defaults chosen for read-mostly media (ISO libraries), NOT for VM disks:
+#   ro       - the share is a library; nothing here should write to it. Also
+#              the only real protection available, because the server exports
+#              it to <world> with no_root_squash.
+#   soft     - a hard mount wedges every process that touches the path when the
+#              server or the WAN-adjacent link blips, including the desktop
+#              file manager. Soft returns EIO instead of hanging forever.
+#   _netdev  - do not attempt the mount before the network is up.
+#   nofail   - a missing NFS server must never stop this host from booting.
+nfs_mounts_default_opts: "ro,soft,timeo=100,retrans=3,_netdev,nofail,noatime"

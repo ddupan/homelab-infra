@@ -1,0 +1,46 @@
+---
+# LDAPS certificate for the DC, auto-renewed from OpenBao's internal ACME.
+#
+# WHY: the first bao-issued LDAPS cert (2026-07-25) was placed by hand and expires
+# 2027-07-25 with nothing to renew it. If it lapses, Authelia loses its LDAPS
+# backend and every SSO consumer (Gitea, Grafana, OpenBao's own OIDC login) fails
+# at once — a year later, with no memory of how it got there.
+
+# --- lego (ACME client). Same pinned release as openbao_acme, deliberately. ---
+samba_ad_acme_version: "5.3.1"
+samba_ad_acme_checksum: "sha256:b3c71b122ee1947eacfe0b809b955647f6377239fe4bfc49f73b1a091ae1252a"
+samba_ad_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ samba_ad_acme_version }}/lego_v{{ samba_ad_acme_version }}_linux_amd64.tar.gz"
+samba_ad_acme_bin: "/usr/local/bin/lego"
+
+# --- Paths ---
+samba_ad_acme_dir: "/etc/samba/acme"                   # lego state (account + certs)
+samba_ad_acme_tls_dir: "/var/lib/samba/private/tls"    # where Samba reads cert/key/ca
+
+# --- Identity ---
+samba_ad_acme_domain: "dc1.ad.ddupan.top"
+samba_ad_acme_email: "panxiao81@outlook.com"
+
+# OpenBao's ACME directory, pinned to the ROLE-scoped path so issuance is capped by
+# the bao-server role (allowed_domains=ad.ddupan.top) rather than sign-verbatim.
+samba_ad_acme_server: "https://bao.ad.ddupan.top:8200/v1/pki/roles/bao-server/acme/directory"
+
+# http-01: lego binds this address only while validating, then releases it. Verified nothing
+# else listens on :80 on the DC, and bao (192.168.10.8) can reach it.
+# NOTE: this yields a cert with a DNS SAN ONLY — no IP SAN, unlike the hand-issued
+# one it replaces. Clients MUST connect as dc1.ad.ddupan.top, not 192.168.10.5.
+# NOTE: lego v5 calls this --http.address (NOT --http.port, which is a v4-ism
+# and fails with "flag provided but not defined"). Mirrors --tls.address.
+samba_ad_acme_http_address: ":80"
+
+# OpenBao's ACME caps certificate lifetime (issued cert is ~32 days, NOT the
+# role's 1y max_ttl — ACME deliberately issues short-lived certs). A 30-day
+# threshold against a 32-day cert would try to renew on almost every run, so keep
+# the window well inside the lifetime: renew with ~10 days of headroom.
+samba_ad_acme_renew_days: 10
+samba_ad_acme_renew_oncalendar: "*-*-* 03:42:00"
+
+# lego defaults to an EC (P-256) key, but the bao-server PKI role pins
+# key_type=rsa / key_bits=2048, so an EC CSR is rejected at finalize with
+# "badCSR :: refusing to sign CSR: role requires keys of type rsa".
+# Match the role rather than loosening it — the role is what caps ACME issuance.
+samba_ad_acme_key_type: "rsa2048"

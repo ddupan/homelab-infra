@@ -1,0 +1,61 @@
+---
+# Baseline every lab VM needs to be manageable. Cloud-init installs these on a
+# FRESH VM; this role covers VMs that already exist (cloud-init's package module
+# runs once per instance) and repairs any that failed a WAN blip on first boot.
+
+# The WAN drops mid-transaction often enough that dpkg gets left interrupted
+# ("dpkg was interrupted, you must manually run 'sudo dpkg --configure -a'"),
+# after which EVERY later apt run fails. Repair it rather than fail the play.
+- name: Detect an interrupted dpkg
+  ansible.builtin.command:
+    cmd: dpkg --audit
+  register: _dpkg_audit
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Repair interrupted dpkg
+  ansible.builtin.command:
+    cmd: dpkg --configure -a
+  when: (_dpkg_audit.stdout | default('') | trim) | length > 0
+  changed_when: true
+
+
+# Repair dpkg if a previous apt run was cut short. NOTE the usual cause is an
+# operator stopping/rebooting the VM while cloud-init or apt is still running --
+# not a network fault. Check `cloud-init status` before power-cycling a fresh VM.
+- name: Detect an interrupted dpkg
+  ansible.builtin.command:
+    cmd: dpkg --audit
+  register: _dpkg_audit
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Repair interrupted dpkg
+  ansible.builtin.command:
+    cmd: dpkg --configure -a
+  when: (_dpkg_audit.stdout | default('') | trim) | length > 0
+  changed_when: true
+
+- name: Install guest baseline packages
+  ansible.builtin.apt:
+    name:
+      # Gives PVE the guest's IPs, clean shutdown, and fsfreeze for snapshots.
+      # Without it `qm agent <id> ping` fails and PVE is blind inside the guest.
+      - qemu-guest-agent
+      - openssh-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _gb
+  retries: 3
+  delay: 15
+  until: _gb is succeeded
+
+- name: Enable the guest agent and sshd
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [qemu-guest-agent, ssh]

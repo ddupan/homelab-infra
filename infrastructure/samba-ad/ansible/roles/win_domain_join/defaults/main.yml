@@ -1,0 +1,21 @@
+---
+# win_domain_join role defaults.
+# Target host must be reachable over WinRM (see inventory/hosts.yml windows group).
+
+win_dc_ip: "10.10.10.10"                 # DC IP — becomes the box's primary DNS
+win_domain_dns_name: "ad.example.com"    # lowercase DNS domain to join
+win_domain_admin_user: "EXAMPLE\\Administrator"
+# win_domain_admin_password comes from vault.
+
+# RSAT for the GPO/AD management station. On Windows SERVER these are Features
+# (Install-WindowsFeature), NOT the client "Rsat.*~~~~" capabilities.
+win_rsat_features:
+  - GPMC                 # Group Policy Management Console
+  - RSAT-AD-Tools        # ADUC / ADAC / AD PowerShell
+  - RSAT-DNS-Server      # DNS console
+
+# KMS activation. Default relies on the _vlmcs._tcp SRV record in AD DNS for
+# auto-discovery (see samba_ad_dc role) — the GVLK is already baked in by autounattend.
+win_activate: true
+win_kms_host: ""            # optional explicit "host:1688" override; empty = SRV auto-discovery
+win_kms_client_key: ""      # optional GVLK /ipk; empty = already installed at build time

@@ -1,0 +1,176 @@
+---
+# LVM volume groups that back the LINSTOR pools.
+#
+# DESTRUCTIVE. Everything that destroys data is gated behind
+# pve_linstor_wipe_hdd and guarded by an explicit "is this really free?" check.
+
+# ── SSD pool: the space the installer left beyond the 60G `pve` VG ─────────
+- name: Find the SSD holding the pve VG
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      pvs --noheadings -o pv_name --select 'vg_name=pve' | tr -d ' ' | head -1
+    executable: /bin/bash
+  register: _pve_pv
+  changed_when: false
+  check_mode: false          # read-only discovery; must run in --check
+
+- name: Derive the parent disk holding the pve PV
+  # DO NOT use `lsblk -no PKNAME <pv>`: without --nodeps lsblk also lists the LVs
+  # stacked on the partition, whose PKNAME is the PARTITION itself, so `head -1`
+  # can return e.g. "nvme0n1p3" instead of "nvme0n1". That mistake made sgdisk
+  # write a GPT INTO the LVM PV holding root on pve2/pve3 and destroyed their
+  # `pve` VG metadata (2026-07-25). sysfs is unambiguous: the parent of
+  # /sys/class/block/<part> IS the disk.
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      PV="{{ _pve_pv.stdout | trim }}"
+      PART="$(basename "$PV")"
+      DISK="$(basename "$(readlink -f "/sys/class/block/${PART}/..")")"
+      echo "/dev/${DISK}"
+    executable: /bin/bash
+  register: _ssd_disk
+  changed_when: false
+  check_mode: false          # read-only discovery; must run in --check
+
+- name: Refuse to proceed unless that really is a whole disk
+  # Last line of defence: sgdisk against a partition is destructive, so verify
+  # the derived device is TYPE=disk and not a partition before touching it.
+  ansible.builtin.shell:
+    cmd: "lsblk -dno TYPE {{ _ssd_disk.stdout | trim }}"
+  register: _ssd_type
+  changed_when: false
+  check_mode: false          # read-only discovery; must run in --check
+
+- name: Assert it is a disk
+  ansible.builtin.assert:
+    that: "(_ssd_type.stdout | trim) == 'disk'"
+    fail_msg: >-
+      Derived SSD device {{ _ssd_disk.stdout | trim }} is TYPE
+      '{{ _ssd_type.stdout | trim }}', not 'disk'. Refusing to partition it —
+      running sgdisk against a partition destroys whatever is on it.
+    quiet: true
+
+- name: Check whether the SSD VG already exists
+  ansible.builtin.command:
+    cmd: "vgs {{ pve_linstor_ssd_vg }}"
+  register: _ssd_vg
+  changed_when: false
+  failed_when: false
+
+- name: Create a partition from the SSD's free tail
+  # sgdisk -N uses ALL remaining free space for the next partition number.
+  # Only touches unallocated space; the existing pve partitions are untouched.
+  ansible.builtin.command:
+    cmd: "sgdisk -N 0 -t 0:8e00 -c 0:linstor-ssd {{ _ssd_disk.stdout | trim }}"
+  when: _ssd_vg.rc != 0
+  register: _ssd_part
+
+- name: Re-read the partition table
+  # partx (util-linux) rather than partprobe: `parted` is NOT installed on a
+  # stock PVE 9 node, so partprobe fails with "No such file or directory".
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      partx -u "{{ _ssd_disk.stdout | trim }}"
+      udevadm settle
+    executable: /bin/bash
+  when: _ssd_part is changed
+  changed_when: true
+
+- name: Find the new SSD partition
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      lsblk -rno NAME,PARTLABEL "{{ _ssd_disk.stdout | trim }}" \
+        | awk '$2=="linstor-ssd" {print "/dev/"$1}' | head -1
+    executable: /bin/bash
+  register: _ssd_partdev
+  changed_when: false
+
+- name: Create the SSD volume group
+  ansible.builtin.command:
+    cmd: "vgcreate {{ pve_linstor_ssd_vg }} {{ _ssd_partdev.stdout | trim }}"
+  when:
+    - _ssd_vg.rc != 0
+    - (_ssd_partdev.stdout | trim) | length > 0
+
+# ── HDD pool: the whole 1TB spindle ───────────────────────────────────────
+- name: Confirm the HDD target is a whole disk
+  # Same guard as the SSD path. wipefs/vgcreate against a partition by mistake is
+  # how the pve VG on pve2/pve3 got destroyed on 2026-07-25; assert the device
+  # type rather than trusting the variable.
+  ansible.builtin.shell:
+    cmd: "lsblk -dno TYPE {{ pve_linstor_hdd_disk }}"
+  register: _hdd_type
+  changed_when: false
+  check_mode: false          # read-only discovery; must run in --check
+
+- name: Assert the HDD target is a disk
+  ansible.builtin.assert:
+    that: "(_hdd_type.stdout | trim) == 'disk'"
+    fail_msg: >-
+      {{ pve_linstor_hdd_disk }} is TYPE '{{ _hdd_type.stdout | trim }}', not
+      'disk'. Refusing to wipe it.
+    quiet: true
+
+- name: Inspect the HDD's current volume group
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      pvs --noheadings -o vg_name {{ pve_linstor_hdd_disk }} 2>/dev/null | tr -d ' '
+    executable: /bin/bash
+  register: _hdd_vg
+  changed_when: false
+  check_mode: false          # read-only discovery; must run in --check
+  failed_when: false
+
+- name: Refuse to wipe a HDD carrying anything other than a stale Ceph VG
+  # The only VGs we expect here are the leftover ceph-<uuid> ones from the old
+  # cluster. Anything else means this disk is not what we think it is.
+  ansible.builtin.fail:
+    msg: >-
+      {{ pve_linstor_hdd_disk }} on {{ inventory_hostname }} holds VG
+      '{{ _hdd_vg.stdout | trim }}', which is not a stale ceph-* VG.
+      Refusing to wipe. Inspect it by hand.
+  when:
+    - (_hdd_vg.stdout | trim) | length > 0
+    - not (_hdd_vg.stdout | trim).startswith('ceph-')
+    - (_hdd_vg.stdout | trim) != pve_linstor_hdd_vg
+
+- name: Remove the stale Ceph volume group
+  ansible.builtin.command:
+    cmd: "vgremove -f {{ _hdd_vg.stdout | trim }}"
+  when:
+    - pve_linstor_wipe_hdd | bool
+    - (_hdd_vg.stdout | trim).startswith('ceph-')
+
+- name: Wipe the HDD's signatures
+  ansible.builtin.command:
+    cmd: "wipefs -a {{ pve_linstor_hdd_disk }}"
+  when:
+    - pve_linstor_wipe_hdd | bool
+    - (_hdd_vg.stdout | trim).startswith('ceph-')
+
+- name: Check whether the HDD VG already exists
+  ansible.builtin.command:
+    cmd: "vgs {{ pve_linstor_hdd_vg }}"
+  register: _hdd_vg_now
+  changed_when: false
+  failed_when: false
+
+- name: Create the HDD volume group
+  ansible.builtin.command:
+    cmd: "vgcreate {{ pve_linstor_hdd_vg }} {{ pve_linstor_hdd_disk }}"
+  when: _hdd_vg_now.rc != 0
+
+- name: Report the resulting volume groups
+  ansible.builtin.command:
+    cmd: "vgs --noheadings -o vg_name,vg_size,vg_free"
+  register: _vgs
+  changed_when: false
+
+- name: Show them
+  ansible.builtin.debug:
+    msg: "{{ _vgs.stdout_lines }}"

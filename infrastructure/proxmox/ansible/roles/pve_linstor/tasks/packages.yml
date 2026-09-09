@@ -1,0 +1,112 @@
+---
+# LINBIT's public repo. Free and needs no subscription — the subscription only
+# buys support and their prebuilt kernel modules; drbd-dkms builds locally.
+
+- name: Install the LINBIT signing key
+  ansible.builtin.get_url:
+    url: "{{ pve_linstor_repo_key_url }}"
+    dest: /tmp/linbit-pubkey.asc
+    mode: "0644"
+  retries: 3
+  delay: 10
+
+- name: Convert the key to a keyring
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor < /tmp/linbit-pubkey.asc > {{ pve_linstor_keyring }}"
+    creates: "{{ pve_linstor_keyring }}"
+
+- name: Add the LINBIT repository
+  ansible.builtin.deb822_repository:
+    name: linbit
+    types: [deb]
+    uris: "{{ pve_linstor_repo_url }}"
+    suites: "{{ pve_linstor_repo_suite }}"
+    components: [drbd-9]
+    signed_by: "{{ pve_linstor_keyring }}"
+    enabled: true
+    state: present
+  register: _linbit_repo
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  register: _apt
+  retries: 3
+  delay: 15
+  until: _apt is succeeded
+
+- name: Install DRBD + LINSTOR packages
+  # drbd-dkms COMPILES a kernel module against the running kernel, so the
+  # headers must match. This is the step most likely to fail on a flaky uplink,
+  # hence the retries.
+  ansible.builtin.apt:
+    name:
+      - "pve-headers-{{ ansible_facts['kernel'] }}"
+      - drbd-dkms
+      - drbd-utils
+      - linstor-controller
+      - linstor-satellite
+      - linstor-client
+      - linstor-proxmox
+    state: present
+  register: _linstor_pkgs
+  retries: 2
+  delay: 30
+  until: _linstor_pkgs is succeeded
+
+- name: Load the DRBD module
+  ansible.builtin.command:
+    cmd: modprobe drbd
+  changed_when: false
+
+- name: Check which DRBD version is actually LOADED
+  ansible.builtin.shell:
+    cmd: "cat /proc/drbd 2>/dev/null | head -1"
+  register: _drbd_ver
+  changed_when: false
+
+# The kernel ships an IN-TREE drbd 8.4. If anything loaded it before drbd-dkms
+# was installed, modprobe is a no-op and the running module stays 8.4 even
+# though dkms built 9.x correctly (modinfo will happily report 9.x from
+# .../updates/dkms/drbd.ko). LINSTOR needs 9. Swap it live when nothing is using
+# it; refuse and demand a reboot when something is.
+- name: Check the module refcount before swapping
+  ansible.builtin.shell:
+    cmd: "lsmod | awk '$1==\"drbd\" {print $3}' | head -1"
+  register: _drbd_refs
+  changed_when: false
+  when: "'version: 9' not in _drbd_ver.stdout"
+
+- name: Refuse to swap a DRBD module that is in use
+  ansible.builtin.fail:
+    msg: >-
+      In-tree DRBD {{ _drbd_ver.stdout }} is loaded and IN USE
+      (refcount {{ _drbd_refs.stdout | default('?') }}). Reboot
+      {{ inventory_hostname }} to pick up the dkms-built DRBD 9.
+  when:
+    - "'version: 9' not in _drbd_ver.stdout"
+    - (_drbd_refs.stdout | default('0') | trim | int) > 0
+
+- name: Swap the in-tree DRBD 8.4 for the dkms-built DRBD 9
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      modprobe -r drbd_transport_tcp 2>/dev/null || true
+      modprobe -r drbd
+      depmod -a
+      modprobe drbd
+  when:
+    - "'version: 9' not in _drbd_ver.stdout"
+    - (_drbd_refs.stdout | default('0') | trim | int) == 0
+
+- name: Re-read the DRBD version after the swap
+  ansible.builtin.shell:
+    cmd: "cat /proc/drbd 2>/dev/null | head -1"
+  register: _drbd_ver
+  changed_when: false
+
+- name: Assert DRBD 9
+  ansible.builtin.assert:
+    that: "'version: 9' in _drbd_ver.stdout"
+    fail_msg: "Expected DRBD 9, got: {{ _drbd_ver.stdout }}"
+    quiet: true

@@ -1,0 +1,8 @@
+# Answer files embed the root password hash + host network config — keep out of git.
+# They're regenerated from the eventual Ansible role / vault.
+pxe/answer/*.toml
+pxe/secrets.env
+
+# Build scratch (large PXE artifacts live on the netboot host, not here)
+pxe/build/
+vyos/credentials.yml

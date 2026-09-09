@@ -1,0 +1,19 @@
+#!ipxe
+# ─────────────────────────────────────────────────────────────────────────
+# Proxmox VE 9.2 AUTOMATED install — pve3 → 192.168.10.9 (target: nvme0n1)
+# Replicates the (unreleased) `proxmox-auto-install-assistant --pxe` method:
+#   lean kernel + lean gzip initrd, then the answer-embedded ISO loaded as a
+#   SECOND initrd named proxmox.iso (iPXE's native multi-initrd = correct cpio).
+# The installer finds /proxmox.iso, loop-mounts it, reads the embedded answer,
+# and installs unattended (proxmox-start-auto-installer). WIPES nvme0n1.
+# ─────────────────────────────────────────────────────────────────────────
+echo
+echo Proxmox VE 9.2 AUTOMATED install: pve3 -> 192.168.10.9 (wipes nvme0n1)
+echo Loading kernel + lean initrd + ISO (as proxmox.iso)...
+kernel http://192.168.10.127:8080/proxmox/linux26 ro ramdisk_size=16777216 rw quiet splash=silent proxmox-start-auto-installer
+initrd http://192.168.10.127:8080/proxmox/initrd.img
+initrd http://192.168.10.127:8080/proxmox/prepared-pve3.iso proxmox.iso
+boot || goto failed
+:failed
+echo Proxmox netboot failed. Dropping to shell.
+shell

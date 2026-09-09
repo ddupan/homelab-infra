@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Broad admin for human OIDC logins (mapped from the {{ openbao_oidc_admin_group }} AD group).
+# Homelab-broad on purpose; scope down to specific mounts if you want least privilege.
+path "*" {
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}

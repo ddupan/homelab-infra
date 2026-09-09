@@ -1,0 +1,168 @@
+---
+# LINSTOR cluster: controller on one node, satellites everywhere, storage pools,
+# resource group, and the PVE storage entry.
+#
+# All linstor CLI calls run ONCE against the controller — LINSTOR is itself a
+# cluster-wide database, so repeating them per-host would just race.
+
+- name: Enable and start the satellite on every node
+  ansible.builtin.systemd_service:
+    name: linstor-satellite
+    enabled: true
+    state: started
+
+- name: Enable and start the controller
+  ansible.builtin.systemd_service:
+    name: linstor-controller
+    enabled: true
+    state: started
+  when: inventory_hostname == pve_linstor_controller
+
+- name: Point the client at the controller
+  # Without this, `linstor` talks to localhost and fails on the satellites.
+  ansible.builtin.copy:
+    dest: /etc/linstor/linstor-client.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role pve_linstor).
+      [global]
+      controllers=linstor://{{ hostvars[pve_linstor_controller].ansible_host }}
+
+- name: Wait for the controller API
+  ansible.builtin.command:
+    cmd: linstor node list
+  register: _lin_ready
+  until: _lin_ready.rc == 0
+  retries: 24
+  delay: 5
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+# ── nodes ─────────────────────────────────────────────────────────────────
+- name: Register each node with LINSTOR
+  ansible.builtin.command:
+    cmd: >-
+      linstor node create {{ item }} {{ hostvars[item].ansible_host }}
+      --node-type {{ 'Combined' if item == pve_linstor_controller else 'Satellite' }}
+  loop: "{{ groups['pve'] }}"
+  register: _node_create
+  changed_when: "'successfully' in (_node_create.stdout | default('') | lower)"
+  failed_when:
+    - _node_create.rc != 0
+    - "'already exists' not in (_node_create.stdout | default('') + _node_create.stderr | default('')) | lower"
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Wait for all nodes to come ONLINE
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      linstor -m --output-version v1 node list \
+        | python3 -c "import json,sys; print(all(n['connection_status']=='ONLINE' for n in json.load(sys.stdin)[0]))"
+    executable: /bin/bash
+  register: _nodes_online
+  until: "'True' in _nodes_online.stdout"
+  retries: 24
+  delay: 5
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+# ── storage pools ─────────────────────────────────────────────────────────
+- name: Create the storage pools
+  ansible.builtin.command:
+    cmd: >-
+      linstor storage-pool create lvm {{ item.0 }} {{ item.1.pool }} {{ item.1.vg }}
+  loop: "{{ groups['pve'] | product([
+              {'pool': pve_linstor_ssd_pool, 'vg': pve_linstor_ssd_vg},
+              {'pool': pve_linstor_hdd_pool, 'vg': pve_linstor_hdd_vg}]) | list }}"
+  register: _sp
+  changed_when: "'successfully' in (_sp.stdout | default('') | lower)"
+  failed_when:
+    - _sp.rc != 0
+    - "'already exists' not in (_sp.stdout | default('') + _sp.stderr | default('')) | lower"
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+# ── resource groups ───────────────────────────────────────────────────────
+# One per storage pool — a resource group binds to exactly one pool, so the hdd
+# pool needs its own or that capacity is unusable from Proxmox.
+- name: Create the resource groups
+  ansible.builtin.command:
+    cmd: >-
+      linstor resource-group create {{ item.name }}
+      --storage-pool {{ item.pool }}
+      --place-count {{ item.place_count | default(pve_linstor_place_count) }}
+  loop: "{{ pve_linstor_resource_groups }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.pool }}"
+  register: _rg
+  changed_when: "'successfully' in (_rg.stdout | default('') | lower)"
+  failed_when:
+    - _rg.rc != 0
+    - "'already exists' not in (_rg.stdout | default('') + _rg.stderr | default('')) | lower"
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Read existing volume-group definitions
+  # `linstor volume-group create` is NOT idempotent: every call APPENDS another
+  # volume number. Running the play three times left pve-rg with VlmNrs 0,1,2, so
+  # PVE then failed every disk create with "has 3 Volume groups, but only 1 sizes
+  # were provided". Check before creating.
+  ansible.builtin.shell:
+    # Count table rows. NOTE the leading char class: linstor draws its tables
+    # with BOX-DRAWING pipes (U+2502), not ASCII '|', so a '^\\|' pattern never
+    # matches and the count is always 0 -- which silently appends a NEW volume
+    # group on every run.
+    cmd: "linstor volume-group list {{ item.name }} 2>/dev/null | grep -cE '^.[[:space:]]*[0-9]+[[:space:]]' || true"
+  loop: "{{ pve_linstor_resource_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _vg_count
+  changed_when: false
+  check_mode: false
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Create a volume group where none exists
+  ansible.builtin.command:
+    cmd: "linstor volume-group create {{ item.item.name }}"
+  loop: "{{ _vg_count.results }}"
+  loop_control:
+    label: "{{ item.item.name }} (has {{ item.stdout | default('?') | trim }})"
+  when: (item.stdout | default('0') | trim | int) == 0
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+# ── PVE storage entries ───────────────────────────────────────────────────
+- name: Register each resource group as PVE storage
+  ansible.builtin.command:
+    cmd: >-
+      pvesm add drbd {{ item.name }}
+      --content {{ item.content | default('images,rootdir') }}
+      --controller {{ hostvars[pve_linstor_controller].ansible_host }}
+      --resourcegroup {{ item.name }}
+  loop: "{{ pve_linstor_resource_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _pvesm
+  changed_when: _pvesm.rc == 0
+  failed_when:
+    - _pvesm.rc != 0
+    - "'already defined' not in (_pvesm.stderr | default('') + _pvesm.stdout | default(''))"
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Report LINSTOR state
+  ansible.builtin.shell:
+    cmd: "linstor storage-pool list; echo; linstor resource-group list; echo; pvesm status"
+  register: _lin_state
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Show it
+  ansible.builtin.debug:
+    msg: "{{ _lin_state.stdout_lines }}"
+  run_once: true

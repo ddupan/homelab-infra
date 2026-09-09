@@ -1,0 +1,40 @@
+# LAN-facing SMTP endpoint for hosts OUTSIDE the k3s cluster — specifically the
+# three Proxmox nodes (pve1 .4, pve2 .7, pve3 .9), which relay their system mail
+# (PVE notifications, smartd, cron) through here to M365.
+#
+# Kept SEPARATE from service.yaml on purpose: that ClusterIP service is what
+# Authelia and Gitea address by DNS name (smtp-relay.smtp-relay.svc.cluster.local),
+# and it must not change shape.
+#
+# k3s servicelb (klipper) host-binds :25 on the laptop (192.168.10.127).
+#
+# CRITICAL — why loadBalancerSourceRanges is the ONLY real access control here:
+# klipper SNATs incoming connections, so the relay sees every LAN client as
+# `_gateway[10.42.0.1]` rather than its true address. 10.42.0.1 is inside the
+# pod CIDR that MY_NETWORK already trusts, which means postfix's IP-based
+# `permit_mynetworks` CANNOT distinguish a Proxmox node from any other LAN host —
+# per-node /32 entries in MY_NETWORK are decorative. Without the source ranges
+# below this service is an OPEN RELAY to the whole LAN (verified: an untrusted
+# host got a 220 banner and would have been permitted to relay).
+# So: restrict at the LB. Do not remove this block.
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-relay-lan
+  namespace: smtp-relay
+  labels:
+    app: smtp-relay
+spec:
+  type: LoadBalancer
+  selector:
+    app: smtp-relay
+  # Only the three Proxmox nodes may even open a TCP connection to :25.
+  loadBalancerSourceRanges:
+    - 192.168.10.4/32   # pve1
+    - 192.168.10.7/32   # pve2
+    - 192.168.10.9/32   # pve3
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: 25
+      protocol: TCP

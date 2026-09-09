@@ -1,0 +1,7 @@
+# ansible/group_vars/all/vault.yml is now ANSIBLE-VAULT ENCRYPTED and IS committed.
+# Password: ../.vault_pass (gitignored) / OpenBao kv/infra/ansible-vault.
+# ⚠ If you ever `ansible-vault decrypt` it, DO NOT commit until re-encrypted.
+# Local inventory overrides.
+ansible/inventory/hosts.local.yml
+# Exported PGP public keys used for `bao operator init`.
+*.pub.b64

@@ -1,0 +1,19 @@
+---
+# Copy to vault.yml and encrypt:  ansible-vault encrypt group_vars/all/vault.yml
+# NEVER commit the decrypted vault.yml.
+#
+# Only needed once you switch to transit auto-unseal (openbao_auto_unseal: true).
+# This is the token the seal source hands out for the autounseal transit key —
+# scope it to just encrypt/decrypt on that key.
+vault_openbao_transit_token: "CHANGE-ME-transit-unseal-token"
+
+# Plaintext of the Authelia 'openbao' OIDC client secret (Authelia stores the pbkdf2
+# hash; OpenBao holds this plaintext). Used by the bootstrap play's auth/oidc config.
+vault_openbao_oidc_client_secret: "CHANGE-ME-authelia-openbao-client-secret"
+
+# Reviewer SA JWT for Kubernetes auth (only when openbao_enable_k8s_auth: true).
+# kubectl -n agents create token bao-reviewer --duration=87600h
+vault_openbao_k8s_reviewer_jwt: "CHANGE-ME-k8s-reviewer-jwt"
+
+# Cloudflare API token for ACME DNS-01 (acme-openbao.yml). Scope: Zone:DNS:Edit on ddupan.top.
+vault_openbao_cf_dns_token: "CHANGE-ME-cloudflare-dns-edit-token"

@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-bootstrap
+  namespace: keycloak
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccountName: keycloak-bootstrap
+      restartPolicy: OnFailure
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: keycloak-bootstrap
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:8.12.1
+          command:
+            - /bin/sh
+            - -ec
+            - sh /bootstrap/bootstrap.sh
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap

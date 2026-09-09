@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: openbao_bootstrap
+  description: Configure a running OpenBao — engines (kv, ssh CA, pki), auth (oidc, kubernetes), policies, snapshots.
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [bookworm]
+    - name: Ubuntu
+      versions: [jammy, noble]
+dependencies: []

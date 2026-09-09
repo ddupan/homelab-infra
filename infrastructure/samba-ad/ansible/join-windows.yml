@@ -1,0 +1,13 @@
+---
+# Join the Windows admin box (RSAT/GPMC station) to the domain.
+#   ansible-playbook join-windows.yml --ask-vault-pass
+- name: Windows domain admin box
+  hosts: windows_admin
+  gather_facts: false
+  roles:
+    - role: win_domain_join
+    # Trust the internal CA. Tagged so it can be re-run on its own after a CA
+    # rotation without going near the domain-join and KMS-activation tasks:
+    #   ansible-playbook join-windows.yml --tags ca
+    - role: win_ca_trust
+      tags: [ca]

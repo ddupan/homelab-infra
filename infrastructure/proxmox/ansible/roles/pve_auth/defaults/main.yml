@@ -1,0 +1,73 @@
+---
+# Authenticate PVE users against Samba AD over verified LDAPS.
+#
+# WHY the AD realm and not OIDC: PVE's `ad`/`ldap` realms support a real user +
+# group SYNC (pveum realm sync), so permissions can be granted to a group BEFORE
+# anyone logs in, and username+password works for the API/CLI (Terraform,
+# pvesh). PVE's OIDC realm only creates users on first browser login and cannot
+# do non-interactive auth. Authelia OIDC can be added later as an EXTRA realm
+# for convenient SSO; it is not a replacement.
+
+pve_auth_realm: ad                     # users appear as <user>@ad
+pve_auth_domain: ad.ddupan.top
+
+# MUST be the hostname, NEVER 192.168.10.5: the DC's LDAPS cert is issued by
+# OpenBao ACME with a DNS SAN only (no IP SAN), so verification fails by IP with
+# "IP address mismatch". Verified 2026-07-25.
+pve_auth_server1: dc1.ad.ddupan.top
+pve_auth_port: 636
+pve_auth_mode: ldaps                   # `--secure` is DEPRECATED in favour of this
+
+# The whole point of trusting the internal CA on these nodes (role pve_ca_trust):
+# PVE defaults --verify to 0, i.e. it does NOT check the DC's certificate, which
+# makes the directory bind trivially MITM-able on a flat LAN. capath's default
+# (/etc/ssl/certs) already contains the hashed internal CA.
+pve_auth_verify: 1
+pve_auth_capath: /etc/ssl/certs
+
+pve_auth_base_dn: "DC=ad,DC=ddupan,DC=top"
+pve_auth_bind_dn: "CN=svc-pve,CN=Users,DC=ad,DC=ddupan,DC=top"
+# Read-only bind account created by samba-ad (samba_ad_service_accounts).
+pve_auth_bind_password: "{{ vault_pve_bind_password | default('') }}"
+
+# AD logon name. Without this PVE would try the default LDAP `uid`, which AD
+# does not populate.
+pve_auth_user_attr: sAMAccountName
+# AD stores users AND groups under CN=Users by default (not an OU).
+pve_auth_group_dn: "CN=Users,DC=ad,DC=ddupan,DC=top"
+pve_auth_group_classes: group
+pve_auth_user_classes: user
+
+# Only sync real, ENABLED people — not service or system accounts.
+# The userAccountControl bit-AND rule (1.2.840.113556.1.4.803 := 2) excludes
+# DISABLED accounts, which is what keeps AD's built-in `Guest` and `krbtgt` out.
+# Filtering on name alone let both through on the first sync.
+pve_auth_filter: >-
+  (&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(sAMAccountName=svc-*)))
+
+# Only groups this cluster actually uses for RBAC. `(objectClass=group)` pulls in
+# every builtin AD group: PVE rejects most outright ("group name 'Domain Users-ad'
+# contains invalid characters" — spaces are illegal in PVE group IDs) and imports
+# the rest as clutter (DnsAdmins-ad, DnsUpdateProxy-ad). Convention: name any
+# group PVE should see `pve-*`.
+pve_auth_group_filter: "(&(objectClass=group)(cn=pve-*))"
+pve_auth_sync_attributes: "email=mail,firstname=givenName,lastname=sn"
+
+# AD logon names are case-insensitive; PVE defaults to case-sensitive, which
+# means Panxiao81 and panxiao81 would become two different PVE users.
+pve_auth_case_sensitive: 0
+
+# remove-vanished: 'none' on purpose. Anything stronger lets a transient LDAP
+# hiccup delete users, their properties, or their ACLs from a live cluster.
+pve_auth_sync_defaults: "scope=both,enable-new=1,remove-vanished=none"
+
+# --- scheduled sync ---
+pve_auth_sync_job: pve-ad-sync
+pve_auth_sync_schedule: "*-*-* 04:11:00"
+
+# --- RBAC ---
+# PVE RENAMES synced groups to "<name>-<realm>", so AD's pve-admins becomes
+# pve-admins-ad. Granting the ACL to "pve-admins" would silently match nothing.
+pve_auth_admin_group: "pve-admins-{{ pve_auth_realm }}"
+pve_auth_admin_role: Administrator
+pve_auth_admin_path: /

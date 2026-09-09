@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+[Unit]
+Description=OpenBao Raft snapshot
+After=openbao.service
+Wants=openbao.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bao-snapshot.sh

@@ -1,0 +1,10 @@
+---
+# Join a Linux host to the domain as a Samba MEMBER fileserver (winbind).
+#   ansible-playbook join-member.yml --ask-vault-pass
+#   ansible-playbook join-member.yml --tags verify      # smoke tests only
+- name: Samba AD member fileserver
+  hosts: samba_members
+  become: true
+  gather_facts: true
+  roles:
+    - role: samba_member

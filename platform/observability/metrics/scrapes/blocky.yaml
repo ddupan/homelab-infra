@@ -1,0 +1,30 @@
+# Blocky DNS metrics. Same VMStaticScrape pattern as docker-hosts.yaml, because
+# Blocky runs as a compose stack on the laptop rather than in the cluster
+# (see ../../../../apps/blocky/README.md for why DNS deliberately lives outside k3s).
+#
+# ⚠ Blocky is STAGED, not deployed — this target will be DOWN until it is started.
+# That is expected; do not go hunting for a broken exporter.
+#
+# Worth alerting on once it is live, because there is currently no DNS visibility
+# at all:
+#   blocky_error_total                     — upstream failures
+#   blocky_denylist_cache_entries          — collapses to 0 if a list fetch fails
+#   blocky_cache_hits_total / _misses_total — cache effectiveness
+#   blocky_query_total{response_type=...}  — BLOCKED vs CACHED vs RESOLVED split
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: blocky
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  jobName: blocky
+  targetEndpoints:
+    - targets:
+        - "192.168.10.127:4000"
+      path: /metrics
+      labels:
+        job: blocky
+        host: docker-01

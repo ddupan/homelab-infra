@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Obtain or renew the DC's LDAPS cert from OpenBao's internal ACME (http-01).
+# lego's `run` does BOTH: it renews only when due (--renew-days) and fires
+# --deploy-hook on any actual create/renew. There is no separate `renew` command
+# in lego v5, and every flag must come AFTER `run`.
+set -euo pipefail
+
+exec {{ samba_ad_acme_bin }} run \
+  --accept-tos \
+  --email "{{ samba_ad_acme_email }}" \
+  --server "{{ samba_ad_acme_server }}" \
+  --http \
+  --http.address "{{ samba_ad_acme_http_address }}" \
+  --domains "{{ samba_ad_acme_domain }}" \
+  --key-type "{{ samba_ad_acme_key_type }}" \
+  --path "{{ samba_ad_acme_dir }}" \
+  --renew-days {{ samba_ad_acme_renew_days }} \
+  --deploy-hook /usr/local/bin/samba-acme-deploy.sh

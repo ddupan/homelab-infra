@@ -1,0 +1,32 @@
+services:
+  # Official netboot.xyz appliance: TFTP (:69/udp), assets nginx (:8080), web UI (:3000).
+  # HOST networking is required — TFTP renegotiates to an ephemeral port that Docker's
+  # bridge NAT mangles (clients get "TID mismatch"). Host net serves TFTP straight off
+  # the LAN interface. Does NOT provide DHCP (see the dnsmasq service below).
+  netbootxyz:
+    image: ghcr.io/netbootxyz/netbootxyz
+    container_name: netbootxyz
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
+      NGINX_PORT: "8080"       # assets mirror (host port, host net)
+      WEB_APP_PORT: "3000"     # web configuration UI
+    volumes:
+      - "./config:/config"
+      - "./assets:/assets"
+
+  # proxyDHCP: runs ALONGSIDE the NEC IX router's DHCP. The router leases IPs; dnsmasq
+  # only answers the PXE/boot part and points clients at this host (192.168.10.127).
+  dnsmasq:
+    image: 4km3/dnsmasq:2.90-r3
+    container_name: netboot-dnsmasq
+    restart: unless-stopped
+    network_mode: host          # must see LAN DHCP broadcasts (scoped to br0 in the conf)
+    cap_add:
+      - NET_ADMIN
+    command: ["-k", "--conf-file=/etc/dnsmasq.conf"]
+    volumes:
+      - "./dnsmasq.conf:/etc/dnsmasq.conf:ro"
+    depends_on:
+      - netbootxyz

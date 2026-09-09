@@ -1,0 +1,56 @@
+---
+# Route all node mail (PVE alerts, smartd, cron) through the k3s smtp-relay on
+# the laptop, which authenticates to M365 with OAuth2/XOAUTH2.
+# See services/smtp-relay/ for the relay side.
+#
+# Applied by hand on 2026-07-25; codified here so a rebuild does not lose it.
+#
+# Each setting is READ first and only written when it differs, so re-runs report
+# no change. `check_mode: false` on the reads lets --check make a real
+# comparison instead of skipping (postconf reads nothing but config).
+
+- name: Read current postfix settings
+  ansible.builtin.command:
+    cmd: postconf -h relayhost sender_canonical_classes sender_canonical_maps
+  register: _pf
+  changed_when: false
+  check_mode: false
+
+- name: Point postfix at the smtp-relay
+  # [brackets] mean "this is the literal host", suppressing the MX lookup that
+  # would otherwise be attempted for a bare address.
+  ansible.builtin.command:
+    cmd: postconf -e "relayhost = {{ pve_mail_relayhost }}"
+  when: (_pf.stdout_lines[0] | default('') | trim) != pve_mail_relayhost
+  notify: Reload postfix
+
+- name: Install the sender rewrite map
+  # M365 authenticates as {{ pve_mail_from }} and rejects any other From with
+  # 5.7.60 SendAsDenied. Node mail is generated as root@<fqdn>, so every local
+  # sender must be rewritten. In-cluster apps (Authelia, Gitea) never hit this
+  # because they already send as noreply@.
+  ansible.builtin.copy:
+    dest: /etc/postfix/sender_canonical
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role pve_mail_relay).
+      /.+/	{{ pve_mail_from }}
+  notify: Reload postfix
+
+- name: Enable sender rewriting for the envelope
+  ansible.builtin.command:
+    cmd: postconf -e "sender_canonical_classes = envelope_sender, header_sender"
+  when: (_pf.stdout_lines[1] | default('') | trim) != 'envelope_sender, header_sender'
+  notify: Reload postfix
+
+- name: Point postfix at the sender rewrite map
+  ansible.builtin.command:
+    cmd: postconf -e "sender_canonical_maps = regexp:/etc/postfix/sender_canonical"
+  when: (_pf.stdout_lines[2] | default('') | trim) != 'regexp:/etc/postfix/sender_canonical'
+  notify: Reload postfix
+
+- name: Ensure postfix is enabled and running
+  ansible.builtin.systemd_service:
+    name: postfix
+    state: started
+    enabled: true

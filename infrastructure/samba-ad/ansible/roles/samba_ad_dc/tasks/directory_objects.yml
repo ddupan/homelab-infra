@@ -1,0 +1,61 @@
+---
+# Service accounts + RBAC groups that downstream apps depend on.
+# Codified because these were originally created by hand (svc-authelia), which
+# means a DC rebuild would silently lose every app's ability to bind.
+
+- name: Create service accounts
+  ansible.builtin.command:
+    argv:
+      - samba-tool
+      - user
+      - create
+      - "{{ item.name }}"
+      - "{{ item.password }}"
+      - "--description={{ item.description | default('') }}"
+  loop: "{{ samba_ad_service_accounts | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _svc_create
+  changed_when: "'created successfully' in (_svc_create.stdout | default(''))"
+  failed_when:
+    - _svc_create.rc != 0
+    - "'already exists' not in (_svc_create.stdout | default('') + _svc_create.stderr | default(''))"
+  no_log: true          # passwords are on the argv
+
+- name: Make service-account passwords non-expiring
+  # A bind account whose password silently expires takes the dependent app down
+  # with it, with no obvious cause. These are long random secrets in vault.yml.
+  ansible.builtin.command:
+    cmd: "samba-tool user setexpiry {{ item.name }} --noexpiry"
+  loop: "{{ samba_ad_service_accounts | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _svc_expiry
+  changed_when: _svc_expiry.rc == 0
+
+- name: Create RBAC groups
+  ansible.builtin.command:
+    cmd: "samba-tool group add {{ item.name }}"
+  loop: "{{ samba_ad_groups | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _grp_create
+  changed_when: "'added successfully' in (_grp_create.stdout | default(''))"
+  failed_when:
+    - _grp_create.rc != 0
+    - "'already exists' not in (_grp_create.stdout | default('') + _grp_create.stderr | default(''))"
+
+- name: Add group members
+  ansible.builtin.command:
+    cmd: "samba-tool group addmembers {{ item.name }} {{ item.members | join(',') }}"
+  loop: "{{ samba_ad_groups | default([]) | selectattr('members', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _grp_members
+  changed_when: "'Added members' in (_grp_members.stdout | default(''))"
+  failed_when:
+    - _grp_members.rc != 0
+    # samba-tool wording varies: "already a member" for users, but
+    # "Attribute member already exists" when the member is a nested GROUP.
+    - "'already a member' not in (_grp_members.stdout | default('') + _grp_members.stderr | default('')) | lower"
+    - "'already exists' not in (_grp_members.stdout | default('') + _grp_members.stderr | default('')) | lower"

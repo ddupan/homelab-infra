@@ -1,0 +1,8 @@
+---
+# Install with: ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.general      # general modules
+  - name: community.crypto       # x509_certificate/openssl_* for the DC LDAPS cert
+  - name: ansible.windows        # win_dns_client, win_feature, win_command, win_reboot
+  - name: community.windows      # extra Windows modules
+  - name: microsoft.ad           # membership (AD domain join) — replaces win_domain_membership

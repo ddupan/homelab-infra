@@ -1,0 +1,36 @@
+---
+# dc_vm role — create the DC's Ubuntu VM locally via libvirt + cloud-init (NoCloud).
+# Runs on the libvirt host (localhost). Configures nothing inside the OS beyond the
+# cloud-init seed; the samba_ad_dc role does the AD provisioning afterward.
+
+dc_vm_name: "{{ samba_ad_dc_hostname | default('dc1') }}"
+dc_vm_vcpus: 2
+dc_vm_memory_mb: 2048
+dc_vm_disk_gb: 25
+
+# Latest Ubuntu LTS cloud image (24.04 Noble). "current" always points at the newest build.
+dc_vm_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+dc_vm_osinfo: "ubuntu24.04"
+
+# libvirt placement.
+# The VM root disk is a ZFS zvol (matches data/vm/win2k25 convention).
+# dc_vm_images_dir only holds the small base image + the cloud-init seed ISO (files).
+dc_vm_images_dir: "/var/lib/libvirt/images"
+dc_vm_bridge: "br0"                 # LAN bridge → puts the DC on 192.168.10.0/24
+
+# ZFS zvol for the root disk
+dc_vm_zvol_parent: "data/vm"                       # parent dataset, one zvol per VM
+dc_vm_zvol: "{{ dc_vm_zvol_parent }}/{{ dc_vm_name }}"
+dc_vm_zvol_dev: "/dev/zvol/{{ dc_vm_zvol }}"
+dc_vm_zvol_volblocksize: "16K"                     # matches existing VMs
+dc_vm_zvol_sparse: false                           # thick-provisioned like data/vm/win2k25
+
+# Networking for the guest (static — AD requires it). Pulls from group_vars/all.yml.
+dc_vm_ip: "{{ samba_ad_dc_ip }}"
+dc_vm_prefix: 24
+dc_vm_gateway: "192.168.10.1"
+dc_vm_boot_dns: "{{ samba_ad_dns_forwarder }}"   # first-boot resolver (before it is its own DNS)
+
+# Cloud-init login user + the public key Ansible will connect with.
+dc_vm_user: "ansible"
+dc_vm_ssh_pubkey_file: "~/.ssh/id_ed25519.pub"   # generate with: ssh-keygen -t ed25519

@@ -1,0 +1,55 @@
+# cert-manager — X.509 issuance for the cluster.
+#
+# Chart: jetstack/cert-manager v1.21.0  (repo: https://charts.jetstack.io)
+#
+# Exists so LAN services on ad.ddupan.top get real, auto-renewing certs instead of
+# hand-issued ones. The homelab has TWO ACME sources and both are wired up as
+# ClusterIssuers (see clusterissuer-*.yaml):
+#   letsencrypt  — public CA, DNS-01 via Cloudflare. Browser-trusted with no CA
+#                  install. Used for the *.ad.ddupan.top wildcard.
+#   bao-acme     — OpenBao's internal PKI (../../infrastructure/openbao). No WAN dependency and
+#                  nothing published to Certificate Transparency logs.
+
+# CRDs are part of the release so `helm uninstall` is a clean removal and there is
+# no separate kubectl-apply step to forget.
+crds:
+  enabled: true
+  keep: true   # don't let an accidental uninstall garbage-collect live Certificates
+
+# Single-node k3s: one of everything, modest requests. The laptop runs the whole
+# homelab (see netbox/CONTEXT.md §6).
+replicaCount: 1
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 192Mi
+
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+cainjector:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+
+# ⚠ DNS-01 self-check: cert-manager polls authoritative NS for the _acme-challenge
+# TXT record before telling the CA to validate. By default it asks the cluster's
+# resolver, which for ad.ddupan.top is CoreDNS -> the Samba AD DC (k3s/coredns-custom.yaml).
+# The DC is authoritative for ad.ddupan.top internally and knows nothing about the
+# TXT record we just wrote into the PUBLIC Cloudflare zone, so the self-check would
+# spin forever. Forcing public recursive resolvers makes the check see what the CA
+# will see.
+dns01RecursiveNameservers: "1.1.1.1:53,8.8.8.8:53"
+dns01RecursiveNameserversOnly: true

@@ -1,0 +1,11 @@
+---
+# LINSTOR/DRBD storage. Separate from site.yml because it partitions and wipes
+# disks. The HDD wipe additionally requires -e pve_linstor_wipe_hdd=true.
+#
+#   ansible-playbook linstor.yml --tags linstor_pkgs      # packages only
+#   ansible-playbook linstor.yml -e pve_linstor_wipe_hdd=true
+- name: LINSTOR hyperconverged storage
+  hosts: pve
+  gather_facts: true
+  roles:
+    - pve_linstor

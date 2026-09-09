@@ -1,0 +1,10 @@
+{
+  "key_type": "ca",
+  "allow_user_certificates": true,
+  "allowed_users": "{{ openbao_ssh_allowed_users }}",
+  "default_user": "{{ openbao_ssh_default_user }}",
+  "allowed_extensions": "",
+  "default_extensions": { "permit-pty": "" },
+  "ttl": "{{ openbao_ssh_cert_ttl }}",
+  "max_ttl": "{{ openbao_ssh_cert_max_ttl }}"
+}

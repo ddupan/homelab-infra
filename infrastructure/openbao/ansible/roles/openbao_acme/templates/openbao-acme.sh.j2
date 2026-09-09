@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Obtain or renew bao's Let's Encrypt cert via Cloudflare DNS-01. lego's `run` does both:
+# it renews only when due (ARI + --renew-days) and fires --deploy-hook on any actual
+# create/renew to install the cert and reload bao. CLOUDFLARE_DNS_API_TOKEN comes from
+# the environment (systemd EnvironmentFile, or Ansible on the first run).
+set -euo pipefail
+
+exec {{ openbao_acme_bin }} run \
+  --accept-tos \
+  --email "{{ openbao_acme_email }}" \
+  --dns cloudflare \
+  --dns.resolvers "{{ openbao_acme_dns_resolvers }}" \
+  --dns.timeout {{ openbao_acme_dns_timeout }} \
+  --dns.propagation.wait "{{ openbao_acme_propagation_wait }}" \
+  --domains "{{ openbao_acme_domain }}" \
+  --path "{{ openbao_acme_dir }}" \
+  --renew-days 30 \
+  --deploy-hook /usr/local/bin/openbao-acme-deploy.sh{% if openbao_acme_server %} \
+  --server "{{ openbao_acme_server }}"{% endif %}

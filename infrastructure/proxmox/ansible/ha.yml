@@ -1,0 +1,16 @@
+---
+# Proxmox HA. SEPARATE from site.yml deliberately, like cluster.yml: registering an
+# HA resource arms fencing CLUSTER-WIDE, so a node that loses quorum will self-reboot.
+# That is a behaviour change for a cluster whose documented posture is "no HA", and it
+# should be run on purpose rather than as a side effect of a baseline run.
+#
+#   ansible-playbook ha.yml
+#   ansible-playbook ha.yml --tags watchdog   # watchdog config only
+#
+# Preconditions (all verified 2026-07-26): cluster quorate, guest disk on replicated
+# storage (pve-rg / DRBD place-count 2), and `onboot: 1` on the guest.
+- name: Proxmox HA
+  hosts: pve
+  gather_facts: true
+  roles:
+    - pve_ha

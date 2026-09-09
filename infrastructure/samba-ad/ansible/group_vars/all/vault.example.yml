@@ -1,0 +1,8 @@
+---
+# Copy to vault.yml and encrypt:  ansible-vault encrypt group_vars/vault.yml
+# NEVER commit the decrypted vault.yml.
+vault_samba_ad_admin_password: "CHANGE-ME-Strong.Passw0rd"
+vault_win_local_admin_password: "CHANGE-ME-Local.Passw0rd"
+
+# Bind account for the Proxmox VE 'ad' realm (read-only user/group sync).
+vault_pve_bind_password: 'CHANGEME-strong-random'

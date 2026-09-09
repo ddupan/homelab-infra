@@ -1,0 +1,51 @@
+---
+# windows_vm role — create a fresh Windows Server 2025 admin box from the ISO,
+# fully unattended via autounattend.xml, WinRM-ready for join-windows.yml to finish.
+#
+# Uses virtio disk (viostor) + virtio NIC (NetKVM): the drivers are injected during
+# Setup via autounattend DriverPaths (from the virtio-win ISO), and the full
+# virtio-win guest tools (QEMU guest agent, balloon, …) are installed at first logon.
+
+win_vm_name: "winadmin"
+win_vm_vcpus: 4
+win_vm_memory_mb: 6144
+win_vm_disk_gb: 60
+
+# libvirt placement — zvol root disk, presented as SATA (AHCI, native Windows driver).
+win_vm_zvol_parent: "data/vm"
+win_vm_zvol: "{{ win_vm_zvol_parent }}/{{ win_vm_name }}"
+win_vm_zvol_dev: "/dev/zvol/{{ win_vm_zvol }}"
+win_vm_zvol_volblocksize: "16K"
+win_vm_bridge: "br0"
+
+# Install media (already in your iso pool)
+win_vm_iso: "/mnt/pool/proxmox/template/iso/zh-cn_windows_server_2025_updated_aug_2025_x64_dvd_9236d79b.iso"
+# virtio-win drivers + guest tools — injected during Setup, guest tools run at first logon
+win_vm_virtio_iso: "/mnt/pool/proxmox/template/iso/virtio-win-1.9.45.iso"
+win_vm_virtio_ver: "2k25"    # driver subfolder for Server 2025
+
+# Edition to install from install.wim. VERIFY with:
+#   dism /Get-WimInfo /WimFile:<mounted>\sources\install.wim
+# Typical Server 2025 indexes: 1=Std Core, 2=Std Desktop, 3=DC Core, 4=DC Desktop.
+win_vm_image_index: 2            # Standard (Desktop Experience) — GPMC needs Desktop
+
+# GVLK (public KMS client key) matching the edition above; activation happens later
+# in join-windows.yml against vlmcsd. Std=below; DC=D764K-2NDRG-47T6Q-P8T8W-YP6DF
+win_vm_gvlk: "TVRH6-WHNXV-R9WG3-9XRFY-MY832"
+
+# Locale (ISO is zh-CN)
+win_vm_ui_language: "zh-CN"
+win_vm_system_locale: "zh-CN"
+win_vm_user_locale: "zh-CN"
+win_vm_input_locale: "0409:00000409;0804:00000804"   # en-US + zh-CN
+win_vm_timezone: "China Standard Time"
+
+# Static IP applied by autounattend (so it's reachable at a known address for WinRM).
+win_vm_ip: "192.168.10.6"
+win_vm_prefix: 24
+win_vm_gateway: "192.168.10.1"
+win_vm_dns: "{{ samba_ad_dc_ip }}"    # point Windows at the DC directly (AD requirement)
+
+# Local Administrator password comes from vault (vault_win_local_admin_password),
+# surfaced as win_domain_admin_password / win_local_admin_password in group_vars.
+win_vm_admin_password: "{{ vault_win_local_admin_password }}"

@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Unattended install for Windows Server 2025 (Desktop Experience), UEFI/GPT.
+     Rendered by the windows_vm role. Contains the local Administrator password in
+     cleartext — it lives only on a local, ephemeral seed ISO that the role removes
+     after install. -->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+  <!-- ============ windowsPE: language, disk, image, product key ============ -->
+  <settings pass="windowsPE">
+    <!-- Inject virtio drivers so Setup sees the virtio disk (viostor) and NIC (NetKVM).
+         The virtio CD's drive letter in WinPE is unpredictable, so list candidates. -->
+    <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DriverPaths>
+{% for L in ['D','E','F','G'] %}
+        <PathAndCredentials wcm:action="add" wcm:keyValue="{{ loop.index }}1" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State"><Path>{{ L }}:\viostor\{{ win_vm_virtio_ver }}\amd64</Path></PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="{{ loop.index }}2" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State"><Path>{{ L }}:\NetKVM\{{ win_vm_virtio_ver }}\amd64</Path></PathAndCredentials>
+{% endfor %}
+      </DriverPaths>
+    </component>
+
+    <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <SetupUILanguage><UILanguage>{{ win_vm_ui_language }}</UILanguage></SetupUILanguage>
+      <InputLocale>{{ win_vm_input_locale }}</InputLocale>
+      <SystemLocale>{{ win_vm_system_locale }}</SystemLocale>
+      <UILanguage>{{ win_vm_ui_language }}</UILanguage>
+      <UserLocale>{{ win_vm_user_locale }}</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DiskConfiguration>
+        <WillShowUI>OnError</WillShowUI>
+        <Disk wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>260</Size></CreatePartition>
+            <CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition>
+            <CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition>
+            <ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>2</PartitionID></ModifyPartition>
+            <ModifyPartition wcm:action="add"><Order>3</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+      </DiskConfiguration>
+      <ImageInstall>
+        <OSImage>
+          <InstallTo><DiskID>0</DiskID><PartitionID>3</PartitionID></InstallTo>
+          <InstallFrom>
+            <MetaData wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+              <Key>/IMAGE/INDEX</Key><Value>{{ win_vm_image_index }}</Value>
+            </MetaData>
+          </InstallFrom>
+        </OSImage>
+      </ImageInstall>
+      <UserData>
+        <ProductKey><Key>{{ win_vm_gvlk }}</Key><WillShowUI>OnError</WillShowUI></ProductKey>
+        <AcceptEula>true</AcceptEula>
+        <FullName>Administrator</FullName>
+        <Organization>ddupan</Organization>
+      </UserData>
+    </component>
+  </settings>
+
+  <!-- ==================== specialize: computer name ==================== -->
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <ComputerName>{{ win_vm_name }}</ComputerName>
+    </component>
+  </settings>
+
+  <!-- ============ oobeSystem: admin pw, autologon, first-logon ============ -->
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <InputLocale>{{ win_vm_input_locale }}</InputLocale>
+      <SystemLocale>{{ win_vm_system_locale }}</SystemLocale>
+      <UILanguage>{{ win_vm_ui_language }}</UILanguage>
+      <UserLocale>{{ win_vm_user_locale }}</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideLocalAccountScreen>true</HideLocalAccountScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Work</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+      </OOBE>
+      <TimeZone>{{ win_vm_timezone }}</TimeZone>
+      <UserAccounts>
+        <AdministratorPassword>
+          <Value>{{ win_vm_admin_password }}</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+      </UserAccounts>
+      <AutoLogon>
+        <Enabled>true</Enabled>
+        <LogonCount>1</LogonCount>
+        <Username>Administrator</Username>
+        <Password><Value>{{ win_vm_admin_password }}</Value><PlainText>true</PlainText></Password>
+      </AutoLogon>
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <Order>1</Order>
+          <Description>Static IP + DNS</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$i=(Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).ifIndex; New-NetIPAddress -InterfaceIndex $i -IPAddress {{ win_vm_ip }} -PrefixLength {{ win_vm_prefix }} -DefaultGateway {{ win_vm_gateway }}; Set-DnsClientServerAddress -InterfaceIndex $i -ServerAddresses {{ win_vm_dns }}&quot;</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <Order>2</Order>
+          <Description>Enable WinRM + HTTPS listener (self-signed)</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Enable-PSRemoting -Force; $c=New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation Cert:\LocalMachine\My; New-Item -Path WSMan:\localhost\Listener -Address * -Transport HTTPS -CertificateThumbPrint $c.Thumbprint -Force&quot;</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <Order>3</Order>
+          <Description>Firewall: allow WinRM HTTPS 5986</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;New-NetFirewallRule -DisplayName 'WinRM HTTPS' -Direction Inbound -Protocol TCP -LocalPort 5986 -Action Allow&quot;</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <Order>4</Order>
+          <Description>Enable Remote Desktop + firewall group</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0; Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication -Value 1; Enable-NetFirewallRule -Group '@FirewallAPI.dll,-28752'&quot;</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+          <Order>5</Order>
+          <Description>Install virtio-win guest tools (drivers + QEMU guest agent + balloon)</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$e=(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root 'virtio-win-guest-tools.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1); if ($e) { Start-Process $e -ArgumentList '/install','/quiet','/norestart' -Wait }&quot;</CommandLine>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+    </component>
+  </settings>
+</unattend>

@@ -1,0 +1,27 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: shared-postgresql
+  namespace: shared-db
+spec:
+  serviceAccountName: shared-postgresql-sa
+  instances: 1
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: shared-postgresql-superuser-secret
+  storage:
+    storageClass: localpv-zfs-ceph
+    size: 10Gi
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  bootstrap:
+    initdb:
+      database: e5renew
+      owner: postgres
+      secret:
+        name: shared-postgresql-superuser-secret

@@ -1,0 +1,42 @@
+# Half of the trust boundary for header-based auth (the other half is Envoy
+# overriding client-supplied Remote-* headers — see securitypolicy.yaml).
+#
+# WHY THIS IS NOT OPTIONAL: NetBox's RemoteUserBackend trusts HTTP_REMOTE_USER
+# unconditionally; there is no trusted-proxy allowlist in NetBox. Envoy sanitises the
+# header, but Envoy only sees traffic that goes THROUGH it. Any pod in the cluster
+# could otherwise open a connection straight to netbox.netbox.svc:8080, send
+# `Remote-User: admin`, and be a superuser. This policy removes that path.
+#
+# k3s enforces NetworkPolicy (kube-router backend), so this is a real control, not
+# decoration.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: netbox-ingress-gateway-only
+  namespace: netbox
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbox
+      app.kubernetes.io/instance: netbox
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only Envoy may reach the app port.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+      ports:
+        - protocol: TCP
+          port: 8080
+    # kubelet probes come from the node itself, outside any namespace, so they are not
+    # matched by a namespaceSelector. Without this the pod fails its readiness probe
+    # and is pulled from the Service.
+    - from:
+        - ipBlock:
+            cidr: 192.168.10.127/32
+      ports:
+        - protocol: TCP
+          port: 8080

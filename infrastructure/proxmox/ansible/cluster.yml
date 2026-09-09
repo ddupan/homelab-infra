@@ -1,0 +1,16 @@
+---
+# Form the "homelab" cluster. SEPARATE from site.yml on purpose: site.yml is
+# safely re-runnable baseline config, whereas cluster formation is effectively
+# one-way (undoing a join means reinstalling the node). Run it deliberately.
+#
+#   ansible-playbook cluster.yml
+#
+# serial:1 with the primary first — a joining node needs the primary quorate,
+# and joining all three at once is how you get a split-brain corosync config.
+- name: Form the Proxmox cluster
+  hosts: pve
+  gather_facts: true
+  serial: 1
+  order: sorted            # pve1 (the primary) first
+  roles:
+    - pve_cluster

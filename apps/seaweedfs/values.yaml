@@ -1,0 +1,76 @@
+global:
+  seaweedfs:
+    image:
+      repository: ""
+      name: chrislusf/seaweedfs
+      tag: latest
+
+master:
+  enabled: true
+  replicas: 1
+  data:
+    type: persistentVolumeClaim
+    size: 10Gi
+    storageClass: localpv-zfs-ceph
+  logs:
+    type: emptyDir
+
+volume:
+  enabled: true
+  replicas: 1
+  dataDirs:
+    - name: data1
+      type: persistentVolumeClaim
+      size: 100Gi
+      storageClass: localpv-zfs-ceph
+      maxVolumes: 0
+  idx:
+    type: emptyDir
+  logs:
+    type: emptyDir
+
+filer:
+  enabled: true
+  replicas: 1
+  data:
+    type: persistentVolumeClaim
+    size: 10Gi
+    storageClass: localpv-zfs-ceph
+  logs:
+    type: emptyDir
+  s3:
+    enabled: true
+    enableAuth: true
+    # Identities come from a Secret synced out of OpenBao by External Secrets
+    # (../../platform/external-secrets/externalsecrets.yaml -> kv/k8s/seaweedfs-s3), NOT from
+    # the chart's own s3.credentials.
+    #
+    # WHY: those keys used to be INLINE in this file and were committed in the
+    # initial commit. They also slipped past a content scan, because the regex
+    # looked for `secret[:=]` and the key is written `secretKey` — the word is
+    # followed by "Key", not a colon. See CLAUDE.md on scanning by content.
+    # The leaked anvAdmin key is in git history and still needs ROTATING.
+    existingConfigSecret: seaweedfs-s3-config
+
+s3:
+  enableAuth: true
+  # No credentials block on purpose — populating it makes the chart render a
+  # Secret from values, which is what put credentials in git in the first place.
+
+admin:
+  enabled: true
+  replicas: 1
+  data:
+    type: emptyDir
+  logs:
+    type: emptyDir
+  ingress:
+    enabled: true
+    className: tailscale
+    host: seaweedfs-admin
+    path: /
+    pathType: Prefix
+    annotations: {}
+    tls:
+      - hosts:
+          - seaweedfs-admin

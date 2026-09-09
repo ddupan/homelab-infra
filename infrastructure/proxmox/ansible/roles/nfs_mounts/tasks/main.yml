@@ -1,0 +1,43 @@
+---
+- name: Install the NFS client
+  ansible.builtin.apt:
+    name: nfs-common
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _nfsc
+  retries: 3
+  delay: 15
+  until: _nfsc is succeeded
+
+- name: Create the mount points
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ nfs_mounts }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Mount the NFS shares
+  ansible.posix.mount:
+    src: "{{ item.src }}"
+    path: "{{ item.path }}"
+    fstype: nfs
+    opts: "{{ item.opts | default(nfs_mounts_default_opts) }}"
+    state: "{{ item.state | default('mounted') }}"
+  loop: "{{ nfs_mounts }}"
+  loop_control:
+    label: "{{ item.src }} -> {{ item.path }}"
+
+- name: Verify each share is actually readable
+  # `mount` reporting success is not proof: a stale handle or a squashed uid
+  # shows up only on the first read.
+  ansible.builtin.command:
+    cmd: "ls {{ item.path }}"
+  loop: "{{ nfs_mounts }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: _nfs_ls
+  changed_when: false
+  when: (item.state | default('mounted')) == 'mounted'

@@ -1,0 +1,115 @@
+---
+# Point PVE's built-in ACME client at OpenBao's internal PKI and get a real cert
+# onto pveproxy. See defaults/main.yml for WHY the internal CA over Let's Encrypt.
+#
+# Everything here is idempotent: a second run reports changed=0. Renewal is NOT
+# our job -- pve-daily-update.timer runs `pvenode acme cert renew` once a day and
+# PVE reissues when the cert is inside 30 days of expiry.
+
+# --- Preconditions -----------------------------------------------------------
+# The standalone plugin binds :80 for the challenge. If something else holds it,
+# the order fails deep inside pvenode with a confusing error, so check up front.
+- name: Check that port 80 is free for the http-01 challenge
+  ansible.builtin.command: ss -lnt 'sport = :80'
+  register: _port80
+  changed_when: false
+  # Read-only, and every later condition depends on it -- so it must still run
+  # under --check, or the whole role errors out on an undefined register.
+  check_mode: false
+
+- name: Fail early if port 80 is occupied
+  ansible.builtin.assert:
+    that:
+      - "':80' not in _port80.stdout"
+    fail_msg: >-
+      Something is already listening on port 80; the ACME standalone plugin cannot
+      bind it and the order would fail. Free the port or switch to a dns-01 plugin.
+    quiet: true
+
+# --- ACME account (cluster-wide, registered once) ----------------------------
+# /etc/pve/priv/acme/ is on the pmxcfs, so the account is shared by all three
+# nodes. Guarding on the file -- rather than run_once -- is deliberate: this play
+# uses serial: 1, where each host is its own batch and run_once would therefore
+# fire on EVERY host, re-registering the account three times.
+- name: Check whether the ACME account already exists
+  ansible.builtin.stat:
+    path: "/etc/pve/priv/acme/{{ pve_acme_account }}"
+  register: _acme_account
+
+- name: Register the ACME account against OpenBao
+  # Non-interactive only because bao's directory advertises no termsOfService
+  # (verified 2026-07-26: meta contains just externalAccountRequired=false).
+  # pvenode prompts for ToS acceptance when a CA does publish one, and there is
+  # no --accept-tos flag to suppress it -- so a CA change here can hang the play.
+  ansible.builtin.command:
+    argv:
+      - pvenode
+      - acme
+      - account
+      - register
+      - "{{ pve_acme_account }}"
+      - "{{ pve_acme_email }}"
+      - --directory
+      - "{{ pve_acme_directory }}"
+  when: not _acme_account.stat.exists
+  changed_when: true
+
+# --- Per-node domain config --------------------------------------------------
+# Written to /etc/pve/nodes/<node>/config as an `acmedomain0:` line. That file
+# does not exist until the first `pvenode config set`, hence the default('').
+- name: Read the node config
+  ansible.builtin.slurp:
+    src: "/etc/pve/nodes/{{ inventory_hostname }}/config"
+  register: _node_cfg
+  failed_when: false
+
+- name: Configure the ACME domain for this node
+  ansible.builtin.command:
+    argv:
+      - pvenode
+      - config
+      - set
+      - "--acmedomain0"
+      - "{{ pve_acme_domain }},plugin={{ pve_acme_plugin }}"
+  vars:
+    _want: "acmedomain0: {{ pve_acme_domain }},plugin={{ pve_acme_plugin }}"
+  when: _want not in (_node_cfg.content | default('') | b64decode)
+  changed_when: true
+
+# --- Certificate -------------------------------------------------------------
+# Order only when there is no usable cert already. Checking the ISSUER rather
+# than mere existence means a leftover self-signed or previously-Let's-Encrypted
+# pveproxy-ssl.pem gets replaced, while our own cert is left alone for PVE's
+# renewal timer to manage.
+- name: Inspect the current pveproxy certificate
+  ansible.builtin.command: "openssl x509 -noout -issuer -subject -in {{ pve_acme_cert_file }}"
+  register: _current_cert
+  changed_when: false
+  failed_when: false
+  check_mode: false   # read-only; the order task's condition depends on it
+
+- name: Order the certificate from OpenBao
+  # --force overwrites an existing pveproxy-ssl.pem, which is what we want once
+  # the check above has decided the current one is wrong or missing. It does NOT
+  # touch pve-ssl.pem, so the cluster's internal trust is unaffected.
+  #
+  # KNOWN FAILURE MODE: the bao-server PKI role pins key_type=rsa/key_bits=2048.
+  # If a future PVE generates an EC CSR, finalize is rejected by OpenBao with a
+  # key-type error (the same trap documented in samba-ad's samba_ad_acme role).
+  # The fix is on the bao side -- widen the role -- not here.
+  ansible.builtin.command: pvenode acme cert order --force
+  when: >-
+    _current_cert.rc != 0
+    or pve_acme_issuer_cn not in _current_cert.stdout
+    or pve_acme_domain not in _current_cert.stdout
+  changed_when: true
+
+# --- Renewal -----------------------------------------------------------------
+# This timer is what keeps the cert alive; without it the cert simply expires in
+# place. Enabled by default on PVE, asserted here so the guarantee is explicit
+# rather than assumed.
+- name: Ensure the daily renewal timer is enabled
+  ansible.builtin.systemd:
+    name: pve-daily-update.timer
+    state: started
+    enabled: true

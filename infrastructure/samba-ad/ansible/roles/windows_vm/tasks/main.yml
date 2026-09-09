@@ -1,0 +1,105 @@
+---
+# Create + unattended-install a Windows Server 2025 admin box on local libvirt.
+# Runs on localhost (qemu:///system, become: true). Idempotent on the domain existing.
+
+- name: Assert the Windows install ISO exists
+  ansible.builtin.stat:
+    path: "{{ win_vm_iso }}"
+  register: win_iso_stat
+  failed_when: not win_iso_stat.stat.exists
+
+- name: Check whether the libvirt domain already exists
+  ansible.builtin.command: "virsh dominfo {{ win_vm_name }}"
+  register: win_dominfo
+  changed_when: false
+  failed_when: false
+
+- name: Create the Windows VM
+  when: win_dominfo.rc != 0
+  block:
+    - name: Check whether the root-disk zvol already exists
+      ansible.builtin.command: "zfs list -H -o name {{ win_vm_zvol }}"
+      register: win_zvol_check
+      changed_when: false
+      failed_when: false
+
+    - name: Create the root-disk zvol
+      ansible.builtin.command:
+        cmd: >-
+          zfs create -V {{ win_vm_disk_gb }}G
+          -o volblocksize={{ win_vm_zvol_volblocksize }}
+          {{ win_vm_zvol }}
+      when: win_zvol_check.rc != 0
+
+    - name: Wait for the zvol device node
+      ansible.builtin.wait_for:
+        path: "{{ win_vm_zvol_dev }}"
+        timeout: 30
+
+    - name: Render autounattend.xml
+      ansible.builtin.template:
+        src: autounattend.xml.j2
+        dest: "/var/lib/libvirt/images/{{ win_vm_name }}-autounattend.xml"
+        mode: "0600"
+      no_log: true    # contains the local admin password
+
+    - name: Build the autounattend seed ISO (label AUTOUNATTEND)
+      ansible.builtin.command:
+        cmd: >-
+          genisoimage -output /var/lib/libvirt/images/{{ win_vm_name }}-unattend.iso
+          -volid AUTOUNATTEND -joliet -rock -graft-points
+          autounattend.xml=/var/lib/libvirt/images/{{ win_vm_name }}-autounattend.xml
+      args:
+        creates: "/var/lib/libvirt/images/{{ win_vm_name }}-unattend.iso"
+
+    - name: Define and start the VM (UEFI, virtio disk + NIC, virtio-win attached)
+      ansible.builtin.command:
+        cmd: >-
+          virt-install
+          --name {{ win_vm_name }}
+          --memory {{ win_vm_memory_mb }}
+          --vcpus {{ win_vm_vcpus }}
+          --machine q35
+          --boot loader=/usr/share/OVMF/OVMF_CODE_4M.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.fd
+          --osinfo require=off,name=win2k25
+          --disk path={{ win_vm_zvol_dev }},format=raw,bus=virtio,boot.order=2
+          --disk path={{ win_vm_iso }},device=cdrom,bus=sata,boot.order=1
+          --disk path=/var/lib/libvirt/images/{{ win_vm_name }}-unattend.iso,device=cdrom,bus=sata
+          --disk path={{ win_vm_virtio_iso }},device=cdrom,bus=sata
+          --network bridge={{ win_vm_bridge }},model=virtio
+          --video vga --graphics vnc,listen=0.0.0.0
+          --noautoconsole --import
+      register: win_virt_install
+
+    - name: Press a key past "Press any key to boot from CD" (first boot only)
+      ansible.builtin.shell: >-
+        for i in $(seq 1 20); do
+          virsh send-key {{ win_vm_name }} --codeset linux KEY_ENTER >/dev/null 2>&1 || true;
+          sleep 2;
+        done
+      changed_when: false
+
+- name: Wait for WinRM (Windows Setup runs unattended, then configures WinRM)
+  ansible.builtin.wait_for:
+    host: "{{ win_vm_ip }}"
+    port: 5986
+    delay: 60
+    timeout: 2700     # up to 45 min: install + reboots + first-logon commands
+  when: win_dominfo.rc != 0
+
+- name: Eject install media and remove the (password-bearing) seed ISO
+  when: win_dominfo.rc != 0
+  block:
+    - name: Eject install media (win ISO=sda, unattend=sdb, virtio=sdc)
+      ansible.builtin.command: "virsh change-media {{ win_vm_name }} {{ item }} --eject --config"
+      loop: [sda, sdb, sdc]
+      failed_when: false
+      changed_when: true
+
+    - name: Delete the autounattend seed ISO + rendered answer file
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/var/lib/libvirt/images/{{ win_vm_name }}-unattend.iso"
+        - "/var/lib/libvirt/images/{{ win_vm_name }}-autounattend.xml"

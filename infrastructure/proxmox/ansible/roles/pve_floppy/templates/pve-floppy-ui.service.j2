@@ -1,0 +1,18 @@
+[Unit]
+Description=Floppy drive manager for PVE VMs
+Documentation=file:///usr/local/bin/pve-floppy-ui
+# pvesh talks to pveproxy, which needs the cluster fs mounted.
+After=pve-cluster.service pveproxy.service
+Wants=pve-cluster.service
+
+[Service]
+# Runs as root deliberately: the VM `args` option is root@pam-only, so there is
+# no lesser identity that can do this job -- not even an API token. Root is also
+# what can read the pveproxy TLS key it serves with; the app refuses to start
+# without a certificate rather than put a login form on cleartext HTTP.
+ExecStart=/usr/local/bin/pve-floppy-ui --listen {{ pve_floppy_listen }} --port {{ pve_floppy_port }} --image-dir {{ pve_floppy_image_dir }} --phonebook {{ pve_floppy_phonebook }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

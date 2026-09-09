@@ -1,0 +1,61 @@
+---
+# Trust bao's SSH user CA on this host. Requires root (writes sshd config).
+
+- name: Fetch bao's SSH CA public key (once, on the control node)
+  ansible.builtin.uri:
+    url: "{{ openbao_ssh_ca_url }}"
+    return_content: true
+  delegate_to: localhost
+  run_once: true
+  become: false
+  register: _ssh_ca_fetch
+  when: openbao_ssh_ca_pubkey | length == 0
+
+- name: Resolve the CA public key (an explicit var wins over the fetched one)
+  ansible.builtin.set_fact:
+    _openbao_ssh_ca: >-
+      {{ openbao_ssh_ca_pubkey if (openbao_ssh_ca_pubkey | length > 0)
+         else (_ssh_ca_fetch.content | default('') | trim) }}
+
+- name: Assert we have a real SSH CA public key
+  ansible.builtin.assert:
+    that:
+      - _openbao_ssh_ca is search('^ssh-(rsa|ed25519|ecdsa)')
+    fail_msg: >-
+      No valid SSH CA public key. Set openbao_ssh_ca_pubkey, or make
+      {{ openbao_ssh_ca_url }} reachable from the control node.
+
+- name: Install the SSH CA public key
+  ansible.builtin.copy:
+    content: "{{ _openbao_ssh_ca }}\n"
+    dest: "{{ openbao_ssh_ca_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload sshd
+
+- name: Detect sshd drop-in support
+  ansible.builtin.command: grep -qiE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d/' /etc/ssh/sshd_config
+  register: _sshd_dropins
+  changed_when: false
+  failed_when: false
+
+- name: Trust the CA via an sshd drop-in
+  ansible.builtin.copy:
+    content: |
+      # OpenBao SSH CA ({{ openbao_addr }}) — accept short-lived user certs it signs.
+      TrustedUserCAKeys {{ openbao_ssh_ca_file }}
+    dest: "{{ openbao_ssh_ca_dropin }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: _sshd_dropins.rc == 0
+  notify: reload sshd
+
+- name: Trust the CA in the main sshd_config (no drop-in support)
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} OPENBAO SSH CA"
+    block: "TrustedUserCAKeys {{ openbao_ssh_ca_file }}"
+  when: _sshd_dropins.rc != 0
+  notify: reload sshd

@@ -1,0 +1,18 @@
+---
+# NFS storage from the laptop ("core" node, 192.168.10.127), which is
+# deliberately NOT a cluster member — it holds the ZFS pool, serves NFS, and runs
+# netboot.xyz + k3s. See the project memory.
+#
+# This carries ISOs, container templates, backups and snippets. VM/CT DISKS live
+# on LINSTOR (pve-rg / pve-rg-hdd), NOT here: an NFS-backed disk would make every
+# guest depend on the laptop being up, which is exactly the coupling the
+# hyperconverged storage exists to avoid.
+pve_nfs_storage_id: laptop
+pve_nfs_server: 192.168.10.127
+pve_nfs_export: /mnt/pool/proxmox
+# Matches the directories that already exist in the export (dump/template/
+# snippets/import). No `images`/`rootdir` — see above.
+pve_nfs_content: "backup,iso,vztmpl,snippets,import"
+# The export is published by ZFS `sharenfs` (see /etc/exports.d/zfs.exports on
+# the laptop), not /etc/exports — change it with `zfs set sharenfs=...`.
+pve_nfs_options: ""
