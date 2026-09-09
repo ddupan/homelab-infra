@@ -12,10 +12,8 @@ on:
   pull_request:
 
 env:
-  # ansible-lint and ansible-core install as SEPARATE uv tools, each with its own
-  # venv. Collections installed under the ansible-core tool are invisible to
-  # ansible-lint, which then reports every module as `syntax-check[unknown-module]`
-  # — a false failure that looks exactly like a real one. Pin both to a shared path.
+  # ansible-lint and ansible-core install as separate uv tools. Install Galaxy
+  # collections into this shared path so both isolated environments can see them.
   ANSIBLE_COLLECTIONS_PATH: /root/.ansible/collections
 
 jobs:
@@ -66,7 +64,10 @@ jobs:
         # with "No module named 'winrm'" (CLAUDE.md documents this trap).
         run: |
           for i in 1 2 3 4 5; do
-            uv tool install ansible-core --with ansible --with paramiko --with pywinrm --quiet && break
+            # Do not add the `ansible` meta-package here: it bundles collections
+            # inside this uv venv, making Galaxy skip the shared path below while
+            # ansible-lint's separate venv still cannot resolve the modules.
+            uv tool install ansible-core --with paramiko --with pywinrm --quiet && break
             echo "attempt $i failed"; sleep 10
           done
           for i in 1 2 3 4 5; do

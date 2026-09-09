@@ -37,7 +37,7 @@
 - name: Refuse to proceed unless that really is a whole disk
   # Last line of defence: sgdisk against a partition is destructive, so verify
   # the derived device is TYPE=disk and not a partition before touching it.
-  ansible.builtin.shell:
+  ansible.builtin.command:
     cmd: "lsblk -dno TYPE {{ _ssd_disk.stdout | trim }}"
   register: _ssd_type
   changed_when: false
@@ -101,7 +101,7 @@
   # Same guard as the SSD path. wipefs/vgcreate against a partition by mistake is
   # how the pve VG on pve2/pve3 got destroyed on 2026-07-25; assert the device
   # type rather than trusting the variable.
-  ansible.builtin.shell:
+  ansible.builtin.command:
     cmd: "lsblk -dno TYPE {{ pve_linstor_hdd_disk }}"
   register: _hdd_type
   changed_when: false
