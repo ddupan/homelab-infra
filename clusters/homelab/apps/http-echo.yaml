@@ -11,7 +11,7 @@ spec:
       namespace: gitops-canary
   interval: 10m
   path: ./apps/http-echo
-  prune: false
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system

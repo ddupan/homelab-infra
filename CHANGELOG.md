@@ -35,6 +35,7 @@ What changed in this homelab, when, and why. Newest first.
 | cleanup | 已把 `bao-acme` HTTP-01 solver 改到 Envoy Gateway 的明文 listener，并删除不再承载流量的 Contour namespace、provisioner、RBAC、GatewayClass 和全部 `projectcontour.io` CRD；Envoy Gateway、证书、DNS 与 Gitea 复查正常 |
 | GitOps canary | 加入由 Flux 部署到独立 `gitops-canary` namespace 的 `http-echo` Deployment 和 Service；历史 Contour HTTPRoute 明确排除在 Kustomization 之外，初始保持 `prune: false` |
 | prune 验证 | 为 `http-echo` 加入无业务依赖的 `flux-prune-canary` ConfigMap；先在 `prune: false` 下确认 Flux inventory，后续通过独立 PR 删除并仅为 canary 开启 prune |
+| prune 验证第二阶段 | 第一阶段已确认 `flux-prune-canary` 带 Flux ownership 标签并进入 `http-echo` inventory；从 Git 删除该测试对象，同时仅为 `http-echo` 开启 `prune: true`，root 继续保持 `prune: false` |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure an off-site Git mirror; plan the Gitea upgrade beyond 1.25.5;
