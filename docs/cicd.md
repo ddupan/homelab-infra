@@ -1,6 +1,7 @@
 # CI/CD — what we are building
 
-Status: **design, partly built.** Stage 1 is live. The substrate is undecided.
+Status: **partly built.** Stage 1 and the Kubernetes runner are live; Flux and
+credentialed stages are not yet installed.
 Started 2026-07-28.
 
 ## Goal
@@ -22,9 +23,9 @@ to make drift between this repo and reality visible when it happens.
 
 | | |
 |---|---|
-| git | History since 2026-07-28. Four commits, **no remote yet** |
-| stage 1 | Live and green — `yamllint`, `ansible-lint`, `terraform fmt`/`validate`. Configs tuned against a real run |
-| gitea | 1.25.5, Actions **enabled**, `DEFAULT_ACTIONS_URL=github`. **No runner deployed**, so nothing executes |
+| git | `homelab-infra` is hosted on the local Gitea; an independent off-site mirror is still missing |
+| stage 1 | Live and green on the Gitea runner — `yamllint`, `ansible-lint`, `terraform fmt`/`validate` |
+| gitea | 1.25.5, Actions enabled, `DEFAULT_ACTIONS_URL=github`; one instance-scoped Kubernetes runner is deployed with capacity four |
 | ansible | 33 roles across `infrastructure/proxmox/`, `infrastructure/samba-ad/`, `infrastructure/openbao/` |
 | terraform | 4 roots, **local state**, each with **different interactive auth** (`bao login -method=oidc`, `az login`) |
 | k8s | ~13 Helm releases, all deployed by hand |
@@ -171,10 +172,10 @@ the CI system itself.
 
 ## Sequencing
 
-1. Externalise secrets — unblocks everything, valuable on its own
+1. Externalise secrets — **partly complete**; ESO delivery works, recovery and the remaining inventory are pending
 2. Capture `e5renew` and `rustfs` into the repo (`helm get values`)
-3. Git remote
-4. Pick the substrate; stand it up in an isolated namespace
+3. Git remote — **complete locally**; off-site mirror pending
+4. Pick the substrate; stand it up in an isolated namespace — **complete**
 5. Stage 2, then stage 3 on **one** container-friendly role first
 6. Flux on one low-stakes namespace (`http-echo` or `marker`)
 7. Drift detection for Terraform and Ansible — scoped machine identities

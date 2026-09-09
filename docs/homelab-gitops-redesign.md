@@ -1,6 +1,6 @@
 # Homelab GitOps and IaC redesign
 
-Status: **design; no infrastructure changes have been applied.**
+Status: **implementation in progress; CI bootstrap is live, Flux is not yet installed.**
 
 Started 2026-09-09. This is the durable record of the redesign discussion. It
 separates observations, decisions and open work so an assumption cannot silently
@@ -41,7 +41,11 @@ or reconcile later CPU, memory, NIC or boot drift.
 - Repository history records External Secrets Operator 2.8.0 as deployed. Five
   `ExternalSecret` resources cover Authelia, Gitea, Cloudflared and SeaweedFS.
   All five reported `SecretSynced=True` during a live check on 2026-09-09.
-- The repository has no configured Git remote yet.
+- Gitea Actions now has one instance-scoped runner in namespace `gitea-actions`.
+  Its Helm release is deployed, its Pod is `2/2 Running`, its identity PVC is
+  bound, and a sixth `ExternalSecret` delivers the registration token from OpenBao.
+- The repository is hosted at `panxiao81/homelab-infra` on the local Gitea
+  instance. A one-way off-site mirror is still missing.
 - Terraform roots remain per-service and must not be merged.
 - The k3s node was `Ready` on 2026-09-09. The Snap-packaged `kubectl` could
   not start because the user systemd session was degraded; `k3s kubectl` with the
@@ -84,10 +88,12 @@ without becoming another deployment controller.
 ### CI execution
 
 Most CI uses Gitea Actions for its GitHub Actions compatibility. A persistent
-Gitea Runner StatefulSet runs in Kubernetes with rootless Docker-in-Docker and
-capacity four; individual job containers are created dynamically. Rootless DinD
-still requires a privileged Pod, so the runner is repository-scoped and accepts
-trusted workflows only.
+Gitea Runner StatefulSet runs in Kubernetes with Docker-in-Docker and capacity
+four; individual job containers are created dynamically. The chart requires a
+privileged DinD container in both modes, and rootlesskit is blocked by the node's
+AppArmor unprivileged-userns policy, so regular DinD is used instead of weakening
+that host-wide policy. The runner is instance-scoped and accepts trusted
+repositories and workflows only.
 
 Only explicitly labelled jobs needing privilege, nested virtualization,
 amd64-only software or isolation from k3s use an ephemeral Proxmox VM. IaC owns
@@ -196,13 +202,15 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
 
 ## Implementation phases
 
-1. Preserve OCI state and sanitized libvirt/Helm evidence.
-2. Re-verify the existing OpenBao/ESO delivery and recovery path, inventory
+1. **In progress:** sanitized libvirt/Helm evidence is recorded; the independent
+   encrypted OCI state backup is still missing.
+2. **In progress:** live OpenBao/ESO delivery is verified; verify recovery and inventory
    remaining manually managed Secrets, then migrate them incrementally.
-3. Configure Gitea remote plus a one-way off-site mirror. Confirm whether the
-   running Gitea supports the 1.27 Terraform State Registry.
-4. Manually deploy the reviewed Gitea Runner bootstrap, then bootstrap Flux on
-   `http-echo` or `marker` without enabling prune until live ownership is audited.
+3. **In progress:** the Gitea remote exists; add a one-way off-site mirror and
+   revisit the Terraform State Registry after upgrading beyond Gitea 1.25.5.
+4. **In progress:** the reviewed Gitea Runner is deployed and Stage 1 CI is green;
+   bootstrap Flux on `http-echo` or `marker` without enabling prune until live
+   ownership is audited.
 5. Move Tunnel origins to Envoy and consolidate split DNS through Blocky.
 6. Deploy Backstage read-only with Catalog, Kubernetes, Flux and TechDocs.
 7. Reconstruct the OCI root to a zero-change plan and add libvirt drift reports.
