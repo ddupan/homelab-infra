@@ -19,6 +19,6 @@ spec:
         - name: http-echo
           image: hashicorp/http-echo:0.2.3
           args:
-            - '-text=hello from contour gateway'
+            - '-text=hello from flux gitops canary'
           ports:
             - containerPort: 5678
