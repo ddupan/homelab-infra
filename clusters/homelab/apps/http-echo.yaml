@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: http-echo
+  namespace: flux-system
+spec:
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: http-echo
+      namespace: gitops-canary
+  interval: 10m
+  path: ./apps/http-echo
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: gitops-canary
+  timeout: 3m
+  wait: true
