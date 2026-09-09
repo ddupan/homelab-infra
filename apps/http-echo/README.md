@@ -7,6 +7,7 @@ Flux 将它部署到独立的 `gitops-canary` namespace。
 | --- | --- |
 | `deployment.yaml` | 两个 `hashicorp/http-echo` 副本。 |
 | `service.yaml` | 只在集群内可达的 ClusterIP Service。 |
+| `prune-canary-configmap.yaml` | 无业务依赖的临时资源，用于验证 Flux 受控删除。 |
 | `kustomization.yaml` | Flux 实际构建入口；明确排除历史 HTTPRoute。 |
 | `httproute.yaml` | 保留的历史 Contour 示例，**不在 Kustomization 中，不会部署**。 |
 
@@ -20,7 +21,8 @@ sudo k3s kubectl -n gitops-canary get deployment,service,pod
 ```
 
 Deployment 漂移修复已经验证：手动把 replicas 改成 1 后，Flux 能按 Git 恢复为
-2。删除验证使用无业务依赖的 `flux-prune-canary` ConfigMap：第一阶段已经在
-`prune: false` 时创建并确认进入 Flux inventory；本阶段从 Git 删除该对象，并仅为
-`http-echo` Kustomization 开启 `prune: true`。root Kustomization 仍保持
-`prune: false`，brownfield 资源不会进入此次删除范围。
+2。删除验证使用无业务依赖的 `flux-prune-canary` ConfigMap。首次尝试在同一个
+revision 中同时开启 prune 并删除对象，Flux 更新了 inventory 但保留了 live 对象。
+因此先在已经生效的 `prune: true` 下重新纳管 ConfigMap；下一 revision 只删除对象，
+验证垃圾回收。root Kustomization 始终保持 `prune: false`，brownfield 资源不会
+进入此次删除范围。
