@@ -26,12 +26,12 @@ What changed in this homelab, when, and why. Newest first.
 | secrets | Recorded that ESO 2.8.0, five ExternalSecrets and the scoped OpenBao Kubernetes-auth path already exist; the next gate is live recovery testing and migration of any remaining manual Secrets |
 | Terraform | Recorded Gitea 1.27 State Registry as the preferred candidate for local roots after version and recovery testing; the OCI recovery root remains in OCI Object Storage to avoid a home-control-plane dependency loop |
 | cleanup | Removed the retired NapCat tree, the Contour and Kanidm archive trees, and seven generated Terraform plan files before establishing the clean Git baseline; plans may embed complete state and remain globally ignored |
-| cleanup | Removed the retired NapCat tree and seven generated Terraform plan files before establishing the clean Git baseline; plans may embed complete state and remain globally ignored |
+| CI | Added a review-first Gitea Actions runner bootstrap: official actions chart 0.1.1, pinned runner 2.3.0, one persistent Kubernetes runner with capacity four and rootless DinD, plus an ESO reference to a repository-scoped registration token in OpenBao. It is not deployed until the PR is merged |
 
 `Carried forward`: re-verify OpenBao/ESO recovery and remaining Secret inventory;
 configure a Git remote and off-site mirror; confirm the running Gitea version;
 take an encrypted independent OCI state copy before enabling bucket versioning;
-reconstruct the missing root to a zero-change plan; bootstrap Woodpecker and Flux on a low-risk
+reconstruct the missing root to a zero-change plan; bootstrap Gitea Actions and Flux on a low-risk
 service; then move Tunnel origins to Envoy one hostname at a time.
 
 ## 2026-08-15
