@@ -16,9 +16,19 @@ The runner registration token is authoritative in OpenBao at
 the `gitea-runner-token` Secret. Never put the token in this directory or a Helm
 command line.
 
-## Review-first bootstrap
+## Flux 接管状态
 
-This is a one-time manual deployment because Flux is not installed yet:
+该 release 最初通过下述 review-first 流程手动 bootstrap。下一个 GitOps 阶段将
+使用 Flux `HelmRelease` 接管它，并首先固定现有 chart `0.1.1`，不在接管 PR 中升级。
+
+迁移前审计发现：Helm 保存的 user-supplied values 和 release manifest 仍描述失败的
+rootless DinD 尝试，但 live StatefulSet 与本目录 `values.yaml` 都已经使用 regular
+DinD。首次 reconcile 的验收条件是修正 Helm 存储状态，同时 live Pod spec、PVC
+identity、runner capacity 和在线状态保持不变。接管稳定后再用独立 PR 升级 chart。
+
+## 历史 review-first bootstrap
+
+这是 Flux 安装前执行过的一次性手动部署流程，保留用于恢复和审计：
 
 1. Merge the reviewed PR.
 2. As a Gitea site administrator, create an instance-scoped runner registration

@@ -35,3 +35,13 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 
 四个 controller、GitRepository 和 root Kustomization 都必须为 Ready，随后才能
 通过单独 PR 引入低风险 canary workload。
+
+## 当前状态
+
+- Flux `v2.9.5`、GitRepository 和 root Kustomization 均为 Ready；
+- `http-echo` canary 已验证 merge 后自动部署和 replicas 漂移修复；
+- `http-echo` 的专用测试 ConfigMap 已在 `prune: true` 生效后重新纳管，并由下一
+  revision 自动删除；
+- `http-echo` 保持 `prune: true`，root 保持 `prune: false`；
+- 下一个接管对象是现有 `gitea-actions` Helm release，先使用相同 chart/version
+  完成零变化 adoption，再通过独立 PR 升级。
