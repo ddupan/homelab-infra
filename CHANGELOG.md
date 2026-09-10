@@ -27,6 +27,8 @@ What changed in this homelab, when, and why. Newest first.
 | Helm adoption activate | 第一阶段合并后 Flux source 与子 Kustomization 均 Ready，Helm release 仍为 revision 1，runner Pod 未 rollout；再次确认固定 chart 的完整 render 对 live 集群为零差异后，第二阶段移除 `suspend`，允许 Flux 修正 Helm 存储状态并开始 drift detection |
 | Gitea adoption stage | 开始用 Flux 接管关键 `gitea` release：固定现有 chart `12.5.3`，以 `suspend: true` 登记 HelmRelease、source、values ConfigMap 和现有 HTTPRoute，子 Kustomization 保持 `prune: false`；现有 OIDC Secret 继续只引用不覆盖，其尚未进入 OpenBao/ESO 的缺口独立跟踪 |
 | Gitea adoption activate | 第一阶段合并后 source、子 Kustomization 和 HTTPRoute 均 Ready，Helm release 仍为 revision 14，Gitea Pod 未重建或重启；再次确认固定 chart 对 live 业务资源零差异后移除 `suspend`，允许 Flux 修正 Helm 存储状态并启用 drift detection |
+| Gitea upgrade plan | 规划两跳升级：chart `12.6.0` + 显式 Gitea `1.26.4`，再到 chart `12.7.0` + 显式 Gitea `1.27.3`；每个 minor 都先以 suspended desired state 合并、停机建立 CNPG/PVC 一致回滚点，再用独立 PR 激活。当前 CNPG 无连续备份、local-path PVC 无 snapshot class，因此禁止无备份直接触发数据库 migration |
+| Gitea 1.26 preparation | 将第一跳目标写入 Git：chart 固定为 `12.6.0`、rootless 镜像显式固定为 `1.26.4`，同时重新设置 HelmRelease `suspend: true`；该准备 revision 合并后只更新 desired state，不触发 Pod replacement 或数据库 migration |
 
 `Carried forward`: complete the two-stage zero-change `gitea` HelmRelease
 adoption, migrate its remaining manual OIDC Secret to OpenBao/ESO, then upgrade
