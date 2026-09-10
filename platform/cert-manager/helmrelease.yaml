@@ -4,8 +4,6 @@ metadata:
   name: cert-manager
   namespace: cert-manager
 spec:
-  # 第一阶段只登记现有 release；合并后确认 source 和渲染结果，再单独解除暂停。
-  suspend: true
   chart:
     spec:
       chart: cert-manager
