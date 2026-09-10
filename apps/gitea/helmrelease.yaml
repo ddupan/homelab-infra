@@ -20,7 +20,6 @@ spec:
       retryInterval: 5m
   interval: 30m
   releaseName: gitea
-  suspend: true
   targetNamespace: gitea
   timeout: 15m
   upgrade:
