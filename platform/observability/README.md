@@ -19,10 +19,10 @@ see `metrics/README-reload.md`) and that VL/VT CRDs are served under `.../v1`.
 Metrics、Logs、Traces 和 Grafana，避免多个 reconciler 争夺共享 namespace、Helm source
 或 VictoriaMetrics CRD。brownfield 迁移期间保持 `prune: false`。
 
-第一阶段仅接管 VictoriaMetrics Operator：现有 chart `0.66.2` / app `v0.73.1`、Helm
-revision 2，保存 values 与 `operator/values.yaml` 一致。Git 中先登记固定版本且
-`suspend: true` 的 HelmRelease，不运行 Helm upgrade。确认 source Ready、operator Pod
-UID、CRD 及现有 VM/VL/VT CR 未变化后，再通过独立 PR 解除暂停。
+VictoriaMetrics Operator 已固定 chart `0.66.2` / app `v0.73.1` 完成分阶段 Flux
+HelmRelease 接管，保存 values 与 `operator/values.yaml` 一致。阶段一确认 Helm revision
+保持为 2、Operator Pod UID 未变、24 个 CRD 及 6 个核心 VM/VL/VT CR 未变化；随后
+通过独立 PR 解除暂停。Metrics、Logs、Traces 与 Grafana 仍需逐项接管。
 
 Still host-side (not yet done): deploy `docker-hosts/compose.yaml` on the Docker
 hosts and `logs/vlogs-ingress.yaml` to push their logs.

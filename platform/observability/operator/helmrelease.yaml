@@ -4,8 +4,6 @@ metadata:
   name: vm-operator
   namespace: monitoring
 spec:
-  # Operator 和 CRD 先只登记；解除暂停必须在独立 PR 中进行。
-  suspend: true
   chart:
     spec:
       chart: victoria-metrics-operator
