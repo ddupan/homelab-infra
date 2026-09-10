@@ -33,6 +33,7 @@ What changed in this homelab, when, and why. Newest first.
 | Gitea 1.26 activation | 停机一致备份门槛完成后，激活变更只移除 HelmRelease 的 `suspend`；chart `12.6.0`、显式 `1.26.4-rootless` image、values、数据库与 PVC 均保持已 review 的准备状态 |
 | Gitea 1.26 result | Flux 以 Helm revision 16 成功完成 chart `12.6.0` / Gitea `1.26.4-rootless` 的 Recreate upgrade 和 migration 323–330；Pod 内/统一域名 API、临时 branch push/delete、Flux source 及 main/smoke 的全部 CI jobs 均通过，Pod 在约 15 分钟采样中保持零重启，Authelia OIDC init 同步与浏览器交互式管理员登录也已确认成功 |
 | Gitea 1.27 preparation | 预拉取 `1.27.3-rootless` 并将第二跳 desired state 原子设置为 chart `12.7.0`、显式 image `1.27.3` 和 `suspend: true`；合并只暂停并登记目标，不执行 migration，激活前必须从当前 1.26.4 数据建立新的配套回滚点 |
+| Gitea 1.27 activation | 按明确决定跳过新的 1.26.4 数据库/PVC 备份，激活变更只移除 HelmRelease 的 `suspend`；接受 migration 失败后不能无损回退到 1.26.4 的风险，现有 1.25.5 本地备份仅能作为会丢失第一跳后状态的灾难恢复点 |
 
 ### Incident: Gitea 备份后的恢复命令被 stdin 校验阻塞
 
