@@ -9,3 +9,4 @@ resources:
   - apps/gitea.yaml
   - apps/gitea-actions.yaml
   - apps/http-echo.yaml
+  - apps/openebs.yaml
