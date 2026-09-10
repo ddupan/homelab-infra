@@ -43,6 +43,7 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 - `http-echo` 的专用测试 ConfigMap 已在 `prune: true` 生效后重新纳管，并由下一
   revision 自动删除；
 - `http-echo` 保持 `prune: true`，root 保持 `prune: false`；
-- `gitea-actions` 已由 Flux HelmRelease 接管且首次 reconcile 未触发 runner rollout；
-- 下一个接管对象是现有 `gitea` Helm release，先固定 chart `12.5.3` 并分两阶段完成
-  零变化 adoption，再通过独立 PR 升级 Gitea。
+- `gitea-actions` 与 `gitea` 已由 Flux HelmRelease 接管，Gitea 已升级到 `1.27.3`；
+- 当前接管对象是 External Secrets Operator：先固定现有 chart `2.8.0` 并以
+  `suspend: true` 登记，确认零变化后再独立激活；
+- root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

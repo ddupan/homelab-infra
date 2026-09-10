@@ -213,11 +213,10 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
 4. **Complete:** the reviewed Gitea Runner and Stage 1 CI are live. Flux deploys
    `http-echo`; automatic deployment, replica drift repair and scoped deletion
    were verified. Root prune remains disabled for brownfield safety.
-5. **Next:** adopt the existing `gitea-actions` Helm release with the same chart
-   `0.1.1` and repository values before attempting an upgrade. Its live
-   StatefulSet and Git both use regular DinD, while Helm's stored release values
-   still describe the failed rootless attempt. The first Flux reconciliation
-   must repair this stored-state drift without changing the live Pod spec.
+5. **In progress:** Gitea Actions and Gitea are managed by Flux. Adopt External
+   Secrets Operator next with its existing chart `2.8.0` and repository values;
+   register the suspended release first, then activate it in a separate PR after
+   proving the fixed render matches Helm's stored manifest.
 6. Move Tunnel origins to Envoy and consolidate split DNS through Blocky.
 7. Deploy Backstage read-only with Catalog, Kubernetes, Flux and TechDocs.
 8. Reconstruct the OCI root to a zero-change plan and add libvirt drift reports.
