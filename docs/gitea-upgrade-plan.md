@@ -50,8 +50,9 @@ Actions fork PR 审批绕过等安全问题。两个 rootless 镜像标签都已
 
 ### 1. 预拉取与 review
 
-1. 在 `apps/gitea/gitea-values.yaml` 显式设置目标 `image.tag`，同时把 HelmRelease chart
-   固定到该阶段目标版本，并重新执行 Helm/Kustomize render。
+1. 在 HelmRelease 中显式设置目标 `image.tag`，同时把 chart 固定到该阶段目标版本，
+   并重新执行 Helm/Kustomize render。目标 chart、镜像与 `suspend: true` 必须在同一
+   HelmRelease 对象内原子提交；不得同时修改会触发 watch 的 values ConfigMap。
 2. 在节点预拉取目标 rootless 镜像，避免维护窗口受 WAN 波动影响。
 3. 创建 **保持 `spec.suspend: true`** 的准备 PR；合并并等 Flux 同步。此时 Git 只记录
    目标版本，不执行 Helm action。
