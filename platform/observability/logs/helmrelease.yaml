@@ -4,7 +4,6 @@ metadata:
   name: victoria-logs-collector
   namespace: monitoring
 spec:
-  suspend: true
   chart:
     spec:
       chart: victoria-logs-collector

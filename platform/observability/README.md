@@ -24,10 +24,11 @@ HelmRelease 接管，保存 values 与 `operator/values.yaml` 一致。阶段一
 保持为 2、Operator Pod UID 未变、24 个 CRD 及 6 个核心 VM/VL/VT CR 未变化；随后
 通过独立 PR 解除暂停。
 
-其余已部署资源统一进入第二批接管：Metrics CR、rules、scrapes、node-exporter，Logs 的
+其余已部署资源也已统一完成接管：Metrics CR、rules、scrapes、node-exporter，Logs 的
 VLSingle 与固定 `0.3.6` 的 Collector，以及 Traces 的 VTSingle、OTel Collector，最后是
-固定 `10.5.15` 的 Grafana 与 dashboard ConfigMap。Collector 和 Grafana 先以
-`suspend: true` 登记，静态资源以 server-side dry-run 确认无 spec 差异后由 Flux 接管。
+固定 `10.5.15` 的 Grafana 与 dashboard ConfigMap。阶段一确认 11 个 Pod UID、4 个 PVC、
+6 个核心 CR、17 个 rule/scrape 对象及 dashboard 哈希均未变化，Collector 和 Grafana
+Helm revision 均保持为 1；随后在同一独立 PR 中解除两个 HelmRelease 的暂停。
 
 以下内容明确不属于本批接管：尚未部署的 kube-state-metrics、`vlogs-ingress.yaml`，以及
 仅作 standalone chart 参考的 `traces-values.yaml`。`grafana/oidc-secret.yaml` 是不含真实
