@@ -24,9 +24,21 @@ homelab_dns:
 
   public:
     # Names expected at Cloudflare. Terraform adoption is a separate change;
-    # listing them here makes the current ownership gap explicit.
-    tunnel_names:
-      - auth.ddupan.top
-      - git.ddupan.top
-      - obj.ddupan.top
-      - e5renew.ddupan.top
+    # complete RRsets here make the current ownership gap explicit.
+    records:
+      - name: auth.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: git.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: obj.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: e5renew.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
