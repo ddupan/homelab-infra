@@ -56,3 +56,6 @@ statefulset:
     # overlay path while direct pod traffic remains healthy.
     extraArgs:
       - --mtu=1450
+      # --mtu only changes Docker's default bridge. act creates a user-defined
+      # bridge per job, so give every new bridge the same explicit default.
+      - --default-network-opt=bridge=com.docker.network.driver.mtu=1450

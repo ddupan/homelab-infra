@@ -7,11 +7,14 @@ would still be privileged and is blocked by the node's AppArmor user-namespace
 policy, so this deployment uses regular DinD instead of weakening that host-wide
 policy. Only trusted workflows may target this runner.
 
-DinD 显式使用 `--mtu=1450`，与 k3s Pod 的 `eth0` 一致。不要在未验证节点 Pod
-MTU 的情况下删除或修改它：DinD 默认创建 MTU 1500 的 Actions bridge，容器虽然
-能够解析 GitHub、甚至建立 TCP 连接，但较大的 TLS 数据包会在嵌套网络路径中丢失，
-表现为 `github.com` / `api.github.com` 超时。Pod 网络和 `--network host` 正常不代表
-job bridge 正常。
+DinD 同时使用 `--mtu=1450` 和
+`--default-network-opt=bridge=com.docker.network.driver.mtu=1450`，与 k3s Pod 的
+`eth0` 一致。前者只覆盖 Docker 默认 bridge；act 为每个 job 创建 user-defined
+bridge，必须由后者设置默认 MTU。不要在未验证节点 Pod MTU 的情况下删除或修改这
+两个参数：MTU 1500 的 job 容器虽然能够解析 GitHub、甚至建立 TCP 连接，但较大的
+TLS 数据包会在嵌套网络路径中丢失，表现为 `github.com` / `api.github.com` 超时或
+`setup-go` 每次请求卡满 6 分钟后重试。Pod 网络和默认 Docker bridge 正常不代表
+Actions job bridge 正常。
 
 The runner is registered at instance scope so it is available to every repository
 on this Gitea instance. Repository permissions and protected-branch review are
