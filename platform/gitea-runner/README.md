@@ -26,6 +26,12 @@ rootless DinD 尝试，但 live StatefulSet 与本目录 `values.yaml` 都已经
 DinD。首次 reconcile 的验收条件是修正 Helm 存储状态，同时 live Pod spec、PVC
 identity、runner capacity 和在线状态保持不变。接管稳定后再用独立 PR 升级 chart。
 
+接管分两阶段：第一阶段提交 `suspend: true` 的 HelmRelease、HelmRepository 和由
+`values.yaml` 生成的 ConfigMap。Flux 只登记这些对象，不执行 Helm action。合并后
+检查 HelmRepository Ready，并用固定 chart 重复比较期望清单与 live StatefulSet；
+第二阶段才解除 suspend。失败重试使用 `RetryOnFailure`，不会用 stored rootless
+release 做 rollback。
+
 ## 历史 review-first bootstrap
 
 这是 Flux 安装前执行过的一次性手动部署流程，保留用于恢复和审计：

@@ -1,0 +1,14 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gitea-actions
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./platform/gitea-runner
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 3m
+  wait: false
