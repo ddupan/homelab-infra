@@ -8,8 +8,10 @@ Envoy Gateway HTTPRoute 提供。Helm chart 自带的无 class Ingress 暂时保
 
 现有 release 是 `gitea-12.5.3`（Gitea `1.25.5`）。接管分为两个 PR：第一阶段创建
 固定版本且 `suspend: true` 的 HelmRelease，只让 Flux 登记对象；确认 source Ready
-并重新验证完整 chart render 后，第二阶段才解除 suspend。子 Kustomization 和集群
-root 均保持 `prune: false`。
+并重新验证完整 chart render 后，第二阶段解除 suspend。第一阶段已经确认 source、
+子 Kustomization 和 HTTPRoute 均 Ready，Helm revision 与 Gitea Pod 未变化；第二次
+live diff 仍只有不常驻的 test hook Pod。子 Kustomization 和集群 root 均保持
+`prune: false`。
 
 数据库密码已经由 External Secrets Operator 从 OpenBao 投射到 `gitea-db`。OIDC
 client secret 仍是历史手工 Secret `gitea-oidc-secret`，本次接管只引用、不覆盖它；
