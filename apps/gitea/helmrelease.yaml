@@ -11,7 +11,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: gitea-charts
-      version: 12.6.0
+      version: 12.7.0
   driftDetection:
     mode: enabled
   install:
@@ -20,20 +20,21 @@ spec:
       retryInterval: 5m
   interval: 30m
   releaseName: gitea
+  suspend: true
   targetNamespace: gitea
   timeout: 15m
   upgrade:
     strategy:
       name: RetryOnFailure
       retryInterval: 5m
-  # Keep the patch release explicit because chart 12.6.0 defaults to 1.26.1.
+  # Keep the patch release explicit because chart 12.7.0 defaults to 1.27.0.
   # This override is in the suspended HelmRelease itself so chart, image and
   # suspension are applied atomically; changing the watched values ConfigMap in
   # the same revision could otherwise trigger reconciliation first.
   values:
     image:
       rootless: true
-      tag: "1.26.4"
+      tag: "1.27.3"
   valuesFrom:
     - kind: ConfigMap
       name: gitea-values
