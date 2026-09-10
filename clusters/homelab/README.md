@@ -46,5 +46,6 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 - `gitea-actions`、`gitea` 与 External Secrets 已由 Flux HelmRelease 接管，Gitea 已升级到 `1.27.3`；
 - cert-manager 已固定现有 `v1.21.0` 并完成分阶段 Flux HelmRelease 接管；
 - Envoy Gateway 已固定现有 `v1.5.6` 并完成分阶段 Flux HelmRelease 接管；
+- OpenEBS 已进入分阶段接管：固定现有 `4.4.0`，HelmRelease 暂停等待存储基线验证；
 - External Secrets Operator 已固定 chart `2.8.0` 并完成分阶段接管；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

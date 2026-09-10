@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+  namespace: openebs
+spec:
+  # 存储控制面先只登记；解除暂停必须使用独立 PR 并保留 live PV/PVC 基线。
+  suspend: true
+  chart:
+    spec:
+      chart: openebs
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: openebs
+      version: 4.4.0
+  driftDetection:
+    mode: enabled
+  install:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: openebs
+  targetNamespace: openebs
+  timeout: 15m
+  upgrade:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: openebs-values
