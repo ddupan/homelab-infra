@@ -3,4 +3,9 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - helmrepository.yaml
+  - grafana-helmrepository.yaml
   - operator
+  - metrics
+  - logs
+  - traces
+  - grafana
