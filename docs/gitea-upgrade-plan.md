@@ -41,8 +41,9 @@ Actions fork PR 审批绕过等安全问题。两个 rootless 镜像标签都已
   排版变化和 test hook 参数排版，没有新增或删除 live 业务对象。
 - `docker.gitea.com/gitea:1.26.4-rootless` 与
   `docker.gitea.com/gitea:1.27.3-rootless` 的 multi-arch manifests 均存在。
-- 当前 Gitea 日志没有 deprecation、warning 或 error；HTTPRoute、内部 API、统一域名
-  API 与 Flux GitRepository 均 Ready。
+- 升级前没有 deprecation 或 error；启动会报告若干数据库 default 比较及内网明文 SMTP
+  warning，均为已有状态。HTTPRoute、内部 API、统一域名 API 与 Flux GitRepository
+  均 Ready。
 
 ## 每个 minor 的执行单元
 
@@ -146,6 +147,23 @@ Terraform CI 均通过。Pod 在约 15 分钟观察期内保持 Running、零重
 执行时操作者明确选择跳过上述 1.26.4 备份门槛并继续激活。该风险例外意味着 1.27
 migration 后若失败，不能无损回到 1.26.4；现有本地 1.25.5 备份只可用于接受丢失
 第一跳之后状态的灾难恢复。目标 1.27.3 镜像已预拉取，其余准备检查均已通过。
+
+激活后 Helm revision 17 以 chart `12.7.0` 成功部署实际镜像 `1.27.3-rootless`，
+migration 331–342 和全部 init containers 成功；Pod 内/统一域名 API、Git pull、临时
+branch push/delete 与 Flux source 均通过，Pod Ready 且零重启。Chart metadata 显示
+appVersion `1.27.0`，实际版本以固定 image 和 API 返回的 `1.27.3` 为准。
+
+## 后续升级策略
+
+本次连续两次跨 minor 升级证明现有 chart、外部 CNPG、rootless PVC 和 `Recreate`
+组合工作稳定。后续常规 patch/minor 升级采用精简验收：固定 chart/image、审阅相关
+release notes、render、确认 `UpgradeSucceeded`/Pod Ready/API 版本，再人工抽查 OIDC
+与 Git。长时间观察、临时 branch、重复 CI、逐条 migration 日志和逐 minor 停机备份
+不再是默认步骤。
+
+以下任一条件出现时恢复本文的完整流程：数据库或存储变更、rootless/权限模型变化、
+PVC identity 或 deployment strategy 变化、重大 chart 结构变化、相关 breaking migration，
+以及任何启动失败、CrashLoop 或 migration error。
 
 ## 后续但不并入升级
 

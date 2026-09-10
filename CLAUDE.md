@@ -132,9 +132,10 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 
 ## Working rules
 
-- **Record changes in `CHANGELOG.md`.** One dated section per day, newest first; incidents
-  get their own subsection. Traps and procedures belong *here* in CLAUDE.md, not there —
-  the changelog is for humans reading what changed.
+- **Do not update `CHANGELOG.md`.** It is a frozen historical snapshot; requiring every PR
+  to append to one shared text file caused needless conflicts and duplicated Git/PR history.
+  Put durable service state and operational knowledge in the component README or runbook,
+  agent-facing traps here, and let commits/PRs record individual changes.
 - **Verify, don't assert.** Check the end state (`pvesm status`, `linstor node list`,
   `kubectl get pod`, `show ip route`) rather than trusting that a command "should have" worked.
   Several confident diagnoses in this repo's history were wrong until measured.
