@@ -23,6 +23,7 @@ What changed in this homelab, when, and why. Newest first.
 |---|---|
 | GitOps | PR #18 合并后，Flux 自行发现 revision `f257a2a` 并删除已在 `prune: true` 下重新进入 inventory 的测试 ConfigMap；未发送 reconcile annotation，`http-echo` Deployment/Service 保持 Ready，root 继续 `prune: false` |
 | Helm migration | 选定 `gitea-actions` 作为第一个 Flux HelmRelease adoption：它不承载 Git、入口、DNS、证书、数据库或 secrets controller。live StatefulSet 与 Git 都使用 regular DinD，但 Helm 保存的 release values/manifest 仍是失败的 rootless 配置；接管先固定 chart `0.1.1` 并验证 live Pod spec 不变，升级另开 PR |
+| Helm adoption stage | 为 `gitea-actions` 加入固定 chart `0.1.1` 的 HelmRepository、values ConfigMap 和 `suspend: true` HelmRelease；第一阶段只让 Flux 登记对象，确认 source 与固定 chart render 后再解除 suspend，失败策略使用 `RetryOnFailure` 以避免回滚到 stored rootless manifest |
 
 `Carried forward`: adopt `gitea-actions` with a zero-change HelmRelease; then
 order the remaining Helm migrations by dependency and blast radius. Root Flux

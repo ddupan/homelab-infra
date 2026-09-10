@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    reconcile.fluxcd.io/watch: Enabled
+configMapGenerator:
+  - name: gitea-actions-values
+    namespace: gitea-actions
+    files:
+      - values.yaml=values.yaml
+resources:
+  - namespace.yaml
+  - external-secret.yaml
+  - helmrepository.yaml
+  - helmrelease.yaml
