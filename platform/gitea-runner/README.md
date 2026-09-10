@@ -29,8 +29,9 @@ identity、runner capacity 和在线状态保持不变。接管稳定后再用�
 接管分两阶段：第一阶段提交 `suspend: true` 的 HelmRelease、HelmRepository 和由
 `values.yaml` 生成的 ConfigMap。Flux 只登记这些对象，不执行 Helm action。合并后
 检查 HelmRepository Ready，并用固定 chart 重复比较期望清单与 live StatefulSet；
-第二阶段才解除 suspend。失败重试使用 `RetryOnFailure`，不会用 stored rootless
-release 做 rollback。
+第二阶段解除 suspend。第一阶段已经确认 source Ready、完整 chart render 与 live
+资源零差异，且登记过程中现有 runner 没有 rollout。失败重试使用
+`RetryOnFailure`，不会用 stored rootless release 做 rollback。
 
 ## 历史 review-first bootstrap
 
