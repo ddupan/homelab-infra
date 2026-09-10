@@ -24,6 +24,6 @@ Gitea 是 Flux GitRepository 的上游。升级或重启期间 Git source 暂时
 跨 minor 的执行顺序、停机一致备份和失败恢复步骤见
 [`../../docs/gitea-upgrade-plan.md`](../../docs/gitea-upgrade-plan.md)。
 
-当前 Git desired state 已准备第一跳 chart `12.6.0` / Gitea `1.26.4`，但
-HelmRelease 保持 `suspend: true`。合并该准备状态不会运行 migration；必须先按升级
-计划取得停机一致备份，再通过只移除 suspend 的独立激活 PR 执行升级。
+第一跳 chart `12.6.0` / Gitea `1.26.4` 的停机一致备份已经建立并校验；激活 PR
+只移除 HelmRelease 的 `suspend`。本阶段按明确决定只保留节点本地备份，没有上传
+OCI 或建立异机副本，因此其恢复冗余低于长期目标。
