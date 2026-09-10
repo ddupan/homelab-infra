@@ -31,7 +31,7 @@ What changed in this homelab, when, and why. Newest first.
 | Gitea 1.26 preparation | 将第一跳目标写入 Git：chart 固定为 `12.6.0`、rootless 镜像显式固定为 `1.26.4`，同时重新设置 HelmRelease `suspend: true`；该准备 revision 合并后只更新 desired state，不触发 Pod replacement 或数据库 migration |
 | Gitea 1.26 backup | 预拉取 `1.26.4-rootless` 后，在 HelmRelease suspended 状态将 Gitea scale 到 0；生成并校验 539355-byte CNPG custom dump、2609188-byte PVC tar 和 2848667-byte GPG encrypted bundle，随后恢复旧版 `1.25.5` 并验证内外 API 与 Flux source。按明确决定不上传 OCI，本阶段接受只有节点本地回滚点的风险 |
 | Gitea 1.26 activation | 停机一致备份门槛完成后，激活变更只移除 HelmRelease 的 `suspend`；chart `12.6.0`、显式 `1.26.4-rootless` image、values、数据库与 PVC 均保持已 review 的准备状态 |
-| Gitea 1.26 result | Flux 以 Helm revision 16 成功完成 chart `12.6.0` / Gitea `1.26.4-rootless` 的 Recreate upgrade 和 migration 323–330；Pod 内/统一域名 API、临时 branch push/delete、Flux source 及 main/smoke 的全部 CI jobs 均通过，Pod 在约 15 分钟采样中保持零重启。Authelia OIDC init 同步成功，浏览器交互式登录未在本会话人工确认 |
+| Gitea 1.26 result | Flux 以 Helm revision 16 成功完成 chart `12.6.0` / Gitea `1.26.4-rootless` 的 Recreate upgrade 和 migration 323–330；Pod 内/统一域名 API、临时 branch push/delete、Flux source 及 main/smoke 的全部 CI jobs 均通过，Pod 在约 15 分钟采样中保持零重启，Authelia OIDC init 同步与浏览器交互式管理员登录也已确认成功 |
 | Gitea 1.27 preparation | 预拉取 `1.27.3-rootless` 并将第二跳 desired state 原子设置为 chart `12.7.0`、显式 image `1.27.3` 和 `suspend: true`；合并只暂停并登记目标，不执行 migration，激活前必须从当前 1.26.4 数据建立新的配套回滚点 |
 
 ### Incident: Gitea 备份后的恢复命令被 stdin 校验阻塞

@@ -132,8 +132,8 @@ patch 版本原则上保持数据库结构兼容；本计划的两个步骤都�
 激活后 Helm revision 16 以 chart `12.6.0` 成功部署
 `docker.gitea.com/gitea:1.26.4-rootless`。Migration 323–330 完成；Pod 内和统一域名
 API、临时 branch push/delete、Flux source，以及 main/smoke 的 YAML、Ansible、
-Terraform CI 均通过。Pod 在约 15 分钟观察期内保持 Running、零重启。Authelia OIDC
-配置 init 同步成功，但浏览器交互式登录未在该执行会话中人工确认。
+Terraform CI 均通过。Pod 在约 15 分钟观察期内保持 Running、零重启；Authelia OIDC
+配置 init 同步及浏览器交互式管理员登录也已确认成功。
 
 ## 1.27.3 阶段准备状态
 
