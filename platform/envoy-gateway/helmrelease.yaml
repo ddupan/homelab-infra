@@ -1,0 +1,32 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+spec:
+  # 第一阶段只登记现有 release；入口数据面必须在独立激活 PR 后才由 Flux reconcile。
+  suspend: true
+  chart:
+    spec:
+      chart: gateway-helm
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: envoy-gateway
+      version: v1.5.6
+  driftDetection:
+    mode: enabled
+  install:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: envoy-gateway
+  targetNamespace: envoy-gateway-system
+  timeout: 10m
+  upgrade:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
