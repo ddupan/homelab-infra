@@ -47,5 +47,7 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 - cert-manager 已固定现有 `v1.21.0` 并完成分阶段 Flux HelmRelease 接管；
 - Envoy Gateway 已固定现有 `v1.5.6` 并完成分阶段 Flux HelmRelease 接管；
 - OpenEBS 已固定现有 `4.4.0` 并完成分阶段 Flux HelmRelease 接管；
+- 可观测性栈开始分阶段接管：VictoriaMetrics Operator 固定现有 chart `0.66.2`，
+  HelmRelease 暂停等待 CRD 与 workload 基线验证；
 - External Secrets Operator 已固定 chart `2.8.0` 并完成分阶段接管；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

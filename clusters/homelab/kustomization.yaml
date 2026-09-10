@@ -10,3 +10,4 @@ resources:
   - apps/gitea-actions.yaml
   - apps/http-echo.yaml
   - apps/openebs.yaml
+  - apps/observability.yaml
