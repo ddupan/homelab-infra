@@ -22,7 +22,17 @@ Metrics、Logs、Traces 和 Grafana，避免多个 reconciler 争夺共享 names
 VictoriaMetrics Operator 已固定 chart `0.66.2` / app `v0.73.1` 完成分阶段 Flux
 HelmRelease 接管，保存 values 与 `operator/values.yaml` 一致。阶段一确认 Helm revision
 保持为 2、Operator Pod UID 未变、24 个 CRD 及 6 个核心 VM/VL/VT CR 未变化；随后
-通过独立 PR 解除暂停。Metrics、Logs、Traces 与 Grafana 仍需逐项接管。
+通过独立 PR 解除暂停。
+
+其余已部署资源统一进入第二批接管：Metrics CR、rules、scrapes、node-exporter，Logs 的
+VLSingle 与固定 `0.3.6` 的 Collector，以及 Traces 的 VTSingle、OTel Collector，最后是
+固定 `10.5.15` 的 Grafana 与 dashboard ConfigMap。Collector 和 Grafana 先以
+`suspend: true` 登记，静态资源以 server-side dry-run 确认无 spec 差异后由 Flux 接管。
+
+以下内容明确不属于本批接管：尚未部署的 kube-state-metrics、`vlogs-ingress.yaml`，以及
+仅作 standalone chart 参考的 `traces-values.yaml`。`grafana/oidc-secret.yaml` 是不含真实
+值的占位模板；live `grafana-oidc` Secret 继续只被 HelmRelease 引用，尚未由 OpenBao/ESO
+纳管。
 
 Still host-side (not yet done): deploy `docker-hosts/compose.yaml` on the Docker
 hosts and `logs/vlogs-ingress.yaml` to push their logs.

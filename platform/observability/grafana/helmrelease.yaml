@@ -1,0 +1,32 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  suspend: true
+  chart:
+    spec:
+      chart: grafana
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+      version: 10.5.15
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: grafana
+  targetNamespace: monitoring
+  timeout: 10m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: grafana-values
