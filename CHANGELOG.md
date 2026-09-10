@@ -25,11 +25,13 @@ What changed in this homelab, when, and why. Newest first.
 | Helm migration | 选定 `gitea-actions` 作为第一个 Flux HelmRelease adoption：它不承载 Git、入口、DNS、证书、数据库或 secrets controller。live StatefulSet 与 Git 都使用 regular DinD，但 Helm 保存的 release values/manifest 仍是失败的 rootless 配置；接管先固定 chart `0.1.1` 并验证 live Pod spec 不变，升级另开 PR |
 | Helm adoption stage | 为 `gitea-actions` 加入固定 chart `0.1.1` 的 HelmRepository、values ConfigMap 和 `suspend: true` HelmRelease；第一阶段只让 Flux 登记对象，确认 source 与固定 chart render 后再解除 suspend，失败策略使用 `RetryOnFailure` 以避免回滚到 stored rootless manifest |
 | Helm adoption activate | 第一阶段合并后 Flux source 与子 Kustomization 均 Ready，Helm release 仍为 revision 1，runner Pod 未 rollout；再次确认固定 chart 的完整 render 对 live 集群为零差异后，第二阶段移除 `suspend`，允许 Flux 修正 Helm 存储状态并开始 drift detection |
+| Gitea adoption stage | 开始用 Flux 接管关键 `gitea` release：固定现有 chart `12.5.3`，以 `suspend: true` 登记 HelmRelease、source、values ConfigMap 和现有 HTTPRoute，子 Kustomization 保持 `prune: false`；现有 OIDC Secret 继续只引用不覆盖，其尚未进入 OpenBao/ESO 的缺口独立跟踪 |
 
-`Carried forward`: complete the `gitea-actions` HelmRelease activation, then
-upgrade Gitea and add credential-free PR plan output before ordering the
-remaining Helm migrations by dependency and blast radius. Root Flux prune
-remains disabled until brownfield ownership is audited.
+`Carried forward`: complete the two-stage zero-change `gitea` HelmRelease
+adoption, migrate its remaining manual OIDC Secret to OpenBao/ESO, then upgrade
+Gitea and add credential-free PR plan output before ordering the remaining Helm
+migrations by dependency and blast radius. Root Flux prune remains disabled
+until brownfield ownership is audited.
 
 ## 2026-09-09
 

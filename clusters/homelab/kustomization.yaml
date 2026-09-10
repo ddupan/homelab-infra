@@ -3,5 +3,6 @@ kind: Kustomization
 resources:
   - flux-system
   - namespaces/gitops-canary.yaml
+  - apps/gitea.yaml
   - apps/gitea-actions.yaml
   - apps/http-echo.yaml

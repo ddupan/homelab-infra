@@ -1,0 +1,32 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  chart:
+    spec:
+      chart: gitea
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: gitea-charts
+      version: 12.5.3
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: gitea
+  suspend: true
+  targetNamespace: gitea
+  timeout: 15m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: gitea-values
