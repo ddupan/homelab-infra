@@ -1,0 +1,14 @@
+---
+- name: Reconcile explicitly managed AD DNS RRsets
+  ddupan.homelab.samba_dns_record:
+    server: "{{ samba_ad_dc_ip }}"
+    zone: "{{ item['zone'] }}"
+    name: "{{ item['name'] }}"
+    type: "{{ item['type'] }}"
+    values: "{{ item['values'] }}"
+    state: present
+    exact: true
+  loop: "{{ homelab_dns.samba.records }}"
+  loop_control:
+    label: "{{ item['name'] }}.{{ item['zone'] }} {{ item['type'] }}"
+  tags: [dns]

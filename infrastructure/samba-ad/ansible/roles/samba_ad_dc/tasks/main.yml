@@ -198,20 +198,11 @@
     - "'already exists' not in (kms_srv.stderr | default('')) + (kms_srv.stdout | default(''))"
   no_log: true
 
-# --- Extra A records for non-domain hosts (e.g. OpenBao) -----------------------
+# --- Directory objects and explicitly managed DNS records ----------------------
 - name: Service accounts and RBAC groups
   ansible.builtin.import_tasks: directory_objects.yml
   tags: [directory, accounts]
 
-- name: Register extra A records in the AD DNS zone
-  ansible.builtin.command:
-    cmd: >-
-      samba-tool dns add {{ samba_ad_dc_ip }} {{ samba_ad_realm | lower }}
-      {{ item.name }} A {{ item.ip }} -P
-  loop: "{{ samba_ad_extra_a_records }}"
-  register: extra_a
-  changed_when: "'Record added successfully' in (extra_a.stdout | default(''))"
-  failed_when:
-    - extra_a.rc != 0
-    - "'already exists' not in (extra_a.stderr | default('')) + (extra_a.stdout | default(''))"
+- name: Reconcile static AD DNS records
+  ansible.builtin.import_tasks: dns_records.yml
   tags: [dns]

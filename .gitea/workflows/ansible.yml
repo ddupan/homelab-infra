@@ -6,11 +6,13 @@ on:
     branches: [main]
     paths:
       - 'infrastructure/**/ansible/**'
+      - 'infrastructure/dns/**'
       - '.ansible-lint'
       - '.gitea/workflows/ansible.yml'
   pull_request:
     paths:
       - 'infrastructure/**/ansible/**'
+      - 'infrastructure/dns/**'
       - '.ansible-lint'
       - '.gitea/workflows/ansible.yml'
 
@@ -55,3 +57,10 @@ jobs:
             echo "::endgroup::"
           done
           exit $rc
+
+      - name: Test repository-local Ansible collection
+        working-directory: infrastructure/samba-ad/ansible/collections/ansible_collections/ddupan/homelab
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ansible-test sanity --venv --requirements --python 3.12 --color no
+          ansible-test units --venv --requirements --python 3.12 --color no
