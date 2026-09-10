@@ -13,6 +13,17 @@ Jaeger API), Grafana (3 datasources healthy, VM dashboard loaded, Tailscale ingr
 `localpv-zfs-ceph`. Note the vmagent hot-reload RBAC fix (`metrics/reload-rbac.yaml`,
 see `metrics/README-reload.md`) and that VL/VT CRDs are served under `.../v1`.
 
+### Flux 接管状态
+
+可观测性栈使用一个 `observability` Flux Kustomization，按依赖顺序逐步加入 Operator、
+Metrics、Logs、Traces 和 Grafana，避免多个 reconciler 争夺共享 namespace、Helm source
+或 VictoriaMetrics CRD。brownfield 迁移期间保持 `prune: false`。
+
+第一阶段仅接管 VictoriaMetrics Operator：现有 chart `0.66.2` / app `v0.73.1`、Helm
+revision 2，保存 values 与 `operator/values.yaml` 一致。Git 中先登记固定版本且
+`suspend: true` 的 HelmRelease，不运行 Helm upgrade。确认 source Ready、operator Pod
+UID、CRD 及现有 VM/VL/VT CR 未变化后，再通过独立 PR 解除暂停。
+
 Still host-side (not yet done): deploy `docker-hosts/compose.yaml` on the Docker
 hosts and `logs/vlogs-ingress.yaml` to push their logs.
 
