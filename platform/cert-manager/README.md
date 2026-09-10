@@ -53,10 +53,9 @@ the only challenge that can issue a wildcard.
 
 ### Flux 接管状态
 
-现有 release 为 chart/app `v1.21.0`。Git 中固定同一版本，并用
-`suspend: true` 的 HelmRelease 分阶段接管：第一阶段只让 Flux 登记 source、values
-与 release 对象，不执行 Helm upgrade。确认 chart artifact、渲染结果和 live workload
-均未变化后，再通过独立 PR 解除暂停。
+现有 release 为 chart/app `v1.21.0`，Git 中固定同一版本并已由 Flux HelmRelease
+完成接管。第一阶段暂停登记后确认 chart artifact Ready、Helm revision 保持为 1，且
+三个 workload Pod 均未被替换；随后通过独立 PR 解除暂停。
 
 Issuer 与 Certificate 清单随本目录的 Kustomization 由 Flux 管理；现有 Cloudflare
 token Secret 只被引用，本次接管不改变其所有权。删除保护期间保持 `prune: false`，且

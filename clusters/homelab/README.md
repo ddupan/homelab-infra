@@ -44,7 +44,6 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
   revision 自动删除；
 - `http-echo` 保持 `prune: true`，root 保持 `prune: false`；
 - `gitea-actions`、`gitea` 与 External Secrets 已由 Flux HelmRelease 接管，Gitea 已升级到 `1.27.3`；
-- cert-manager 已进入分阶段接管：固定现有 `v1.21.0`，HelmRelease 暂停等待零变更验证；
+- cert-manager 已固定现有 `v1.21.0` 并完成分阶段 Flux HelmRelease 接管；
 - External Secrets Operator 已固定 chart `2.8.0` 并完成分阶段接管；
-- 当前接管对象是 cert-manager，激活必须继续使用独立 PR；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。
