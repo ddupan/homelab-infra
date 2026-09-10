@@ -4,6 +4,8 @@
 - `apps/http-echo/` and `archive/traefik/` contain Kubernetes/Gateway API manifests; inspect their parent Gateway references before applying archived or brownfield resources.
 - `apps/tailscale/helm.sh` contains live Tailscale OAuth values; do not copy, print, or commit those values anywhere else.
 - Preserve the existing README intent in `apps/http-echo/` and `archive/traefik/` when updating manifests.
+- `CHANGELOG.md` 是冻结的历史快照，不再更新。持久的服务状态与运维知识写入对应
+  README/runbook；单次变化由 commit 和 PR 记录，agent 陷阱写入 `CLAUDE.md`。
 - 在 homelab 工作中，所有提交到 `git.ddupan.top` 的 commit message、PR、issue
   和项目文档默认优先使用中文。代码标识符、命令、配置键、上游专有名称，以及
   使用英文能避免歧义的技术字段可保留英文。

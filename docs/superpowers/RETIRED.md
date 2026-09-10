@@ -20,7 +20,7 @@ SUB-SKILL", checkbox task lists) that only ever suited one migration. Design
 documents now live directly in `docs/` — see `../cicd.md` — and the split that
 matters is:
 
-- `CHANGELOG.md` — what changed, for humans
+- `CHANGELOG.md` — frozen historical snapshot; Git commits and PRs now record changes
 - `CLAUDE.md` — traps and procedures, for agents
 - `docs/*.md` — design docs for work not yet built
 - `<service>/README.md` — how a service actually works
