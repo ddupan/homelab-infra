@@ -19,11 +19,10 @@ provisioner，因此 brownfield 接管期间保持 `prune: false`。
 
 ## Flux 接管状态
 
-现有 Helm release revision 为 3，保存的 user-supplied values 与本目录 `values.yaml`
-一致。Git 中先登记固定 `4.4.0` 且 `suspend: true` 的 HelmRelease；阶段一仅让 Flux
-管理 Helm source、release 声明、values ConfigMap 和现有 StorageClass，不运行 Helm
-upgrade。确认 source Ready、Helm revision、OpenEBS Pod UID、PV/PVC 与 ZFS volume
-健康后，再通过独立 PR 解除暂停。
+现有 Helm release 保存的 user-supplied values 与本目录 `values.yaml` 一致，并已固定
+`4.4.0` 完成分阶段 Flux HelmRelease 接管。阶段一确认 source Ready、Helm revision
+保持为 3、8 个 OpenEBS Pod UID 未变、10/10 ZFS PV 和集群 20/20 PVC Bound，且
+`data/ceph` 下 10 个 volume 未变；随后通过独立 PR 解除暂停。
 
 CRD 在 install/upgrade 时使用 `CreateReplace`，但绝不通过删除 CRD 迁移。接管和升级
 是两个独立动作；首次激活不得改变 chart、values、StorageClass 或存储引擎。

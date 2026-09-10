@@ -4,8 +4,6 @@ metadata:
   name: openebs
   namespace: openebs
 spec:
-  # 存储控制面先只登记；解除暂停必须使用独立 PR 并保留 live PV/PVC 基线。
-  suspend: true
   chart:
     spec:
       chart: openebs
