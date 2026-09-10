@@ -10,10 +10,10 @@ JWT 登录 OpenBao，不在 Git 中保存长期凭据。
 revision 1。接管前审计确认：本目录 `values.yaml` 与 Helm stored user values 一致；
 用固定 chart 生成的 33,528 行 manifest 与 stored manifest 只有末尾空行差异。
 
-接管分两阶段：本阶段以 `suspend: true` 登记 HelmRepository、values ConfigMap 与
-HelmRelease，不执行 Helm action，不应重建三个 controller。合并后确认 source Ready、
-release 仍为 revision 1、三个 Pod UID/重启次数不变，再用独立 PR 移除 `suspend`。
-子 Kustomization 保持 `prune: false`。
+接管分两阶段。第一阶段以 `suspend: true` 登记 HelmRepository、values ConfigMap 与
+HelmRelease；合并后已确认 source Ready、release 仍为 revision 1，三个 Pod UID 保持
+不变且零重启。第二阶段只移除 `suspend`，允许 Flux 修正 Helm stored ownership 并
+启用 drift detection；chart、values 和子 Kustomization 的 `prune: false` 均不变。
 
 `clustersecretstore.yaml` 和 `externalsecrets.yaml` 是现有 secret delivery intent，
 本阶段故意不把它们加入该 Kustomization，避免在 Helm release 接管时同时扩大 Flux
