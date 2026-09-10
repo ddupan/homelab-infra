@@ -20,3 +20,6 @@ client secret 仍是历史手工 Secret `gitea-oidc-secret`，本次接管只引
 Gitea 是 Flux GitRepository 的上游。升级或重启期间 Git source 暂时不可用不会删除
 已经应用的资源；Gitea 恢复后 Flux 会继续同步。任何会改变 Pod template、数据库迁移
 或 PVC identity 的变更都不得与首次接管合并。
+
+跨 minor 的执行顺序、停机一致备份和失败恢复步骤见
+[`../../docs/gitea-upgrade-plan.md`](../../docs/gitea-upgrade-plan.md)。
