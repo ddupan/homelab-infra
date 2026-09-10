@@ -30,6 +30,12 @@ VLSingle 与固定 `0.3.6` 的 Collector，以及 Traces 的 VTSingle、OTel Col
 6 个核心 CR、17 个 rule/scrape 对象及 dashboard 哈希均未变化，Collector 和 Grafana
 Helm revision 均保持为 1；随后在同一独立 PR 中解除两个 HelmRelease 的暂停。
 
+首次 Grafana Helm reconcile 暴露了本地 ZFS RWO 卷限制：chart 默认 `RollingUpdate`
+会先创建新 Pod，但 CSI 拒绝在旧 Pod 仍挂载 PVC 时再次 mount，使 upgrade 卡在
+`pending-upgrade`。`grafana/values.yaml` 因此显式使用 `deploymentStrategy.type: Recreate`。
+Grafana 升级会有一次短暂停机，但旧 Pod 会先退出，新 Pod 才挂载同一 PVC；不要改回
+RollingUpdate，除非存储改为真正支持并发挂载的 RWX。
+
 以下内容明确不属于本批接管：尚未部署的 kube-state-metrics、`vlogs-ingress.yaml`，以及
 仅作 standalone chart 参考的 `traces-values.yaml`。`grafana/oidc-secret.yaml` 是不含真实
 值的占位模板；live `grafana-oidc` Secret 继续只被 HelmRelease 引用，尚未由 OpenBao/ESO

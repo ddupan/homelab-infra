@@ -48,6 +48,12 @@ persistence:
   storageClassName: localpv-zfs-ceph
   size: 5Gi
 
+# localpv-zfs-ceph cannot mount the same RWO volume into the old and new Grafana
+# Pods concurrently. RollingUpdate leaves the old Pod serving while the new Pod
+# blocks forever in verifyMount, so upgrades must stop the old Pod first.
+deploymentStrategy:
+  type: Recreate
+
 # --- Private exposure via the Tailscale ingress (like seaweedfs-admin) ---
 # The tailscale operator provisions grafana.<tailnet>.ts.net and a TLS cert.
 ingress:
