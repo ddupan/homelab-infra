@@ -129,6 +129,20 @@ patch 版本原则上保持数据库结构兼容；本计划的两个步骤都�
 - 备份后旧版 `1.25.5` 已恢复，Pod 内与统一域名 API、Gitea API 和 Flux Git source
   均验证正常。
 
+激活后 Helm revision 16 以 chart `12.6.0` 成功部署
+`docker.gitea.com/gitea:1.26.4-rootless`。Migration 323–330 完成；Pod 内和统一域名
+API、临时 branch push/delete、Flux source，以及 main/smoke 的 YAML、Ansible、
+Terraform CI 均通过。Pod 在约 15 分钟观察期内保持 Running、零重启；Authelia OIDC
+配置 init 同步及浏览器交互式管理员登录也已确认成功。
+
+## 1.27.3 阶段准备状态
+
+- 目标 `1.27.3-rootless` 镜像已经预拉取到 k3s 节点；
+- Git desired state 固定为 chart `12.7.0` 与显式 image `1.27.3`，并重新设置
+  `suspend: true`；
+- 合并准备状态后必须从已经迁移的 1.26.4 数据重新建立一组数据库/PVC 回滚点，禁止
+  复用 1.25.5 备份作为 1.27 阶段的直接回滚点。
+
 ## 后续但不并入升级
 
 - 将 `gitea-oidc-secret` 等剩余手工 Secret 迁入 OpenBao/ESO；
