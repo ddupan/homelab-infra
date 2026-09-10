@@ -82,14 +82,16 @@ unauthenticated requests to an app whose auth model is "trust the header".
 ### Flux 接管状态
 
 现有 release 为 OCI chart/app `v1.5.6`，且没有 user-supplied values。Git 中固定
-同一版本，并先以 `suspend: true` 的 HelmRelease 登记；确认 OCI source Ready、Helm
-revision 与 controller/data-plane Pod UID 均未变化后，再通过独立 PR 解除暂停。
+同一版本并已完成分阶段 Flux HelmRelease 接管。第一阶段确认 Kustomization Ready、
+Helm revision 保持为 1，controller/data-plane Pod UID 与入口响应均未变化后，再通过
+独立 PR 解除暂停。OCI 类型 HelmRepository 是按需 chart generator，本身不产生
+artifact 或 Ready condition；解除暂停后由 HelmRelease 请求并验证 chart。
 
 `GatewayClass eg` 与 `Gateway eg` 随本目录 Kustomization 由 Flux 管理。接管期间保持
 `prune: false`；Gateway API 与 Envoy Gateway CRD 使用 `CreateReplace`，延续现有 Helm
 所有权且绝不通过删除 CRD 迁移。Gateway 的三个 `certificateRefs` 最初属于
-`kubectl-client-side-apply`；首次 reconcile 会以 Flux 默认 SSA `Override` 转移这些已在
-Git 中声明且值相同的字段所有权，不改变 listener spec。不得用 `force: true`，它用于
+`kubectl-client-side-apply`；首次 reconcile 已由 Flux 默认 SSA `Override` 接管这些在
+Git 中声明且值相同的字段，没有改变 listener spec。不得用 `force: true`，它用于
 不可变字段失败时删除重建资源。以下命令保留为 break-glass 手工恢复流程。
 
 ```bash

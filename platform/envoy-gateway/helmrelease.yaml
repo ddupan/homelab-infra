@@ -4,8 +4,6 @@ metadata:
   name: envoy-gateway
   namespace: envoy-gateway-system
 spec:
-  # 第一阶段只登记现有 release；入口数据面必须在独立激活 PR 后才由 Flux reconcile。
-  suspend: true
   chart:
     spec:
       chart: gateway-helm
