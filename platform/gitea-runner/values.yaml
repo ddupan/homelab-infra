@@ -51,3 +51,8 @@ statefulset:
     repository: docker
     tag: 29.7.1-dind
     pullPolicy: IfNotPresent
+    # k3s uses a 1450-byte pod MTU. Without matching it here, nested Actions
+    # networks advertise 1500 and GitHub TLS packets disappear on the outer
+    # overlay path while direct pod traffic remains healthy.
+    extraArgs:
+      - --mtu=1450
