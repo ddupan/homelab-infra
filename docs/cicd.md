@@ -1,7 +1,7 @@
 # CI/CD — what we are building
 
-Status: **partly built.** Stage 1 and the Kubernetes runner are live; Flux and
-credentialed stages are not yet installed.
+Status: **partly built.** Stage 1、Kubernetes runner 与 Flux 已上线；credentialed
+stages 尚未实现。
 Started 2026-07-28.
 
 ## Goal
@@ -24,18 +24,20 @@ to make drift between this repo and reality visible when it happens.
 | | |
 |---|---|
 | git | `homelab-infra` is hosted on the local Gitea; an independent off-site mirror is still missing |
-| stage 1 | Live and green on the Gitea runner — `yamllint`, `ansible-lint`, `terraform fmt`/`validate` |
-| gitea | 1.25.5, Actions enabled, `DEFAULT_ACTIONS_URL=github`; one instance-scoped Kubernetes runner is deployed with capacity four |
+| stage 1 | Gitea runner 上的 `yamllint`、`ansible-lint`、Terraform fmt/validate 已上线；三个 workflow 按路径触发，feature push 不再与 PR 事件重复运行 |
+| gitea | 1.27.3，Actions 已启用；一个 instance-scoped Kubernetes runner 以 capacity 4 运行 |
 | ansible | 33 roles across `infrastructure/proxmox/`, `infrastructure/samba-ad/`, `infrastructure/openbao/` |
 | terraform | 4 roots, **local state**, each with **different interactive auth** (`bao login -method=oidc`, `az login`) |
-| k8s | ~13 Helm releases, all deployed by hand |
+| k8s | Flux 已接管 Gitea、Gitea Actions 与 http-echo canary；其余 brownfield release 逐项迁移 |
 | secrets | 4 config files are gitignored because they embed live secrets, so their contents are **not** version controlled |
 
 ## The four stages
 
 **Stage 1 — static. Built.**
 `yamllint`, `ansible-lint`, `terraform fmt -check` / `validate -backend=false`.
-No cluster, no credentials, no mutation, so it is safe on every push. It already
+No cluster, no credentials, no mutation. YAML、Ansible 和 Terraform 各自按相关路径
+触发；feature branch 只由 `pull_request` 检查，合并后再由 `main` push 检查，避免
+同一 revision 因 branch push 和 PR 各跑一遍。它已经
 found a real defect: `infrastructure/proxmox/ansible/` had no `requirements.yml` at all, so a
 fresh checkout could not reproduce its collections.
 

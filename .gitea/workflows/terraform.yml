@@ -1,0 +1,35 @@
+---
+name: terraform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.tf'
+      - '**/.terraform.lock.hcl'
+      - '.gitea/workflows/terraform.yml'
+  pull_request:
+    paths:
+      - '**/*.tf'
+      - '**/.terraform.lock.hcl'
+      - '.gitea/workflows/terraform.yml'
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: fmt and validate
+        # -backend=false so validate never touches real state or needs credentials.
+        run: |
+          rc=0
+          for d in $(git ls-files '*.tf' | xargs -n1 dirname | sort -u); do
+            echo "::group::$d"
+            terraform -chdir="$d" fmt -check -diff || rc=1
+            terraform -chdir="$d" init -backend=false -input=false || rc=1
+            terraform -chdir="$d" validate || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
