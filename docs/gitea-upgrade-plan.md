@@ -117,6 +117,18 @@ patch 版本原则上保持数据库结构兼容；本计划的两个步骤都�
 数据库 dump 与 PVC archive 是一个不可拆分的回滚点；禁止混用不同时间或不同阶段的
 两份备份。
 
+## 1.26.4 阶段执行记录
+
+- 目标 `1.26.4-rootless` 镜像已经预拉取到 k3s 节点；
+- Gitea 停写后生成了 custom-format PostgreSQL dump 与保留 owner/ACL/xattr 的 PVC
+  tar，两者分别通过 `pg_restore --list`、`tar --list` 和 SHA-256 校验；
+- 本地回滚点位于
+  `/var/backups/homelab/gitea/20260910T060400Z-1.25.5/`，权限为 0700；其中另有使用
+  个人 GPG 公钥加密并通过 packet 检查的 bundle；
+- 操作者明确选择不上传 OCI，因此本阶段接受只有节点本地副本的风险例外；
+- 备份后旧版 `1.25.5` 已恢复，Pod 内与统一域名 API、Gitea API 和 Flux Git source
+  均验证正常。
+
 ## 后续但不并入升级
 
 - 将 `gitea-oidc-secret` 等剩余手工 Secret 迁入 OpenBao/ESO；

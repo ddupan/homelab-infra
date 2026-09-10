@@ -29,6 +29,17 @@ What changed in this homelab, when, and why. Newest first.
 | Gitea adoption activate | 第一阶段合并后 source、子 Kustomization 和 HTTPRoute 均 Ready，Helm release 仍为 revision 14，Gitea Pod 未重建或重启；再次确认固定 chart 对 live 业务资源零差异后移除 `suspend`，允许 Flux 修正 Helm 存储状态并启用 drift detection |
 | Gitea upgrade plan | 规划两跳升级：chart `12.6.0` + 显式 Gitea `1.26.4`，再到 chart `12.7.0` + 显式 Gitea `1.27.3`；每个 minor 都先以 suspended desired state 合并、停机建立 CNPG/PVC 一致回滚点，再用独立 PR 激活。当前 CNPG 无连续备份、local-path PVC 无 snapshot class，因此禁止无备份直接触发数据库 migration |
 | Gitea 1.26 preparation | 将第一跳目标写入 Git：chart 固定为 `12.6.0`、rootless 镜像显式固定为 `1.26.4`，同时重新设置 HelmRelease `suspend: true`；该准备 revision 合并后只更新 desired state，不触发 Pod replacement 或数据库 migration |
+| Gitea 1.26 backup | 预拉取 `1.26.4-rootless` 后，在 HelmRelease suspended 状态将 Gitea scale 到 0；生成并校验 539355-byte CNPG custom dump、2609188-byte PVC tar 和 2848667-byte GPG encrypted bundle，随后恢复旧版 `1.25.5` 并验证内外 API 与 Flux source。按明确决定不上传 OCI，本阶段接受只有节点本地回滚点的风险 |
+| Gitea 1.26 activation | 停机一致备份门槛完成后，激活变更只移除 HelmRelease 的 `suspend`；chart `12.6.0`、显式 `1.26.4-rootless` image、values、数据库与 PVC 均保持已 review 的准备状态 |
+
+### Incident: Gitea 备份后的恢复命令被 stdin 校验阻塞
+
+最初把本地 custom-format dump 通过 `kubectl exec -i` 输送给 CNPG Pod 内的
+`pg_restore --list`；远端 stdin 没有正常结束，组合脚本因此停在校验步骤，尚未执行
+后面的 scale-up。Deployment 保持预期的 0，没有失败 Pod 或数据写入。发现后终止
+会话、先恢复 Gitea，再把 dump 临时复制到 CNPG 可写数据卷完成校验并立即删除。
+旧版 Gitea 恢复后内外 API 和 Flux source 均正常；后续 runbook 不再把 stdin 管道与
+恢复命令放进同一个 shell transaction。
 
 `Carried forward`: complete the two-stage zero-change `gitea` HelmRelease
 adoption, migrate its remaining manual OIDC Secret to OpenBao/ESO, then upgrade
