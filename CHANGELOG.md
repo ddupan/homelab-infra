@@ -15,6 +15,19 @@ What changed in this homelab, when, and why. Newest first.
 
 ---
 
+## 2026-09-10
+
+**Flux 的 deployment、drift repair 和 scoped prune 闭环验证完成。**
+
+| area | change |
+|---|---|
+| GitOps | PR #18 合并后，Flux 自行发现 revision `f257a2a` 并删除已在 `prune: true` 下重新进入 inventory 的测试 ConfigMap；未发送 reconcile annotation，`http-echo` Deployment/Service 保持 Ready，root 继续 `prune: false` |
+| Helm migration | 选定 `gitea-actions` 作为第一个 Flux HelmRelease adoption：它不承载 Git、入口、DNS、证书、数据库或 secrets controller。live StatefulSet 与 Git 都使用 regular DinD，但 Helm 保存的 release values/manifest 仍是失败的 rootless 配置；接管先固定 chart `0.1.1` 并验证 live Pod spec 不变，升级另开 PR |
+
+`Carried forward`: adopt `gitea-actions` with a zero-change HelmRelease; then
+order the remaining Helm migrations by dependency and blast radius. Root Flux
+prune remains disabled until brownfield ownership is audited.
+
 ## 2026-09-09
 
 **Recorded the brownfield GitOps/IaC redesign before changing live infrastructure.**

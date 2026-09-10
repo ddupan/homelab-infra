@@ -1,6 +1,6 @@
 # Homelab GitOps and IaC redesign
 
-Status: **implementation in progress; CI and Flux bootstrap are live.**
+Status: **implementation in progress; CI、Flux bootstrap、漂移修复与受控 prune 已验证。**
 
 Started 2026-09-09. This is the durable record of the redesign discussion. It
 separates observations, decisions and open work so an assumption cannot silently
@@ -35,9 +35,11 @@ or reconcile later CPU, memory, NIC or boot drift.
 
 ### Kubernetes and delivery
 
-- Kubernetes is a single-node k3s cluster.
-- Helm releases and manifests have historically been applied by hand.
-- No Flux or Argo CD installation was found during the initial audit.
+- Kubernetes is a single-node k3s `v1.36.4+k3s1` cluster.
+- Helm releases and manifests have historically been applied by hand and are now
+  being adopted by Flux one release at a time.
+- Flux `v2.9.5` is live. Its internal Gitea source and root Kustomization are
+  Ready; `http-echo` proved automatic deployment, drift repair and scoped prune.
 - Repository history records External Secrets Operator 2.8.0 as deployed. Five
   `ExternalSecret` resources cover Authelia, Gitea, Cloudflared and SeaweedFS.
   All five reported `SecretSynced=True` during a live check on 2026-09-09.
@@ -208,13 +210,18 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
    remaining manually managed Secrets, then migrate them incrementally.
 3. **In progress:** the Gitea remote exists; add a one-way off-site mirror and
    revisit the Terraform State Registry after upgrading beyond Gitea 1.25.5.
-4. **In progress:** the reviewed Gitea Runner is deployed and Stage 1 CI is green;
-   bootstrap Flux on `http-echo` or `marker` without enabling prune until live
-   ownership is audited.
-5. Move Tunnel origins to Envoy and consolidate split DNS through Blocky.
-6. Deploy Backstage read-only with Catalog, Kubernetes, Flux and TechDocs.
-7. Reconstruct the OCI root to a zero-change plan and add libvirt drift reports.
-8. Add dynamic PVE VM workers only when a real job requires one, with TTL cleanup
+4. **Complete:** the reviewed Gitea Runner and Stage 1 CI are live. Flux deploys
+   `http-echo`; automatic deployment, replica drift repair and scoped deletion
+   were verified. Root prune remains disabled for brownfield safety.
+5. **Next:** adopt the existing `gitea-actions` Helm release with the same chart
+   `0.1.1` and repository values before attempting an upgrade. Its live
+   StatefulSet and Git both use regular DinD, while Helm's stored release values
+   still describe the failed rootless attempt. The first Flux reconciliation
+   must repair this stored-state drift without changing the live Pod spec.
+6. Move Tunnel origins to Envoy and consolidate split DNS through Blocky.
+7. Deploy Backstage read-only with Catalog, Kubernetes, Flux and TechDocs.
+8. Reconstruct the OCI root to a zero-change plan and add libvirt drift reports.
+9. Add dynamic PVE VM workers only when a real job requires one, with TTL cleanup
    and hard concurrency/resource limits first.
 
 ## Open decisions
@@ -224,7 +231,7 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
 - Whether OCI Object Storage passes the concurrent lockfile test.
 - Whether the OCI VM should later move from its current public subnet.
 - Schema/generator for the Git-owned service declaration.
-- Which live Helm releases are absent from or differ from Git.
+- Migration order for Helm releases after the `gitea-actions` adoption.
 - Whether each local libvirt VM should autostart.
 - Which first job genuinely requires a dynamic Proxmox VM.
 
