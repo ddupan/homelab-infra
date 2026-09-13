@@ -76,6 +76,11 @@ Agent 应通过 PSAT attestation 注册，CSI Driver 应在节点 Ready。
 首个业务验收另行增加一个专用测试 Pod 与 `ClusterSPIFFEID`，验证取得
 `aud=openbao` 的 JWT-SVID 后登录 OpenBao。PoC 完成前不修改生产认证方式。
 
+OpenBao 中对应的 Terraform 资源位于
+`../../infrastructure/openbao/terraform/auth-spire.tf`。PoC role 只接受精确 subject
+`spiffe://ddupan.top/ns/spire-poc/sa/spire-jwt-poc`，token 不包含 default policy，
+且 `spire-poc` policy 不允许读取任何业务 secret。
+
 ## 恢复边界
 
 - 恢复顺序：共享 PostgreSQL、SPIRE Server signing-key PVC、SPIRE Server、Agent；
