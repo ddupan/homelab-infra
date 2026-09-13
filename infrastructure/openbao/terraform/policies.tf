@@ -14,6 +14,11 @@ resource "vault_policy" "ai_agent_ssh" {
   policy = file("${path.module}/policies/ai-agent-ssh.hcl")
 }
 
+resource "vault_policy" "spire_poc" {
+  name   = "spire-poc"
+  policy = file("${path.module}/policies/spire-poc.hcl")
+}
+
 resource "vault_policy" "snapshot" {
   name   = "snapshot"
   policy = file("${path.module}/policies/snapshot.hcl")
