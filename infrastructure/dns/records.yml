@@ -13,6 +13,7 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
       - { zone: ad.ddupan.top, name: netbox, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }
+      - { zone: ad.ddupan.top, name: spire-oidc, type: A, values: [192.168.10.127] }
 
   split_horizon:
     # LAN and pod resolvers should eventually render the same set from here.

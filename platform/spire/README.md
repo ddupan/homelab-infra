@@ -50,9 +50,14 @@ PostgreSQL保存 registration state；SPIRE Server 的 disk KeyManager 仍使用
 https://spire-oidc.ad.ddupan.top
 ```
 
-首次部署时 OIDC Discovery Provider 仅为 ClusterIP，内部为明文 HTTP；尚未创建
-外部 DNS 或 Gateway route。接入 OpenBao 前，在现有 Envoy Gateway 上终止 TLS、
-增加内网 DNS，并验证 discovery document 的 `issuer` 与上述 URL 完全一致。
+OIDC Discovery Provider 在 Pod 内部使用明文 HTTP，由现有 Envoy Gateway 的
+`https` listener 使用 `*.ad.ddupan.top` wildcard certificate 终止 TLS。对应的
+`HTTPRoute` 将 `spire-oidc.ad.ddupan.top` 转发到 ClusterIP Service；AD DNS 记录
+声明在 `../../infrastructure/dns/records.yml`，由 Samba DNS Ansible 流程应用。
+
+接入 OpenBao 前必须从集群内和 LAN 分别验证 discovery document 的 `issuer` 与
+上述 URL 完全一致。该 endpoint 只发布公开的 discovery metadata 和 JWKS，不能
+在其 HTTPRoute 上添加 Authelia forward-auth。
 
 ## 首次部署与验证
 
