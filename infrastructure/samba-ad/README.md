@@ -54,6 +54,7 @@ second run is a no-op there and only reconciles config drift.
 |---|---|
 | `roles/dc_vm/` | creates the DC VM locally via libvirt + cloud-init |
 | `roles/samba_ad_dc/` | provisions the DC (§1) — idempotent |
+| `ansible/collections/ansible_collections/ddupan/homelab/` | repository-local collection containing the Samba DNS module and its `ansible-test` tests |
 | `roles/samba_ad_dc/tasks/verify.yml` | smoke tests (`--tags verify`) |
 | `roles/samba_ad_dc/tasks/legacy.yml` | opt-in retro-client protocols (§ Retro clients) |
 | `roles/windows_vm/` | unattended-installs the Windows Server 2025 admin box (§2.0) |
@@ -61,6 +62,9 @@ second run is a no-op there and only reconciles config drift.
 | `group_vars/all/vars.yml` | all non-secret settings — **edit this** |
 | `group_vars/all/vault.yml` | admin passwords (gitignored; encrypt with ansible-vault) |
 | `inventory/hosts.yml` | DC + Windows hosts |
+
+Static DNS records are declared once in `../../dns/records.yml`. The role manages
+only those RRsets and deliberately leaves Samba-generated AD locator records alone.
 
 ---
 

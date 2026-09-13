@@ -6,11 +6,13 @@ on:
     branches: [main]
     paths:
       - 'infrastructure/**/ansible/**'
+      - 'infrastructure/dns/**'
       - '.ansible-lint'
       - '.gitea/workflows/ansible.yml'
   pull_request:
     paths:
       - 'infrastructure/**/ansible/**'
+      - 'infrastructure/dns/**'
       - '.ansible-lint'
       - '.gitea/workflows/ansible.yml'
 
@@ -48,6 +50,7 @@ jobs:
       - name: ansible-lint
         run: |
           export PATH="$HOME/.local/bin:$PATH"
+          export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:/root/.ansible/collections"
           rc=0
           for p in infrastructure/openbao infrastructure/samba-ad infrastructure/proxmox; do
             echo "::group::$p"
@@ -55,3 +58,22 @@ jobs:
             echo "::endgroup::"
           done
           exit $rc
+
+  collection-test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ansible-core
+        run: |
+          python3 -m pip install --user --break-system-packages \
+            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install ansible-core --quiet
+
+      - name: Run ansible-test
+        working-directory: infrastructure/samba-ad/ansible/collections/ansible_collections/ddupan/homelab
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ansible-test sanity --venv --requirements --python 3.12 --color no
+          ansible-test units --venv --requirements --python 3.12 --color no

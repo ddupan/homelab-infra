@@ -1,0 +1,44 @@
+---
+# Homelab DNS desired state. This file is the canonical inventory; individual
+# backends consume only the views they own.
+homelab_dns:
+  samba:
+    # Samba remains authoritative for the AD zone. Only these explicitly listed
+    # RRsets are reconciled; Samba-generated AD/Kerberos records are untouched.
+    records:
+      - { zone: ad.ddupan.top, name: bao, type: A, values: [192.168.10.8] }
+      - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
+      - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
+      - { zone: ad.ddupan.top, name: pve3, type: A, values: [192.168.10.9] }
+      - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
+      - { zone: ad.ddupan.top, name: netbox, type: A, values: [192.168.10.127] }
+      - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }
+
+  split_horizon:
+    # LAN and pod resolvers should eventually render the same set from here.
+    # Adoption of Blocky/CoreDNS is deliberately a separate change.
+    records:
+      - { name: git.ddupan.top, type: A, values: [192.168.10.127] }
+      - { name: auth.ddupan.top, type: A, values: [192.168.10.127] }
+      - { name: obj.ddupan.top, type: A, values: [192.168.10.127] }
+
+  public:
+    # Names expected at Cloudflare. Terraform adoption is a separate change;
+    # complete RRsets here make the current ownership gap explicit.
+    records:
+      - name: auth.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: git.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: obj.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+      - name: e5renew.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true

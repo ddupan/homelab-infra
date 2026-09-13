@@ -10,29 +10,8 @@ samba_ad_dc_ip: "192.168.10.5"
 samba_ad_dns_forwarder: "192.168.10.1"
 samba_ad_reverse_zone: "10.168.192.in-addr.arpa"   # reverse of 192.168.10.0/24
 
-# Extra A records for non-domain hosts published in the AD DNS zone.
-samba_ad_extra_a_records:
-  - { name: "bao", ip: "192.168.10.8" }            # OpenBao (../openbao), not domain-joined
-  # Proxmox cluster nodes (../proxmox). Not domain-joined; they authenticate
-  # USERS against this DC rather than being members themselves.
-  - { name: "pve1", ip: "192.168.10.4" }
-  - { name: "pve2", ip: "192.168.10.7" }
-  - { name: "pve3", ip: "192.168.10.9" }
-  # Lab VMs on the SDN VNets (routed via the VyOS router, see ../../proxmox).
-  # These are NOT on 192.168.10.0/24, so they have no PTR in the existing
-  # reverse zone — forward resolution only unless a 0.60.10.in-addr.arpa zone
-  # is added later.
-  - { name: "retrolab", ip: "10.60.0.10" }
-  # k3s services exposed on the LAN through the Envoy gateway (../../../platform/envoy-gateway;
-  # Contour was retired 2026-07-25). They all point at the k3s node, which is where
-  # Envoy's LoadBalancer lands; the gateway routes by Host header and serves the
-  # *.ad.ddupan.top wildcard cert.
-  # Adding another such service = one more line here + an HTTPRoute, nothing else.
-  - { name: "netbox", ip: "192.168.10.127" }        # NetBox (../../../apps/netbox)
-  # SeaweedFS S3. Exists so Terraform state does NOT ride the Cloudflare tunnel:
-  # obj.ddupan.top works, but it hairpins through the WAN, and on 2026-07-28 that
-  # path was blackholed for hours by a dead VPN tunnel. State must stay on the LAN.
-  - { name: "s3", ip: "192.168.10.127" }            # SeaweedFS S3 (../../../apps/seaweedfs)
+# Static records now live in ../../dns/records.yml and are reconciled as complete
+# RRsets by the local samba_dns_record module.
 
 # Support legacy clients (Win9x/NT4/2000/XP)? INSECURE — see README "Retro clients".
 samba_ad_legacy_clients: false

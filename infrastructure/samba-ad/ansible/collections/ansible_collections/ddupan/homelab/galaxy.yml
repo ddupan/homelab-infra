@@ -1,0 +1,16 @@
+---
+namespace: ddupan
+name: homelab
+version: 0.1.0
+readme: README.md
+authors:
+  - panxiao81
+description: Ansible plugins used to manage the ddupan.top homelab.
+license:
+  - GPL-3.0-or-later
+tags:
+  - infrastructure
+  - dns
+repository: https://git.ddupan.top/panxiao81/homelab-infra
+build_ignore:
+  - .git
