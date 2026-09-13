@@ -14,3 +14,4 @@ resources:
   - helmrepository.yaml
   - helmrelease-crds.yaml
   - helmrelease.yaml
+  - httproute.yaml
