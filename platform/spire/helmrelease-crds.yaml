@@ -1,0 +1,30 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: spire-crds
+  namespace: spire-mgmt
+spec:
+  chart:
+    spec:
+      chart: spire-crds
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: spiffe-hardened
+      version: 0.6.1
+  driftDetection:
+    mode: enabled
+  install:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: spire-crds
+  targetNamespace: spire-mgmt
+  timeout: 10m
+  upgrade:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m

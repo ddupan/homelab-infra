@@ -1,0 +1,103 @@
+global:
+  k8s:
+    clusterDomain: cluster.local
+  spire:
+    clusterName: homelab
+    trustDomain: ddupan.top
+    # This is a stable external identity even before its Gateway route is added.
+    # Changing the issuer after consumers trust it would invalidate their config.
+    jwtIssuer: https://spire-oidc.ad.ddupan.top
+    caSubject:
+      country: CN
+      organization: ddupan homelab
+      commonName: ddupan.top
+    namespaces:
+      create: false
+      system:
+        name: spire-system
+      server:
+        name: spire-server
+    recommendations:
+      enabled: true
+      namespaceLayout: true
+      namespacePSS: true
+      priorityClassName: true
+      strictMode: true
+      securityContexts: true
+      prometheus: false
+
+spire-server:
+  kind: statefulset
+  replicaCount: 1
+  auditLogEnabled: true
+  persistence:
+    # PostgreSQL stores registrations, but the disk KeyManager still needs durable
+    # storage for the trust-domain signing keys.
+    type: pvc
+    size: 1Gi
+    accessMode: ReadWriteOnce
+    storageClass: localpv-zfs-ceph
+  dataStore:
+    sql:
+      databaseType: postgres
+      databaseName: spire
+      host: shared-postgresql-rw.shared-db.svc.cluster.local
+      port: 5432
+      username: spire
+      options:
+        - sslmode: require
+      externalSecret:
+        enabled: true
+        name: spire-postgresql
+        key: password
+      maxOpenConns: 20
+      maxIdleConns: 2
+      connMaxLifetime: 30m
+  controllerManager:
+    enabled: true
+    # Identities are opt-in. Do not issue a fallback SVID to every pod in the
+    # cluster merely because it can mount the Workload API socket.
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          enabled: false
+        test-keys:
+          enabled: false
+
+spire-agent:
+  nodeAttestor:
+    k8sPSAT:
+      enabled: true
+  workloadAttestors:
+    k8s:
+      enabled: true
+    unix:
+      enabled: false
+
+spiffe-csi-driver:
+  enabled: true
+
+spiffe-oidc-discovery-provider:
+  enabled: true
+  # TLS will terminate at the existing Envoy Gateway when the stable issuer is
+  # exposed. The service remains ClusterIP-only during the first deployment.
+  tls:
+    spire:
+      enabled: false
+    externalSecret:
+      enabled: false
+    certManager:
+      enabled: false
+
+upstream:
+  enabled: false
+tornjak-frontend:
+  enabled: false
+spire-identity-exchange:
+  enabled: false
+spike-keeper:
+  enabled: false
+spike-nexus:
+  enabled: false
+spike-pilot:
+  enabled: false
