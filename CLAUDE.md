@@ -150,6 +150,11 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   all-clear. Use `git check-ignore --no-index` and `git rm --cached` to actually remove it.
 - **A `.tfplan` is a zip containing a full `tfstate`.** It walks straight past `*.tfstate`
   ignore rules. Ignore `*.tfplan` everywhere.
+- **SPIRE CLI JSON can be an array of response blocks.** `spire-agent api fetch jwt
+  -output json` in 1.15.3 returns blocks containing `svids` and `bundles`. Capture stdout
+  privately and type-check before extracting fields; `list(response)` prints full tokens
+  when the response is already an array. Never inspect credential payloads by printing
+  their containers, and never put fetched JWTs in command arguments or Pod logs.
 - **Quoting does not survive two ssh hops.** `ssh pve1 "ssh pve3 'cmd | qm monitor 103'"`
   loses the inner quotes — ssh re-joins argv with spaces, so the pipeline splits and the
   tail runs on the **jump host**. It fails silently if you discard stderr: a `screendump`

@@ -1,0 +1,147 @@
+# 官方 chart 0.1.124 / zot v2.1.21；制品与 manifests 保存在 SeaweedFS S3。
+# persistence=false 仅保留 chart 的 emptyDir，不创建 PVC。
+# 首期关闭跨仓库 dedupe，不额外引入 Redis/DynamoDB 持久缓存。
+replicaCount: 1
+image:
+  repository: ghcr.io/project-zot/zot
+  tag: v2.1.21@sha256:8258443838e95989c13c891f78a02bc1c391b5a00591ffef24cb8c17cde28038
+persistence: false
+strategy:
+  type: Recreate
+serviceAccount:
+  create: false
+  name: zot
+service:
+  type: ClusterIP
+  port: 5000
+mountConfig: true
+mountSecret: false
+secretFiles: {}
+configFiles:
+  config.json: |
+    {
+      "distSpecVersion": "1.1.1",
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "dedupe": false,
+        "gc": true,
+        "gcDelay": "24h",
+        "gcInterval": "24h",
+        "storageDriver": {
+          "name": "s3",
+          "region": "us-east-1",
+          "regionendpoint": "https://s3.ad.ddupan.top",
+          "bucket": "zot",
+          "rootdirectory": "/registry",
+          "secure": true,
+          "skipverify": false,
+          "forcepathstyle": true
+        }
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "externalUrl": "https://zot.ad.ddupan.top",
+        "compat": [
+          "docker2s2"
+        ],
+        "auth": {
+          "bearer": {
+            "realm": "https://zot.ad.ddupan.top/zot/auth/token",
+            "service": "zot.ad.ddupan.top",
+            "oidc": [
+              {
+                "issuer": "https://spire-oidc.ad.ddupan.top",
+                "audiences": [
+                  "zot"
+                ],
+                "claimMapping": {
+                  "username": "claims.sub",
+                  "validations": [
+                    {
+                      "expression": "claims.sub.startsWith('spiffe://ddupan.top/')",
+                      "message": "SPIFFE trust domain mismatch"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "accessControl": {
+          "repositories": {
+            "**": {
+              "defaultPolicy": [
+                "read"
+              ]
+            }
+          }
+        }
+      },
+      "log": {
+        "level": "info"
+      }
+    }
+env:
+- name: AWS_ACCESS_KEY_ID
+  valueFrom:
+    secretKeyRef:
+      name: zot-s3
+      key: access_key
+- name: AWS_SECRET_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: zot-s3
+      key: secret_key
+- name: AWS_EC2_METADATA_DISABLED
+  value: 'true'
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: '1'
+    memory: 512Mi
+extraVolumes:
+- name: tmp
+  emptyDir:
+    sizeLimit: 128Mi
+extraVolumeMounts:
+- name: tmp
+  mountPath: /tmp
+startupProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 60
+httproute:
+  enabled: true
+  parentRefs:
+  - name: eg
+    namespace: envoy-gateway-system
+    sectionName: https
+  hostnames:
+  - zot.ad.ddupan.top
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v2/
+    - path:
+        type: Exact
+        value: /zot/auth/token
+    timeouts:
+      request: 900s
+      backendRequest: 900s
