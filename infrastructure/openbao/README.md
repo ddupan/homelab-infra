@@ -36,6 +36,7 @@ configure any secrets engines/auth methods — that is a separate bootstrap play
 ```
 terraform/                     # OpenBao's API-level CONFIGURATION (see below)
   mounts.tf  pki.tf  ssh.tf  auth.tf  policies.tf
+  auth-spire.tf                # SPIFFE JWT-SVID -> short-lived Bao tokens
   imports.tf                   # adopts the already-running instance into state
   policies/*.hcl               # policy bodies, kept diffable
 ```
@@ -204,6 +205,11 @@ Note: the LE cert covers the **hostname only** (`bao.ad.ddupan.top`), not the IP
 after this, use `BAO_ADDR=https://bao.ad.ddupan.top:8200` (no skip-verify), not the IP.
 
 ## Using it
+
+Kubernetes workload 不接收长期 `BAO_TOKEN`：它通过 SPIRE Workload API 获取
+JWT-SVID，再经 `auth/jwt-spire/login` 换取短期、最小权限 token。完整接入流程、
+manifest、exchange 脚本、安全要求和排障方法见
+[`../../platform/spire/RUNBOOK.md`](../../platform/spire/RUNBOOK.md)。
 
 ```bash
 # human: log in via Authelia (2FA)

@@ -3,6 +3,9 @@
 SPIRE 是 homelab 的机器与 workload identity 根。人类身份继续由 Samba AD 与
 Authelia 提供；SPIRE 不替代人类 OIDC，也不承担目标服务的资源授权。
 
+部署状态、workload 接入、JWT-SVID → OpenBao exchange、安全规则和故障恢复详见
+[RUNBOOK.md](RUNBOOK.md)。本文只保留部署声明与关键恢复边界。
+
 ## 部署范围
 
 Flux 安装 SPIFFE hardened charts：
@@ -73,8 +76,9 @@ sudo k3s kubectl -n spire-system get daemonset,pods
 必须先确认 `spire-crds` Ready，随后 `spire` Ready。SPIRE Server 应连接 PostgreSQL，
 Agent 应通过 PSAT attestation 注册，CSI Driver 应在节点 Ready。
 
-首个业务验收另行增加一个专用测试 Pod 与 `ClusterSPIFFEID`，验证取得
-`aud=openbao` 的 JWT-SVID 后登录 OpenBao。PoC 完成前不修改生产认证方式。
+2026-09-14 已使用临时测试 Pod 与 `ClusterSPIFFEID` 完成
+`aud=openbao` JWT-SVID → OpenBao 登录、token 自省和主动吊销的端到端验收；临时
+Kubernetes 资源与 registration entries 已清理。
 
 OpenBao 中对应的 Terraform 资源位于
 `../../infrastructure/openbao/terraform/auth-spire.tf`。PoC role 只接受精确 subject
