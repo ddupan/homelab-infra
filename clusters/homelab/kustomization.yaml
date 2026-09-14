@@ -12,3 +12,4 @@ resources:
   - apps/openebs.yaml
   - apps/spire.yaml
   - apps/observability.yaml
+  - apps/zot.yaml
