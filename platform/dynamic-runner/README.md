@@ -2,22 +2,23 @@
 
 此目录只管理 homelab 中的 controller 部署。controller、worker、Cloud Hypervisor
 launcher 和 guest runner 的源码与发布位于独立仓库
-`panxiao81/gitea-microvm-runner`。
+`panxiao81/gitea-dynamic-runner`。
 
-controller 接收 Gitea `workflow_job` webhook，将 `[self-hosted, pod]` 和
+当前 bootstrap controller 接收 Gitea `workflow_job` webhook，将 `[self-hosted, pod]` 和
 `[self-hosted, vm]` 的 queued job 分别发布到 NATS。Pod worker 在本集群创建一次性
 privileged host runner；Docker、BuildKit 和 kind 由 workflow 自行 setup。内部
 endpoint：
 
 ```text
-http://microvm-runner-controller.microvm-runner.svc.cluster.local:8787/webhook
+http://dynamic-runner-controller.dynamic-runner.svc.cluster.local:8787/webhook
 ```
 
 OpenBao 路径：
 
 - `kv/k8s/nats.ci_producer_password`：已有 NATS producer 密码。
 - `kv/k8s/nats.ci_worker_password`：已有 NATS worker 密码。
-- `kv/k8s/microvm-runner.webhook_secret`：Gitea webhook HMAC secret。
+- `kv/k8s/microvm-runner.webhook_secret`：Gitea webhook HMAC secret；这是已有 Bao
+  路径，资源重命名不迁移 secret 数据。
 - `kv/k8s/gitea-runner.token`：现有 instance runner registration token。
 
 首期 controller 与 runner 镜像由 laptop 本机构建后导入 k3s containerd，作为 CI
@@ -40,8 +41,12 @@ ci.ddupan.top/spiffe-path=<owner>/<repository>/<percent-encoded-job-name>
 SVID 可用之前不会放行第一步，因此不能根据 queued 事件错配身份。
 
 每个 runner Pod 使用 `gitea-dynamic-runner` ServiceAccount。该 ServiceAccount 没有
-Kubernetes API 权限；只有 controller ServiceAccount 能在本 namespace
+Kubernetes API 权限；只有 `dynamic-runner-pod-worker` ServiceAccount 能在本 namespace
 create/get/patch/delete Pod。
+
+长期实现将由兼容 Gitea RunnerService 的 scheduler 直接领取 task，再交给 Pod/VM
+executor；届时删除 webhook、临时 runner 注册和 identity binding 消息。跟踪见
+`panxiao81/gitea-dynamic-runner` issue #7。
 
 Gitea webhook 只订阅 `workflow_job`，content type 使用 JSON，secret 与 Bao 中值
 一致。不要启用 `send_everything`，否则 controller 会收到无关仓库事件。

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: microvm-runner
+  name: dynamic-runner
   labels:
     # Disposable Pod runners may start dockerd or kind from the workflow.
     pod-security.kubernetes.io/enforce: privileged

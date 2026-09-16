@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: microvm-runner-controller
-  namespace: microvm-runner
+  name: dynamic-runner-controller
+  namespace: dynamic-runner
 spec:
   selector:
-    app.kubernetes.io/name: microvm-runner-controller
+    app.kubernetes.io/name: dynamic-runner-controller
   ports:
     - name: http
       port: 8787

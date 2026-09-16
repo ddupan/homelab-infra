@@ -1,7 +1,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: microvm-runner
+  name: dynamic-runner
   namespace: flux-system
 spec:
   dependsOn:
@@ -9,7 +9,7 @@ spec:
     - name: nats
     - name: spire
   interval: 10m
-  path: ./platform/microvm-runner
+  path: ./platform/dynamic-runner
   prune: false
   sourceRef:
     kind: GitRepository
