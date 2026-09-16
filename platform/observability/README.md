@@ -2,7 +2,8 @@
 
 Metrics, logs, and traces for the cluster — one VictoriaMetrics-ecosystem stack,
 operator-driven, running in the `monitoring` namespace. Replaces the standalone
-Docker Compose stack in `../../apps/victoriametrics/`.
+Docker Compose monitoring stack. The retired stack and its three Docker data volumes
+were removed on 2026-09-16 with the maintainer's explicit approval.
 
 ## Grafana 当前入口（2026-09-16）
 
@@ -94,7 +95,7 @@ observability/
   operator/                 victoria-metrics-operator (Helm)
   metrics/
     vmsingle|vmagent|vmalert|vmalertmanager.yaml   core CRs
-    rules/                  VMRules ported from ../../apps/victoriametrics/rules
+    rules/                  VMRules migrated from the retired Compose stack (source in Git history)
     exporters/              node-exporter (+VMNodeScrape), kube-state-metrics (Helm)
     scrapes/               kubelet + cAdvisor VMNodeScrapes
   logs/                     VLSingle CR + victoria-logs-collector (Helm)
@@ -105,8 +106,8 @@ observability/
 
 ## Docker hosts
 
-The Compose services on Docker hosts (`../../apps/vlmcsd`, `../../apps/ps3netsrv`, `../../apps/netboot`, ...
-and the legacy `../../apps/victoriametrics` stack) are monitored too:
+The Compose services on Docker hosts (`../../apps/vlmcsd`, `../../apps/ps3netsrv`, `../../apps/netboot`, ...)
+are monitored too:
 
 - **Metrics — pull, nothing exposed.** Each host runs `docker-hosts/compose.yaml`
   (cAdvisor `:8080` + node-exporter `:9100`). The cluster's vmagent scrapes their LAN
@@ -177,7 +178,9 @@ cd grafana && ./helm.sh && cd ..
   vmalert (14950), node-exporter (1860), cAdvisor now that those exporters exist.
 - Wire real Alertmanager receivers in `metrics/vmalertmanager.yaml` (email via
   `../../apps/smtp-relay/`), replacing the ported `blackhole`.
-- Once parity is confirmed, decommission the Compose stack: `../../apps/victoriametrics/`
-  (`docker compose down`), and retire that folder.
+- 旧 Compose 监控栈已于 2026-09-16 按维护者要求清理：原先已无容器，本次移除
+  旧配置及 `victoriametrics_vmdata`、`victoriametrics_vmagentdata`、
+  `victoriametrics_grafanadata` 三个无引用 Docker 卷。没有创建备份或迁移旧数据，
+  Kubernetes 监控资源未修改。旧配置仍可从 Git 历史查阅，旧卷中的数据已删除。
 - Add app instrumentation: point `OTEL_EXPORTER_OTLP_ENDPOINT` at
   `otel-collector.monitoring.svc:4317`.
