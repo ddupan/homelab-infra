@@ -35,10 +35,11 @@ ci_worker_password
 
 ## CI stream 约定
 
-controller 首次启动时幂等创建 `CI_RUNNER` stream：`ci.runner.*`、
+controller 首次启动时幂等创建 `CI_RUNNER` stream：`ci.runner.>`、
 `WorkQueuePolicy`、file storage、24h/10000 条/256 MiB 上限。每类 runner 使用独立
-subject 和 durable pull consumer；同类型的多个 worker 共享 durable consumer。
-ACK 后消息立即删除，不保存 CI 历史。
+subject 和 durable pull consumer；`ci.runner.<backend>.binding` 传递 runner 实际
+领取任务后的身份绑定。同类型的多个 worker 共享 durable consumer。ACK 后消息立即
+删除，不保存 CI 历史。
 
 ## 验证
 

@@ -11,6 +11,7 @@ resources:
   - apps/http-echo.yaml
   - apps/openebs.yaml
   - apps/nats.yaml
+  - apps/microvm-runner.yaml
   - apps/spire.yaml
   - apps/observability.yaml
   - apps/zot.yaml
