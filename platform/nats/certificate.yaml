@@ -15,6 +15,7 @@ spec:
   duration: 720h
   renewBefore: 168h
   privateKey:
-    algorithm: ECDSA
-    size: 256
+    # OpenBao's bao-server role intentionally accepts RSA keys only.
+    algorithm: RSA
+    size: 2048
     rotationPolicy: Always

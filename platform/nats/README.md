@@ -12,6 +12,8 @@
   使用 `nats.nats.svc.cluster.local:4222`。访问控制由 TLS、Account 与用户权限负责，
   不额外维护易漂移的源 IP 白名单。
 - TLS 证书由 `bao-acme` 签发。PVE 节点已信任内部 CA。
+- `bao-server` PKI role 只接受 RSA CSR，因此 Certificate 使用 RSA 2048；不要改成
+  ECDSA，ACME challenge 会成功但 finalize 会以 `role requires keys of type rsa` 失败。
 - `SYS` Account 用于管理；`CI` Account 启用 JetStream，存储上限 1 GiB。
 
 首期使用静态用户，密码只存在 OpenBao `kv/k8s/nats`：
