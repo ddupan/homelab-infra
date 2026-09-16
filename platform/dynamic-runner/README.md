@@ -17,8 +17,7 @@ OpenBao 路径：
 
 - `kv/k8s/nats.ci_producer_password`：已有 NATS producer 密码。
 - `kv/k8s/nats.ci_worker_password`：已有 NATS worker 密码。
-- `kv/k8s/microvm-runner.webhook_secret`：Gitea webhook HMAC secret；这是已有 Bao
-  路径，资源重命名不迁移 secret 数据。
+- `kv/k8s/dynamic-runner.webhook_secret`：Gitea webhook HMAC secret。
 - `kv/k8s/gitea-runner.token`：现有 instance runner registration token。
 
 首期 controller 与 runner 镜像由 laptop 本机构建后导入 k3s containerd，作为 CI
