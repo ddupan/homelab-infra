@@ -54,7 +54,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: RUNNER_IMAGE
-              value: gitea-dynamic-runner:0.3.0-bootstrap
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:4c61f6315453d68a827ee9542f1345ed86576eaaf62325eb803c8fe3f06ddf2a
             - name: RUNNER_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: RUNNER_TOKEN_SECRET
