@@ -25,3 +25,28 @@ resource "vault_jwt_auth_backend_role" "spire_poc" {
   token_ttl               = 300
   token_max_ttl           = 900
 }
+
+# Local development on the laptop. Keep the subject exact: possession of any
+# other identity in the trust domain must not grant interactive host access.
+resource "vault_jwt_auth_backend_role" "local_development" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "local-development"
+  role_type = "jwt"
+
+  user_claim      = "sub"
+  bound_audiences = ["openbao"]
+  bound_claims = {
+    sub = "spiffe://ddupan.top/dev/panxiao81"
+  }
+
+  # local-development grants normal KV v2 read/write plus short-lived SSH
+  # certificate signing; spire-poc only permits lookup and revocation of the
+  # caller's own short-lived Bao token.
+  token_policies = [
+    vault_policy.local_development.name,
+    vault_policy.spire_poc.name,
+  ]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}

@@ -71,6 +71,19 @@ configFiles:
         "accessControl": {
           "repositories": {
             "**": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/dev/panxiao81"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update",
+                    "delete"
+                  ]
+                }
+              ],
               "defaultPolicy": [
                 "read"
               ]
