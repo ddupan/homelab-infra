@@ -48,6 +48,11 @@ gitea:
       # github.com is reachable from this network (verified 2026-07-28) even when
       # pypi.org/Fastly is not — see the flaky-WAN notes in the lint workflow.
       DEFAULT_ACTIONS_URL: github
+    webhook:
+      # Keep the default public-internet access for existing hooks while allowing
+      # only the dynamic Runner controller's exact in-cluster DNS name. Do not
+      # broaden this to the built-in `private` network group.
+      ALLOWED_HOST_LIST: external,dynamic-runner-controller.dynamic-runner.svc.cluster.local
     mailer:
       # Outbound mail via the in-cluster Postfix+OAuth relay (see ../smtp-relay/).
       # Plain SMTP on :25 — the relay does STARTTLS + OAuth to M365. From must be the
