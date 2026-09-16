@@ -72,7 +72,10 @@ spire-agent:
     k8s:
       enabled: true
     unix:
-      enabled: false
+      # The node Agent also exposes its Workload API socket on the host. Enable
+      # Unix attestation so local development processes can receive an identity
+      # through an explicitly scoped ClusterStaticEntry.
+      enabled: true
 
 spiffe-csi-driver:
   enabled: true

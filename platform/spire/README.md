@@ -47,6 +47,25 @@ PostgreSQL保存 registration state；SPIRE Server 的 disk KeyManager 仍使用
 `ClusterSPIFFEID`，并以 namespace、ServiceAccount、Pod label 等 selector 收窄。
 不得仅因 Pod 能挂载 CSI socket 就给它签发身份。
 
+## 宿主机本地开发身份
+
+Kubernetes 节点 Agent 同时通过 hostPath 在宿主机发布 Workload API socket：
+
+```text
+/run/spire/agent-sockets/spire-agent.sock
+```
+
+Agent 已启用 Unix workload attestor，并为本机用户 `panxiao81`（UID `1000`）注册
+`spiffe://ddupan.top/dev/panxiao81`。本地开发程序应设置：
+
+```bash
+export SPIFFE_ENDPOINT_SOCKET=unix:///run/spire/agent-sockets/spire-agent.sock
+```
+
+该身份仅按 Unix UID 匹配，不是 SPIRE admin，也不会匹配 `sudo` 后以 root 运行的
+进程。`ClusterStaticEntry.spec.parentID` 绑定当前 `laptop` Kubernetes node UID；若
+节点被删除后重建，需从 `spire-server agent list` 取得新 Agent ID 并同步更新该字段。
+
 稳定的 JWT issuer 预留为：
 
 ```text

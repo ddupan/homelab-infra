@@ -15,3 +15,4 @@ resources:
   - helmrelease-crds.yaml
   - helmrelease.yaml
   - httproute.yaml
+  - local-development-identity.yaml
