@@ -1,0 +1,27 @@
+#include <tunables/global>
+
+# 限定为指标所需文件；跨 profile 读取由用户明确批准；不允许 trace 或读取进程 mem/environ。
+profile homelab-process-exporter flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  network inet stream,
+  network inet6 stream,
+  capability sys_ptrace,
+  capability dac_read_search,
+  ptrace (read) peer=**,
+  signal (receive) peer=unconfined,
+  signal (receive) peer=cri-containerd.apparmor.d,
+  signal (receive) peer=runc,
+  /bin/process-exporter mr,
+  /process-exporter mr,
+  /config/** r,
+  /etc/{passwd,group,nsswitch.conf} r,
+  /{host/,}proc/ r,
+  /{host/,}proc/{stat,meminfo,cpuinfo,uptime,version,sys/kernel/random/boot_id} r,
+  /{host/,}proc/[0-9]*/ r,
+  /{host/,}proc/[0-9]*/{stat,status,cmdline,smaps,smaps_rollup,io,limits,cgroup,wchan} r,
+  /{host/,}proc/[0-9]*/fd/ r,
+  /{host/,}proc/[0-9]*/task/ r,
+  /{host/,}proc/[0-9]*/task/[0-9]*/{stat,status,io,cmdline,wchan,cgroup,limits,smaps,smaps_rollup} r,
+  /proc/sys/net/core/somaxconn r,
+  /proc/self/{stat,status,smaps,smaps_rollup,limits,cgroup,mountinfo} r,
+}

@@ -1,0 +1,502 @@
+{
+  "uid": "homelab-memory",
+  "title": "Homelab 内存与 Swap",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "homelab",
+    "memory"
+  ],
+  "timezone": "utc",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_VM",
+        "label": "数据源",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "VictoriaMetrics",
+          "value": "VictoriaMetrics"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "主机物理内存",
+      "description": "ZFS ARC 是内存的一部分；不能与此面板或 Pod/PSS 再叠加。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"} - node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+          "legendFormat": "已用（total - available）"
+        },
+        {
+          "refId": "B",
+          "expr": "node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+          "legendFormat": "可用"
+        },
+        {
+          "refId": "C",
+          "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"}",
+          "legendFormat": "总量"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "ZFS ARC",
+      "description": "缓存可回收性取决于实际压力，ARC 不等同于 free 的 buff/cache。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_zfs_arc_size{job=\"node-exporter\"}",
+          "legendFormat": "当前 ARC"
+        },
+        {
+          "refId": "B",
+          "expr": "node_zfs_arc_c{job=\"node-exporter\"}",
+          "legendFormat": "目标"
+        },
+        {
+          "refId": "C",
+          "expr": "node_zfs_arc_c_max{job=\"node-exporter\"}",
+          "legendFormat": "上限"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Swap 使用量",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_SwapTotal_bytes{job=\"node-exporter\"} - node_memory_SwapFree_bytes{job=\"node-exporter\"}",
+          "legendFormat": "已用"
+        },
+        {
+          "refId": "B",
+          "expr": "node_memory_SwapTotal_bytes{job=\"node-exporter\"}",
+          "legendFormat": "总量"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Swap 换页速率",
+      "description": "单位为页/秒，不假定页大小。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_vmstat_pswpin{job=\"node-exporter\"}[5m])",
+          "legendFormat": "读入 pages/s"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_vmstat_pswpout{job=\"node-exporter\"}[5m])",
+          "legendFormat": "写出 pages/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "程序与虚拟机 PSS：前 15",
+      "description": "PSS 按共享页比例分摊。vm: 表示 QEMU 在宿主机的占用，不是来宾内部应用占用。与 Pod working set、ARC 不能相加。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, namedprocess_namegroup_memory_bytes{job=\"process-exporter\",memtype=\"proportionalResident\"})",
+          "legendFormat": "{{groupname}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "程序与虚拟机 SwapPss：前 15",
+      "description": "通过 smaps 对共享换出页按比例分摊。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, namedprocess_namegroup_memory_bytes{job=\"process-exporter\",memtype=\"proportionalSwapped\"})",
+          "legendFormat": "{{groupname}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pod working set：前 15",
+      "description": "cgroup working set 与 PSS 口径不同，不相加。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (namespace,pod) (container_memory_working_set_bytes{job=\"cadvisor\",container!=\"\",container!=\"POD\",pod!=\"\"}))",
+          "legendFormat": "{{namespace}}/{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "内存压力 PSI",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_pressure_memory_waiting_seconds_total{job=\"node-exporter\"}[5m])",
+          "legendFormat": "some"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_pressure_memory_stalled_seconds_total{job=\"node-exporter\"}[5m])",
+          "legendFormat": "full"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Samba RPC worker 数量",
+      "description": "仅在 exporter 健康时将无 worker 解释为 0；见采集健康面板。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "namedprocess_namegroup_num_procs{job=\"process-exporter\",groupname=\"rpcd_lsad\"} or on() (0 * max(up{job=\"process-exporter\"} == 1))",
+          "legendFormat": "rpcd_lsad"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "进程采集健康",
+      "description": "up 仅表示抓取成功；还需检查读取错误。进程退出等竞态可能造成偶发 partial errors，持续增长时检查 AppArmor 审计。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_VM}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"process-exporter\"}",
+          "legendFormat": "up"
+        },
+        {
+          "refId": "B",
+          "expr": "scrape_duration_seconds{job=\"process-exporter\"}",
+          "legendFormat": "scrape 秒"
+        },
+        {
+          "refId": "C",
+          "expr": "namedprocess_scrape_errors{job=\"process-exporter\"}",
+          "legendFormat": "采集错误"
+        },
+        {
+          "refId": "D",
+          "expr": "rate(namedprocess_scrape_partial_errors{job=\"process-exporter\"}[5m])",
+          "legendFormat": "部分字段读取失败/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}

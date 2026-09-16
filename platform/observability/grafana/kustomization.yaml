@@ -17,5 +17,13 @@ configMapGenerator:
     options:
       labels:
         grafana_dashboard: "1"
+  - name: grafana-dashboard-homelab-memory
+    namespace: monitoring
+    files:
+      - homelab-memory.json=dashboards/homelab-memory.json
+    options:
+      labels:
+        grafana_dashboard: "1"
 resources:
   - helmrelease.yaml
+  - httproute.yaml

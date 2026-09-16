@@ -4,7 +4,22 @@ Metrics, logs, and traces for the cluster — one VictoriaMetrics-ecosystem stac
 operator-driven, running in the `monitoring` namespace. Replaces the standalone
 Docker Compose stack in `../../apps/victoriametrics/`.
 
-## Status — DEPLOYED (2026-07-10)
+## Grafana 当前入口（2026-09-16）
+
+统一使用 <https://grafana.ad.ddupan.top>，A 记录指向 `192.168.10.127`，由共享
+Envoy Gateway 的 `https` listener 与 `*.ad.ddupan.top` 证书提供 TLS。
+Grafana root_url 和 Authelia 回调均使用此域名；旧专用 Tailscale Ingress 已停用。
+远程客户端仍需有到 LAN 的路由及已配置的内网 DNS 转发。
+
+内存看板：`/d/homelab-memory`；采集配置及 AppArmor 规则见
+[主机与进程内存采集](metrics/exporters/README.md)。
+
+Grafana 由 Flux 管理；修改 values 后通过 Git 合并触发 HelmRelease，避免现场 Helm
+修改被漂移检测回滚。Authelia 当前不由 Flux 管理，需单独 Helm upgrade 并先结构比较
+live values。迁移时先添加 DNS 和回调，再切换 Grafana。Recreate 策略会短暂中断访问，
+但保留原 PVC、用户、看板和数据源。回滚需同时恢复 root_url、回调和 Ingress 配置。
+
+## 初始部署记录（2026-07-10）
 
 Live and verified in the `monitoring` namespace (operator chart 0.66.2):
 metrics (data queryable), logs (pods ingesting), traces (VTSingle CRD, verified via

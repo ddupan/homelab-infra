@@ -14,3 +14,4 @@ resources:
   - scrapes/docker-hosts.yaml
   - scrapes/kubelet.yaml
   - exporters/node-exporter.yaml
+  - exporters/process-exporter.yaml

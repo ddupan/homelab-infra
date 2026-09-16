@@ -229,7 +229,7 @@ configMap:
           require_pkce: false
           token_endpoint_auth_method: 'client_secret_basic'
           redirect_uris:
-            - 'https://grafana.tail7e769.ts.net/login/generic_oauth'
+            - 'https://grafana.ad.ddupan.top/login/generic_oauth'
           scopes:
             - 'openid'
             - 'profile'

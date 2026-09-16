@@ -1,6 +1,6 @@
 # Grafana — single pane over metrics (VictoriaMetrics), logs (VictoriaLogs) and
-# traces (VictoriaTraces via Jaeger API). Exposed privately on the tailnet
-# (grafana.tail7e769.ts.net) and authenticated via Authelia OIDC. Local admin is
+# traces (VictoriaTraces via Jaeger API). LAN: grafana.ad.ddupan.top,
+# authenticated via Authelia OIDC. Local admin is
 # break-glass only.
 #
 # Chart: grafana/grafana   (repo: https://grafana.github.io/helm-charts)
@@ -54,16 +54,10 @@ persistence:
 deploymentStrategy:
   type: Recreate
 
-# --- Private exposure via the Tailscale ingress (like seaweedfs-admin) ---
-# The tailscale operator provisions grafana.<tailnet>.ts.net and a TLS cert.
+# 内网入口由 httproute.yaml 接入 Envoy，使用现有通配 TLS 证书。
+# 客户端通过既有内网 DNS 转发解析，无需独立 Tailscale Ingress。
 ingress:
-  enabled: true
-  ingressClassName: tailscale
-  hosts:
-    - grafana
-  tls:
-    - hosts:
-        - grafana
+  enabled: false
 
 # --- OIDC via Authelia (AD groups -> Grafana roles) ---
 # client_secret is injected from the grafana-oidc Secret (see oidc-secret.yaml),
@@ -76,7 +70,7 @@ envValueFrom:
 
 grafana.ini:
   server:
-    root_url: "https://grafana.tail7e769.ts.net"   # must match the tailnet FQDN + Authelia redirect_uri
+    root_url: "https://grafana.ad.ddupan.top"   # 与 Authelia redirect_uri 一致
   auth:
     # Keep the local admin login available as break-glass; don't force OIDC-only.
     disable_login_form: false

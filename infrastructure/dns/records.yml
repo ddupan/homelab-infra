@@ -11,6 +11,7 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
       - { zone: ad.ddupan.top, name: pve3, type: A, values: [192.168.10.9] }
       - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
+      - { zone: ad.ddupan.top, name: grafana, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: netbox, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: nats, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }

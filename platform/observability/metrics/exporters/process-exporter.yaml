@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: process-exporter-config
+  namespace: monitoring
+data:
+  config.yml: |
+    process_names:
+      # 只暴露虚拟机名，不把完整命令行、PID 或凭据写入标签。
+      - name: 'vm:{{.Matches.VM}}'
+        comm: [qemu-system-x86]
+        cmdline: ['-name\s+guest=(?P<VM>[^,\s]+)']
+      - name: netbox
+        cmdline: ['/opt/netbox/']
+      - name: vscode
+        cmdline: ['\.vscode-server/']
+      - name: '{{.Comm}}'
+        cmdline: ['.+']
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: process-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: process-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: process-exporter
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: laptop
+      hostPID: true
+      automountServiceAccountToken: false
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: process-exporter
+          image: ncabatoff/process-exporter:0.8.7
+          args:
+            - -procfs=/host/proc
+            - -config.path=/config/config.yml
+            - -gather-smaps=true
+            - -threads=false
+            - -children=false
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            appArmorProfile:
+              type: Localhost
+              localhostProfile: homelab-process-exporter
+            capabilities:
+              drop: [ALL]
+              add: [SYS_PTRACE, DAC_READ_SEARCH]
+          ports:
+            - name: metrics
+              containerPort: 9256
+          readinessProbe:
+            tcpSocket:
+              port: metrics
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+            type: Directory
+        - name: config
+          configMap:
+            name: process-exporter-config
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: process-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: process-exporter
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 60s
+      scrapeTimeout: 30s
+      relabelConfigs:
+        - targetLabel: job
+          replacement: process-exporter
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: process-exporter
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: process-exporter
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+      ports:
+        - protocol: TCP
+          port: 9256
