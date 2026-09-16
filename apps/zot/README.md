@@ -4,6 +4,21 @@
 `https://zot-push.ad.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
 zot `v2.1.21`，镜像固定到官方 linux/amd64 digest。
 
+## 当前工作状态（2026-09-16 核验）
+
+| 项目 | 状态 |
+|---|---|
+| 匿名拉取 | `zot.ad.ddupan.top` 已上线；空 `DOCKER_CONFIG` 的 crane pull 通过 |
+| SPIRE 鉴权入口 | `zot-push.ad.ddupan.top` 已上线；真实 JWT-SVID 推送后可匿名拉取同一 digest |
+| GitOps | 双入口配置已合并；Flux `zot` Kustomization 已应用 `d15733c`，状态 Ready |
+| 运行与凭据同步 | `zot`、`zot-reader` HelmRelease 均 Ready，Pod 均 1/1；ESO SecretSynced |
+| 临时配置清理 | 两个 HelmRelease 均无 `spec.values` 临时覆盖；暂停回写标记、测试身份和临时写权限已清理 |
+| 接管复验 | 匿名拉取成功；推送入口无凭据返回 401，token realm 指向推送域名；接管未触发 Pod 重启 |
+
+后续工作是给实际 CI 的 SPIFFE ID 配置具体仓库的 `create`/`update` 权限。
+SPIRE 认证链路已经验证，但当前没有常驻 publisher 或删除授权；认证成功本身不代表
+可以推送。S3 侧仍使用 Bao 管理的静态 AK/SK，尚未接入 SPIRE/STS。
+
 ## 存储与凭据
 
 制品、manifest 和 OCI layout 保存在现有 SeaweedFS 的 `zot` bucket，前缀为
@@ -22,7 +37,7 @@ OpenBao kv/k8s/seaweedfs-s3
   → 原有 S3 身份及基础配置 ─┐
                          ├→ ESO 模板 → seaweedfs/seaweedfs-s3-config
 OpenBao kv/k8s/zot-s3 ────┘                 → 完整 s3.config
-  └→ ESO → zot/zot-s3 → zot 的 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+  └→ ESO → zot/zot-s3 → zot 与 zot-reader 的 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
 
 ```
 
@@ -90,18 +105,17 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
   `https` listener 与内网通配符证书终止。
 - 仅配置 Samba AD 内网 DNS；不创建公网 DNS 或 Cloudflare Tunnel route。
 - NetworkPolicy 只允许现有 Envoy Gateway 数据面访问 zot 的 5000 端口。
-- HTTPRoute 只暴露 `/v2/` 和 `/zot/auth/token`，不暴露内部健康检查或管理端点。
+- 拉取域名仅暴露 `/v2/` 的 GET/HEAD；推送域名暴露 `/v2/` 和
+  `/zot/auth/token`，均不暴露内部健康检查或管理端点。
 - namespace 使用 restricted PodSecurity，容器非 root、只读根文件系统。
 
-`clusters/homelab/apps/zot.yaml` 是 GitOps composition，原有 zot 已由 Flux 接管。
+`clusters/homelab/apps/zot.yaml` 已将 `zot` 和 `zot-reader` 一并纳入 Flux 管理。
 两个 HelmRelease 通过共用 `zot-values` 继承基础配置，reader 再叠加
-`zot-reader-values`。分支预部署时新增对象可先由 Helm controller 管理；合并
-main 后才由根 Kustomization 持续管理新增对象。
+`zot-reader-values`。当前由 main 分支持续管理，不依赖本地覆盖或暂停回写。
 
-如验收期间临时设置了 `HelmRelease/zot` 的
-`kustomize.toolkit.fluxcd.io/reconcile=disabled` 与 `spec.values`，合并后先确认
-`zot-values` 已包含新推送域名，再移除临时 values 和该 annotation，触发 zot
-Kustomization reconcile。不要把临时测试身份或写权限提交到 Git。
+后续若需临时验收，收尾时先确认 Git 管理的配置与目标运行配置一致，再移除
+`spec.values` 临时覆盖及 `kustomize.toolkit.fluxcd.io/reconcile=disabled` 标记，
+触发 zot Kustomization reconcile 并复验。临时测试身份和写权限不得留在持久配置中。
 
 检查与渲染：
 
