@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nats-ad-ddupan-top
+  namespace: nats
+spec:
+  secretName: nats-server-tls
+  issuerRef:
+    name: bao-acme
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: nats.ad.ddupan.top
+  dnsNames:
+    - nats.ad.ddupan.top
+  duration: 720h
+  renewBefore: 168h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
