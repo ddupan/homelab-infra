@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dynamic-runner-controller
+  namespace: dynamic-runner
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dynamic-runner-pod-worker
+  namespace: dynamic-runner
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitea-dynamic-runner
+  namespace: dynamic-runner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dynamic-runner-pod-worker
+  namespace: dynamic-runner
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [create, get, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dynamic-runner-pod-worker
+  namespace: dynamic-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dynamic-runner-pod-worker
+subjects:
+  - kind: ServiceAccount
+    name: dynamic-runner-pod-worker
+    namespace: dynamic-runner

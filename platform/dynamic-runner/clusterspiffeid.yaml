@@ -1,0 +1,17 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: gitea-dynamic-runner
+spec:
+  className: spire-mgmt-spire
+  spiffeIDTemplate: 'spiffe://{{ .TrustDomain }}/ci/{{ index .PodMeta.Annotations "ci.ddupan.top/spiffe-path" }}'
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: dynamic-runner
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gitea-dynamic-runner
+      ci.ddupan.top/identity-bound: "true"
+  workloadSelectorTemplates:
+    - k8s:ns:dynamic-runner
+    - k8s:sa:gitea-dynamic-runner

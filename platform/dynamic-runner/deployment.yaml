@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynamic-runner-controller
+  namespace: dynamic-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dynamic-runner-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dynamic-runner-controller
+    spec:
+      serviceAccountName: dynamic-runner-controller
+      automountServiceAccountToken: false
+      initContainers:
+        - name: fetch-internal-ca
+          image: curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6
+          args:
+            - --fail
+            - --silent
+            - --show-error
+            - --output
+            - /trust/ca.pem
+            - https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: trust
+              mountPath: /trust
+      containers:
+        - name: controller
+          # Bootstrap import on laptop. Replace with a zot digest after the
+          # repository's image publishing workflow has a dedicated identity.
+          image: gitea-dynamic-runner-controller:0.3.0-bootstrap
+          imagePullPolicy: Never
+          env:
+            - name: NATS_URL
+              value: tls://nats.ad.ddupan.top:4222
+            - name: NATS_CA_FILE
+              value: /run/trust/ca.pem
+            - name: NATS_PASSWORD_FILE
+              value: /run/secrets/nats-password
+            - name: WEBHOOK_SECRET_FILE
+              value: /run/secrets/webhook-secret
+          ports:
+            - name: http
+              containerPort: 8787
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: secret
+              mountPath: /run/secrets
+              readOnly: true
+            - name: trust
+              mountPath: /run/trust
+              readOnly: true
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: secret
+          secret:
+            secretName: dynamic-runner
+            defaultMode: 0400
+        - name: trust
+          emptyDir:
+            sizeLimit: 1Mi
