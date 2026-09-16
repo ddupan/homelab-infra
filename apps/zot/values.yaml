@@ -70,6 +70,40 @@ configFiles:
         },
         "accessControl": {
           "repositories": {
+            "panxiao81/gitea-dynamic-runner-controller": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update"
+                  ]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
+            "panxiao81/gitea-dynamic-runner-runner": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update"
+                  ]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
             "**": {
               "policies": [
                 {
