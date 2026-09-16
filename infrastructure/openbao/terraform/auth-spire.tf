@@ -39,7 +39,8 @@ resource "vault_jwt_auth_backend_role" "local_development" {
     sub = "spiffe://ddupan.top/dev/panxiao81"
   }
 
-  # local-development grants normal KV v2 read/write plus short-lived SSH
+  # local-development grants normal KV v2 read/write under kv/k8s and kv/infra,
+  # plus short-lived SSH certificate signing.
   # certificate signing; spire-poc only permits lookup and revocation of the
   # caller's own short-lived Bao token.
   token_policies = [

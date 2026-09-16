@@ -69,7 +69,8 @@ export SPIFFE_ENDPOINT_SOCKET=unix:///run/spire/agent-sockets/spire-agent.sock
 下游授权仅绑定这个精确 SPIFFE ID：
 
 - OpenBao `auth/jwt-spire/role/local-development` 接受 `aud=openbao`，签发 5 分钟
-  token；允许读取和写入整个 KV v2 engine、列出 metadata、签发 `ai-agent` SSH
+  token；允许读取和写入 KV v2 的 `kv/k8s/*` 与 `kv/infra/*` 子树、列出对应
+  metadata、签发 `ai-agent` SSH
   短证书，以及查询、撤销自身 token；不允许删除/永久销毁 KV 数据或管理 auth；
 - zot 接受 `aud=zot`，允许本机开发身份对所有 repository 执行
   `read/create/update/delete`；其他 SPIFFE 身份仍保持全仓库只读。
