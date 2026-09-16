@@ -50,9 +50,9 @@ spec:
             - name: NATS_CA_FILE
               value: /run/trust/ca.pem
             - name: NATS_PASSWORD_FILE
-              value: /run/secrets/nats-password
+              value: /run/dynamic-runner-secrets/nats-password
             - name: WEBHOOK_SECRET_FILE
-              value: /run/secrets/webhook-secret
+              value: /run/dynamic-runner-secrets/webhook-secret
           ports:
             - name: http
               containerPort: 8787
@@ -86,7 +86,7 @@ spec:
               type: RuntimeDefault
           volumeMounts:
             - name: secret
-              mountPath: /run/secrets
+              mountPath: /run/dynamic-runner-secrets
               readOnly: true
             - name: trust
               mountPath: /run/trust

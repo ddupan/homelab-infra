@@ -48,7 +48,7 @@ spec:
             - name: NATS_CA_FILE
               value: /run/trust/ca.pem
             - name: NATS_PASSWORD_FILE
-              value: /run/secrets/nats-worker-password
+              value: /run/dynamic-runner-secrets/nats-worker-password
             - name: RUNNER_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -80,7 +80,7 @@ spec:
               type: RuntimeDefault
           volumeMounts:
             - name: secret
-              mountPath: /run/secrets
+              mountPath: /run/dynamic-runner-secrets
               readOnly: true
             - name: trust
               mountPath: /run/trust
