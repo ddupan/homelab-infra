@@ -30,6 +30,8 @@ spec:
               drop: [ALL]
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 102
             seccompProfile:
               type: RuntimeDefault
           volumeMounts:
