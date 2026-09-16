@@ -3,14 +3,14 @@ config:
     enabled: true
     fileStore:
       enabled: true
-      maxSize: 2Gi
+      maxSize: 2G
       pvc:
         enabled: true
         size: 2Gi
         storageClassName: localpv-zfs-ceph
     memoryStore:
       enabled: true
-      maxSize: 64Mi
+      maxSize: 64M
   nats:
     tls:
       enabled: true
@@ -26,8 +26,8 @@ config:
         jetstream:
           # These values are rendered directly into nats.conf and therefore use
           # NATS size syntax, not Kubernetes resource.Quantity syntax.
-          max_memory: 32MB
-          max_file: 1GB
+          max_memory: 32M
+          max_file: 1G
           max_streams: 16
           max_consumers: 64
           max_bytes_required: true
