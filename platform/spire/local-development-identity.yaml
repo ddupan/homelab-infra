@@ -1,0 +1,12 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: local-development-panxiao81
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/agent/k8s_psat/homelab/cd2d0233-c4ea-4031-8327-e7e359e766dd
+  spiffeID: spiffe://ddupan.top/dev/panxiao81
+  selectors:
+    - unix:uid:1000
