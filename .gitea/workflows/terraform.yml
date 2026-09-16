@@ -16,7 +16,7 @@ on:
 
 jobs:
   validate:
-    runs-on: self-hosted
+    runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

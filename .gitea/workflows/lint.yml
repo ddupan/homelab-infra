@@ -24,7 +24,7 @@ on:
 
 jobs:
   yaml:
-    runs-on: self-hosted
+    runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
 
