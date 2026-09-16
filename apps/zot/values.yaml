@@ -74,7 +74,8 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images",
+                    "spiffe://ddupan.top/dev/panxiao81"
                   ],
                   "actions": [
                     "read",
@@ -91,7 +92,8 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images",
+                    "spiffe://ddupan.top/dev/panxiao81"
                   ],
                   "actions": [
                     "read",
