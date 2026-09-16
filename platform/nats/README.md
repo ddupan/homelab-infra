@@ -16,6 +16,9 @@
   ECDSA，ACME challenge 会成功但 finalize 会以 `role requires keys of type rsa` 失败。
 - `SYS` Account 用于管理；`CI` Account 启用 JetStream，存储上限 1 GiB。
 
+Account 内的 JetStream 配额会原样进入 `nats.conf`，必须使用 NATS 的 `MB`/`GB`
+格式；PVC 等 Kubernetes resource quantity 才使用 `Mi`/`Gi`。
+
 首期使用静态用户，密码只存在 OpenBao `kv/k8s/nats`：
 
 ```text
