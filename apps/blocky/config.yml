@@ -54,9 +54,11 @@ customDNS:
   # laptop's only global IPv6 belongs to tun0, so a AAAA answer would send LAN
   # traffic into the VPN. See CLAUDE.md.
   mapping:
+    # BEGIN GENERATED: homelab DNS (blocky)
     git.ddupan.top: 192.168.10.127
     auth.ddupan.top: 192.168.10.127
     obj.ddupan.top: 192.168.10.127
+    # END GENERATED: homelab DNS (blocky)
 
 blocking:
   denylists:

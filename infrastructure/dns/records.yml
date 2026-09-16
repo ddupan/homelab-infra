@@ -20,12 +20,12 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: zot-push, type: A, values: [192.168.10.127] }
 
   split_horizon:
-    # LAN and pod resolvers should eventually render the same set from here.
-    # Adoption of Blocky/CoreDNS is deliberately a separate change.
+    # backends records the current adoption boundary. obj is deliberately not
+    # emitted to CoreDNS yet, preserving the current pod resolver behaviour.
     records:
-      - { name: git.ddupan.top, type: A, values: [192.168.10.127] }
-      - { name: auth.ddupan.top, type: A, values: [192.168.10.127] }
-      - { name: obj.ddupan.top, type: A, values: [192.168.10.127] }
+      - { name: git.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
+      - { name: auth.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
+      - { name: obj.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky] }
 
   public:
     # Names expected at Cloudflare. Terraform adoption is a separate change;
@@ -35,15 +35,21 @@ homelab_dns:
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
         proxied: true
+        terraform:
+          managed: true
+          resource_name: auth
       - name: git.ddupan.top
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
         proxied: true
+        terraform: { managed: false }
       - name: obj.ddupan.top
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
         proxied: true
+        terraform: { managed: false }
       - name: e5renew.ddupan.top
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
         proxied: true
+        terraform: { managed: false }

@@ -13,12 +13,16 @@ on:
     paths:
       - '**/*.yaml'
       - '**/*.yml'
+      - 'infrastructure/dns/**'
+      - 'infrastructure/cloudflared/terraform/dns.generated.tf'
       - '.yamllint.yml'
       - '.gitea/workflows/lint.yml'
   pull_request:
     paths:
       - '**/*.yaml'
       - '**/*.yml'
+      - 'infrastructure/dns/**'
+      - 'infrastructure/cloudflared/terraform/dns.generated.tf'
       - '.yamllint.yml'
       - '.gitea/workflows/lint.yml'
 
@@ -52,3 +56,8 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           files=$(git ls-files '*.yaml' '*.yml' | grep -vE '^apps/netboot/')
           yamllint -c .yamllint.yml --no-warnings -f parsable $files
+
+      - name: Verify generated DNS configuration
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run infrastructure/dns/generate.py --check

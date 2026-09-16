@@ -56,6 +56,11 @@ jobs:
           rm -f \
             infrastructure/openbao/ansible/group_vars/all/vault.yml \
             infrastructure/samba-ad/ansible/group_vars/all/vault.yml
+          # ansible.cfg still declares vault_password_file. Even with encrypted
+          # vars removed, ansible-lint validates that the configured file exists
+          # before syntax-check starts. This throwaway value decrypts nothing.
+          export ANSIBLE_VAULT_PASSWORD_FILE="$RUNNER_TEMP/ansible-lint-vault-pass"
+          printf '%s\n' 'ci-placeholder-not-a-production-secret' > "$ANSIBLE_VAULT_PASSWORD_FILE"
           rc=0
           for p in infrastructure/openbao infrastructure/samba-ad infrastructure/proxmox; do
             echo "::group::$p"

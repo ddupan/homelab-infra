@@ -38,17 +38,6 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "main" {
   }
 }
 
-# Public DNS: proxied CNAME -> the tunnel. (auth was bootstrapped with
-# `cloudflared tunnel route dns`; import it into state — see README.)
-resource "cloudflare_dns_record" "auth" {
-  zone_id = var.zone_id
-  name    = "auth.ddupan.top"
-  type    = "CNAME"
-  content = "${var.tunnel_id}.cfargotunnel.com"
-  proxied = true
-  ttl     = 1 # 1 = automatic (required when proxied)
-}
-
 # DKIM for Microsoft 365 mail sent as *@ddupan.top (via the smtp-relay). CNAMEs point
 # at the tenant's DKIM keys; must be DNS-only (unproxied). Enable signing in Exchange
 # after these resolve: smtp-relay/scripts/enable-dkim.ps1.
