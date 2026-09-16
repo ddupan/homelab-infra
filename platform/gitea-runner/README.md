@@ -25,6 +25,25 @@ The runner registration token is authoritative in OpenBao at
 the `gitea-runner-token` Secret. Never put the token in this directory or a Helm
 command line.
 
+## SPIRE 与 OCI 发布
+
+runner Pod 使用专用 ServiceAccount `gitea-actions`，并由精确匹配 namespace、
+ServiceAccount 隐含的 Pod、以及 chart labels 的 `ClusterSPIFFEID` 获得：
+
+```text
+spiffe://ddupan.top/ci/gitea-actions
+```
+
+SPIFFE CSI socket 同时只读挂载到 runner 和 DinD。act 的 volume allowlist 只允许
+`/run/spire/agent-sockets`；workflow 仍必须在 job container 中显式请求该 bind
+mount。原因是 bind mount 由 DinD 内的 dockerd 解析，只挂 runner 容器无法让 job
+访问 Workload API。
+
+该身份不是通用 registry 管理员。zot 只对明确列出的 CI 镜像仓库授予
+`read/create/update`，不授予 delete 或其他仓库写入。workflow 应获取
+`aud=zot` 的短期 JWT-SVID，并经 stdin 传给 registry client，不得把 JWT、X.509
+SVID 或 Docker auth 写入 workspace/artifact。
+
 ## Flux 接管状态
 
 该 release 最初通过下述 review-first 流程手动 bootstrap。下一个 GitOps 阶段将
