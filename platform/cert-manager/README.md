@@ -119,6 +119,10 @@ issuerRef:
   kind: ClusterIssuer
 ```
 
+`values.yaml` 必须保持 `config.gatewayAPI.enabled: true`。`bao-acme` 的 HTTP-01
+solver 通过共享 Gateway 创建临时 HTTPRoute；关闭该项不会让 ClusterIssuer 变为
+NotReady，而是会让每个 Challenge 卡在 `gateway api is not enabled`。
+
 Issuance is capped by `default_directory_policy = role:bao-server`
 (`../../infrastructure/openbao/terraform/pki.tf`), which permits `ad.ddupan.top` subdomains only. Clients
 need the internal CA in their trust store — already true for the PVE nodes, the DC and
