@@ -13,6 +13,8 @@
   不额外维护易漂移的源 IP 白名单。
 - TLS 证书由 `bao-acme` 签发。PVE 节点已信任内部 CA。
 - `SYS` Account 用于管理；`CI` Account 启用 JetStream，存储上限 1 GiB。
+- Prometheus exporter 已启用，但不创建 `PodMonitor`：集群使用 VictoriaMetrics
+  Operator CRD，后续以 `VMServiceScrape` 接入。
 
 首期使用静态用户，密码只存在 OpenBao `kv/k8s/nats`：
 

@@ -66,7 +66,9 @@ natsBox:
 promExporter:
   enabled: true
   podMonitor:
-    enabled: true
+    # This cluster uses VictoriaMetrics Operator CRDs, not Prometheus Operator's
+    # PodMonitor. Add a VMServiceScrape separately when NATS metrics are wired in.
+    enabled: false
 
 service:
   merge:
