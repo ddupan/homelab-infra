@@ -24,8 +24,10 @@ config:
             password: "<< $NATS_SYS_PASSWORD >>"
       CI:
         jetstream:
-          max_memory: 32Mi
-          max_file: 1Gi
+          # These values are rendered directly into nats.conf and therefore use
+          # NATS size syntax, not Kubernetes resource.Quantity syntax.
+          max_memory: 32MB
+          max_file: 1GB
           max_streams: 16
           max_consumers: 64
           max_bytes_required: true
