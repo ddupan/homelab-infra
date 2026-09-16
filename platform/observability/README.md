@@ -56,8 +56,10 @@ hosts and `logs/vlogs-ingress.yaml` to push their logs.
 | Manage   | **victoria-metrics-operator** | VMSingle/VMAgent/VMAlert/VMAlertmanager/VMRule **and** VLSingle as CRDs |
 | Expose   | **Tailscale ingress** (private) + **Authelia OIDC** | admin tool: private + SSO |
 
-Grafana's Prometheus-operator converter is on, so any chart shipping a
-`ServiceMonitor`/`PodMonitor`/`PrometheusRule` is scraped automatically.
+VictoriaMetrics Operator 的 Prometheus converter 已启用；官方
+`prometheus-operator-crds` chart 由 `operator/` 一并管理。因此应用 chart 可以原生
+声明 `ServiceMonitor`、`PodMonitor` 或 `PrometheusRule`，再由 converter 转换为对应
+VM 资源，不需要每个应用额外维护一份 `VM*Scrape`。
 
 ## Architecture
 

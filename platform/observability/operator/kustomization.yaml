@@ -10,4 +10,5 @@ configMapGenerator:
     files:
       - values.yaml=values.yaml
 resources:
+  - prometheus-crds-helmrelease.yaml
   - helmrelease.yaml
