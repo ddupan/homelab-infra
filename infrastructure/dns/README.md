@@ -5,10 +5,32 @@
 
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
-| 公网 `ddupan.top` | Cloudflare | Terraform；尚待完整导入已有记录 |
+| 公网 `ddupan.top` | Cloudflare | 由生成器输出 Terraform；尚待完整导入已有记录 |
 | AD `ad.ddupan.top` | Samba internal DNS | `samba_dns_record` Ansible module |
-| LAN split horizon | Blocky | 尚待从 inventory 渲染或校验 |
-| Kubernetes Pod split horizon | CoreDNS | 尚待从 inventory 渲染或校验 |
+| LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
+| Kubernetes Pod split horizon | CoreDNS | 由生成器维护 `.server` 标记块 |
+
+## 生成配置
+
+安装了 `uv` 后，在仓库根目录运行：
+
+```bash
+uv run infrastructure/dns/generate.py
+uv run infrastructure/dns/generate.py --check
+```
+
+脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染三个目标：
+
+- `apps/blocky/config.yml` 中带 marker 的 LAN split-horizon mapping；
+- `platform/k3s/coredns-custom.yaml` 中带 marker 的 Pod split-horizon server blocks；
+- `infrastructure/cloudflared/terraform/dns.generated.tf` 中已经完成 Terraform 接管的公网记录。
+
+生成文件需要提交进 Git，以便 PR 直接审阅最终配置。CI 执行 `--check`，任何手工修改生成块、
+漏跑生成器或非确定性输出都会失败。Jinja 使用 `[[ ... ]]` 作为变量定界符，避免与 CoreDNS
+模板表达式 `{{ .Name }}` 冲突。
+
+`backends` 和 `terraform.managed` 是分阶段接管开关，而不是第二份记录数据：只有已经完成
+零变更接管的后端才会生成。把记录加入新的后端前，应先完成相应的 live/state 对账。
 
 ## 安全边界
 
@@ -21,9 +43,13 @@
 ## 分阶段接管
 
 1. 用 Samba module 接管现有静态 A RRset，首次 check mode 应为零变更。
-2. 将 Cloudflare 已有 tunnel DNS 记录导入 Terraform state。
-3. 让 Blocky 与 CoreDNS 从 `split_horizon.records` 生成配置或执行 CI 一致性检查。
+2. 将 Cloudflare 已有 tunnel DNS 记录逐条导入 Terraform state，再启用 `terraform.managed`。
+3. Blocky 与 CoreDNS 已从 `split_horizon.records` 生成；通过 `backends` 分阶段扩展。
 4. 验证公网、LAN、Pod、AD 四个视图后，再单独修改 DHCP。
 
-当前 inventory 已明确暴露一个既有差异：`obj.ddupan.top` 在 Blocky 中存在，但 CoreDNS
-尚无对应覆盖。本阶段不会偷偷修复它；后续在两个 resolver 同时接管时统一修复。
+当前 inventory 明确保留一个既有差异：`obj.ddupan.top` 的 `backends` 只有 Blocky，CoreDNS
+尚无对应覆盖。本阶段不改变线上语义；后续验证 Pod 侧入口后再加入 `coredns`。
+
+CoreDNS split-horizon 的原因是避免集群内请求经 Cloudflare 公网绕回同一个集群。尤其 Gitea
+启动时会访问 Authelia discovery URL，公网路径故障曾令其启动失败；生成块仍返回相同 LAN A
+记录，并对 AAAA 返回 NOERROR/no-data。
