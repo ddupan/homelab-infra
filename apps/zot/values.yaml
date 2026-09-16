@@ -41,14 +41,14 @@ configFiles:
       "http": {
         "address": "0.0.0.0",
         "port": "5000",
-        "externalUrl": "https://zot.ad.ddupan.top",
+        "externalUrl": "https://zot-push.ad.ddupan.top",
         "compat": [
           "docker2s2"
         ],
         "auth": {
           "bearer": {
-            "realm": "https://zot.ad.ddupan.top/zot/auth/token",
-            "service": "zot.ad.ddupan.top",
+            "realm": "https://zot-push.ad.ddupan.top/zot/auth/token",
+            "service": "zot-push.ad.ddupan.top",
             "oidc": [
               {
                 "issuer": "https://spire-oidc.ad.ddupan.top",
@@ -133,7 +133,7 @@ httproute:
     namespace: envoy-gateway-system
     sectionName: https
   hostnames:
-  - zot.ad.ddupan.top
+  - zot-push.ad.ddupan.top
   rules:
   - matches:
     - path:

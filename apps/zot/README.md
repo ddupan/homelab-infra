@@ -1,6 +1,7 @@
 # zot OCI Registry
 
-内网入口为 `https://zot.ad.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
+内网匿名拉取入口为 `https://zot.ad.ddupan.top`，SPIRE 鉴权推送入口为
+`https://zot-push.ad.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
 zot `v2.1.21`，镜像固定到官方 linux/amd64 digest。
 
 ## 存储与凭据
@@ -9,7 +10,8 @@ zot `v2.1.21`，镜像固定到官方 linux/amd64 digest。
 `registry/`，S3 endpoint 为 `https://s3.ad.ddupan.top`。**不创建 PVC**；chart 的
 `/var/lib/registry` 是 `emptyDir`，仅用于运行时本地工作数据。
 
-首期单副本，关闭跨仓库 dedupe，不额外部署 Redis/DynamoDB 缓存。保留 zot GC，
+两个单副本实例共用同一 bucket 和前缀：`zot` 负责鉴权写入，`zot-reader` 负责匿名
+读取。关闭跨仓库 dedupe，不额外部署 Redis/DynamoDB 缓存。只有写入实例启用 GC，
 暂不配置自动删除已发布版本的 retention policy。增加副本、启用 dedupe 或搜索等
 扩展前，需要重新检查共享元数据与缓存的持久化要求。
 
@@ -37,7 +39,7 @@ Terraform 的 `tfstate` bucket。`kv/k8s/zot-s3` 的字段是 `access_key` 和
 本次归一没有轮换密钥，生成的完整配置与归一前语义一致。当前模板只有一组 zot
 凭据，尚未实现新旧密钥重叠轮换。后续轮换只修改 `kv/k8s/zot-s3`，但仍需协调
 两个 ExternalSecret 同步：确认 SeaweedFS Secret volume 更新后向 filer 的
-`weed` 进程发送 SIGHUP，再确认 zot Secret 更新并重启 zot（环境变量不会热更新）。
+`weed` 进程发送 SIGHUP，再确认 zot Secret 更新并重启 `zot` 和 `zot-reader`（环境变量不会热更新）。
 两端异步更新期间可能短暂认证失败；需要无中断轮换时先扩展模板支持新旧凭据重叠。
 
 ## SPIRE 认证和授权
@@ -47,23 +49,39 @@ Terraform 的 `tfstate` bucket。`kv/k8s/zot-s3` 的字段是 `access_key` 和
 | issuer | `https://spire-oidc.ad.ddupan.top` |
 | JWT audience | `zot` |
 | subject | `spiffe://ddupan.top/` 下的 workload SPIFFE ID |
-| token endpoint | `https://zot.ad.ddupan.top/zot/auth/token` |
-| 当前权限 | 受信身份可以读取所有仓库；没有常驻写入或删除授权 |
+| token endpoint | `https://zot-push.ad.ddupan.top/zot/auth/token` |
+| 拉取入口 | 内网匿名读取所有仓库，不要求 SPIRE 身份 |
+| 推送入口当前权限 | 受信身份可以读取所有仓库；没有常驻写入或删除授权 |
 
 zot 通过已配置的 issuer discovery/JWKS 验证 JWT-SVID，再以 `sub` 作为授权身份。
 不接受任意 issuer，不关闭 TLS/issuer 验证。新的 Kata CI 负责取得并更新自己的
 JWT-SVID；确认其身份命名后，再添加针对具体 repository 的 `create`/`update`
 授权，不能把整个 trust domain 都授予写权限。
 
-现阶段拉取也需要 JWT-SVID。原定内网匿名拉取尚未启用：zot `v2.1.21` 的
-OIDC Bearer middleware 会在授权阶段之前拒绝无 token 请求，单独增加
-`anonymousPolicy` 无法解决。匿名读取与 SPIRE 写入共存需后续单独验证方案。
+zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token 请求。
+因此使用两个官方 zot 实例与两个域名，避免修改上游镜像，也避免同域名下匿名
+`/v2/` 返回 200 导致标准客户端跳过 token 交换的问题。
 
+- `zot-reader` 叠加 `reader-values.yaml`，没有认证 middleware，只有
+  `anonymousPolicy: [read]`。入口只转发 `/v2/` 的 GET/HEAD，并移除客户端遗留的
+  Authorization/Cookie；直接访问 reader Service 也不能写入。
+- `zot` 保留 SPIRE issuer/audience/subject 校验及仓库授权，`externalUrl`、
+  Bearer realm、service 与 HTTPRoute 均使用 `zot-push.ad.ddupan.top`。
+- reader 关闭 GC，没有同步或扫描扩展；读取同一份 S3 制品，不复制 bucket，
+  不新增 PVC 或 S3 密钥。镜像、安全上下文、资源和 Secret 引用由共用 values 继承。
+- 两个配置的 `storageDriver` 必须保持一致；修改 S3 endpoint/bucket/prefix 时
+  同时更新 `values.yaml` 与 `reader-values.yaml`。
+
+推送客户端应登录 `zot-push.ad.ddupan.top`；拉取客户端无需登录。
 已有 SPIRE 身份的进程可以通过 Workload API 获取 `aud=zot` 的 JWT-SVID，然后
 通过 `docker login` 或 `crane auth login` 的 `--password-stdin` 交给 Registry。
 用户名可以使用 `zot`，实际权限取自已验证 JWT 的身份。使用独立、权限为 `0700`
 的临时 `DOCKER_CONFIG`，结束后删除；不要开启 shell tracing，不要打印 token，
 不要把 token 放进命令参数。token 接口不会延长 SVID 有效期。
+
+同一仓库在两个入口使用相同路径和 tag/digest，例如 CI 推送到
+`zot-push.ad.ddupan.top/team/image:tag`，部署时使用
+`zot.ad.ddupan.top/team/image:tag`；无需在两个仓库间复制。
 
 ## 部署与网络
 
@@ -75,10 +93,15 @@ OIDC Bearer middleware 会在授权阶段之前拒绝无 token 请求，单独�
 - HTTPRoute 只暴露 `/v2/` 和 `/zot/auth/token`，不暴露内部健康检查或管理端点。
 - namespace 使用 restricted PodSecurity，容器非 root、只读根文件系统。
 
-首次已按用户授权从本地执行 `kubectl apply -k apps/zot`，由集群 Helm controller
-安装。`clusters/homelab/apps/zot.yaml` 是 GitOps composition；对应文件合并进入
-Flux 跟踪分支后，才由根 Kustomization 持续管理，不能把未提交的本地部署写成
-已完成 Git 接管。
+`clusters/homelab/apps/zot.yaml` 是 GitOps composition，原有 zot 已由 Flux 接管。
+两个 HelmRelease 通过共用 `zot-values` 继承基础配置，reader 再叠加
+`zot-reader-values`。分支预部署时新增对象可先由 Helm controller 管理；合并
+main 后才由根 Kustomization 持续管理新增对象。
+
+如验收期间临时设置了 `HelmRelease/zot` 的
+`kustomize.toolkit.fluxcd.io/reconcile=disabled` 与 `spec.values`，合并后先确认
+`zot-values` 已包含新推送域名，再移除临时 values 和该 annotation，触发 zot
+Kustomization reconcile。不要把临时测试身份或写权限提交到 Git。
 
 检查与渲染：
 
@@ -113,6 +136,35 @@ sha256:b8d3b977a1235022759470903dab4a46b7cf8107958624f1f76a323eabe37c5e
 ```
 
 它是仅含验证文本的 OCI 测试镜像，没有可执行入口，不用于运行服务。
+
+双域名验收还使用 `verification/anonymous-spire:smoke`：标准 crane 从
+`zot-push.ad.ddupan.top` 登录、推送，再从 `zot.ad.ddupan.top` 使用空
+`DOCKER_CONFIG` 拉取，两个入口的 digest 必须一致。验证匿名 blob HEAD、tags、
+referrers，以及客户端保存旧凭据时的公共拉取。推送入口检查无凭据、错误签名、
+错误 audience、过期 SVID、跨仓库写入和删除拒绝；公共入口拒绝所有写方法，
+reader Service 直连也拒绝写入。测试完成后撤回临时单仓库写权限。
+
+2026-09-16 上述双域名验收通过；SVID 过期后推送入口返回 401，匿名拉取不受
+影响。临时写权限已撤销，两个 HelmRelease Ready；推送 DNS 第二次检查 changed=0。
+
+匿名拉取示例：
+
+```bash
+crane pull zot.ad.ddupan.top/verification/anonymous-spire:smoke image.tar --format oci
+```
+
+鉴权推送示例（先通过 Workload API 将短期 JWT-SVID 保存到当前进程的 `ZOT_JWT`，
+不要启用 shell tracing；示例中的仓库仍需提前给具体 SPIFFE ID 授权）：
+
+```bash
+export DOCKER_CONFIG="$(mktemp -d)"
+printf '%s' "$ZOT_JWT" | crane auth login zot-push.ad.ddupan.top \
+  --username zot --password-stdin
+crane push image.tar zot-push.ad.ddupan.top/team/image:tag
+rm -rf -- "$DOCKER_CONFIG"
+unset DOCKER_CONFIG ZOT_JWT
+```
+
 
 Registry 恢复需要完整的 SeaweedFS bucket 数据、Bao 专用凭据和此目录配置。
 zot 的临时目录不是制品备份。独立异机/离线备份尚未在本次部署中建立；不能把同一

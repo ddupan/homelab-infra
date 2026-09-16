@@ -1,0 +1,64 @@
+# 叠加于共用 values.yaml；同一镜像、S3、Secret、安全设置，无制品副本。
+# 无 Bearer middleware，仅 anonymousPolicy=read；关闭 GC 避免多个实例清理共享存储。
+configFiles:
+  config.json: |
+    {
+      "distSpecVersion": "1.1.1",
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "dedupe": false,
+        "gc": false,
+        "storageDriver": {
+          "name": "s3",
+          "region": "us-east-1",
+          "regionendpoint": "https://s3.ad.ddupan.top",
+          "bucket": "zot",
+          "rootdirectory": "/registry",
+          "secure": true,
+          "skipverify": false,
+          "forcepathstyle": true
+        }
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "externalUrl": "https://zot.ad.ddupan.top",
+        "compat": [
+          "docker2s2"
+        ],
+        "accessControl": {
+          "repositories": {
+            "**": {
+              "anonymousPolicy": [
+                "read"
+              ]
+            }
+          }
+        }
+      },
+      "log": {
+        "level": "info"
+      }
+    }
+httproute:
+  hostnames:
+  - zot.ad.ddupan.top
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v2/
+      method: GET
+    - path:
+        type: PathPrefix
+        value: /v2/
+      method: HEAD
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Cookie
+        - Authorization
+    timeouts:
+      request: 900s
+      backendRequest: 900s

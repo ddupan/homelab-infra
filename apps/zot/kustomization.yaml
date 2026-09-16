@@ -6,6 +6,7 @@ resources:
   - external-secret.yaml
   - helmrepository.yaml
   - helmrelease.yaml
+  - helmrelease-reader.yaml
   - networkpolicy.yaml
 generatorOptions:
   disableNameSuffixHash: true
@@ -16,3 +17,7 @@ configMapGenerator:
     namespace: zot
     files:
       - values.yaml=values.yaml
+  - name: zot-reader-values
+    namespace: zot
+    files:
+      - values.yaml=reader-values.yaml
