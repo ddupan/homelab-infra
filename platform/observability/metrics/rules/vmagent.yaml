@@ -1,4 +1,4 @@
-# Ported from ../../../../apps/victoriametrics/rules/alerts-vmagent.yml
+# 告警规则从已退役的 Compose 栈迁入，原始版本保留在 Git 历史。
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMRule
 metadata:

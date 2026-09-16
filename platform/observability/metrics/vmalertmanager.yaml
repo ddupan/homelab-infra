@@ -1,4 +1,4 @@
-# Alert router/notifier. Ported 1:1 from ../../../apps/victoriametrics/alertmanager.yaml,
+# Alert router/notifier. Migrated from the retired Compose stack (see Git history),
 # which currently blackholes everything. Wire real receivers here (email via the
 # in-cluster smtp-relay, or a webhook) when you want notifications.
 apiVersion: operator.victoriametrics.com/v1beta1
