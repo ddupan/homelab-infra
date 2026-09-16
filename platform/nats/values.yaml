@@ -1,0 +1,74 @@
+config:
+  jetstream:
+    enabled: true
+    fileStore:
+      enabled: true
+      maxSize: 2Gi
+      pvc:
+        enabled: true
+        size: 2Gi
+        storageClassName: localpv-zfs-ceph
+    memoryStore:
+      enabled: true
+      maxSize: 64Mi
+  nats:
+    tls:
+      enabled: true
+      secretName: nats-server-tls
+  merge:
+    system_account: SYS
+    accounts:
+      SYS:
+        users:
+          - user: sys
+            password: "<< $NATS_SYS_PASSWORD >>"
+      CI:
+        jetstream:
+          max_memory: 32Mi
+          max_file: 1Gi
+          max_streams: 16
+          max_consumers: 64
+          max_bytes_required: true
+        users:
+          - user: ci-producer
+            password: "<< $NATS_CI_PRODUCER_PASSWORD >>"
+            permissions:
+              publish:
+                allow: [ci.runner.>, $JS.API.>]
+              subscribe:
+                allow: [_INBOX.>]
+          - user: ci-worker
+            password: "<< $NATS_CI_WORKER_PASSWORD >>"
+            permissions:
+              publish:
+                allow: [$JS.API.>, $JS.ACK.>]
+              subscribe:
+                allow: [_INBOX.>]
+
+container:
+  env:
+    NATS_SYS_PASSWORD:
+      valueFrom:
+        secretKeyRef: {name: nats-auth, key: sys_password}
+    NATS_CI_PRODUCER_PASSWORD:
+      valueFrom:
+        secretKeyRef: {name: nats-auth, key: ci_producer_password}
+    NATS_CI_WORKER_PASSWORD:
+      valueFrom:
+        secretKeyRef: {name: nats-auth, key: ci_worker_password}
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {memory: 192Mi}
+
+natsBox:
+  enabled: false
+
+promExporter:
+  enabled: true
+  podMonitor:
+    enabled: true
+
+service:
+  merge:
+    spec:
+      type: LoadBalancer
