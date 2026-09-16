@@ -51,6 +51,11 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:/root/.ansible/collections"
+          # 静态检查不应依赖生产 vault 凭据。一次性 checkout 可以去掉加密变量文件；
+          # syntax-check 只验证结构，不需要解析变量的运行时值。
+          rm -f \
+            infrastructure/openbao/ansible/group_vars/all/vault.yml \
+            infrastructure/samba-ad/ansible/group_vars/all/vault.yml
           rc=0
           for p in infrastructure/openbao infrastructure/samba-ad infrastructure/proxmox; do
             echo "::group::$p"
