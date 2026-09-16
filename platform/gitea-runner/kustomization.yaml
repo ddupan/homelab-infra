@@ -11,6 +11,8 @@ configMapGenerator:
       - values.yaml=values.yaml
 resources:
   - namespace.yaml
+  - serviceaccount.yaml
+  - clusterspiffeid.yaml
   - external-secret.yaml
   - helmrepository.yaml
   - helmrelease.yaml

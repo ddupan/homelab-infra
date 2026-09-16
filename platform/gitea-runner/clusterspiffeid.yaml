@@ -1,0 +1,17 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: gitea-actions
+spec:
+  className: spire-mgmt-spire
+  spiffeIDTemplate: spiffe://{{ .TrustDomain }}/ci/gitea-actions
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: gitea-actions
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: gitea-actions
+      app.kubernetes.io/name: actions-runner
+  workloadSelectorTemplates:
+    - k8s:ns:gitea-actions
+    - k8s:sa:gitea-actions
