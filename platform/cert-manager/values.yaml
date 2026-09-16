@@ -44,6 +44,13 @@ cainjector:
     limits:
       memory: 256Mi
 
+# bao-acme solves HTTP-01 through the shared Gateway. The ClusterIssuer can be
+# accepted while this is disabled, but every Challenge then stays pending with
+# "gateway api is not enabled". Gateway API CRDs are installed by Envoy Gateway.
+config:
+  gatewayAPI:
+    enabled: true
+
 # ⚠ DNS-01 self-check: cert-manager polls authoritative NS for the _acme-challenge
 # TXT record before telling the CA to validate. By default it asks the cluster's
 # resolver, which for ad.ddupan.top is CoreDNS -> the Samba AD DC (k3s/coredns-custom.yaml).
