@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kata-deploy-values
+  namespace: kata-system
+data:
+  values.yaml: |
+    deploymentMode: job
+    k8sDistribution: k3s
+
+    job:
+      parallelism: 1
+
+    snapshotter:
+      setup: []
+
+    shims:
+      disableAll: true
+      clh-runtime-rs:
+        enabled: true
+        dropIn: |
+          [runtime]
+          emptydir_mode = "block-plain"
+
+    defaultShim:
+      amd64: clh-runtime-rs
+
+    runtimeClasses:
+      enabled: true
+      createDefault: false
+
+    node-feature-discovery:
+      enabled: false
+
+    monitor:
+      enabled: true
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 192Mi

@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kata-deploy
+  namespace: kata-system
+spec:
+  interval: 1h
+  ref:
+    digest: sha256:33f102f6db70083de4fc8238af4439c4245a601bcb6a72e49bc80529098aefc0
+  url: oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy

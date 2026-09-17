@@ -46,6 +46,11 @@ attestation。Server 使用 external bundle publisher 持续维护 sandbox
 普通 Pod 与后续 Kata guest 的回归夹具，稳定身份为
 `spiffe://ddupan.top/sandbox/smoke`。测试 Pod 临时创建并在验收后删除，身份声明保留。
 
+Kata 阶段使用官方 4.1.0 `kata-deploy` chart 的短生命周期 `job` 模式，逐节点安装并
+重启 K3s。只启用 `kata-clh-runtime-rs`，不创建默认 `kata` 别名；该 handler 的
+`emptyDir` 固定使用 `block-plain`，为 Docker/BuildKit overlay2 与 kind 提供 guest
+内块设备文件系统。详细限制与上线验收见 `platform/sandbox-kata/README.md`。
+
 ## 监控边界
 
 这里只管理 sandbox LXC 内的 Kubernetes 监控，不负责 PVE 宿主监控。LXC 与宿主共享

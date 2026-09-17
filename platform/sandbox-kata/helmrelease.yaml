@@ -1,0 +1,40 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kata-deploy
+  namespace: kata-system
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kata-deploy
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: DaemonSet
+              name: kata-monitor
+            patch: |
+              - op: add
+                path: /spec/template/spec/automountServiceAccountToken
+                value: false
+              - op: add
+                path: /spec/template/spec/containers/0/ports/0/name
+                value: metrics
+  releaseName: kata-deploy
+  targetNamespace: kata-system
+  timeout: 30m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: kata-deploy-values
