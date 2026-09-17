@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - apps/monitoring-operator.yaml
   - apps/monitoring.yaml
+  - apps/spire-bootstrap.yaml

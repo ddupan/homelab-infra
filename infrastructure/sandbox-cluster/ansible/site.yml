@@ -52,3 +52,9 @@
   gather_facts: false
   roles:
     - sandbox_flux
+
+- name: Reconcile central SPIRE access to sandbox Kubernetes
+  hosts: sandbox1
+  gather_facts: false
+  roles:
+    - sandbox_spire_bootstrap
