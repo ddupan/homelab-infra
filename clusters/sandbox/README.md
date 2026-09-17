@@ -36,6 +36,16 @@ SPIFFE CR status/finalizer 和 leader election。它不复用只允许 TokenRevi
 reviewer。Ansible 将两份 kubeconfig 写入同一个 central Secret 的不同 key，便于 central
 chart 分别绑定 `sandbox` 与 `sandbox-controller`。
 
+Central SPIRE Server 通过内网 `spire-server.ad.ddupan.top:8081` 接收 sandbox Agent
+attestation。Server 使用 external bundle publisher 持续维护 sandbox
+`spire-system/spire-bundle`，Agent 不固定或复制 trust bundle。Sandbox HelmRelease
+显式关闭 Server 与 OIDC Provider，只部署 Agent DaemonSet 和 SPIFFE CSI Driver；因此
+不会产生第二个 trust root。
+
+`spire-smoke` namespace、ServiceAccount 和 `sandbox-spire-smoke` ClusterSPIFFEID 是
+普通 Pod 与后续 Kata guest 的回归夹具，稳定身份为
+`spiffe://ddupan.top/sandbox/smoke`。测试 Pod 临时创建并在验收后删除，身份声明保留。
+
 ## 监控边界
 
 这里只管理 sandbox LXC 内的 Kubernetes 监控，不负责 PVE 宿主监控。LXC 与宿主共享

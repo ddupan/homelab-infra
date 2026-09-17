@@ -1,0 +1,17 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: spire-agent
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - spire-system
+  podMetricsEndpoints:
+    - interval: 30s
+      port: prom
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: sandbox-spire
+      app.kubernetes.io/name: agent

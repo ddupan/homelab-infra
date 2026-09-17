@@ -5,3 +5,4 @@ resources:
   - apps/monitoring-operator.yaml
   - apps/monitoring.yaml
   - apps/spire-bootstrap.yaml
+  - apps/spire-agents.yaml

@@ -6,3 +6,4 @@ resources:
   - kubelet-scrapes.yaml
   - kube-state-metrics.yaml
   - kube-state-metrics-scrape.yaml
+  - spire-agent-scrape.yaml

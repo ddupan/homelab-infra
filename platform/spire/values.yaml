@@ -30,6 +30,42 @@ spire-server:
   kind: statefulset
   replicaCount: 1
   auditLogEnabled: true
+  service:
+    type: LoadBalancer
+    port: 8081
+    loadBalancerIP: 192.168.10.127
+  kubeConfigs:
+    sandbox:
+      externalSecret:
+        name: spire-external-kubeconfigs
+        key: sandbox
+    sandbox-controller:
+      externalSecret:
+        name: spire-external-kubeconfigs
+        key: sandbox-controller
+  nodeAttestor:
+    externalK8sPSAT:
+      enabled: true
+      clusters:
+        sandbox:
+          kubeConfigName: sandbox
+          serviceAccountAllowList:
+            - spire-system:spire-agent
+  externalControllerManagers:
+    enabled: true
+    clusters:
+      sandbox:
+        kubeConfigName: sandbox-controller
+  bundlePublisher:
+    externalK8sConfigMap:
+      enabled: true
+      clusters:
+        sandbox:
+          kubeConfigName: sandbox-controller
+          namespace: spire-system
+          configMapName: spire-bundle
+          configMapKey: bundle.spiffe
+          format: spiffe
   persistence:
     # PostgreSQL stores registrations, but the disk KeyManager still needs durable
     # storage for the trust-domain signing keys.

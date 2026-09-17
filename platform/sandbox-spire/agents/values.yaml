@@ -1,0 +1,86 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sandbox-spire-values
+  namespace: spire-mgmt
+data:
+  values.yaml: |
+    global:
+      k8s:
+        clusterDomain: cluster.local
+      spire:
+        bundleConfigMap: spire-bundle
+        clusterName: sandbox
+        trustDomain: ddupan.top
+        namespaces:
+          create: false
+          system:
+            name: spire-system
+          server:
+            name: spire-server
+        recommendations:
+          enabled: true
+          namespaceLayout: true
+          namespacePSS: true
+          priorityClassName: true
+          strictMode: true
+          securityContexts: true
+          prometheus: false
+
+    spire-server:
+      enabled: false
+
+    spire-agent:
+      enabled: true
+      serviceAccount:
+        name: spire-agent
+      server:
+        address: spire-server.ad.ddupan.top
+        port: 8081
+      nodeAttestor:
+        k8sPSAT:
+          enabled: true
+      workloadAttestors:
+        k8s:
+          enabled: true
+        unix:
+          enabled: false
+      telemetry:
+        prometheus:
+          enabled: true
+          podMonitor:
+            enabled: false
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 192Mi
+
+    spiffe-csi-driver:
+      enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 96Mi
+
+    spiffe-oidc-discovery-provider:
+      enabled: false
+
+    upstream:
+      enabled: false
+    tornjak-frontend:
+      enabled: false
+    spire-identity-exchange:
+      enabled: false
+    spike-keeper:
+      enabled: false
+    spike-nexus:
+      enabled: false
+    spike-pilot:
+      enabled: false

@@ -19,6 +19,11 @@ Flux 安装 SPIFFE hardened charts：
 API 或 Broker API。Trust domain 是 `ddupan.top`，Kubernetes cluster name 是
 `homelab`。
 
+同一 Server 也接受 cluster name 为 `sandbox` 的 external PSAT attestation。SPIRE gRPC
+只通过内网 `spire-server.ad.ddupan.top:8081` 暴露；external PSAT、external
+controller-manager 与 bundle publisher 使用由 sandbox Ansible bootstrap 的独立、受限
+kubeconfig。Sandbox 不运行第二套 Server 或 OIDC Provider。
+
 ## PostgreSQL bootstrap
 
 SPIRE registration datastore 使用共享 CloudNativePG：
