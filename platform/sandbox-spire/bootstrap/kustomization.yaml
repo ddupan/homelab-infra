@@ -6,3 +6,4 @@ resources:
   - repository.yaml
   - crds.yaml
   - token-reviewer.yaml
+  - controller-manager.yaml
