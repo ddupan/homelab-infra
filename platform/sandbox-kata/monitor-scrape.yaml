@@ -1,0 +1,17 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: kata-monitor
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kata-system
+  podMetricsEndpoints:
+    - interval: 30s
+      port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: kata-deploy
+      app.kubernetes.io/name: kata-monitor

@@ -6,3 +6,4 @@ resources:
   - apps/monitoring.yaml
   - apps/spire-bootstrap.yaml
   - apps/spire-agents.yaml
+  - apps/kata.yaml
