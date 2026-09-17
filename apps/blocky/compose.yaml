@@ -1,4 +1,4 @@
-# Blocky — LAN DNS. STAGED, NOT DEPLOYED. See README.md.
+# Blocky — 已部署的 LAN 主 DNS。见 README.md。
 #
 # WHY compose on the laptop and NOT a k3s Deployment, given everything else here
 # is Kubernetes:
@@ -52,3 +52,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+# 避免与 DN42 的 172.20.0.0/14 重叠。
+networks:
+  default:
+    ipam:
+      config:
+      - subnet: 172.28.0.0/24

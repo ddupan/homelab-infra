@@ -1,9 +1,7 @@
 # Blocky — LAN resolver, ad-blocker and split-horizon DNS.
 #
-# DEPLOYED 2026-07-28 and verified, but NOT yet the LAN resolver — clients still
-# get the DC/router pair from DHCP. Making it the resolver needs a DHCP change on
-# the NEC IX; see README.md. Until then only clients that query 192.168.10.127
-# explicitly are affected, so this is safely reversible.
+# LAN 主 DNS 为 192.168.10.127，NEC IX 192.168.10.1 为备用。
+# DN42 条件转发经 VyOS，参见 README.md。
 
 ports:
   # These are the CONTAINER's listen addresses, so they must be unqualified —
@@ -35,6 +33,13 @@ conditional:
   # Queries for the AD zone go straight to the DC, which is authoritative. This
   # replaces the "DC first, router second" resolver ordering that clients use today.
   mapping:
+    # DN42 由 VyOS 使用注册地址转发，避免 LAN 私网源地址缺少回程。
+    dn42: 192.168.10.2
+    20.172.in-addr.arpa: 192.168.10.2
+    21.172.in-addr.arpa: 192.168.10.2
+    22.172.in-addr.arpa: 192.168.10.2
+    23.172.in-addr.arpa: 192.168.10.2
+    d.f.ip6.arpa: 192.168.10.2
     ad.ddupan.top: 192.168.10.5
     # Reverse lookups for LAN hosts — the DC holds the reverse zone.
     10.168.192.in-addr.arpa: 192.168.10.5

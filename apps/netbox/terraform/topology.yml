@@ -52,11 +52,16 @@ prefix_roles:
 # range. It makes the collision VISIBLE — the range shows 100% utilised and the
 # address never appears as a suggestion — where plain YAML shows nothing at all.
 ip_ranges:
-  - start: 192.168.10.10/24
+  - start: 192.168.10.128/24
     end: 192.168.10.250/24
     status: active
     mark_utilized: true
-    description: "NEC IX DHCP pool — do NOT statically allocate inside this."
+    description: "NEC IX DHCP pool, updated 2026-09-14. Do NOT statically allocate inside this."
+  - start: 192.168.10.251/24
+    end: 192.168.10.254/24
+    status: reserved
+    mark_utilized: true
+    description: "用户确认预留，尚未分配；不可按扫描无响应视为空闲。"
 
 vlan_group:
   name: lab
@@ -144,8 +149,8 @@ devices:
     role: hypervisor
     type: 10vgcto1ww
     serial: PC1AGX1Q
-    description: "Proxmox VE 9.2. LINSTOR satellite. The node that randomly froze."
-    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT45A. Raven Ridge idle bug fixed in BIOS: Power Supply Idle Control = Typical Current Idle."
+    description: "Proxmox VE 9.2. LINSTOR satellite."
+    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT45A."
     interfaces:
       - { name: vmbr0, type: bridge, ip: 192.168.10.7/24, primary: true, mtu: 9000, dns_name: pve2.ad.ddupan.top }
 
@@ -154,7 +159,7 @@ devices:
     type: 10vgcto1ww
     serial: PC1AGX1P
     description: "Proxmox VE 9.2. LINSTOR satellite."
-    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT55A. Same silicon as pve2, so susceptible to the same idle bug in principle."
+    comments: "AMD Ryzen 5 PRO 2400GE w/ Vega, 8 threads, 7 GiB RAM. BIOS M1XKT55A."
     interfaces:
       - { name: vmbr0, type: bridge, ip: 192.168.10.9/24, primary: true, mtu: 9000, dns_name: pve3.ad.ddupan.top }
 
@@ -181,9 +186,8 @@ devices:
   # Wi-Fi. Runs as an AP/bridge, not a router — the NEC IX is the gateway, so this box's
   # routing, NAT and DHCP are not in play. Wireless clients land directly on the flat LAN.
   #
-  # ⚠ Its address .10 is the FIRST ADDRESS OF THE DHCP POOL above. Either it holds a lease
-  # (so the address can move) or it is a static that overlaps the pool. NetBox surfaces
-  # the overlap; the underlying config still needs a decision. See ../README.md.
+  # 2026-09-14: NEC IX 为此 MAC 固定分配 .10；动态池已迁到 .128–.250。
+  # 操作与回滚记录：infrastructure/samba-ad/router-dhcp-nec-ix.md。
   #
   # Identified by MAC OUI d4:2c:46 = BUFFALO.INC plus the model string on its login page.
   - name: ap-buffalo

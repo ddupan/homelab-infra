@@ -49,6 +49,7 @@ authelia/secret.yaml
 **/secret.yaml
 **/credentials.yml
 **/terraform.tfvars
+**/credentials.auto.tfvars
 **/tailscale/helm.sh
 **/cloudflared/backup/
 **/cloudflared/secret.yaml
@@ -118,3 +119,4 @@ apps/netboot/config/log/
 # Blocky's per-day query logs. Bind-mounted into the container, one file per
 # day, and every DNS query the LAN makes ends up in them.
 apps/blocky/logs/
+.venv/

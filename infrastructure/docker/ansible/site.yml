@@ -1,0 +1,61 @@
+---
+- name: 为 DN42 排除 Docker 地址池重叠
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    docker_address_pools:
+      - base: 172.28.0.0/16
+        size: 24
+  tasks:
+    - name: 读取现有 Docker 配置并保留 runtimes 等设置
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: docker_config
+      no_log: true
+
+    # 先让旧 daemon 知道 live-restore，随后重启才能保留运行容器。
+    - name: 启用 live-restore
+      ansible.builtin.copy:
+        content: "{{ (docker_config.content | b64decode | from_json | combine({'live-restore': true})) | to_nice_json }}\n"
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+        validate: /usr/bin/dockerd --validate --config-file %s
+      register: live_restore_config
+
+    - name: 热重载 live-restore
+      ansible.builtin.systemd_service:
+        name: docker
+        state: reloaded
+      when: live_restore_config.changed and not ansible_check_mode
+
+    - name: 确认运行中的 daemon 已启用 live-restore
+      ansible.builtin.command: docker info --format '{{ '{{' }}.LiveRestoreEnabled{{ '}}' }}'
+      register: live_restore_status
+      changed_when: false
+      retries: 5
+      delay: 2
+      until: live_restore_status.stdout == 'true'
+      when: not ansible_check_mode
+
+    - name: 配置 DN42 范围之外的默认地址池
+      ansible.builtin.copy:
+        content: "{{ (docker_config.content | b64decode | from_json | combine({'live-restore': true, 'default-address-pools': docker_address_pools})) | to_nice_json }}\n"
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+        validate: /usr/bin/dockerd --validate --config-file %s
+      register: docker_pool_config
+
+    - name: 保留运行容器并重启 daemon 使地址池生效
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+      when: docker_pool_config.changed and not ansible_check_mode

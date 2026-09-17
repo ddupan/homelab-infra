@@ -10,6 +10,9 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
       - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
       - { zone: ad.ddupan.top, name: pve3, type: A, values: [192.168.10.9] }
+      - { zone: ad.ddupan.top, name: sandbox1, type: A, values: [10.60.0.11] }
+      - { zone: ad.ddupan.top, name: sandbox2, type: A, values: [10.60.0.12] }
+      - { zone: ad.ddupan.top, name: sandbox-k8s, type: A, values: [10.60.0.13] }
       - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
       - { zone: ad.ddupan.top, name: grafana, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: netbox, type: A, values: [192.168.10.127] }
@@ -52,4 +55,19 @@ homelab_dns:
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
         proxied: true
+        terraform: { managed: false }
+      # OCI 主机直接解析公网 IP，SSH 不经过 Cloudflare 代理。
+      - name: oci-arm.ddupan.top
+        type: A
+        values:
+        - 129.225.138.179
+        proxied: false
+        ttl: 300
+        terraform: { managed: false }
+      - name: oci-amd.ddupan.top
+        type: A
+        values:
+        - 129.225.176.134
+        proxied: false
+        ttl: 300
         terraform: { managed: false }
