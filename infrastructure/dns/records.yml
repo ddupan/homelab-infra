@@ -60,14 +60,14 @@ homelab_dns:
       - name: oci-arm.ddupan.top
         type: A
         values:
-        - 129.225.138.179
+          - 129.225.138.179
         proxied: false
         ttl: 300
         terraform: { managed: false }
       - name: oci-amd.ddupan.top
         type: A
         values:
-        - 129.225.176.134
+          - 129.225.176.134
         proxied: false
         ttl: 300
         terraform: { managed: false }
