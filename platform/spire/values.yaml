@@ -101,6 +101,11 @@ spire-server:
           enabled: false
 
 spire-agent:
+  server:
+    # Keep the Agent endpoint aligned with spire-server.service.port. The
+    # chart defaults this to 443, which only remained unnoticed while the
+    # Agent's pre-upgrade gRPC connection stayed alive.
+    port: 8081
   nodeAttestor:
     k8sPSAT:
       enabled: true
