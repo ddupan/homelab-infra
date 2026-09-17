@@ -11,17 +11,22 @@ Ansible 管理以下持久状态：
 - pve1/pve2 上的 privileged LXC、磁盘、固定网络与 KVM/vhost/TUN/kmsg 设备；
 - LXC OS 基线、内部 CA、外部 PostgreSQL 与 K3s；
 - 固定版本的 Flux controllers 和 root sync bootstrap；
-- 集群外 exporter、只读状态验证和数据库切换 runbook。
+- 只读状态验证和数据库切换 runbook。
 
 Flux 管理以下 Kubernetes 资源：
 
 - Kata Containers 和 CI 专用的 `block-plain` RuntimeClass；
 - SPIRE Agent、SPIFFE CSI Driver 与 workload identity 声明；
-- vmagent、kube-state-metrics、scrape 配置和告警；
+- vmagent、kube-state-metrics、kubelet/cAdvisor scrape 配置和告警；
 - OpenSandbox operator/server、`ci-pod` 与 `ci-vm` Pools。
 
 同一个对象只能有一个 owner。Ansible 不直接部署上述集群内 workload；Flux 不管理
 LXC、K3s datastore 或 K3s 本身。
+
+监控范围仅覆盖 sandbox LXC 内的 Kubernetes 与 workload。不得在 LXC 内部署
+node_exporter：LXC 的 `/proc` 是 lxcfs 虚拟视图与宿主内核视图的混合，尤其
+`/proc/stat` 会重复暴露 PVE 宿主 CPU 数据。PVE 自身的 node_exporter 或其他宿主
+监控不属于本目录；sandbox 使用 kubelet/cAdvisor 和 kube-state-metrics。
 
 ## 声明拓扑
 
