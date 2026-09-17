@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flux-system
+  namespace: flux-system
+type: Opaque
+stringData:
+  caFile: |
+{{ sandbox_flux_ca.content | b64decode | indent(4, true) }}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 1m
+  ref:
+    branch: {{ sandbox_flux_repository_branch }}
+  secretRef:
+    name: flux-system
+  timeout: 60s
+  url: {{ sandbox_flux_repository_url }}
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: {{ sandbox_flux_path }}
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 3m
+  wait: true

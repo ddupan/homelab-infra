@@ -1,0 +1,61 @@
+---
+sandbox_pve_api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+sandbox_pve_api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+sandbox_pve_api_token_id: "{{ lookup('env', 'PROXMOX_TOKEN_ID') }}"
+sandbox_pve_api_token_secret: "{{ lookup('env', 'PROXMOX_TOKEN_SECRET') }}"
+sandbox_pve_validate_certs: true
+sandbox_pve_api_python_interpreter: "{{ lookup('env', 'PVE_API_PYTHON') | default(ansible_playbook_python, true) }}"
+
+sandbox_bridge: labnet
+sandbox_gateway: 10.60.0.1
+sandbox_nameserver: 192.168.10.5
+sandbox_search_domain: ad.ddupan.top
+sandbox_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+sandbox_rootfs_storage: pve-rg-hdd
+sandbox_rootfs_gb: 32
+sandbox_lxc_cores: 4
+sandbox_lxc_swap_mb: 2048
+sandbox_lxc_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+sandbox_internal_ca_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+sandbox_base_packages:
+  - ca-certificates
+  - curl
+  - jq
+  - openssh-server
+
+sandbox_postgresql_version: 16
+sandbox_postgresql_primary_address: 10.60.0.11
+sandbox_postgresql_standby_address: 10.60.0.12
+sandbox_postgresql_lb_address: 10.60.0.1
+sandbox_postgresql_database: k3s
+sandbox_postgresql_user: k3s
+sandbox_postgresql_replication_user: k3s_replication
+sandbox_postgresql_replication_slot: sandbox2
+sandbox_postgresql_rotate_passwords: false
+sandbox_postgresql_k3s_password: "{{ lookup('env', 'SANDBOX_K3S_DB_PASSWORD') }}"
+sandbox_postgresql_replication_password: "{{ lookup('env', 'SANDBOX_REPLICATION_PASSWORD') }}"
+
+# This is rendered only at playbook runtime from the Bao-provided password. K3s
+# necessarily persists its datastore credential, but config.yaml is root-only.
+sandbox_k3s_datastore_password_encoded: >-
+  {{ sandbox_postgresql_k3s_password | urlencode | replace('/', '%2F') }}
+sandbox_k3s_datastore_endpoint: >-
+  {{
+    [
+      'postgres://', sandbox_postgresql_user, ':', sandbox_k3s_datastore_password_encoded,
+      '@', sandbox_postgresql_lb_address, ':5432/', sandbox_postgresql_database, '?sslmode=disable'
+    ] | join
+  }}
+server_config_yaml: |
+  datastore-endpoint: {{ sandbox_k3s_datastore_endpoint }}
+  disable:
+    - servicelb
+    - traefik
+user_kubectl: false
+
+sandbox_flux_version: v2.9.5
+sandbox_flux_install_url: >-
+  https://github.com/fluxcd/flux2/releases/download/{{ sandbox_flux_version }}/install.yaml
+sandbox_flux_repository_url: https://git.ddupan.top/panxiao81/homelab-infra.git
+sandbox_flux_repository_branch: main
+sandbox_flux_path: ./clusters/sandbox

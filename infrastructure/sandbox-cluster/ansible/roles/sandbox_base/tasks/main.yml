@@ -1,0 +1,58 @@
+---
+- name: Install sandbox base packages
+  ansible.builtin.apt:
+    name: "{{ sandbox_base_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Fetch the homelab internal CA
+  ansible.builtin.uri:
+    url: "{{ sandbox_internal_ca_url }}"
+    return_content: true
+    validate_certs: true
+  register: sandbox_internal_ca
+  changed_when: false
+  retries: 3
+  delay: 5
+  until: sandbox_internal_ca is succeeded
+
+- name: Validate the homelab internal CA response
+  ansible.builtin.assert:
+    that:
+      - "'BEGIN CERTIFICATE' in sandbox_internal_ca.content"
+    fail_msg: OpenBao did not return a PEM certificate
+    quiet: true
+
+- name: Install the homelab internal CA
+  ansible.builtin.copy:
+    dest: /usr/local/share/ca-certificates/ddupan-internal-ca.crt
+    content: "{{ sandbox_internal_ca.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Update sandbox CA certificates
+
+- name: Enable the SSH service
+  ansible.builtin.service:
+    name: ssh
+    enabled: true
+    state: started
+
+# LXC does not expose the host kernel log device. Kubelet only needs a writable
+# kmsg-compatible character device, and the container console is the established
+# LXC mapping for this purpose. tmpfiles recreates the link after every boot.
+- name: Persist the LXC kubelet kmsg mapping
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/kmsg.conf
+    content: "L+ /dev/kmsg - - - - /dev/console\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Expose the LXC console as kmsg
+  ansible.builtin.file:
+    src: /dev/console
+    dest: /dev/kmsg
+    state: link
+    force: true

@@ -1,0 +1,11 @@
+# Ansible managed
+listen_addresses = '{{ ansible_host }},127.0.0.1'
+password_encryption = 'scram-sha-256'
+wal_level = 'replica'
+max_wal_senders = 10
+max_replication_slots = 10
+hot_standby = on
+{% if inventory_hostname in groups['postgres_primary'] and sandbox_postgresql_synchronous_marker.stat.exists %}
+synchronous_standby_names = 'FIRST 1 (sandbox2)'
+synchronous_commit = 'remote_apply'
+{% endif %}
