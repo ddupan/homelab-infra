@@ -50,9 +50,9 @@ guest 内启动临时 SPIRE Agent，并满足以下约束：
 `spiffe://ddupan.top/ci/poc/task/build` X.509-SVID，Pod 正常退出。PoC 资源随后全部清理，
 中央 SPIRE 恢复声明式配置。
 
-当前 hardened SPIRE chart 0.30.2 尚未暴露 `use_pod_uid_for_agent_id`。正式部署必须先
-升级到支持该字段的 chart，或向上游补齐 values/template；不得把手工修改 Server
-ConfigMap 作为运行方案。
+SPIRE 1.15.3 已支持 `use_pod_uid_for_agent_id`，但当前使用的 hardened chart 0.30.2
+尚未把它暴露到 values/template。正式部署应先给 chart 补齐该字段并向上游提交，随后
+采用包含修复的 release；不得把手工修改 Server ConfigMap 作为运行方案。
 
 ## 上线验收
 
