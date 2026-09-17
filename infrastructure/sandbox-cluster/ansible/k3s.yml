@@ -1,0 +1,17 @@
+---
+- name: Validate runtime K3s datastore credential
+  hosts: k3s_cluster
+  gather_facts: false
+  tasks:
+    - name: Require the Bao-provided PostgreSQL password
+      ansible.builtin.assert:
+        that:
+          - sandbox_postgresql_k3s_password | length > 0
+          - server_config_yaml is defined
+          - (server_config_yaml | from_yaml)['datastore-endpoint'] == sandbox_k3s_datastore_endpoint
+        fail_msg: SANDBOX_K3S_DB_PASSWORD must be populated from Bao
+        quiet: true
+      no_log: true
+
+- name: Install the sandbox K3s control plane
+  ansible.builtin.import_playbook: k3s.orchestration.site

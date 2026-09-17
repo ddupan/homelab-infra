@@ -3,6 +3,23 @@
 # `set` lines against the running config and issues only the differences, so
 # re-runs are no-ops. Supports --check and --diff.
 
+- name: Read current VyOS configuration commands
+  vyos.vyos.vyos_command:
+    commands:
+      - show configuration commands
+  register: _vyos_running_commands
+  changed_when: false
+
+- name: Remove obsolete HAProxy PostgreSQL protocol check
+  vyos.vyos.vyos_config:
+    lines:
+      - delete load-balancing haproxy backend sandbox-postgresql-primary health-check
+    save: true
+    comment: Remove unsupported PostgreSQL protocol check
+  when: >-
+    "set load-balancing haproxy backend sandbox-postgresql-primary health-check 'pgsql'"
+    in _vyos_running_commands.stdout[0]
+
 - name: Render the desired configuration
   ansible.builtin.set_fact:
     _vyos_lines: >-

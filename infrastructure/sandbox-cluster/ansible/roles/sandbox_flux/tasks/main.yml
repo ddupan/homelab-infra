@@ -1,0 +1,30 @@
+---
+- name: Wait for the K3s server manifest directory
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: present
+    timeout: 120
+
+- name: Download the pinned Flux controller manifest
+  ansible.builtin.get_url:
+    url: "{{ sandbox_flux_install_url }}"
+    dest: /var/lib/rancher/k3s/server/manifests/flux-install.yaml
+    owner: root
+    group: root
+    mode: "0644"
+    timeout: 120
+
+- name: Read the installed homelab CA
+  ansible.builtin.slurp:
+    src: /usr/local/share/ca-certificates/ddupan-internal-ca.crt
+  register: sandbox_flux_ca
+  no_log: true
+
+- name: Install the Flux source and root sync manifest
+  ansible.builtin.template:
+    src: flux-sync.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/flux-sync.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true

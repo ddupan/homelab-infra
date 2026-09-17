@@ -1,0 +1,149 @@
+---
+- name: Verify the PostgreSQL datastore through the VyOS endpoint
+  hosts: k3s_cluster
+  gather_facts: false
+  tasks:
+    - name: Query the K3s database through the stable endpoint
+      community.postgresql.postgresql_query:
+        login_host: "{{ sandbox_postgresql_lb_address }}"
+        login_db: "{{ sandbox_postgresql_database }}"
+        login_user: "{{ sandbox_postgresql_user }}"
+        login_password: "{{ sandbox_postgresql_k3s_password }}"
+        query: SELECT NOT pg_is_in_recovery() AS writable
+      register: sandbox_datastore_endpoint
+      no_log: true
+
+    - name: Assert the stable datastore endpoint is writable
+      ansible.builtin.assert:
+        that:
+          - sandbox_datastore_endpoint.query_result[0].writable
+        fail_msg: The VyOS datastore endpoint is not connected to a writable PostgreSQL primary
+        quiet: true
+
+- name: Verify synchronous PostgreSQL replication
+  hosts: postgres_primary
+  gather_facts: false
+  tasks:
+    - name: Query replication state on the primary
+      community.postgresql.postgresql_query:
+        login_db: postgres
+        query: >-
+          SELECT application_name, state, sync_state
+          FROM pg_stat_replication
+          WHERE application_name = 'sandbox2'
+      become: true
+      become_user: postgres
+      register: sandbox_replication_state
+
+    - name: Assert sandbox2 is a synchronous streaming standby
+      ansible.builtin.assert:
+        that:
+          - sandbox_replication_state.query_result | length == 1
+          - sandbox_replication_state.query_result[0].state == 'streaming'
+          - sandbox_replication_state.query_result[0].sync_state == 'sync'
+        fail_msg: sandbox2 is not synchronously streaming from sandbox1
+        quiet: true
+
+- name: Verify PostgreSQL standby recovery state
+  hosts: postgres_standby
+  gather_facts: false
+  tasks:
+    - name: Query recovery state on the standby
+      community.postgresql.postgresql_query:
+        login_db: postgres
+        query: SELECT pg_is_in_recovery() AS in_recovery
+      become: true
+      become_user: postgres
+      register: sandbox_standby_state
+
+    - name: Assert sandbox2 remains in recovery
+      ansible.builtin.assert:
+        that:
+          - sandbox_standby_state.query_result[0].in_recovery
+        fail_msg: sandbox2 is not operating as a PostgreSQL standby
+        quiet: true
+
+- name: Verify K3s node prerequisites
+  hosts: k3s_cluster
+  gather_facts: false
+  tasks:
+    - name: Read the kmsg mapping
+      ansible.builtin.command:
+        cmd: readlink /dev/kmsg
+      register: sandbox_kmsg_target
+      changed_when: false
+
+    - name: Inspect the host kernel module mount
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          findmnt -rn -T "/lib/modules/$(uname -r)" -o OPTIONS |
+          grep -Eq '(^|,)ro(,|$)'
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Assert required LXC kernel integration
+      ansible.builtin.assert:
+        that:
+          - sandbox_kmsg_target.stdout == '/dev/console'
+        fail_msg: LXC is missing its persistent kmsg or read-only host module mapping
+        quiet: true
+
+    - name: Read K3s service state
+      ansible.builtin.systemd_service:
+        name: k3s
+      register: sandbox_k3s_service
+
+    - name: Assert K3s is active
+      ansible.builtin.assert:
+        that:
+          - sandbox_k3s_service.status.ActiveState == 'active'
+          - sandbox_k3s_service.status.SubState == 'running'
+        fail_msg: K3s is not running
+        quiet: true
+
+- name: Verify the K3s control plane and API VIP
+  hosts: sandbox1
+  gather_facts: false
+  tasks:
+    - name: Wait for all declared nodes
+      ansible.builtin.command:
+        cmd: k3s kubectl wait --for=condition=Ready nodes --all --timeout=120s
+      changed_when: false
+
+    - name: Read control-plane nodes
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl get nodes
+          -l node-role.kubernetes.io/control-plane=true
+          -o name
+      register: sandbox_control_plane_nodes
+      changed_when: false
+
+    - name: Assert both control-plane nodes are registered
+      ansible.builtin.assert:
+        that:
+          - sandbox_control_plane_nodes.stdout_lines | length == 2
+        fail_msg: The sandbox cluster does not contain both control-plane nodes
+        quiet: true
+
+    - name: Wait for all kube-system Pods
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl wait --namespace kube-system
+          --for=condition=Ready pods --all --timeout=120s
+      changed_when: false
+
+    - name: Verify the authenticated API path through VyOS
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl --server=https://10.60.0.13:6443 get --raw=/livez
+      register: sandbox_api_livez
+      changed_when: false
+
+    - name: Assert the API VIP is live
+      ansible.builtin.assert:
+        that:
+          - sandbox_api_livez.stdout == 'ok'
+        fail_msg: The K3s API is not healthy through the VyOS VIP
+        quiet: true

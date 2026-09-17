@@ -1,0 +1,45 @@
+---
+- name: Apply primary PostgreSQL configuration before replication setup
+  ansible.builtin.meta: flush_handlers
+
+- name: Create K3s PostgreSQL login role
+  community.postgresql.postgresql_user:
+    name: "{{ sandbox_postgresql_user }}"
+    password: "{{ sandbox_postgresql_k3s_password }}"
+    no_password_changes: "{{ not sandbox_postgresql_rotate_passwords }}"
+    role_attr_flags: LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE,NOREPLICATION
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+  environment:
+    PGOPTIONS: -c password_encryption=scram-sha-256
+
+- name: Create K3s PostgreSQL database
+  community.postgresql.postgresql_db:
+    name: "{{ sandbox_postgresql_database }}"
+    owner: "{{ sandbox_postgresql_user }}"
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Create PostgreSQL replication login role
+  community.postgresql.postgresql_user:
+    name: "{{ sandbox_postgresql_replication_user }}"
+    password: "{{ sandbox_postgresql_replication_password }}"
+    no_password_changes: "{{ not sandbox_postgresql_rotate_passwords }}"
+    role_attr_flags: LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+  environment:
+    PGOPTIONS: -c password_encryption=scram-sha-256
+
+- name: Create physical replication slot for sandbox2
+  community.postgresql.postgresql_slot:
+    name: "{{ sandbox_postgresql_replication_slot }}"
+    slot_type: physical
+    state: present
+  become: true
+  become_user: postgres

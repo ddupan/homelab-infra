@@ -1,0 +1,15 @@
+---
+collections:
+  - name: community.proxmox
+    version: 2.0.0
+  - name: community.postgresql
+    version: 4.2.0
+  - name: ansible.posix
+    version: 2.2.2
+  - name: community.general
+    version: 13.4.0
+  - name: community.library_inventory_filtering_v1
+    version: 1.1.5
+  - name: https://github.com/k3s-io/k3s-ansible.git
+    type: git
+    version: 1a600b60d37e0f8a6e2e79b0e474147b5b108ae5
