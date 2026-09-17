@@ -1,0 +1,10 @@
+---
+- name: 更新 Samba DNS 转发器并校验配置
+  ansible.builtin.lineinfile:
+    path: /etc/samba/smb.conf
+    regexp: '^\s*dns forwarder\s*='
+    insertafter: '^\[global\]'
+    line: "\tdns forwarder = {{ samba_ad_dns_forwarder }}"
+    validate: '/usr/bin/testparm -s %s'
+    backup: true
+  notify: restart samba-ad-dc

@@ -2,7 +2,7 @@
 # Deliberately does NOT reboot. Swapping the watchdog under an armed cluster is a
 # manual, ordered operation (see ../../../README-ha.md); a surprise rolling reboot
 # of all three nodes is exactly what you do not want an idempotent play to do.
-- name: reboot required for watchdog
+- name: Reboot required for watchdog
   ansible.builtin.debug:
     msg: >-
       Watchdog config changed on {{ inventory_hostname }}. It takes effect on the

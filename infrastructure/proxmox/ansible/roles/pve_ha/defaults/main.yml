@@ -14,12 +14,26 @@ pve_ha_resources:
     max_restart: 3
     max_relocate: 2
 
+# pve3 is the normal home for the critical router. Non-strict preserves pve1
+# and pve2 as failover targets when pve3 is unavailable.
+pve_ha_rules:
+  - name: prefer-vyos-pve3
+    type: node-affinity
+    resources: ["vm:100"]
+    nodes: ["pve3:100", "pve1:10", "pve2:10"]
+    strict: false
+    comment: "Prefer critical VyOS router on pve3, away from CI nodes"
+
+pve_ha_portable_vms:
+  - vmid: 100
+    node: pve3
+    cpu: x86-64-v2-AES
+
 # --- Watchdog ---------------------------------------------------------------
 # ⚠ WHY THIS MATTERS: adding ANY HA resource arms fencing cluster-wide. PVE's
 # default is `softdog`, a SOFTWARE watchdog — a kernel timer, which CANNOT fire if
-# the kernel itself is frozen. That is precisely the failure this cluster has
-# actually seen (pve2's Raven Ridge idle freeze). A hardware watchdog is
-# independent silicon and fires regardless.
+# the kernel itself is frozen. A hardware watchdog is independent silicon and
+# fires regardless.
 #
 # Verified available 2026-07-26:
 #   pve1 (Intel i3-6100U) -> iTCO_wdt      (timeout 30s)

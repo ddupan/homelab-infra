@@ -1,7 +1,6 @@
 ---
 # Per-host kernel cmdline additions, driven by `pve_kernel_cmdline_extra` in the
-# inventory. Currently only pve2 sets it (Raven Ridge random-freeze workaround);
-# pve3 is identical silicon but is deliberately left alone -- see inventory.
+# inventory. No node currently sets it; keep the role for future kernel parameters.
 #
 # This is a no-op on hosts that do not define the variable.
 
