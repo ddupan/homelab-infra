@@ -30,6 +30,12 @@ central Server reviewer。Agent ServiceAccount 留给后续 HelmRelease 创建�
 文件；该 Secret 准备完成后，才能启用 central external PSAT/controller-manager 和
 sandbox Agent/CSI。
 
+External controller-manager 使用独立的 `spire-controller-manager` ServiceAccount；其
+RBAC 与上游 controller-manager 所需权限一致，用于读取 workload selectors、维护
+SPIFFE CR status/finalizer 和 leader election。它不复用只允许 TokenReview 的 Server
+reviewer。Ansible 将两份 kubeconfig 写入同一个 central Secret 的不同 key，便于 central
+chart 分别绑定 `sandbox` 与 `sandbox-controller`。
+
 ## 监控边界
 
 这里只管理 sandbox LXC 内的 Kubernetes 监控，不负责 PVE 宿主监控。LXC 与宿主共享

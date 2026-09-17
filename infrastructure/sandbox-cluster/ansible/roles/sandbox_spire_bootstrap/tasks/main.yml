@@ -20,10 +20,33 @@
     - (sandbox_spire_bootstrap_reviewer_secret.stdout | from_json).data['ca.crt'] is defined
   no_log: true
 
+- name: Wait for the sandbox SPIRE controller credential
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - --namespace
+      - "{{ sandbox_spire_bootstrap_source_namespace }}"
+      - get
+      - secret
+      - "{{ sandbox_spire_bootstrap_controller_secret }}"
+      - --output=json
+  register: sandbox_spire_bootstrap_controller_secret_result
+  changed_when: false
+  retries: 60
+  delay: 10
+  until:
+    - sandbox_spire_bootstrap_controller_secret_result.rc == 0
+    - (sandbox_spire_bootstrap_controller_secret_result.stdout | from_json).data.token is defined
+    - (sandbox_spire_bootstrap_controller_secret_result.stdout | from_json).data['ca.crt'] is defined
+  no_log: true
+
 - name: Extract the sandbox TokenReview credential data
   ansible.builtin.set_fact:
     sandbox_spire_bootstrap_secret_data: >-
       {{ (sandbox_spire_bootstrap_reviewer_secret.stdout | from_json).data }}
+    sandbox_spire_bootstrap_controller_data: >-
+      {{ (sandbox_spire_bootstrap_controller_secret_result.stdout | from_json).data }}
   no_log: true
 
 - name: Build the restricted sandbox TokenReview kubeconfig
@@ -46,6 +69,24 @@
             cluster: sandbox
             user: spire-server-token-reviewer
       current-context: sandbox
+    sandbox_spire_bootstrap_controller_kubeconfig: |
+      apiVersion: v1
+      kind: Config
+      clusters:
+        - name: sandbox
+          cluster:
+            server: {{ sandbox_spire_bootstrap_api_server }}
+            certificate-authority-data: {{ sandbox_spire_bootstrap_controller_data['ca.crt'] }}
+      users:
+        - name: spire-controller-manager
+          user:
+            token: {{ sandbox_spire_bootstrap_controller_data.token | b64decode }}
+      contexts:
+        - name: sandbox
+          context:
+            cluster: sandbox
+            user: spire-controller-manager
+      current-context: sandbox
   no_log: true
 
 - name: Reconcile the central SPIRE external kubeconfig Secret
@@ -64,6 +105,7 @@
       type: Opaque
       data:
         sandbox: {{ sandbox_spire_bootstrap_kubeconfig | b64encode }}
+        sandbox-controller: {{ sandbox_spire_bootstrap_controller_kubeconfig | b64encode }}
   delegate_to: localhost
   become: true
   register: sandbox_spire_bootstrap_target

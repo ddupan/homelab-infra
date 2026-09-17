@@ -124,6 +124,10 @@ Playbook 不把 reviewer token 或生成的 kubeconfig 落盘，而是将目标 
 `spire-server/spire-external-kubeconfigs` 由 Ansible 单独拥有；Flux 和人工操作不得写入。
 第二次运行必须为零变更。
 
+Secret 的 `sandbox` key 仅供 SPIRE Server 的 external PSAT plugin 执行 TokenReview；
+`sandbox-controller` key 供 external controller-manager 读取 Pod/Node、reconcile SPIFFE
+CR 及执行 leader election。两者使用不同 ServiceAccount，不得合并权限或互换。
+
 ## 已验证的 Kata CI 前置条件
 
 - Cloud Hypervisor 必须报告 `vm.info.config.memory.shared=true`；
