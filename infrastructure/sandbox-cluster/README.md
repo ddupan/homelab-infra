@@ -111,7 +111,8 @@ server manifests 管理；root 使用 homelab CA 访问公开 Gitea 仓库，不
 ## SPIRE 跨集群 bootstrap
 
 Sandbox 复用 homelab 的 SPIRE Server 与 `ddupan.top` trust domain。Flux 首先安装
-SPIRE CRD，并创建权限仅为 `authentication.k8s.io/tokenreviews.create` 的 reviewer。
+SPIRE CRD，并创建供 k8s_psat 使用的 reviewer。它按上游 Server chart 的权限模型调用
+TokenReview，并以 `get/list` 读取用于证明的 Pod 与 Node；不具有修改 workload 的权限。
 在该 Kustomization Ready 后运行：
 
 ```bash
@@ -124,7 +125,8 @@ Playbook 不把 reviewer token 或生成的 kubeconfig 落盘，而是将目标 
 `spire-server/spire-external-kubeconfigs` 由 Ansible 单独拥有；Flux 和人工操作不得写入。
 第二次运行必须为零变更。
 
-Secret 的 `sandbox` key 仅供 SPIRE Server 的 external PSAT plugin 执行 TokenReview；
+Secret 的 `sandbox` key 仅供 SPIRE Server 的 external PSAT plugin 验证 token 与对应的
+Pod/Node；
 `sandbox-controller` key 供 external controller-manager 读取 Pod/Node、reconcile SPIFFE
 CR 及执行 leader election。两者使用不同 ServiceAccount，不得合并权限或互换。
 
