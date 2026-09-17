@@ -21,9 +21,9 @@ Root bootstrap 已完成。后续按依赖顺序分别引入：
 第一阶段监控拆为 `monitoring-operator` 与依赖它的 `monitoring`，防止 VM CR 在
 VictoriaMetrics Operator CRD Ready 前进入 reconciliation。
 
-SPIRE 阶段先由 `spire-bootstrap` 安装 CRD，并声明只允许 `tokenreviews.create` 的
-central Server reviewer。Agent ServiceAccount 留给后续 HelmRelease 创建，避免两个
-声明方争夺同一资源。随后运行
+SPIRE 阶段先由 `spire-bootstrap` 安装 CRD，并声明按上游 k8s_psat Server plugin
+要求收窄的 reviewer：它可以调用 TokenReview，并只读查询用于证明的 Pod 与 Node。
+Agent ServiceAccount 留给后续 HelmRelease 创建，避免两个声明方争夺同一资源。随后运行
 `infrastructure/sandbox-cluster/ansible/spire-bootstrap.yml`：playbook 从 sandbox
 读取 reviewer token，在内存中组成受限 kubeconfig，再通过 stdin reconcile 到 central
 集群的 `spire-server/spire-external-kubeconfigs` Secret。凭据不写入仓库、日志或控制机
