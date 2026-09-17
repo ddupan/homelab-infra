@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server-token-reviewer
+  namespace: spire-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spire-server-token-reviewer-token
+  namespace: spire-system
+  annotations:
+    kubernetes.io/service-account.name: spire-server-token-reviewer
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-server-token-reviewer
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server-token-reviewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-server-token-reviewer
+subjects:
+  - kind: ServiceAccount
+    name: spire-server-token-reviewer
+    namespace: spire-system

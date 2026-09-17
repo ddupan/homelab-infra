@@ -108,6 +108,22 @@ homelab CA trust。Flux `v2.9.5` controllers 与 root sync 也由 Ansible 通过
 server manifests 管理；root 使用 homelab CA 访问公开 Gitea 仓库，不保存 Git token。
 集群内 workload 由 `clusters/sandbox/` 分阶段纳入 Flux。
 
+## SPIRE 跨集群 bootstrap
+
+Sandbox 复用 homelab 的 SPIRE Server 与 `ddupan.top` trust domain。Flux 首先安装
+SPIRE CRD，并创建权限仅为 `authentication.k8s.io/tokenreviews.create` 的 reviewer。
+在该 Kustomization Ready 后运行：
+
+```bash
+cd infrastructure/sandbox-cluster/ansible
+ansible-playbook spire-bootstrap.yml
+```
+
+Playbook 不把 reviewer token 或生成的 kubeconfig 落盘，而是将目标 Secret manifest
+通过 stdin 交给本机 homelab `k3s kubectl`。目标 Secret
+`spire-server/spire-external-kubeconfigs` 由 Ansible 单独拥有；Flux 和人工操作不得写入。
+第二次运行必须为零变更。
+
 ## 已验证的 Kata CI 前置条件
 
 - Cloud Hypervisor 必须报告 `vm.info.config.memory.shared=true`；
