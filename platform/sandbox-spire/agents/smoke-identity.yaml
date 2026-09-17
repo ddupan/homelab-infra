@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire-smoke
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-smoke
+  namespace: spire-smoke
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: sandbox-spire-smoke
+spec:
+  className: spire-mgmt-spire
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: spire-smoke
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: spire-smoke
+  spiffeIDTemplate: spiffe://{{ .TrustDomain }}/sandbox/smoke
+  workloadSelectorTemplates:
+    - k8s:ns:spire-smoke
+    - k8s:sa:spire-smoke

@@ -1,0 +1,18 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: spire-agents
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: spire-bootstrap
+    - name: monitoring-operator
+  interval: 10m
+  path: ./platform/sandbox-spire/agents
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 15m
+  wait: true
