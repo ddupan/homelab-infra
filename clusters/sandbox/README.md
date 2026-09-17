@@ -10,7 +10,7 @@ Ansible 将 homelab CA 注入 `GitRepository/flux-system` 引用的同名 Secret
 长期 Git 凭据。root Kustomization 从 `./clusters/sandbox` 开始 reconciliation，
 初始保持 `prune: false`。
 
-当前 root 为空，作为 bootstrap canary。后续按依赖顺序分别引入：
+Root bootstrap 已完成。后续按依赖顺序分别引入：
 
 1. 监控 CRD、kube-state-metrics 以及 kubelet/cAdvisor 抓取配置；
 2. SPIRE Agent、SPIFFE CSI Driver 与 workload registration；
@@ -18,6 +18,8 @@ Ansible 将 homelab CA 注入 `GitRepository/flux-system` 引用的同名 Secret
 4. OpenSandbox operator/server 及 `ci-pod`、`ci-vm` Pools。
 
 每一阶段单独合并并等待对应 Flux Kustomization Ready，不在 bootstrap 时一次性部署。
+第一阶段监控拆为 `monitoring-operator` 与依赖它的 `monitoring`，防止 VM CR 在
+VictoriaMetrics Operator CRD Ready 前进入 reconciliation。
 
 ## 监控边界
 

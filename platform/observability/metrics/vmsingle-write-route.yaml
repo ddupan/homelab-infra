@@ -1,0 +1,24 @@
+---
+# Internal-only remote_write ingress for vmagent instances in other homelab
+# clusters. Expose only the write endpoint, not VictoriaMetrics query/admin APIs.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vmsingle-remote-write
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - metrics-write.ad.ddupan.top
+  rules:
+    - matches:
+        - method: POST
+          path:
+            type: Exact
+            value: /api/v1/write
+      backendRefs:
+        - name: vmsingle-main
+          port: 8428
