@@ -1,0 +1,12 @@
+---
+wg_address: 10.255.254.2/30
+wg_peer_address: 10.255.254.1
+wg_peer_host: oci_amd
+wg_endpoint: oci-amd.ddupan.top:51820
+wg_keepalive: 25
+wg_lan_interface: br0
+bgp_asn: 65001
+bgp_peer_asn: 4242421811
+bgp_router_id: 192.168.10.127
+bgp_export: '{{ wg_home_prefixes }}'
+bgp_import: '{{ wg_cloud_prefixes }}'

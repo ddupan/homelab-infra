@@ -1,13 +1,113 @@
-# OCI infrastructure recovery
+# OCI 云上基础设施
 
-The original Terraform source is currently unavailable. The likely authoritative
-state remains in OCI Object Storage. Reconstruct configuration here only after
-taking an encrypted independent state backup.
+`terraform/` 是独立 Terraform 根模块，从 OCI Object Storage 中的现有 state 恢复。
+Terraform 管理云 API 资源；实例内的软件、Kubernetes 和操作系统配置不在该 state 中。
 
-Safety requirements:
+## 资源与来源
 
-- preserve the existing state lineage and serial;
-- reproduce the current VM and public-network design first;
-- reach a zero-change plan before any apply;
-- protect the instance and boot volume from destruction;
-- treat migration to a private subnet as a separate reviewed change.
+- Region：`ap-osaka-1`，compartment 为 tenancy 根。
+- State：namespace `axckv9ylwqxr`，bucket `oci-k8s-free-tier-tfstate`，key `terraform.tfstate`。
+- 恢复源：2026-08-15 12:26:24 UTC 对象，25,261 字节，serial `249`，
+  lineage `c945c6c4-ee01-d7b7-23f5-37207ea60609`，Terraform `1.15.8`。
+- 7 个受管资源保留原地址：`oci_core_instance.vm`、`oci_core_vcn.vcn`、
+  `oci_core_subnet.public`、`oci_core_internet_gateway.igw`、`oci_core_route_table.public`、
+  `oci_core_security_list.public`、`oci_limits_quota.free_tier_quota`。
+- 2 个数据源：`oci_core_images.ubuntu`、`oci_identity_availability_domains.ads`；保留 4 个原输出。
+- VM：`homelab-vm`，A1 Flex，2 OCPU / 12 GB RAM / 100 GB 启动盘，
+  私网 `10.0.0.124`，恢复时公网 `129.225.138.179`。
+- VCN `10.0.0.0/16`，公共子网 `10.0.0.0/24`，默认路由经 Internet Gateway；
+  入站保留 TCP 22、UDP 41641、ICMP type 3/code 4，出站全部允许。
+- 配额语句保留 A1 4 核 / 24 GB、10 个卷、200 GB 总存储限制；这些语句不是费用保证。
+- Bucket 自身不在 state 内，不由此根模块管理。
+
+## 恢复设计
+
+原变量、模块意图、provider 精确版本和生命周期规则无法从 state 完整恢复。
+本次选择并锁定 `oracle/oci 9.1.0`，提交 lockfile；这不是声称找回了原 provider 版本。
+资源间的 VCN、路由表、安全列表、子网和 DHCP 引用已重建。
+启动镜像固定为现有 image OCID，避免数据源选中更新镜像导致 VM 替换。
+新增 `prevent_destroy` 保护现有 VM；没有用 `ignore_changes` 掩盖配置差异。
+
+Provider 使用本机 `~/.oci/config` 的 `DEFAULT` profile，可用变量覆盖 profile 和 region。
+metadata 经敏感变量传入，只保存在忽略的 `terraform.tfvars.json`，不进入版本库。
+State、plan、metadata 变量与 `.terraform/` 都不得提交；plan JSON 同样可能含敏感数据。
+保留原目录的恢复要求：保留 lineage/serial，先复现当前 VM 和公共网络设计，
+实际基础设施变更前达到严格零变更，并保护实例及启动盘；迁移私有子网须单独评审。
+已用既有 GPG 加密子密钥 `5A6A04D1B216C64E` 创建独立加密源备份
+`.recovery/source.tfstate.gpg`；本地原始副本的 lineage/serial 保持不变。
+
+## 日常维护
+
+旧 Terraform/CI 已由维护者确认停用，当前仓库已接管原 OCI Object Storage state。
+`versions.tf` 使用 OCI backend，直接连接原对象，未迁移本地恢复副本。
+认证沿用本机 OCI CLI 的 `DEFAULT` profile；不要在配置中写密钥。
+
+```bash
+cd infrastructure/oci/terraform
+terraform init
+terraform validate
+terraform plan -input=false -out=change.tfplan
+# 核对计划后执行：
+terraform apply change.tfplan
+```
+
+新 checkout 需从受限 state 副本提取 metadata 至被忽略的 `terraform.tfvars.json`。
+`prepare-local-state.py` 可执行这一步，同时保留 `.recovery/terraform.tfstate` 备份；
+当前 backend 使用远端对象，`.recovery/` 中的副本不再参与日常 plan/apply。
+下载前设置 `umask 077`，并使用 GPG 加密源备份；不要把本地副本上传覆盖远端。
+
+## 恢复验证记录
+
+Terraform 1.15.8、OCI provider 9.1.0 验证通过。
+恢复计划唯一更新是 VM metadata 的敏感标记，plan JSON 中 before/after 值相同。
+经授权 apply 后，本地完整刷新 plan 达到 `No changes`。
+旧 state 在 provider 刷新后补充 VM shape/VNIC、subnet IPv4 CIDR、route type 字段，
+这些读回差异没有产生基础设施修改计划。
+接管时重新连接原远端对象，因此新增实例计划也包含原 VM 的同一敏感标记归一化。
+
+## AMD 实例
+
+`oci_core_instance.amd` 配置为 `homelab-amd`，`VM.Standard.E2.1.Micro`，1 GB RAM，
+Ubuntu 24.04 x86_64，50 GB / 10 VPU 启动盘。复用现有公共子网和 SSH 公钥，
+没有复制 A1 实例的其他初始化内容，也不部署 Kubernetes。
+镜像固定为 `Canonical-Ubuntu-24.04-2026.08.25-0`，实例具有 `prevent_destroy` 保护。
+
+创建前 API 确认大阪为 home region、机型计费类型为 `ALWAYS_FREE`，AMD 配额剩余 2 台。
+存储盘点只有 A1 的 100 GB 启动盘；已核对两个启动盘合计 150 GB，200 GB 免费额度内剩余 50 GB。
+免费额度跨启动盘和块存储共享；后续新增资源仍需重新核对实际占用。
+
+实例已创建并确认 `RUNNING`，私网 `10.0.0.158`，公网 `129.225.176.134`。
+登录命令：`ssh ubuntu@129.225.176.134`（本次未验证 SSH 登录）。
+远端 state 已保存；创建后完整刷新 plan 为 `No changes`，退出码 0。
+
+参考：[Always Free 资源](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)、
+[OCI provider 认证](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/configuring.htm)、
+[OCI backend 配置](https://developer.hashicorp.com/terraform/language/backend/oci)。
+
+## DNS 登录入口
+
+- ARM：`ssh ubuntu@oci-arm.ddupan.top`
+- AMD：`ssh ubuntu@oci-amd.ddupan.top`
+
+公网 A 记录声明位于 `../dns/records.yml`，在 Cloudflare 上关闭代理，TTL 300 秒。
+当前通过 DNS API 管理，未加入 OCI Terraform state；公网 IP 变化时需同步记录。
+
+## WireGuard/BGP 与 DN42
+
+家中端点已从 laptop 迁移到 VyOS `192.168.10.2`，AMD 与 VyOS 同属 AS4242421811，
+通过独立 WireGuard 接口建立双栈 iBGP；laptop 保留原有 NEC BGP 和 OSPF，按路由经 VyOS 转发。
+Ansible 配置与运行方法见 [ansible/README.md](ansible/README.md)。
+
+注册前缀 `172.21.111.160/27`、`fdd0:98df:15b0::/48` 已在内部路由中准备：
+VyOS `.161` / `::1`，AMD `.162` / `::2`，使用 loopback /32、/128。
+首个外部 DN42 peer 已接入 RoutedBits Osaka（AS4242420207），AMD 使用独立 `wg-dn42-1`
+和单 IPv6 MP-BGP 会话承载双栈；详见 [Ansible runbook](ansible/README.md)。
+外部明细留在 AMD，`172.20.0.0/14`、`fd00::/8` 汇总经 iBGP 下发 VyOS；IPv4 /14 再经 OSPF 下发 LAN。
+LAN 的 DN42 IPv6 /64 地址由 VyOS SLAAC 下发，fd00::/8 通过 RA RIO 分发，不通告 IPv6 默认路由。内部家中/OCI 业务路由不得向外部 DN42 邻居通告。
+
+Terraform 管理 AMD NSG、VNIC 转发与 VCN 回程；Ansible 管理路由器/主机及 ARM 的 Tailscale
+回程例外。Docker 与 DN42 的 /14 地址重叠已迁出，见 [Docker runbook](../docker/README.md)。
+
+VyOS 的 `wg42` 主 IPv4 已改为注册的 `172.21.111.161/32`，内部 BGP 改为
+单 link-local IPv6 会话承载双栈。三个 LAN 私网到 DN42 /14 由 VyOS 定向 masquerade，
+排除本 AS /27；OCI 业务保持原源地址。IPv6 不做 NAT，由 `ansible/dn42-ra.yml` 管理三个 LAN 的 SLAAC 与专用路由通告。

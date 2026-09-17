@@ -1,0 +1,20 @@
+---
+- name: 重载 FRR daemons
+  ansible.builtin.systemd_service:
+    name: frr
+    state: reloaded
+  when: not ansible_check_mode
+- name: 刷新专用防火墙
+  ansible.builtin.systemd_service:
+    name: oci-wg-firewall
+    daemon_reload: true
+    state: restarted
+  when: not ansible_check_mode
+- name: 重启 WireGuard
+  ansible.builtin.systemd_service:
+    name: wg-quick@{{ wg_interface }}
+    state: restarted
+  when: not ansible_check_mode
+- name: 应用 BGP 增量配置
+  ansible.builtin.include_tasks: apply-bgp.yml
+  when: not ansible_check_mode

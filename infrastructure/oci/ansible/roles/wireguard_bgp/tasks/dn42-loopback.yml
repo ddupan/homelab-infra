@@ -1,0 +1,32 @@
+---
+- name: 安装 AMD DN42 loopback 地址启动单元
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/dn42-loopback.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=DN42 router loopback addresses
+      Before=frr.service
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/sbin/ip address replace 172.21.111.162/32 dev lo
+      ExecStart=/usr/sbin/ip -6 address replace fdd0:98df:15b0::2/128 dev lo
+      RemainAfterExit=yes
+      [Install]
+      WantedBy=multi-user.target
+  register: dn42_loopback_unit
+
+- name: 启用 AMD DN42 loopback
+  ansible.builtin.systemd_service:
+    name: dn42-loopback
+    daemon_reload: true
+    enabled: true
+    state: "{{ 'restarted' if dn42_loopback_unit.changed else 'started' }}"
+  when: not ansible_check_mode
+
+- name: 开启路由器 IPv6 转发
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: '1'
+    sysctl_file: /etc/sysctl.d/90-dn42-forwarding.conf
+    sysctl_set: true

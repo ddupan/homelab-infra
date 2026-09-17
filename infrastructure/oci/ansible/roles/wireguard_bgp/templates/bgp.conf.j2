@@ -1,0 +1,80 @@
+{% set v4_peer = bgp_transport_peer | default(wg_peer_address) %}
+{% set v6_peer = bgp_transport_peer | default(wg_peer_ipv6 | default("")) %}
+! vtysh -f 使用配置模式，write memory 由独立 handler 执行。
+! 只重建本角色拥有的邻居和过滤器，保留既有 BGP/OSPF。
+router bgp {{ bgp_asn }}
+ no neighbor {{ v4_peer }}
+{% for peer in bgp_retired_peers | default([]) %}
+ no neighbor {{ peer }}
+{% endfor %}
+exit
+no ip prefix-list OCI-WG-IN
+no ip prefix-list OCI-WG-OUT
+{% for prefix in bgp_import %}
+ip prefix-list OCI-WG-IN seq {{ loop.index * 10 }} permit {{ prefix }}
+{% endfor %}
+{% for prefix in bgp_export + (bgp_summary | default([])) %}
+ip prefix-list OCI-WG-OUT seq {{ loop.index * 10 }} permit {{ prefix }}
+{% endfor %}
+router bgp {{ bgp_asn }}
+ bgp router-id {{ bgp_router_id }}
+ neighbor {{ v4_peer }} remote-as {{ bgp_peer_asn }}
+ neighbor {{ v4_peer }} description OCI-WireGuard
+ neighbor {{ v4_peer }} update-source {{ wg_interface }}
+{% if bgp_transport_peer is defined %}
+ neighbor {{ v4_peer }} interface {{ wg_interface }}
+ neighbor {{ v4_peer }} capability extended-nexthop
+{% endif %}
+ address-family ipv4 unicast
+{% for prefix in bgp_summary | default([]) %}
+  aggregate-address {{ prefix }}
+{% endfor %}
+{% for prefix in bgp_export %}
+  network {{ prefix }}
+{% endfor %}
+  neighbor {{ v4_peer }} activate
+  neighbor {{ v4_peer }} prefix-list OCI-WG-IN in
+  neighbor {{ v4_peer }} prefix-list OCI-WG-OUT out
+  neighbor {{ v4_peer }} maximum-prefix {{ bgp_import | length }}
+ exit-address-family
+exit
+! 仅为这些 BGP 路由选择本机业务 IP；转发报文源地址保持不变，不是 NAT。
+route-map OCI-WG-SOURCE permit 10
+ match ip address prefix-list OCI-WG-IN
+ set src {{ bgp_router_id }}
+exit
+route-map OCI-WG-SOURCE permit 100
+exit
+ip protocol bgp route-map OCI-WG-SOURCE
+
+{% if bgp_export6 is defined %}
+no ipv6 prefix-list OCI-WG6-IN
+no ipv6 prefix-list OCI-WG6-OUT
+{% for prefix in bgp_import6 %}
+ipv6 prefix-list OCI-WG6-IN seq {{ loop.index * 10 }} permit {{ prefix }}
+{% endfor %}
+{% for prefix in bgp_export6 + (bgp_summary6 | default([])) %}
+ipv6 prefix-list OCI-WG6-OUT seq {{ loop.index * 10 }} permit {{ prefix }}
+{% endfor %}
+router bgp {{ bgp_asn }}
+ neighbor {{ v6_peer }} remote-as {{ bgp_peer_asn }}
+ neighbor {{ v6_peer }} update-source {{ wg_interface }}
+{% if bgp_transport_peer is not defined %}
+ address-family ipv4 unicast
+  no neighbor {{ v6_peer }} activate
+ exit-address-family
+{% endif %}
+ address-family ipv6 unicast
+{% for prefix in bgp_summary6 | default([]) %}
+  aggregate-address {{ prefix }}
+{% endfor %}
+{% for prefix in bgp_export6 %}
+  network {{ prefix }}
+{% endfor %}
+  neighbor {{ v6_peer }} activate
+  neighbor {{ v6_peer }} prefix-list OCI-WG6-IN in
+  neighbor {{ v6_peer }} prefix-list OCI-WG6-OUT out
+  neighbor {{ v6_peer }} maximum-prefix {{ bgp_import6 | length }}
+ exit-address-family
+exit
+{% endif %}

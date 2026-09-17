@@ -1,0 +1,8 @@
+# versions.tf 已配置相同的 OCI backend；此文件保留为参数参考。
+# 只连接已有对象，禁止把恢复副本迁移覆盖远端。
+bucket              = "oci-k8s-free-tier-tfstate"
+namespace           = "axckv9ylwqxr"
+key                 = "terraform.tfstate"
+region              = "ap-osaka-1"
+auth                = "APIKey"
+config_file_profile = "DEFAULT"

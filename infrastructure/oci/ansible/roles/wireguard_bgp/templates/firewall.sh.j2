@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+# 仅重建专用链，不保存/覆盖 Docker、k3s、Tailscale 或 OCI 的其他动态规则。
+for chain in OCI-WG-IN OCI-WG-FWD; do
+  iptables -w -nL "$chain" >/dev/null 2>&1 || iptables -w -N "$chain"
+  iptables -w -F "$chain"
+done
+iptables -w -A OCI-WG-IN -p udp --dport {{ wg_port }} -j ACCEPT
+{% for prefix in [wg_peer_address ~ '/32'] + bgp_import %}
+iptables -w -A OCI-WG-IN -i {{ wg_interface }} -s {{ prefix }} -j ACCEPT
+{% endfor %}
+{% for local_prefix in bgp_export %}
+{% for remote_prefix in bgp_import %}
+iptables -w -A OCI-WG-FWD -i {{ wg_interface }} -o {{ wg_lan_interface }} -s {{ remote_prefix }} -d {{ local_prefix }} -j ACCEPT
+iptables -w -A OCI-WG-FWD -i {{ wg_lan_interface }} -o {{ wg_interface }} -s {{ local_prefix }} -d {{ remote_prefix }} -j ACCEPT
+{% endfor %}
+{% endfor %}
+{% if dn42_external_interface is defined %}
+# 仅允许注册地址在内部隧道与外部 DN42 之间转发，保持无 NAT。
+iptables -w -A OCI-WG-FWD -i {{ wg_interface }} -o {{ dn42_external_interface }} -s {{ dn42_ipv4 }} -d 172.20.0.0/14 -j ACCEPT
+iptables -w -A OCI-WG-FWD -i {{ dn42_external_interface }} -o {{ wg_interface }} -s 172.20.0.0/14 -d {{ dn42_ipv4 }} -j ACCEPT
+{% endif %}
+iptables -w -A OCI-WG-FWD -i {{ wg_interface }} -j DROP
+iptables -w -A OCI-WG-FWD -o {{ wg_interface }} -j DROP
+iptables -w -C INPUT -j OCI-WG-IN 2>/dev/null || iptables -w -I INPUT 1 -j OCI-WG-IN
+iptables -w -C FORWARD -j OCI-WG-FWD 2>/dev/null || iptables -w -I FORWARD 1 -j OCI-WG-FWD
+
+{% if bgp_import6 is defined %}
+ip6tables -w -nL OCI-WG6-IN >/dev/null 2>&1 || ip6tables -w -N OCI-WG6-IN
+ip6tables -w -F OCI-WG6-IN
+ip6tables -w -A OCI-WG6-IN -i {{ wg_interface }} -s {{ dn42_ipv6 }} -j ACCEPT
+ip6tables -w -C INPUT -j OCI-WG6-IN 2>/dev/null || ip6tables -w -I INPUT 1 -j OCI-WG6-IN
+{% endif %}
+
+{% if dn42_external_interface is defined %}
+ip6tables -w -nL OCI-DN42-FWD >/dev/null 2>&1 || ip6tables -w -N OCI-DN42-FWD
+ip6tables -w -F OCI-DN42-FWD
+ip6tables -w -A OCI-DN42-FWD -i {{ wg_interface }} -o {{ dn42_external_interface }} -s {{ dn42_ipv6 }} -d fd00::/8 -j ACCEPT
+ip6tables -w -A OCI-DN42-FWD -i {{ dn42_external_interface }} -o {{ wg_interface }} -s fd00::/8 -d {{ dn42_ipv6 }} -j ACCEPT
+ip6tables -w -A OCI-DN42-FWD -i {{ dn42_external_interface }} -j DROP
+ip6tables -w -A OCI-DN42-FWD -o {{ dn42_external_interface }} -j DROP
+ip6tables -w -C FORWARD -j OCI-DN42-FWD 2>/dev/null || ip6tables -w -I FORWARD 1 -j OCI-DN42-FWD
+{% endif %}

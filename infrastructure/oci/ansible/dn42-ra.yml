@@ -1,0 +1,21 @@
+---
+- name: 在 LAN 通告 DN42 SLAAC 地址与专用路由
+  hosts: site_routers
+  gather_facts: false
+  vars:
+    dn42_ra_lans:
+      - interface: eth0
+        prefix: fdd0:98df:15b0:10::/64
+        address: fdd0:98df:15b0:10::1/64
+      - interface: eth1
+        prefix: fdd0:98df:15b0:60::/64
+        address: fdd0:98df:15b0:60::1/64
+      - interface: eth2
+        prefix: fdd0:98df:15b0:61::/64
+        address: fdd0:98df:15b0:61::1/64
+  tasks:
+    - name: 配置接口地址、SLAAC 与 RIO，不通告默认路由或 DNS
+      vyos.vyos.vyos_config:
+        lines: "{{ lookup('template', 'templates/vyos-dn42-ra.conf.j2').splitlines() | reject('equalto', '') | list }}"
+        save: true
+        comment: Ansible DN42 SLAAC without default route

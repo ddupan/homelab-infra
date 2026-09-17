@@ -1,0 +1,62 @@
+! Ansible 管理：首个 DN42 peer，单 IPv6 会话双 AFI。
+! 精确出口与地址范围入口；尚未接入注册表 ROA 校验。
+no ip prefix-list DN42-RB-IN
+ip prefix-list DN42-RB-IN seq 1 deny 172.22.166.0/24 le 32
+ip prefix-list DN42-RB-IN seq 5 deny 172.21.111.160/27 le 32
+ip prefix-list DN42-RB-IN seq 10 deny 10.0.0.0/24 le 32
+ip prefix-list DN42-RB-IN seq 20 deny 10.60.0.0/24 le 32
+ip prefix-list DN42-RB-IN seq 30 deny 10.61.0.0/24 le 32
+ip prefix-list DN42-RB-IN seq 40 deny 192.168.10.0/24 le 32
+ip prefix-list DN42-RB-IN seq 1001 permit 172.20.0.0/24 ge 28 le 32
+ip prefix-list DN42-RB-IN seq 1002 permit 172.21.0.0/24 ge 28 le 32
+ip prefix-list DN42-RB-IN seq 1003 permit 172.22.0.0/24 ge 28 le 32
+ip prefix-list DN42-RB-IN seq 1004 permit 172.23.0.0/24 ge 28 le 32
+ip prefix-list DN42-RB-IN seq 1100 permit 172.20.0.0/14 ge 21 le 29
+ip prefix-list DN42-RB-IN seq 2001 permit 10.100.0.0/14 le 32
+ip prefix-list DN42-RB-IN seq 2002 permit 10.127.0.0/16 le 32
+ip prefix-list DN42-RB-IN seq 2003 permit 10.0.0.0/8 ge 15 le 24
+ip prefix-list DN42-RB-IN seq 3001 permit 172.31.0.0/16 le 32
+ip prefix-list DN42-RB-IN seq 9999 deny 0.0.0.0/0 le 32
+ip prefix-list DN42-RB-OUT seq 10 permit 172.21.111.160/27
+no ipv6 prefix-list DN42-RB6-IN
+ipv6 prefix-list DN42-RB6-IN seq 5 deny fdd0:98df:15b0::/48 le 128
+ipv6 prefix-list DN42-RB6-IN seq 1001 permit fd00::/8 ge 44 le 64
+ipv6 prefix-list DN42-RB6-IN seq 9999 deny ::/0 le 128
+ipv6 prefix-list DN42-RB6-OUT seq 10 permit fdd0:98df:15b0::/48
+interface {{ dn42_interface }}
+exit
+router bgp 4242421811
+ no neighbor {{ dn42_peer_linklocal }}
+ neighbor {{ dn42_peer_linklocal }} remote-as {{ dn42_peer_asn }}
+ neighbor {{ dn42_peer_linklocal }} shutdown
+ neighbor {{ dn42_peer_linklocal }} interface {{ dn42_interface }}
+ neighbor {{ dn42_peer_linklocal }} update-source {{ dn42_interface }}
+ neighbor {{ dn42_peer_linklocal }} description RoutedBits-OSA1
+ neighbor {{ dn42_peer_linklocal }} capability extended-nexthop
+ neighbor {{ dn42_peer_linklocal }} timers connect 10
+ address-family ipv4 unicast
+  neighbor {{ dn42_peer_linklocal }} activate
+  neighbor {{ dn42_peer_linklocal }} prefix-list DN42-RB-IN in
+  neighbor {{ dn42_peer_linklocal }} prefix-list DN42-RB-OUT out
+  neighbor {{ dn42_peer_linklocal }} maximum-prefix 10000
+ exit-address-family
+ address-family ipv6 unicast
+  neighbor {{ dn42_peer_linklocal }} activate
+  neighbor {{ dn42_peer_linklocal }} prefix-list DN42-RB6-IN in
+  neighbor {{ dn42_peer_linklocal }} prefix-list DN42-RB6-OUT out
+  neighbor {{ dn42_peer_linklocal }} maximum-prefix 10000
+ exit-address-family
+ no neighbor {{ dn42_peer_linklocal }} shutdown
+exit
+! 保留既有业务源地址规则，在其后为 DN42 路由选择注册地址；不是 NAT。
+route-map OCI-WG-SOURCE permit 20
+ match ip address prefix-list DN42-RB-IN
+ set src 172.21.111.162
+exit
+route-map DN42-SOURCE6 permit 10
+ match ipv6 address prefix-list DN42-RB6-IN
+ set src fdd0:98df:15b0::2
+exit
+route-map DN42-SOURCE6 permit 100
+exit
+ipv6 protocol bgp route-map DN42-SOURCE6

@@ -1,0 +1,163 @@
+---
+- name: 安装 WireGuard 与 FRR
+  ansible.builtin.apt:
+    name: [wireguard-tools, frr, iptables]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: packages
+  retries: 3
+  delay: 5
+  until: packages is succeeded
+
+- name: 创建 WireGuard 受限目录
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: 在站点本机生成私钥，永不复制到控制机
+  ansible.builtin.shell: 'umask 077; wg genkey > /etc/wireguard/{{ wg_interface }}.key'
+  args:
+    creates: '/etc/wireguard/{{ wg_interface }}.key'
+  no_log: true
+
+- name: 检查现有私钥
+  ansible.builtin.stat:
+    path: '/etc/wireguard/{{ wg_interface }}.key'
+  register: wg_key_file
+
+- name: 读取可交换的公钥
+  ansible.builtin.shell: 'wg pubkey < /etc/wireguard/{{ wg_interface }}.key'
+  register: wg_public_key
+  changed_when: false
+  check_mode: false
+  when: wg_key_file.stat.exists
+
+- name: 启用 BGP daemon，保留其他协议
+  ansible.builtin.lineinfile:
+    path: /etc/frr/daemons
+    regexp: '^bgpd='
+    line: bgpd=yes
+  notify: 重载 FRR daemons
+  when: not ansible_check_mode or not packages.changed
+
+- name: 确保 FRR 运行
+  ansible.builtin.systemd_service:
+    name: frr
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: 配置 DN42 路由器地址
+  ansible.builtin.include_tasks: dn42-loopback.yml
+  when: bgp_export6 is defined
+
+- name: 开启 IPv4 转发
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_file: /etc/sysctl.d/90-oci-wireguard.conf
+    sysctl_set: true
+
+- name: 安装专用防火墙规则脚本
+  ansible.builtin.template:
+    src: firewall.sh.j2
+    dest: /usr/local/sbin/oci-wg-firewall
+    owner: root
+    group: root
+    mode: '0755'
+  notify: 刷新专用防火墙
+
+- name: 安装防火墙启动单元
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/oci-wg-firewall.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=OCI WireGuard scoped forwarding (no NAT)
+      After=network-pre.target
+      Before=wg-quick@{{ wg_interface }}.service
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/oci-wg-firewall
+      RemainAfterExit=yes
+      [Install]
+      WantedBy=multi-user.target
+  notify: 刷新专用防火墙
+
+- name: 启动防火墙规则
+  ansible.builtin.systemd_service:
+    name: oci-wg-firewall
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: 写入只含公钥的隧道配置
+  ansible.builtin.template:
+    src: wg.conf.j2
+    dest: '/etc/wireguard/{{ wg_interface }}.conf'
+    owner: root
+    group: root
+    mode: '0600'
+  when: wg_key_file.stat.exists and (hostvars[wg_peer_host].wg_key_file | default({"stat":{"exists":false}})).stat.exists
+  notify: 重启 WireGuard
+
+- name: 启动 WireGuard
+  ansible.builtin.systemd_service:
+    name: 'wg-quick@{{ wg_interface }}'
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: 写入受管 BGP 增量配置
+  ansible.builtin.template:
+    src: bgp.conf.j2
+    dest: /etc/frr/oci-wireguard.vtysh
+    owner: frr
+    group: frr
+    mode: '0640'
+  notify: 应用 BGP 增量配置
+  when: not ansible_check_mode or not packages.changed
+
+- name: 先完成配置变更再验证
+  ansible.builtin.meta: flush_handlers
+
+- name: 检查 WireGuard 对端握手
+  ansible.builtin.command: 'wg show {{ wg_interface }} latest-handshakes'
+  changed_when: false
+  register: wg_handshake
+  retries: 12
+  delay: 5
+  until: wg_handshake.stdout.split() | length == 2 and (wg_handshake.stdout.split()[-1] | int) > 0
+  when: not ansible_check_mode
+
+- name: 验证隧道互通
+  ansible.builtin.command: "{{ ('ping -6 -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ bgp_transport_peer) if bgp_transport_peer is defined else ('ping -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ wg_peer_address) }}"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: 验证 BGP 建邻并收到预期前缀数量
+  ansible.builtin.command: vtysh -c 'show bgp summary json'
+  changed_when: false
+  register: bgp_summary
+  retries: 12
+  delay: 5
+  until: >-
+    (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_address), {}).get('state') == 'Established'
+    and (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_address), {}).get('pfxRcd', 0) == bgp_import | length
+  when: not ansible_check_mode
+
+- name: 验证 IPv6 iBGP 建邻与前缀
+  ansible.builtin.command: vtysh -c 'show bgp summary json'
+  changed_when: false
+  register: bgp_summary6
+  retries: 12
+  delay: 5
+  until: >-
+    (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('state') == 'Established'
+    and (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('pfxRcd', 0) == bgp_import6 | length
+  when: not ansible_check_mode and bgp_import6 is defined

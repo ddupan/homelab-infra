@@ -1,0 +1,8 @@
+---
+- name: 应用受管 FRR 配置片段
+  ansible.builtin.command: vtysh -f /etc/frr/oci-wireguard.vtysh
+  register: bgp_apply
+  failed_when: bgp_apply.rc != 0 or '% Unknown' in bgp_apply.stdout or '% Unknown' in bgp_apply.stderr
+
+- name: 保存完整运行配置以便重启恢复
+  ansible.builtin.command: vtysh -c 'write memory'

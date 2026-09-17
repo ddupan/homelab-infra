@@ -1,0 +1,14 @@
+set service dns forwarding listen-address '192.168.10.2'
+set service dns forwarding source-address '172.21.111.161'
+set service dns forwarding source-address 'fdd0:98df:15b0::1'
+set service dns forwarding no-serve-rfc1918
+{% for prefix in wg_home_prefixes %}
+set service dns forwarding allow-from '{{ prefix }}'
+{% endfor %}
+{% for zone in dn42_dns_zones %}
+set service dns forwarding domain {{ zone }} recursion-desired
+set service dns forwarding domain {{ zone }} addnta
+{% for server in dn42_dns_servers %}
+set service dns forwarding domain {{ zone }} name-server '{{ server }}'
+{% endfor %}
+{% endfor %}
