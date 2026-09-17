@@ -1,0 +1,10 @@
+{% for lan in dn42_ra_lans %}
+set interfaces ethernet {{ lan.interface }} address '{{ lan.address }}'
+set service router-advert interface {{ lan.interface }} default-lifetime '0'
+set service router-advert interface {{ lan.interface }} interval min '10'
+set service router-advert interface {{ lan.interface }} interval max '30'
+set service router-advert interface {{ lan.interface }} prefix {{ lan.prefix }} preferred-lifetime '14400'
+set service router-advert interface {{ lan.interface }} prefix {{ lan.prefix }} valid-lifetime '86400'
+set service router-advert interface {{ lan.interface }} route fd00::/8 route-preference 'medium'
+set service router-advert interface {{ lan.interface }} route fd00::/8 valid-lifetime '180'
+{% endfor %}

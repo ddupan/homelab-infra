@@ -1,0 +1,52 @@
+---
+- import_playbook: vyos.yml
+
+- name: 配置无 NAT 的 WireGuard 与 BGP 站点互联
+  hosts: wireguard_sites
+  become: true
+  strategy: linear
+  roles:
+    - wireguard_bgp
+
+- name: 为 OCI ARM 设置经 AMD 的站点回程，保留其余 Tailscale 路由
+  hosts: oci_routed_hosts
+  become: true
+  tasks:
+    - name: 安装三个目标网段的策略路由脚本
+      ansible.builtin.template:
+        src: templates/arm-routes.sh.j2
+        dest: /usr/local/sbin/oci-site-return-routes
+        mode: '0755'
+      notify: 更新 OCI ARM 回程
+
+    - name: 安装回程策略启动单元
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/oci-site-return-routes.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Route homelab prefixes through OCI AMD rather than Tailscale
+          After=network-online.target
+          Wants=network-online.target
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/oci-site-return-routes
+          RemainAfterExit=yes
+          [Install]
+          WantedBy=multi-user.target
+      notify: 更新 OCI ARM 回程
+
+    - name: 启用回程策略
+      ansible.builtin.systemd_service:
+        name: oci-site-return-routes
+        daemon_reload: true
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+  handlers:
+    - name: 更新 OCI ARM 回程
+      ansible.builtin.systemd_service:
+        name: oci-site-return-routes
+        daemon_reload: true
+        state: restarted
+      when: not ansible_check_mode

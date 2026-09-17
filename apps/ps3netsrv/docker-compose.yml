@@ -12,3 +12,10 @@ services:
       - "38008:38008"
     volumes:
       - "/mnt/pool/games/ps3:/games:rw"
+
+# 避免与 DN42 的 172.20.0.0/14 重叠。
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24

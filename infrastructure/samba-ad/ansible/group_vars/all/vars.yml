@@ -7,7 +7,7 @@ samba_ad_realm: "AD.DDUPAN.TOP"
 samba_ad_domain: "DDUPAN"
 samba_ad_dc_hostname: "dc1"
 samba_ad_dc_ip: "192.168.10.5"
-samba_ad_dns_forwarder: "192.168.10.1"
+samba_ad_dns_forwarder: "192.168.10.127"   # Blocky：DN42 条件转发及公网解析
 samba_ad_reverse_zone: "10.168.192.in-addr.arpa"   # reverse of 192.168.10.0/24
 
 # Static records now live in ../../dns/records.yml and are reconciled as complete

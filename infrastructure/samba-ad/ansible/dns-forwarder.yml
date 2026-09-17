@@ -1,0 +1,10 @@
+---
+- name: 更新现有 AD 域控 DNS 上游
+  hosts: samba_dc
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 仅应用 DNS 转发器配置
+      ansible.builtin.import_role:
+        name: samba_ad_dc
+        tasks_from: dns_forwarder

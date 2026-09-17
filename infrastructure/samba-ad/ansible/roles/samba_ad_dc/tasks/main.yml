@@ -87,6 +87,9 @@
     creates: /var/lib/samba/private/sam.ldb
   no_log: true   # keep the admin password out of logs
 
+- name: 持续管理已初始化域控的 DNS 上游
+  ansible.builtin.import_tasks: dns_forwarder.yml
+
 - name: Install the generated krb5.conf system-wide
   ansible.builtin.copy:
     src: /var/lib/samba/private/krb5.conf

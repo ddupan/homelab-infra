@@ -1,0 +1,98 @@
+---
+# 首个外部 peer：RoutedBits Osaka，IPv6 link-local MP-BGP。
+- name: 准备 AMD DN42 WireGuard 监听
+  hosts: oci_amd
+  become: true
+  vars:
+    dn42_interface: wg-dn42-1
+    dn42_port: 51821
+    dn42_linklocal: fe80::1811:2/64
+    dn42_peer_linklocal: fe80::207
+    dn42_peer_asn: 4242420207
+    dn42_peer_endpoint: router.osa1.routedbits.com:51811
+    dn42_peer_public_key: 96PwUEGi/ijdmKO+IjuZ+J6DeykuTRukZD5atajfeH4=
+  tasks:
+    - name: 准备 FRR link-local 支持
+      ansible.builtin.import_tasks: tasks/frr-dn42.yml
+    - name: 创建受限密钥目录
+      ansible.builtin.file:
+        path: /etc/wireguard
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+    - name: 在 AMD 本机生成独立私钥
+      ansible.builtin.shell: umask 077; wg genkey > /etc/wireguard/{{ dn42_interface }}.key
+      args:
+        creates: /etc/wireguard/{{ dn42_interface }}.key
+      no_log: true
+    - name: 写入监听配置
+      ansible.builtin.copy:
+        dest: /etc/wireguard/{{ dn42_interface }}.conf
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          # Ansible 管理；首个 peer 使用 IPv6 link-local MP-BGP + extended next hop。
+          [Interface]
+          Address = {{ dn42_linklocal }}
+          ListenPort = {{ dn42_port }}
+          MTU = 1380
+          Table = off
+          PostUp = wg set %i private-key /etc/wireguard/{{ dn42_interface }}.key
+          PostUp = iptables -w -C INPUT -p udp --dport {{ dn42_port }} -j ACCEPT 2>/dev/null || iptables -w -I INPUT 1 -p udp --dport {{ dn42_port }} -j ACCEPT
+          PostDown = iptables -w -D INPUT -p udp --dport {{ dn42_port }} -j ACCEPT
+
+          [Peer]
+          PublicKey = {{ dn42_peer_public_key }}
+          Endpoint = {{ dn42_peer_endpoint }}
+          AllowedIPs = fe80::/64, 172.20.0.0/14, 10.0.0.0/8, 172.31.0.0/16, fd00::/8
+          PersistentKeepalive = 25
+      notify: 重启 DN42 接口
+    - name: 启用 DN42 监听
+      ansible.builtin.systemd_service:
+        name: wg-quick@{{ dn42_interface }}
+        enabled: true
+        state: started
+    - name: 应用配置
+      ansible.builtin.meta: flush_handlers
+    - name: 写入外部 BGP 配置片段
+      ansible.builtin.template:
+        src: templates/dn42-bgp.conf.j2
+        dest: /etc/frr/dn42-routedbits.vtysh
+        owner: root
+        group: frr
+        mode: '0640'
+      register: dn42_bgp_config
+      changed_when: dn42_bgp_config.changed or ('(deleted)' in frr_running.stdout)
+      notify: 应用 DN42 BGP
+    - name: 应用 BGP 配置
+      ansible.builtin.meta: flush_handlers
+    - name: 读取公开信息
+      ansible.builtin.command: wg show {{ dn42_interface }} {{ item }}
+      loop:
+        - public-key
+        - listen-port
+      changed_when: false
+      register: dn42_public_info
+    - name: 显示公钥和端口
+      ansible.builtin.debug:
+        msg: '{{ dn42_public_info.results | map(attribute="stdout") | list }}'
+  handlers:
+    - name: 重启 FRR
+      ansible.builtin.systemd_service:
+        name: frr
+        state: restarted
+      when: not ansible_check_mode
+    - name: 重启 DN42 接口
+      ansible.builtin.systemd_service:
+        name: wg-quick@{{ dn42_interface }}
+        state: restarted
+      when: not ansible_check_mode
+    - name: 应用 DN42 BGP
+      ansible.builtin.command: vtysh -f /etc/frr/dn42-routedbits.vtysh
+      notify: 保存 FRR 配置
+      when: not ansible_check_mode
+    - name: 保存 FRR 配置
+      ansible.builtin.command: vtysh -c 'write memory'
+      when: not ansible_check_mode

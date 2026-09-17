@@ -1,10 +1,19 @@
 ---
-# Proxmox HA. Read roles/pve_ha/defaults/main.yml first — it explains why the
-# resource list is short and why the watchdog choice is not cosmetic.
+- name: Validate Proxmox API inputs
+  ansible.builtin.assert:
+    that:
+      - pve_api_host | length > 0
+      - pve_api_user | length > 0
+      - pve_api_token_id | length > 0
+      - pve_api_token_secret | length > 0
+    fail_msg: >-
+      Export PROXMOX_HOST, PROXMOX_USER, PROXMOX_TOKEN_ID and
+      PROXMOX_TOKEN_SECRET before running ha.yml.
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  tags: [ha]
 
-# --- Watchdog ---------------------------------------------------------------
-# Done BEFORE registering resources: adding a resource arms fencing, and arming
-# fencing on a software watchdog is the weakest configuration.
 - name: Select the hardware watchdog module
   ansible.builtin.lineinfile:
     path: /etc/default/pve-ha-manager
@@ -12,13 +21,9 @@
     line: "WATCHDOG_MODULE={{ pve_ha_watchdog_module }}"
     create: false
   when: pve_ha_watchdog_module | length > 0
-  notify: reboot required for watchdog
+  notify: Reboot required for watchdog
   tags: [ha, watchdog]
 
-# watchdog-mux opens /dev/watchdog, which belongs to whichever watchdog registered
-# FIRST. PVE loads softdog at boot, so it wins and the hardware module ends up as
-# an unused watchdog1. Blacklisting softdog is what actually makes the hardware
-# one take effect — setting WATCHDOG_MODULE alone does nothing.
 - name: Blacklist softdog so the hardware watchdog claims /dev/watchdog
   ansible.builtin.copy:
     dest: /etc/modprobe.d/pve-ha-watchdog.conf
@@ -29,48 +34,147 @@
       # {{ pve_ha_watchdog_module }} register as watchdog0 and own /dev/watchdog.
       blacklist softdog
   when: pve_ha_watchdog_module | length > 0
-  notify: reboot required for watchdog
+  notify: Reboot required for watchdog
   tags: [ha, watchdog]
 
-# ⚠ NOT DONE LIVE ON PURPOSE. Swapping the watchdog on a running node means
-# stopping watchdog-mux and unloading softdog while fencing is armed — get the
-# order wrong and the node self-fences (reboots). The safe live procedure is
-# documented in ../../README-ha.md; otherwise it simply takes effect on the next
-# reboot, which is why the handler only WARNS rather than rebooting anything.
-
-# --- Resources ---------------------------------------------------------------
-- name: Read current HA resources
-  ansible.builtin.command: ha-manager status
-  register: pve_ha_status
-  changed_when: false
-  failed_when: false
+- name: Read current HA VM configurations
+  ansible.builtin.uri:
+    url: >-
+      https://{{ pve_api_host }}:8006/api2/json/nodes/{{ item.node }}/qemu/{{ item.vmid }}/config
+    headers:
+      Authorization: >-
+        PVEAPIToken={{ pve_api_user }}!{{ pve_api_token_id }}={{ pve_api_token_secret }}
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+    return_content: true
+  loop: "{{ pve_ha_portable_vms }}"
+  loop_control:
+    label: "VM {{ item.vmid }}"
+  register: pve_ha_vm_config
   run_once: true
+  delegate_to: localhost
+  no_log: true
   tags: [ha]
 
-- name: Register HA resources
-  ansible.builtin.command: >-
-    ha-manager add {{ item.sid }}
-    --state {{ item.state }}
-    --max_restart {{ item.max_restart }}
-    --max_relocate {{ item.max_relocate }}
+- name: Reconcile portable CPU models for HA VMs
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ pve_api_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_token_id: "{{ pve_api_token_id }}"
+    api_token_secret: "{{ pve_api_token_secret }}"
+    validate_certs: "{{ pve_api_validate_certs }}"
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+    node: "{{ item.node }}"
+    vmid: "{{ item.vmid }}"
+    cpu: "{{ item.cpu }}"
+    update: true
+    state: present
+  loop: "{{ pve_ha_portable_vms }}"
+  loop_control:
+    label: "VM {{ item.vmid }} -> {{ item.cpu }}"
+    index_var: vm_index
+  when: pve_ha_vm_config.results[vm_index].json.data.cpu != item.cpu
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ pve_api_python_interpreter }}"
+  tags: [ha]
+
+- name: Read current HA resources
+  ansible.builtin.uri:
+    url: "https://{{ pve_api_host }}:8006/api2/json/cluster/ha/resources"
+    headers:
+      Authorization: >-
+        PVEAPIToken={{ pve_api_user }}!{{ pve_api_token_id }}={{ pve_api_token_secret }}
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+    return_content: true
+  register: pve_ha_resource_state
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  tags: [ha]
+
+- name: Reconcile HA resources through the PVE API
+  community.proxmox.proxmox_cluster_ha_resources:
+    api_host: "{{ pve_api_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_token_id: "{{ pve_api_token_id }}"
+    api_token_secret: "{{ pve_api_token_secret }}"
+    validate_certs: "{{ pve_api_validate_certs }}"
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+    name: "{{ item.sid }}"
+    state: present
+    hastate: "{{ item.state }}"
+    max_restart: "{{ item.max_restart }}"
+    max_relocate: "{{ item.max_relocate }}"
   loop: "{{ pve_ha_resources }}"
   loop_control:
     label: "{{ item.sid }}"
-  # `ha-manager add` errors if the resource already exists, so gate on the status
-  # output. This is what keeps a second run at changed=0.
-  when: "'service ' ~ item.sid not in (pve_ha_status.stdout | default(''))"
+  when: >-
+    _current_resource | length == 0 or
+    _current_resource.state != item.state or
+    _current_resource.max_restart | int != item.max_restart | int or
+    _current_resource.max_relocate | int != item.max_relocate | int
   run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ pve_api_python_interpreter }}"
+    _current_resource: >-
+      {{ pve_ha_resource_state.json.data |
+         selectattr('sid', 'equalto', item.sid) | first | default({}) }}
   tags: [ha]
 
-- name: Verify HA is armed and the resource is known
-  ansible.builtin.command: ha-manager status
-  register: pve_ha_verify
-  changed_when: false
+- name: Reconcile HA placement rules through the PVE API
+  community.proxmox.proxmox_cluster_ha_rules:
+    api_host: "{{ pve_api_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_token_id: "{{ pve_api_token_id }}"
+    api_token_secret: "{{ pve_api_token_secret }}"
+    validate_certs: "{{ pve_api_validate_certs }}"
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+    name: "{{ item.name }}"
+    state: present
+    type: "{{ item.type }}"
+    resources: "{{ item.resources }}"
+    nodes: "{{ item.nodes }}"
+    strict: "{{ item.strict }}"
+    comment: "{{ item.comment }}"
+    disable: false
+  loop: "{{ pve_ha_rules }}"
+  loop_control:
+    label: "{{ item.name }}"
   run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ pve_api_python_interpreter }}"
   tags: [ha]
 
-- name: Show HA state
-  ansible.builtin.debug:
-    msg: "{{ pve_ha_verify.stdout_lines }}"
+- name: Read HA placement rules through the PVE API
+  community.proxmox.proxmox_cluster_ha_rules_info:
+    api_host: "{{ pve_api_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_token_id: "{{ pve_api_token_id }}"
+    api_token_secret: "{{ pve_api_token_secret }}"
+    validate_certs: "{{ pve_api_validate_certs }}"
+    ca_path: /etc/ssl/certs/ca-certificates.crt
+  register: pve_ha_rule_state
   run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ pve_api_python_interpreter }}"
+  tags: [ha]
+
+- name: Assert declared placement rules exist
+  ansible.builtin.assert:
+    that:
+      - >-
+        (pve_ha_rules | map(attribute='name') | list |
+         difference(pve_ha_rule_state.rules | default([]) |
+                    map(attribute='rule') | list) | length) == 0
+    fail_msg: A declared HA placement rule is absent after reconciliation
+  run_once: true
+  delegate_to: localhost
   tags: [ha]

@@ -40,7 +40,7 @@
       --description '{{ item.item.description }}'
       --machine {{ item.item.machine | default('q35') }}
       --bios {{ item.item.bios | default('ovmf') }}
-      --memory {{ item.item.memory }} --cores {{ item.item.cores }} --cpu host
+      --memory {{ item.item.memory }} --cores {{ item.item.cores }} --cpu {{ item.item.cpu | default('x86-64-v2-AES') }}
       --scsihw virtio-scsi-single
       --scsi0 {{ item.item.disk }},discard=on,ssd=1
       --efidisk0 {{ item.item.disk.split(':')[0] }}:1,efitype=4m,pre-enrolled-keys=0

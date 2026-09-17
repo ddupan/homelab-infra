@@ -1,0 +1,12 @@
+source /opt/vyatta/etc/functions/script-template
+if /bin/cli-shell-api existsActive interfaces wireguard wg42 private-key; then
+  echo KEY_EXISTS
+  builtin exit 0
+fi
+configure
+set interfaces wireguard wg42 address '10.255.254.2/30'
+set interfaces wireguard wg42 private-key "$(wg genkey)"
+commit || builtin exit 1
+save || builtin exit 1
+exit
+echo KEY_CREATED

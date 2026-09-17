@@ -1,0 +1,92 @@
+---
+- name: 确认路由器内部 BGP 已建立
+  hosts: site_routers
+  gather_facts: false
+  tasks:
+    - name: 确认到 AMD 的邻居
+      vyos.vyos.vyos_command:
+        commands: show bgp neighbors 10.255.254.1
+      register: migration_bgp
+      changed_when: false
+      failed_when: "'BGP state = Established' not in migration_bgp.stdout[0]"
+
+- name: 退役 laptop 的 WireGuard 试验端点
+  hosts: retired_wireguard_sites
+  become: true
+  tasks:
+    - name: 停止并禁用旧隧道
+      ansible.builtin.systemd_service:
+        name: wg-quick@wg-oci
+        state: stopped
+        enabled: false
+
+    - name: 检查原 BGP 试验邻居是否存在
+      ansible.builtin.command: vtysh -c 'show running-config'
+      register: laptop_frr
+      changed_when: false
+
+    - name: 只移除本次试验添加的 BGP 节点，保留 NEC 邻居和 OSPF
+      ansible.builtin.command:
+        argv:
+          - vtysh
+          - -c
+          - configure terminal
+          - -c
+          - router bgp 65001
+          - -c
+          - no neighbor 10.255.254.1
+          - -c
+          - address-family ipv4 unicast
+          - -c
+          - no network 192.168.10.0/24
+          - -c
+          - no network 10.60.0.0/24
+          - -c
+          - no network 10.61.0.0/24
+          - -c
+          - exit-address-family
+          - -c
+          - exit
+          - -c
+          - no ip protocol bgp route-map OCI-WG-SOURCE
+          - -c
+          - no route-map OCI-WG-SOURCE
+          - -c
+          - no ip prefix-list OCI-WG-IN
+          - -c
+          - no ip prefix-list OCI-WG-OUT
+          - -c
+          - end
+          - -c
+          - write memory
+      when: "'neighbor 10.255.254.1 remote-as' in laptop_frr.stdout"
+
+    - name: 停止并禁用旧防火墙启动单元
+      ansible.builtin.systemd_service:
+        name: oci-wg-firewall
+        state: stopped
+        enabled: false
+
+    - name: 只删除旧隧道专用防火墙链
+      ansible.builtin.shell: |
+        set -eu
+        changed=0
+        for pair in INPUT:OCI-WG-IN FORWARD:OCI-WG-FWD; do
+          parent=${pair%%:*}; chain=${pair#*:}
+          if iptables -w -nL "$chain" >/dev/null 2>&1; then
+            while iptables -w -C "$parent" -j "$chain" 2>/dev/null; do
+              iptables -w -D "$parent" -j "$chain"
+            done
+            iptables -w -F "$chain"
+            iptables -w -X "$chain"
+            changed=1
+          fi
+        done
+        echo "$changed"
+      register: retired_chains
+      changed_when: retired_chains.stdout == '1'
+
+    - name: 移除旧的 BGP 配置片段，避免误用
+      ansible.builtin.file:
+        path: /etc/frr/oci-wireguard.vtysh
+        state: absent

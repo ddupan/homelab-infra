@@ -1,0 +1,16 @@
+[Interface]
+Address = {{ wg_address }}{% if wg_ipv6_address is defined %}, {{ wg_ipv6_address }}, {{ wg_linklocal_address }}{% endif %}
+
+ListenPort = {{ wg_port }}
+MTU = {{ wg_mtu }}
+Table = off
+# 私钥在本机生成和读取；配置模板与控制机不保存私钥。
+PostUp = wg set %i private-key /etc/wireguard/{{ wg_interface }}.key
+
+[Peer]
+PublicKey = {{ hostvars[wg_peer_host].wg_public_key.stdout }}
+AllowedIPs = {{ ([wg_peer_address ~ '/32'] + bgp_import + (bgp_import6 | default([])) + (['fe80::/64'] if bgp_import6 is defined else [])) | join(', ') }}
+{% if wg_endpoint %}
+Endpoint = {{ wg_endpoint }}
+{% endif %}
+PersistentKeepalive = {{ wg_keepalive }}

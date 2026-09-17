@@ -1,0 +1,84 @@
+---
+- name: 读取 AMD 的现有 WireGuard 公钥
+  hosts: oci_amd
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 仅交换公钥
+      ansible.builtin.shell: wg pubkey < /etc/wireguard/wg-oci.key
+      register: wg_public_key
+      changed_when: false
+      check_mode: false
+
+- name: 配置 VyOS 站点与 DN42 内部路由
+  hosts: site_routers
+  gather_facts: false
+  vars:
+    vyos_retired_paths:
+      - interfaces wireguard wg42 address 10.255.254.2/30
+      - interfaces loopback lo address 172.21.111.161/32
+      - protocols bgp neighbor 10.255.254.1
+      - protocols bgp neighbor fdd0:98df:15b0:ffff::1
+  tasks:
+    - name: 检查 VyOS 是否已有 WireGuard 私钥，仅返回存在状态
+      ansible.builtin.command:
+        argv: [ssh, -o, BatchMode=yes, -o, ConnectTimeout=10, 'vyos@192.168.10.2', /bin/cli-shell-api, existsActive, interfaces, wireguard, wg42, private-key]
+      delegate_to: localhost
+      vars:
+        ansible_connection: local
+        ansible_python_interpreter: /usr/bin/python3
+      register: vyos_key_present
+      changed_when: false
+      failed_when: vyos_key_present.rc not in [0, 1]
+      check_mode: false
+
+    - name: 首次在 VyOS 本机生成并保存私钥，控制机不接收私钥
+      ansible.builtin.command:
+        argv: [ssh, -o, BatchMode=yes, -o, ConnectTimeout=10, 'vyos@192.168.10.2', /bin/vbash, -s]
+        stdin: "{{ lookup('template', 'templates/vyos-key-bootstrap.vbash.j2') }}"
+      delegate_to: localhost
+      vars:
+        ansible_connection: local
+        ansible_python_interpreter: /usr/bin/python3
+      no_log: true
+      register: vyos_key_bootstrap
+      changed_when: true
+      when: not ansible_check_mode and vyos_key_present.rc == 1
+
+    - name: 读取 VyOS WireGuard 公钥
+      vyos.vyos.vyos_command:
+        commands: show interfaces wireguard wg42 public-key
+      register: vyos_wg_public
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: 准備 Linux 端需要的公钥事实
+      ansible.builtin.set_fact:
+        wg_public_key:
+          stdout: '{{ vyos_wg_public.stdout[0] | trim }}'
+        wg_key_file:
+          stat:
+            exists: true
+      when: not ansible_check_mode
+
+    - name: 检查待退役的旧地址和 BGP 邻居是否存在
+      ansible.builtin.command:
+        cmd: 'ssh -o BatchMode=yes vyos@192.168.10.2 /bin/cli-shell-api existsActive {{ item }}'
+      loop: '{{ vyos_retired_paths }}'
+      delegate_to: localhost
+      vars:
+        ansible_connection: local
+        ansible_python_interpreter: /usr/bin/python3
+      register: vyos_retired_present
+      changed_when: false
+      failed_when: vyos_retired_present.rc not in [0, 1]
+      check_mode: false
+
+    - name: 应用 VyOS 双栈 WireGuard、iBGP 与精确路由过滤
+      vyos.vyos.vyos_config:
+        lines: "{{ lookup('template', 'templates/vyos-site.conf.j2').splitlines() | map('trim') | reject('equalto', '') | list }}"
+        save: true
+        comment: Ansible OCI WireGuard DN42 preparation
+      register: vyos_site_config
+      changed_when: (vyos_site_config.commands | default([]) | length) > 0
+      no_log: true

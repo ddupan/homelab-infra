@@ -1,0 +1,9 @@
+---
+wg_interface: wg-oci
+wg_port: 51820
+wg_mtu: 1380
+wg_home_prefixes: [192.168.10.0/24, 10.60.0.0/24, 10.61.0.0/24]
+wg_cloud_prefixes: [10.0.0.0/24]
+dn42_asn: 4242421811
+dn42_ipv4: 172.21.111.160/27
+dn42_ipv6: fdd0:98df:15b0::/48

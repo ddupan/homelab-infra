@@ -28,6 +28,9 @@ pve_vms:
     description: "VyOS router: OSPF peer to the NEC IX, gateway for the SDN VNets."
     cores: 2
     memory: 2048
+    # Portable across Intel pve1 and AMD pve2/pve3. `host` transferred memory
+    # but failed target-side resume during the 2026-09-17 migration.
+    cpu: x86-64-v2-AES
     disk: "pve-rg:8"
     # Headless by design: UEFI + serial console, NO emulated VGA. VyOS's own
     # kernel cmdline carries console=ttyS0, and the installer was answered with
@@ -56,6 +59,7 @@ pve_vms:
     # are AMD.
     cores: 4
     memory: 4096
+    cpu: host
     disk: "pve-rg:40"
     bios: ovmf
     machine: q35

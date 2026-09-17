@@ -1,4 +1,13 @@
 ---
+# Shared authentication for typed community.proxmox API modules. Secrets are
+# runtime inputs; never put them in inventory or vars files.
+pve_api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+pve_api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+pve_api_token_id: "{{ lookup('env', 'PROXMOX_TOKEN_ID') }}"
+pve_api_token_secret: "{{ lookup('env', 'PROXMOX_TOKEN_SECRET') }}"
+pve_api_validate_certs: true
+pve_api_python_interpreter: "{{ lookup('env', 'PVE_API_PYTHON') | default(ansible_playbook_python, true) }}"
+
 ansible_user: root
 ansible_python_interpreter: /usr/bin/python3
 

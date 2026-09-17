@@ -1,0 +1,38 @@
+---
+- name: 备份升级前 FRR 配置（仅远端）
+  ansible.builtin.command: cp -a /etc/frr /var/backups/frr-before-dn42
+  args:
+    creates: /var/backups/frr-before-dn42
+- name: 安装 FRR 官方仓库签名密钥
+  ansible.builtin.get_url:
+    url: https://deb.frrouting.org/frr/keys.gpg
+    dest: /usr/share/keyrings/frrouting.gpg
+    mode: '0644'
+- name: 配置 FRR 10.7 官方仓库
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/frr.list
+    mode: '0644'
+    content: |
+      deb [signed-by=/usr/share/keyrings/frrouting.gpg] https://deb.frrouting.org/frr noble frr-10.7
+  register: frr_repo
+- name: 安装支持 link-local peering 的固定 FRR 版本
+  ansible.builtin.apt:
+    name:
+      - frr=10.7.1-0~ubuntu24.04.1
+      - frr-pythontools=10.7.1-0~ubuntu24.04.1
+    update_cache: true
+    cache_valid_time: '{{ 0 if frr_repo.changed else 3600 }}'
+    dpkg_options: force-confdef,force-confold
+  register: frr_package
+  notify: 重启 FRR
+- name: 检查 FRR 后台进程是否仍引用旧二进制
+  ansible.builtin.shell: readlink /proc/$(cat /run/frr/bgpd.pid)/exe
+  changed_when: false
+  register: frr_running
+- name: 调度切换已升级的 FRR 进程
+  ansible.builtin.debug:
+    msg: 检查进程是否需要重启以使用已安装的 10.7.1
+  changed_when: "'(deleted)' in frr_running.stdout"
+  notify: 重启 FRR
+- name: 完成 FRR 升级
+  ansible.builtin.meta: flush_handlers
