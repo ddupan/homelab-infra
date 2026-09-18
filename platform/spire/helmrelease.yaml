@@ -6,12 +6,12 @@ metadata:
 spec:
   chart:
     spec:
-      chart: spire
+      chart: ./charts/spire
       interval: 1h
+      reconcileStrategy: Revision
       sourceRef:
-        kind: HelmRepository
-        name: spiffe-hardened
-      version: 0.30.2
+        kind: GitRepository
+        name: spiffe-hardened-fork
   dependsOn:
     - name: spire-crds
       namespace: spire-mgmt

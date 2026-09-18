@@ -41,7 +41,7 @@ SPIRE Server（trust domain: ddupan.top）
 
 | 项目 | 当前值 |
 |---|---|
-| SPIRE chart | `0.30.2` |
+| SPIRE chart | `0.30.2-ddupan.1`（内部 fork，基于 `0.30.2`） |
 | SPIRE | `1.15.3` |
 | SPIRE CRDs chart | `0.6.1` |
 | trust domain | `ddupan.top` |

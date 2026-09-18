@@ -50,6 +50,7 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 - VictoriaMetrics Operator 已固定现有 chart `0.66.2` 并完成分阶段 Flux HelmRelease
   接管；Metrics、Logs、Traces 与 Grafana 也已统一完成 Flux 接管；
 - External Secrets Operator 已固定 chart `2.8.0` 并完成分阶段接管；
-- SPIRE 已按官方 hardened chart `0.30.2`（SPIRE `1.15.3`）声明，使用共享
+- SPIRE 已按 hardened chart 内部 fork `0.30.2-ddupan.1`（基于上游 `0.30.2`，SPIRE
+  `1.15.3`）声明，使用共享
   PostgreSQL 与独立 signing-key PVC；首次上线和 OpenBao JWT-SVID PoC 尚待合并后验证；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

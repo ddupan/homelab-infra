@@ -51,6 +51,11 @@ spire-server:
           kubeConfigName: sandbox
           serviceAccountAllowList:
             - spire-system:spire-agent
+        sandbox-kata:
+          kubeConfigName: sandbox
+          serviceAccountAllowList:
+            - spire-smoke:spire-smoke
+          usePodUIDForAgentID: true
   externalControllerManagers:
     enabled: true
     clusters:
