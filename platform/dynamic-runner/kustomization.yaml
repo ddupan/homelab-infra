@@ -6,5 +6,4 @@ resources:
   - rbac.yaml
   - clusterspiffeid.yaml
   - deployment.yaml
-  - pod-worker-deployment.yaml
   - service.yaml

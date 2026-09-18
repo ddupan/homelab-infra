@@ -1,51 +1,40 @@
 # Gitea dynamic runner controller
 
-此目录只管理 homelab 中的 controller 部署。controller、worker、Cloud Hypervisor
-launcher 和 guest runner 的源码与发布位于独立仓库
-`panxiao81/gitea-dynamic-runner`。
-
-当前 bootstrap controller 接收 Gitea `workflow_job` webhook，将 `[self-hosted, pod]` 和
-`[self-hosted, vm]` 的 queued job 分别发布到 NATS。Pod worker 在本集群创建一次性
-privileged host runner；Docker、BuildKit 和 kind 由 workflow 自行 setup。内部
-endpoint：
+controller 接收 Gitea `workflow_job` webhook，对带 `[self-hosted, pod]` 或
+`[self-hosted, vm]` 的 queued job 直接调用 OpenSandbox Lifecycle API。链路不使用
+NATS、消息队列或平台侧 webhook worker。
 
 ```text
-http://dynamic-runner-controller.dynamic-runner.svc.cluster.local:8787/webhook
+Gitea -> dynamic-runner-controller -> http://10.60.0.13:8080/v1/sandboxes
+                                      -> ci-pod / ci-vm Pool
 ```
 
-OpenBao 路径：
+`10.60.0.13:8080` 是 VyOS 上的内网 HAProxy frontend，后端是 sandbox 节点的
+`30080` NodePort。它只依赖现有跨网段路由，不暴露公网，也不经过 Cloudflare
+Tunnel。controller 自身的 `192.168.10.127:8787` 仅供 Gitea webhook 和 sandbox
+通过一次性 nonce 领取 registration token。
 
-- `kv/k8s/nats.ci_producer_password`：已有 NATS producer 密码。
-- `kv/k8s/nats.ci_worker_password`：已有 NATS worker 密码。
-- `kv/k8s/dynamic-runner.webhook_secret`：Gitea webhook HMAC secret。
-- `kv/k8s/gitea-runner.token`：现有 instance runner registration token。
+## Secret 边界
 
-首期 controller 与 runner 镜像由 laptop 本机构建后导入 k3s containerd，作为 CI
-发布链路建立前的 bootstrap。部署使用 `imagePullPolicy: Never`。正式发布 workflow
-获得专用 SPIFFE ID 后，必须将 image 改为 zot digest 并移除本地导入步骤。
+homelab 的 `ExternalSecret/dynamic-runner` 从既有 `ClusterSecretStore/openbao` 读取：
 
-## 身份绑定
+- `kv/k8s/opensandbox-api:api_key` -> `opensandbox-api-key`；
+- `kv/k8s/dynamic-runner:webhook_secret` -> `webhook-secret`；
+- `kv/k8s/gitea-runner:token` -> `token`。
 
-queued webhook 只负责创建没有业务身份的 Pod。runner 实际领取任务后，Gitea 的
-`in_progress` webhook 会携带实际 `runner_name`；controller 将 binding 消息发布到
-NATS，Pod worker 再给对应 Pod 添加：
+API key 以只读文件挂载，controller 通过 `OPEN-SANDBOX-API-KEY` header 使用。不要把
+key 复制到 Git、Lifecycle 请求、BatchSandbox 或 sandbox 集群 Secret。本目录不创建
+Bao token，也不拥有 sandbox 平台侧的 ESO/Bao Terraform。
 
-```text
-ci.ddupan.top/identity-bound=true
-ci.ddupan.top/spiffe-path=<owner>/<repository>/<percent-encoded-job-name>
-```
+## 调度与身份
 
-`ClusterSPIFFEID/gitea-dynamic-runner` 只匹配已经绑定的 Pod，并签发
-`spiffe://ddupan.top/ci/<owner>/<repository>/<job-name>`。runner 的 job-start hook 在
-SVID 可用之前不会放行第一步，因此不能根据 queued 事件错配身份。
+Lifecycle 请求只按 `ci-pod` / `ci-vm` 选择 Pool，并携带稳定的
+`spiffe://ddupan.top/ci/<owner>/<repository>/<task>`。job ID 只用于日志和诊断 metadata。
+runner labels 始终以 `self-hosted` 开头。
 
-每个 runner Pod 使用 `gitea-dynamic-runner` ServiceAccount。该 ServiceAccount 没有
-Kubernetes API 权限；只有 `dynamic-runner-pod-worker` ServiceAccount 能在本 namespace
-create/get/patch/delete Pod。
+registration token 通过 controller 内存中的单次 nonce URL 投递。成功领取后 nonce
+立即失效；沙箱结束、创建失败或超时时也会撤销。OpenSandbox DELETE 是最终的正常
+回收路径，OpenSandbox timeout 是 controller 异常退出时的兜底。
 
-长期实现将由兼容 Gitea RunnerService 的 scheduler 直接领取 task，再交给 Pod/VM
-executor；届时删除 webhook、临时 runner 注册和 identity binding 消息。跟踪见
-`panxiao81/gitea-dynamic-runner` issue #7。
-
-Gitea webhook 只订阅 `workflow_job`，content type 使用 JSON，secret 与 Bao 中值
-一致。不要启用 `send_everything`，否则 controller 会收到无关仓库事件。
+完整部署和验收步骤见
+[`platform/sandbox-ci-runners/README.md`](../sandbox-ci-runners/README.md)。

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-ci-spire-agent
+  namespace: opensandbox
+data:
+  agent.conf: |
+    agent {
+      data_dir = "/run/spire/data"
+      log_level = "INFO"
+      server_address = "spire-server.ad.ddupan.top"
+      server_port = "8081"
+      socket_path = "/run/spire/agent-sockets/spire-agent.sock"
+      trust_bundle_path = "/run/spire/bundle/bundle.pem"
+      trust_domain = "ddupan.top"
+    }
+
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          cluster = "sandbox-kata"
+          token_path = "/run/spire/tokens/token"
+        }
+      }
+      KeyManager "memory" {
+        plugin_data {}
+      }
+      WorkloadAttestor "unix" {
+        plugin_data {}
+      }
+    }
