@@ -11,7 +11,8 @@ Authelia 提供；SPIRE 不替代人类 OIDC，也不承担目标服务的资源
 Flux 安装 SPIFFE hardened charts：
 
 - `spire-crds` `0.6.1`；
-- `spire` `0.30.2`（SPIRE `1.15.3`）；
+- 内部 fork 的 `spire` `0.30.2-ddupan.1`（SPIRE `1.15.3`），固定 Git tag
+  `spire-0.30.2-ddupan.1`；
 - SPIRE Server、Agent、Controller Manager、SPIFFE CSI Driver；
 - OIDC Discovery Provider。
 
@@ -23,6 +24,12 @@ API 或 Broker API。Trust domain 是 `ddupan.top`，Kubernetes cluster name 是
 只通过内网 `spire-server.ad.ddupan.top:8081` 暴露；external PSAT、external
 controller-manager 与 bundle publisher 使用由 sandbox Ansible bootstrap 的独立、受限
 kubeconfig。Sandbox 不运行第二套 Server 或 OIDC Provider。
+
+内部 fork 仅在上游 `spire-0.30.2` 基础上暴露
+`use_pod_uid_for_agent_id`。现有 `sandbox` profile 保持 node UID 模式，供 DaemonSet
+Agent 使用；独立的 `sandbox-kata` profile 复用同一 kubeconfig，但启用 Pod UID 模式，
+供每个 Kata guest 内的临时 Agent 使用。不得把现有 `sandbox` profile 切换为 Pod UID，
+否则会改变常驻 Agent 的 parent ID。
 
 ## PostgreSQL bootstrap
 

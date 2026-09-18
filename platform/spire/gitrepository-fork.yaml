@@ -1,0 +1,11 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: spiffe-hardened-fork
+  namespace: spire-mgmt
+spec:
+  interval: 1h
+  ref:
+    tag: spire-0.30.2-ddupan.1
+  timeout: 60s
+  url: http://gitea-http.gitea.svc.cluster.local:3000/panxiao81/helm-charts-hardened.git
