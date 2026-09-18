@@ -9,6 +9,12 @@ Pod-bound PSAT 向中央 SPIRE 注册；identity controller 从 BatchSandbox all
 取得真实 Pod UID，再创建精确的 `ClusterStaticEntry`。runner 只有拿到请求中的完整
 repository/task SVID 后才领取一次性 Gitea registration token。
 
+这些 `ClusterStaticEntry` 位于 sandbox 集群，由 central SPIRE Server 内的
+`spire-controller-manager-sandbox` 通过受限 external kubeconfig reconcile。必须在
+`platform/spire/values.yaml` 显式启用 external controller-manager 的
+`reconcile.clusterStaticEntries`（chart 默认关闭）；仅看到 CR 存在但没有 status，不算
+身份链路就绪。
+
 ## 部署依赖
 
 - OpenSandbox chart 和 CRD 已 Ready；

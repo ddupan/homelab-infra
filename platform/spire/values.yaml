@@ -66,6 +66,12 @@ spire-server:
     clusters:
       sandbox:
         kubeConfigName: sandbox-controller
+        # Dynamic OpenSandbox runner identities are exact Pod-UID-bound
+        # ClusterStaticEntries created in the sandbox cluster. The chart
+        # defaults this reconciler to false, so enable the central registration
+        # path explicitly.
+        reconcile:
+          clusterStaticEntries: true
   bundlePublisher:
     externalK8sConfigMap:
       enabled: true

@@ -15,11 +15,44 @@ spec:
     spec:
       serviceAccountName: dynamic-runner-controller
       automountServiceAccountToken: false
+      initContainers:
+        - name: fetch-internal-ca
+          image: curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6
+          args:
+            - --fail
+            - --silent
+            - --show-error
+            - --output
+            - /trust/ca.pem
+            - https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 102
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: trust
+              mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:1e481726cbcf6da50f1ef61aa5a1b070d2859209329842e954463293c27c0e66
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:83dd5c6f96b446e3aa2324e88e347b61f375fa95e99707b9b0ed505849a989da
           imagePullPolicy: IfNotPresent
           env:
+            - name: NATS_URL
+              value: tls://nats.ad.ddupan.top:4222
+            - name: NATS_CA_FILE
+              value: /run/trust/ca.pem
+            - name: NATS_PRODUCER_PASSWORD_FILE
+              value: /run/dynamic-runner-secrets/nats-password
+            - name: NATS_WORKER_PASSWORD_FILE
+              value: /run/dynamic-runner-secrets/nats-worker-password
+            - name: POD_CONSUMER_ENABLED
+              value: "true"
             - name: WEBHOOK_SECRET_FILE
               value: /run/dynamic-runner-secrets/webhook-secret
             - name: REGISTRATION_TOKEN_FILE
@@ -65,6 +98,9 @@ spec:
             - name: secret
               mountPath: /run/dynamic-runner-secrets
               readOnly: true
+            - name: trust
+              mountPath: /run/trust
+              readOnly: true
       securityContext:
         fsGroup: 65532
         fsGroupChangePolicy: OnRootMismatch
@@ -75,3 +111,6 @@ spec:
           secret:
             secretName: dynamic-runner
             defaultMode: 0400
+        - name: trust
+          emptyDir:
+            sizeLimit: 1Mi
