@@ -43,6 +43,10 @@ spire-server:
       externalSecret:
         name: spire-external-kubeconfigs
         key: sandbox-controller
+    sandbox-runner-bundle:
+      externalSecret:
+        name: spire-external-kubeconfigs
+        key: sandbox-controller
   nodeAttestor:
     externalK8sPSAT:
       enabled: true
@@ -55,6 +59,7 @@ spire-server:
           kubeConfigName: sandbox
           serviceAccountAllowList:
             - spire-smoke:spire-smoke
+            - opensandbox:gitea-ci
           usePodUIDForAgentID: true
   externalControllerManagers:
     enabled: true
@@ -71,6 +76,12 @@ spire-server:
           configMapName: spire-bundle
           configMapKey: bundle.spiffe
           format: spiffe
+        sandbox-runner-bundle:
+          kubeConfigName: sandbox-runner-bundle
+          namespace: opensandbox
+          configMapName: spire-bundle-pem
+          configMapKey: bundle.pem
+          format: pem
   persistence:
     # PostgreSQL stores registrations, but the disk KeyManager still needs durable
     # storage for the trust-domain signing keys.

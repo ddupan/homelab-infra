@@ -1,0 +1,60 @@
+# OpenSandbox Gitea runner Pools
+
+本目录部署 `ci-vm` 和 `ci-pod` 两个零预热 Pool、sandbox 内的 SPIFFE identity
+controller，以及仅供内网 VyOS 转发的 OpenSandbox NodePort。`ci-vm` 使用
+`kata-clh-runtime-rs`，`ci-pod` 使用默认 runtime；两者均为单任务、用后删除。
+
+Pool 中 task-executor 接收 Lifecycle API 下发的进程环境。guest-local SPIRE Agent 用
+Pod-bound PSAT 向中央 SPIRE 注册；identity controller 从 BatchSandbox allocation
+取得真实 Pod UID，再创建精确的 `ClusterStaticEntry`。runner 只有拿到请求中的完整
+repository/task SVID 后才领取一次性 Gitea registration token。
+
+## 部署依赖
+
+- OpenSandbox chart 和 CRD 已 Ready；
+- RuntimeClass `kata-clh-runtime-rs` 已存在；
+- 中央 SPIRE 已发布 `ConfigMap/opensandbox/spire-bundle-pem`；
+- VyOS `10.60.0.13:8080` 转发 sandbox1/2 的 NodePort `30080`；
+- runner/controller 镜像均使用 Zot digest，而不是可变 tag。
+
+本目录不读取 OpenBao，也不修改 OpenSandbox 平台侧 ExternalSecret、ClusterSecretStore
+或 Bao policy。OpenSandbox API key 只存在于平台 server Secret 和 homelab controller
+Secret，两边由各自身份读取同一 Bao 资源。
+
+## 上线验收
+
+先确认 Secret 和 API 认证，命令不得输出 key：
+
+```bash
+kubectl -n dynamic-runner wait externalsecret/dynamic-runner --for=condition=Ready --timeout=2m
+kubectl -n dynamic-runner exec deploy/dynamic-runner-controller -- \
+  wget -qO- http://10.60.0.13:8080/health
+```
+
+然后触发一个 `runs-on: [self-hosted, vm]` 的最小 workflow，并同时观察：
+
+```bash
+kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
+kubectl -n opensandbox get pool,batchsandbox,pod -w
+kubectl get clusterstaticentry -l app.kubernetes.io/component=opensandbox-identity -w
+kubectl -n opensandbox logs deploy/opensandbox-identity -f
+```
+
+合格证据必须同时包含：
+
+1. Lifecycle create 成功并选择 `ci-vm`；
+2. 分配 Pod 的 `runtimeClassName` 为 `kata-clh-runtime-rs`；
+3. entry 的 parent ID 包含该 Pod 的 UID，SPIFFE ID 使用 repository/task；
+4. Gitea 显示临时 runner 带 `self-hosted,vm` labels 并完成真实任务；
+5. 任务后 BatchSandbox、Pod、ClusterStaticEntry 和临时 runner 均消失。
+
+清理超时对象时只调用 Lifecycle DELETE，不直接删除 Pool Pod。若 controller 已不可用，
+可从 OpenSandbox API 按 metadata 定位 sandbox 后执行 DELETE；不要绕过 API 伪造状态。
+
+## 故障定位
+
+- `401`：检查 homelab ExternalSecret Ready 和文件挂载，不打印 Secret；
+- `PoolCapacityExhausted`：检查 `ci-vm` 的 `poolMax` 及残留 BatchSandbox；
+- runner 等待 SVID：核对 allocation Pod UID、ClusterStaticEntry parentID、guest Agent 日志；
+- runner 等待 token：核对 `192.168.10.127:8787` 的 sandbox 到 homelab 路由；
+- Docker 任务失败：检查 `docker` sidecar 和 `/run/docker/docker.sock` 的 group 2000。

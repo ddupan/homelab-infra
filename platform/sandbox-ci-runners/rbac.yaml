@@ -1,0 +1,87 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitea-ci
+  namespace: opensandbox
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opensandbox-identity
+  namespace: opensandbox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opensandbox-identity
+  namespace: opensandbox
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [sandbox.opensandbox.io]
+    resources: [batchsandboxes]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opensandbox-identity
+  namespace: opensandbox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opensandbox-identity
+subjects:
+  - kind: ServiceAccount
+    name: opensandbox-identity
+    namespace: opensandbox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opensandbox-identity
+rules:
+  - apiGroups: [spire.spiffe.io]
+    resources: [clusterstaticentries]
+    verbs: [create, delete, get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opensandbox-identity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opensandbox-identity
+subjects:
+  - kind: ServiceAccount
+    name: opensandbox-identity
+    namespace: opensandbox
+---
+# The central SPIRE external controller uses this existing sandbox credential
+# to publish a PEM bundle for guest-local Agents. It cannot read Secrets here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spire-runner-bundle-publisher
+  namespace: opensandbox
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create, delete, get, list, patch, update, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spire-runner-bundle-publisher
+  namespace: opensandbox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-runner-bundle-publisher
+subjects:
+  - kind: ServiceAccount
+    name: spire-controller-manager
+    namespace: spire-system

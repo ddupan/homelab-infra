@@ -10,3 +10,4 @@ resources:
   - apps/external-secrets-operator.yaml
   - apps/external-secrets.yaml
   - apps/opensandbox.yaml
+  - apps/ci-runners.yaml
