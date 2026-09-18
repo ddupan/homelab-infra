@@ -42,9 +42,12 @@ attestation。Server 使用 external bundle publisher 持续维护 sandbox
 显式关闭 Server 与 OIDC Provider，只部署 Agent DaemonSet 和 SPIFFE CSI Driver；因此
 不会产生第二个 trust root。
 
-`spire-smoke` namespace、ServiceAccount 和 `sandbox-spire-smoke` ClusterSPIFFEID 是
-普通 Pod 与后续 Kata guest 的回归夹具，稳定身份为
-`spiffe://ddupan.top/sandbox/smoke`。测试 Pod 临时创建并在验收后删除，身份声明保留。
+`spire-smoke` namespace、ServiceAccount 和 `sandbox-spire-smoke` ClusterSPIFFEID 只用于
+普通 Pod 的 CSI 回归夹具，稳定身份为 `spiffe://ddupan.top/sandbox/smoke`。Kata guest
+不能复用 node Agent 暴露的 Unix socket；virtio-fs 只能呈现 socket 路径，不能把连接
+跨过 VM 边界。Kata workload 必须使用 guest 内 Agent，具体约束见
+`platform/sandbox-kata/README.md`。测试 Pod 临时创建并在验收后删除，普通 Pod 的身份
+声明保留。
 
 Kata 阶段使用官方 4.1.0 `kata-deploy` chart 的短生命周期 `job` 模式，逐节点安装并
 重启 K3s。只启用 `kata-clh-runtime-rs`，不创建默认 `kata` 别名；该 handler 的
