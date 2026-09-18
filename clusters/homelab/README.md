@@ -53,4 +53,6 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
 - SPIRE 已按 hardened chart 内部 fork `0.30.2-ddupan.1`（基于上游 `0.30.2`，SPIRE
   `1.15.3`）声明，使用共享
   PostgreSQL 与独立 signing-key PVC；首次上线和 OpenBao JWT-SVID PoC 尚待合并后验证；
+- Nexus Repository CE POC 已加入 GitOps 声明，计划验证 Ansible Galaxy、Go Modules 与
+  OCI/BuildKit 缓存；尚未部署或完成现场验收，现有 zot 保持不变；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

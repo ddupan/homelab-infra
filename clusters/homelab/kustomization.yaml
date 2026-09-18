@@ -15,3 +15,4 @@ resources:
   - apps/spire.yaml
   - apps/observability.yaml
   - apps/zot.yaml
+  - apps/nexus.yaml
