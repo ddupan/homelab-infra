@@ -13,6 +13,9 @@ homelab 集群的 ESO Pod、ServiceAccount 或 Kubernetes auth backend。
   值未输出或落盘；
 - sandbox ESO operator、`ClusterSecretStore/openbao` 与 OpenSandbox `ExternalSecret`
   由 Flux 管理；
+- 线上 `ClusterSecretStore/openbao` 为 `Valid/Ready`，`ExternalSecret/opensandbox-api-key`
+  为 `SecretSynced/Ready`；
+- OpenSandbox 已切换到 API key：无 key 请求返回 `401`，正确 key 请求返回 `200`；
 - homelab runner 对同一 key 的投影不在本目录，留给 runner 项目管理。
 
 OpenBao 的 `auth/kubernetes-sandbox`、对应 role、policy、sandbox API 地址与公开 CA

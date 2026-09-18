@@ -27,6 +27,8 @@ runner 项目后续声明，本目录不预制。
 
 仓库与 Helm values 均不保存 API key。OpenSandbox 不支持更丰富的原生 workload
 authentication；runner 后续读取同一 Bao 路径并在请求头中使用 API key。
+`opensandbox-values` 带 Flux watch label，values 变化会立即触发 Helm reconcile，不依赖
+30 分钟的 HelmRelease interval。
 
 ## 验收
 
