@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensandbox-values
+  namespace: opensandbox-system
+data:
+  values.yaml: |
+    opensandbox-controller:
+      controller:
+        metrics:
+          enabled: true
+          port: 8080
+          secure: false
+
+    opensandbox-server:
+      server:
+        replicaCount: 1
+        env:
+          # 临时 bootstrap 边界：Service 仅为 ClusterIP。runner 接入时改为
+          # secretKeyRef(OPENSANDBOX_SERVER_API_KEY) 并删除本项。
+          - name: OPENSANDBOX_INSECURE_SERVER
+            value: "YES"
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+          - name: batchsandbox-template
+            mountPath: /etc/opensandbox/batchsandbox-template.yaml
+            subPath: batchsandbox-template.yaml
+            readOnly: true
+        volumes:
+          - name: batchsandbox-template
+            configMap:
+              name: opensandbox-batchsandbox-template
+
+      configToml: |
+        [server]
+        host = "0.0.0.0"
+        port = 80
+        api_key = ""
+        max_sandbox_timeout_seconds = 86400
+
+        [log]
+        level = "INFO"
+
+        [runtime]
+        type = "kubernetes"
+        execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.22"
+
+        [storage]
+        allowed_host_paths = []
+        volume_default_size = "1Gi"
+
+        [kubernetes]
+        kubeconfig_path = ""
+        namespace = "opensandbox"
+        informer_enabled = true
+        informer_resync_seconds = 300
+        informer_watch_timeout_seconds = 60
+        snapshot_create_timeout_seconds = 900
+        workload_provider = "batchsandbox"
+        image_pull_policy = "IfNotPresent"
+        batchsandbox_template_file = "/etc/opensandbox/batchsandbox-template.yaml"
+
+        [egress]
+        image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.1.6"
+        mode = "dns+nft"
+        disable_ipv6 = true
+
+        [secure_runtime]
+        type = "kata"
+        k8s_runtime_class = "kata-clh-runtime-rs"
+
+    opensandbox-node-agent:
+      enabled: false

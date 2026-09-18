@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: opensandbox
+  namespace: opensandbox-system
+spec:
+  interval: 1h
+  ref:
+    commit: 8f01e935c2cabba778cf37a152033fae062fa0f4
+  url: https://github.com/opensandbox-group/OpenSandbox.git
