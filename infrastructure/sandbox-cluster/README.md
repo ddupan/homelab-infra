@@ -93,6 +93,13 @@ ansible-playbook site.yml
 ansible-playbook k3s.yml
 ```
 
+只 reconcile Flux controllers 与 root sync manifest（不触碰 LXC、PostgreSQL 或
+K3s lifecycle）：
+
+```bash
+ansible-playbook flux.yml
+```
+
 K3s 外部 datastore URI 由运行时 `SANDBOX_K3S_DB_PASSWORD` 生成，密码在 URI 中
 进行 URL 编码，最终仅持久化于节点 root 可读的 `/etc/rancher/k3s/config.yaml`
 （mode `0600`）。首节点生成的 K3s join token 仅在同一次 Ansible run 内传给第二节点；

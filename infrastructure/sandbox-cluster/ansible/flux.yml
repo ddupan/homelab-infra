@@ -1,0 +1,6 @@
+---
+- name: Reconcile Flux controllers and root sync
+  hosts: sandbox1
+  gather_facts: false
+  roles:
+    - sandbox_flux
