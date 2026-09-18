@@ -106,7 +106,9 @@ ansible-playbook verify.yml
 当前已经声明 LXC 生命周期、最小 OS baseline、PostgreSQL 和 K3s，包括系统级
 homelab CA trust。Flux `v2.9.5` controllers 与 root sync 也由 Ansible 通过 K3s
 server manifests 管理；root 使用 homelab CA 访问公开 Gitea 仓库，不保存 Git token。
-集群内 workload 由 `clusters/sandbox/` 分阶段纳入 Flux。
+集群内 workload 由 `clusters/sandbox/` 分阶段纳入 Flux。root Kustomization 的健康检查
+timeout 为 40 分钟，用于覆盖 Kata 等首次安装时会逐节点重启 K3s 的子
+Kustomization；各子项仍保留自己的更短 timeout，故障会在对应子项先行暴露。
 
 ## SPIRE 跨集群 bootstrap
 
