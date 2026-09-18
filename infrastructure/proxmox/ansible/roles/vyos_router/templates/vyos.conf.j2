@@ -20,7 +20,9 @@ set load-balancing haproxy service opensandbox-api listen-address {{ vyos_sandbo
 set load-balancing haproxy service opensandbox-api port {{ vyos_opensandbox_api_port }}
 set load-balancing haproxy service opensandbox-api mode 'tcp'
 set load-balancing haproxy service opensandbox-api backend 'opensandbox-api'
+set load-balancing haproxy service opensandbox-api timeout client {{ vyos_opensandbox_api_timeout }}
 set load-balancing haproxy backend opensandbox-api mode 'tcp'
+set load-balancing haproxy backend opensandbox-api timeout server {{ vyos_opensandbox_api_timeout }}
 {% for server in vyos_sandbox_k3s_servers %}
 set load-balancing haproxy backend opensandbox-api server {{ server.name }} address {{ server.address }}
 set load-balancing haproxy backend opensandbox-api server {{ server.name }} port {{ vyos_opensandbox_node_port }}

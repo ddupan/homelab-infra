@@ -6,11 +6,12 @@ metadata:
 spec:
   dependsOn:
     - name: external-secrets
-    - name: nats
     - name: spire
   interval: 10m
   path: ./platform/dynamic-runner
-  prune: false
+  # The runner backends are replaceable. Prune is required when a retired
+  # worker is removed from the component; otherwise it keeps consuming work.
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
