@@ -51,7 +51,7 @@ few things Terraform must not own.**
 | secrets engine mounts (`kv`, `pki`, `ssh-client-signer`) | the daemon, Raft, TLS files, systemd |
 | PKI role, issuing/CRL URLs, cluster paths, **ACME** | `bao operator init` / unseal (manual, PGP-wrapped) |
 | SSH signing role (`ai-agent`) | **PKI root CA + SSH CA signing key** |
-| OIDC auth *mount* and *role* | OIDC **client secret** (`auth/oidc/config`) |
+| OIDC/Kubernetes auth mount、config 与 role | OIDC **client secret** (`auth/oidc/config`) |
 | all policies | snapshot token + script + systemd timer |
 |  | host-level CA trust distribution (`openbao_ssh_ca_trust`) |
 
@@ -91,6 +91,13 @@ then `VAULT_ADDR`/`VAULT_TOKEN`), mirroring how `smtp-relay/terraform` uses
 `az login`. It targets OpenBao via the **`hashicorp/vault`** provider, because the
 native `openbao/openbao` provider is published only to the OpenTofu registry and
 cannot be resolved by the HashiCorp `terraform` CLI.
+
+Sandbox 集群使用独立的 `auth/kubernetes-sandbox`。其 API 地址、公开 Kubernetes CA、
+ESO role 与只读 `kv/k8s/opensandbox-api` policy 全部由 Terraform 管理；CA 位于
+`terraform/certs/sandbox-kubernetes-ca.crt`。集群重建并轮换 CA 后，先更新该文件并
+apply，再让 Flux 恢复 ESO reconciliation。该 backend 不保存 reviewer JWT，而是使用
+ESO 的短期登录 JWT 执行 TokenReview。该组资源已于 2026-09-18 apply，随后复验 plan
+为 zero-diff。
 
 ## DNS
 

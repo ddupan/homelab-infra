@@ -18,7 +18,8 @@ Flux 管理以下 Kubernetes 资源：
 - Kata Containers 和 CI 专用的 `block-plain` RuntimeClass；
 - SPIRE Agent、SPIFFE CSI Driver 与 workload identity 声明；
 - vmagent、kube-state-metrics、kubelet/cAdvisor scrape 配置和告警；
-- OpenSandbox controller/server；CI Pool 与 runner 调度器由 runner 项目接入。
+- sandbox External Secrets Operator、OpenSandbox controller/server；CI Pool 与 runner
+  调度器由 runner 项目接入。
 
 同一个对象只能有一个 owner。Ansible 不直接部署上述集群内 workload；Flux 不管理
 LXC、K3s datastore 或 K3s 本身。

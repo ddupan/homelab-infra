@@ -15,7 +15,8 @@ Root bootstrap 已完成。后续按依赖顺序分别引入：
 1. 监控 CRD、kube-state-metrics 以及 kubelet/cAdvisor 抓取配置；
 2. SPIRE Agent、SPIFFE CSI Driver 与 workload registration；
 3. Kata Containers、`block-plain` RuntimeClass；
-4. OpenSandbox controller/server；CI Pool 与 runner 调度器随后独立接入。
+4. 独立 External Secrets Operator 与 sandbox 专用 OpenBao auth backend；
+5. OpenSandbox controller/server；CI Pool 与 runner 调度器随后独立接入。
 
 每一阶段单独合并并等待对应 Flux Kustomization Ready，不在 bootstrap 时一次性部署。
 第一阶段监控拆为 `monitoring-operator` 与依赖它的 `monitoring`，防止 VM CR 在
@@ -54,10 +55,12 @@ Kata 阶段使用官方 4.1.0 `kata-deploy` chart 的短生命周期 `job` 模�
 `emptyDir` 固定使用 `block-plain`，为 Docker/BuildKit overlay2 与 kind 提供 guest
 内块设备文件系统。详细限制与上线验收见 `platform/sandbox-kata/README.md`。
 
+Sandbox 的 ESO 通过独立 `auth/kubernetes-sandbox` 向 OpenBao 证明 ServiceAccount
+身份，只能读取共享的 `kv/k8s/opensandbox-api`。它不保存 reviewer JWT 或长期 Bao token；相关
+Terraform 与 Flux 边界见 `platform/sandbox-external-secrets/README.md`。
+
 OpenSandbox 阶段固定官方源码 commit 与 umbrella chart `0.2.2`，只部署 controller、
-ClusterIP server 和 CRD。server 当前仅能从集群内部访问；在 CI 调度器接入并建立
-API key 的 Secret 生命周期前，显式运行于无认证 bootstrap 模式。这个临时边界和切换
-步骤记录在 `platform/sandbox-opensandbox/README.md`。
+ClusterIP server 和 CRD。API key 由 ESO 从 OpenBao 投影，明文不进入 Git。
 
 ## 监控边界
 

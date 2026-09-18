@@ -10,14 +10,12 @@ Gateway、Ingress 或 LoadBalancer。sandbox workload 位于 `opensandbox` names
 默认使用 `kata-clh-runtime-rs`；CI Pool、runner 镜像、动态 SPIFFE registration 均由
 runner 项目后续声明，本目录不预制。
 
-## 临时认证边界
+## API 认证
 
-当前尚无 sandbox 集群内的 Secret 分发链路。为避免把长期凭据提交到 Git，server 暂时
-通过 `OPENSANDBOX_INSECURE_SERVER=YES` 显式确认无认证模式；其网络边界严格保持为
-ClusterIP。这不是最终认证方案。
-
-runner 接入前必须先创建 `opensandbox-api-key` Secret，并把 Helm values 中的环境变量
-改为：
+`ExternalSecret/opensandbox-api-key` 从 OpenBao
+`kv/k8s/opensandbox-api:api_key` 投影同名 Secret。这个路径不归属于某个 Kubernetes
+集群：sandbox server 与 homelab runner 调度器分别通过自己的 Bao 身份读取。server 只通过
+`secretKeyRef` 读取：
 
 ```yaml
 - name: OPENSANDBOX_SERVER_API_KEY
@@ -27,8 +25,8 @@ runner 接入前必须先创建 `opensandbox-api-key` Secret，并把 Helm value
       key: api-key
 ```
 
-随后删除 `OPENSANDBOX_INSECURE_SERVER`。Secret 必须由 OpenBao/SPIFFE 派生的自动化
-链路或 Ansible 注入，不得把明文写入仓库。
+仓库与 Helm values 均不保存 API key。OpenSandbox 不支持更丰富的原生 workload
+authentication；runner 后续读取同一 Bao 路径并在请求头中使用 API key。
 
 ## 验收
 

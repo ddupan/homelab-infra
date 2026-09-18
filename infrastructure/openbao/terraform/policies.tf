@@ -35,3 +35,10 @@ resource "vault_policy" "external_secrets" {
   name   = "external-secrets"
   policy = file("${path.module}/policies/external-secrets.hcl")
 }
+
+# The sandbox cluster has its own Kubernetes auth backend and a deliberately
+# narrower KV view than the homelab ESO instance.
+resource "vault_policy" "sandbox_external_secrets" {
+  name   = "sandbox-external-secrets"
+  policy = file("${path.module}/policies/sandbox-external-secrets.hcl")
+}

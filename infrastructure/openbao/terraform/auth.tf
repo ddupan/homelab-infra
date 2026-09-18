@@ -59,3 +59,33 @@ resource "vault_kubernetes_auth_backend_role" "external_secrets" {
   # in a long TTL and every extra hour is a longer-lived credential in memory.
   token_ttl = 3600
 }
+
+# A Kubernetes auth mount can validate identities from only the API server it is
+# configured against. The sandbox cluster therefore cannot reuse auth/kubernetes,
+# whose TokenReview endpoint belongs to homelab.
+resource "vault_auth_backend" "sandbox_kubernetes" {
+  type = "kubernetes"
+  path = "kubernetes-sandbox"
+}
+
+resource "vault_kubernetes_auth_backend_config" "sandbox" {
+  backend              = vault_auth_backend.sandbox_kubernetes.path
+  kubernetes_host      = "https://10.60.0.13:6443"
+  kubernetes_ca_cert   = file("${path.module}/certs/sandbox-kubernetes-ca.crt")
+  disable_local_ca_jwt = true
+
+  # Deliberately omit token_reviewer_jwt. OpenBao uses the login JWT for
+  # TokenReview; the sandbox external-secrets ServiceAccount is bound only to
+  # system:auth-delegator and all issued JWTs remain short-lived.
+}
+
+resource "vault_kubernetes_auth_backend_role" "sandbox_external_secrets" {
+  backend   = vault_auth_backend.sandbox_kubernetes.path
+  role_name = "external-secrets"
+
+  bound_service_account_names      = ["external-secrets"]
+  bound_service_account_namespaces = ["external-secrets"]
+
+  token_policies = [vault_policy.sandbox_external_secrets.name]
+  token_ttl      = 3600
+}
