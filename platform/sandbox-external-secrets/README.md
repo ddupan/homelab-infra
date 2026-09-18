@@ -4,6 +4,17 @@
 `ClusterSecretStore/openbao` 读取 OpenBao KV v2 中共享的 OpenSandbox API key。它不复用
 homelab 集群的 ESO Pod、ServiceAccount 或 Kubernetes auth backend。
 
+## 当前状态
+
+- OpenBao `auth/kubernetes-sandbox`、backend config、`external-secrets` role 与
+  `sandbox-external-secrets` policy 已于 2026-09-18 由 Terraform 创建；apply 后 plan
+  为 zero-diff；
+- `kv/k8s/opensandbox-api` 已由本机 `spiffe://ddupan.top/dev/panxiao81` 身份生成并写入，
+  值未输出或落盘；
+- sandbox ESO operator、`ClusterSecretStore/openbao` 与 OpenSandbox `ExternalSecret`
+  由 Flux 管理；
+- homelab runner 对同一 key 的投影不在本目录，留给 runner 项目管理。
+
 OpenBao 的 `auth/kubernetes-sandbox`、对应 role、policy、sandbox API 地址与公开 CA
 完全由 `infrastructure/openbao/terraform/` 管理。CA 文件提交到 Git 是刻意设计：CA
 是公开信任材料，版本化后集群重建造成的 trust root 变化会产生可审计的 Terraform diff。
@@ -12,7 +23,7 @@ ESO 使用 TokenRequest 生成短期 ServiceAccount JWT。OpenBao 未配置长�
 `token_reviewer_jwt`，而是使用登录 JWT 调用 sandbox TokenReview；因此
 `external-secrets` ServiceAccount 仅额外绑定内建 `system:auth-delegator`。
 
-## 部署顺序
+## 重建顺序
 
 1. 在 OpenBao 写入 OpenSandbox API key：
 

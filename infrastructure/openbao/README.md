@@ -96,7 +96,8 @@ Sandbox 集群使用独立的 `auth/kubernetes-sandbox`。其 API 地址、公�
 ESO role 与只读 `kv/k8s/opensandbox-api` policy 全部由 Terraform 管理；CA 位于
 `terraform/certs/sandbox-kubernetes-ca.crt`。集群重建并轮换 CA 后，先更新该文件并
 apply，再让 Flux 恢复 ESO reconciliation。该 backend 不保存 reviewer JWT，而是使用
-ESO 的短期登录 JWT 执行 TokenReview。
+ESO 的短期登录 JWT 执行 TokenReview。该组资源已于 2026-09-18 apply，随后复验 plan
+为 zero-diff。
 
 ## DNS
 
