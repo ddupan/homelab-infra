@@ -51,7 +51,10 @@ spec:
           image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:a45875fd2d0e67429b0b7bc3914735581669c705bb4e1a05d712134d2bceb86f
           imagePullPolicy: IfNotPresent
           command: [/opt/opensandbox/task-executor]
-          args: [-listen-addr=0.0.0.0:5758, -log-dir=/tmp]
+          args:
+            - -listen-addr=0.0.0.0:5758
+            - -log-dir=/tmp
+            - -data-dir=/tmp/tasks
           env:
             - name: SANDBOX_MAIN_CONTAINER
               value: sandbox
@@ -198,7 +201,10 @@ spec:
           image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:a45875fd2d0e67429b0b7bc3914735581669c705bb4e1a05d712134d2bceb86f
           imagePullPolicy: IfNotPresent
           command: [/opt/opensandbox/task-executor]
-          args: [-listen-addr=0.0.0.0:5758, -log-dir=/tmp]
+          args:
+            - -listen-addr=0.0.0.0:5758
+            - -log-dir=/tmp
+            - -data-dir=/tmp/tasks
           env:
             - name: SANDBOX_MAIN_CONTAINER
               value: sandbox
