@@ -1,0 +1,16 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: opensandbox-controller
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - opensandbox-system
+  podMetricsEndpoints:
+    - interval: 30s
+      port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opensandbox
