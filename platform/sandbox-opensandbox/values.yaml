@@ -17,10 +17,11 @@ data:
       server:
         replicaCount: 1
         env:
-          # 临时 bootstrap 边界：Service 仅为 ClusterIP。runner 接入时改为
-          # secretKeyRef(OPENSANDBOX_SERVER_API_KEY) 并删除本项。
-          - name: OPENSANDBOX_INSECURE_SERVER
-            value: "YES"
+          - name: OPENSANDBOX_SERVER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: opensandbox-api-key
+                key: api-key
         resources:
           limits:
             cpu: "1"
