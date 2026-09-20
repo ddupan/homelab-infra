@@ -10,7 +10,24 @@ terraform {
 }
 
 provider "sonatyperepo" {
-  # NXRM_SERVER_URL, NXRM_SERVER_USERNAME and NXRM_SERVER_PASSWORD are injected
-  # from OpenBao by CI.
-  # Provider credentials must never be committed or placed in tfvars/state.
+  url      = var.nexus_url
+  username = var.nexus_username
+  password = var.nexus_password
+}
+
+variable "nexus_url" {
+  description = "Nexus Repository base URL"
+  type        = string
+}
+
+variable "nexus_username" {
+  description = "Nexus Terraform management username"
+  type        = string
+  sensitive   = true
+}
+
+variable "nexus_password" {
+  description = "Nexus Terraform management password"
+  type        = string
+  sensitive   = true
 }
