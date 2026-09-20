@@ -1,0 +1,15 @@
+{
+  "name": "oci-public",
+  "online": true,
+  "storage": {
+    "blobStoreName": "default",
+    "strictContentTypeValidation": true
+  },
+  "group": { "memberNames": ["oci-proxy"] },
+  "oci": {
+    "v1Enabled": false,
+    "forceBasicAuth": false,
+    "pathEnabled": true
+  },
+  "cosign": { "enforcement": "NONE" }
+}

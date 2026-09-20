@@ -16,10 +16,11 @@
 - 不套 Authelia forward-auth；它会破坏 Go、Ansible 与 OCI 非浏览器客户端。
 - 现有 zot 保持不变。Nexus 完成 OCI、BuildKit cache 和恢复验收前不得迁移或删除 zot。
 
-POC 先由 Terraform 创建 `ansible-public` 和 `go-public`。Nexus 3.94 才加入的原生 OCI
-repository 已有 REST API，但当前锁定的 community provider 尚未暴露 OCI resource；不能
-因此在 UI 中创建一个无人管理的长期 repository。POC 上线后先根据实例 Swagger 固定
-请求 schema，再补 Terraform provider resource 或受测试的声明式 REST 适配。
+Terraform provider 创建 `ansible-public`、`go-public`、最小匿名权限与 OCI Bearer Token
+Realm。Nexus 3.94 才加入的原生 OCI repository 已有 REST API，但当前锁定的 community
+provider 尚未暴露 OCI resource；`terraform/reconcile-oci.sh` 因此根据 3.96.1 实例 Swagger
+固定的 JSON schema，幂等调和 `oci-hosted`、`oci-proxy` 与 `oci-public`。不得绕过该入口在
+UI 中创建无人管理的长期 repository。
 
 ## 部署
 
@@ -73,17 +74,25 @@ terraform -chdir=apps/nexus/terraform init -backend=false
 terraform -chdir=apps/nexus/terraform validate
 ```
 
+先以 `--check` 查看 OCI repository 漂移，再明确 apply；脚本只从上述环境变量取得凭据，
+用临时 `0600` netrc 调用 REST API，退出时删除：
+
+```bash
+apps/nexus/terraform/reconcile-oci.sh --check
+apps/nexus/terraform/reconcile-oci.sh --apply
+```
+
 Terraform 同时把内置 `anonymous` 用户从默认的全仓库 `nx-anonymous` 角色收窄到
-`ansible-public`、其返回制品 URL 使用的 `ansible-galaxy-proxy`，以及 `go-public` 的
-`browse/read` 权限。首次接管已有实例时先执行
+`ansible-public`、其返回制品 URL 使用的 `ansible-galaxy-proxy`、`go-public`，以及
+`oci-public`/`oci-proxy` 的 `browse/read` 权限。`oci-hosted` 不向匿名用户开放。首次接管
+已有实例时先执行
 `terraform import sonatyperepo_user.anonymous anonymous,default`，再 apply；不要先启用默认的
 全仓库匿名读取。
 
 2026-09-20 的 POC 现场验收已确认：Flux 与 Pod Ready、PVC Bound、HTTPRoute 通过 HTTPS
 返回 Nexus 状态 200，Samba DNS 已幂等收敛。全新客户端目录通过匿名入口下载
 `community.general:11.2.0` 时冷缓存为 8.49 秒、热缓存为 1.89 秒，两次 tarball SHA-256
-一致；`golang.org/x/text@v0.30.0` 为 2.92 秒与 1.51 秒。该结果只证明 Ansible/Go
-代理链路，不代表 OCI、BuildKit cache、备份恢复或正式数据库已经验收。
+一致；`golang.org/x/text@v0.30.0` 为 2.92 秒与 1.51 秒。
 
 ## 客户端验收
 
@@ -112,10 +121,23 @@ GOPROXY=https://nexus.ad.ddupan.top/repository/go-public/ go mod download
 私有 `git.ddupan.top/*` module 的 `GOPRIVATE`、凭据与是否允许 `direct` fallback 在实际
 workflow 中单独决定；不要让私有 module path 意外发往公共 proxy。
 
-OCI 阶段至少验证普通 push/pull、multi-arch、OCI 1.1 referrers、Cosign、Helm OCI，
-以及 BuildKit `registry` cache 的 `mode=max` 导入导出。Nexus 上游已有 BuildKit cache
-兼容性问题记录，因此该项失败时不能用普通镜像 push 成功代替。全部通过并完成备份恢复
-演练后，才评估 zot 迁移。
+OCI 使用 path-based routing：匿名公共拉取地址形如
+`nexus.ad.ddupan.top/oci-public/library/alpine:3.22`，认证写入地址形如
+`nexus.ad.ddupan.top/oci-hosted/<namespace>/<image>:<tag>`。2026-09-20 现场验收结果：
+
+- `oci-public` 匿名代理拉取 Alpine 冷缓存 4.75 秒、热缓存 0.80 秒，digest 一致；
+- `oci-hosted` 认证 push/pull 成功，匿名 pull 返回 401；
+- amd64/arm64 OCI image index push 成功，两个平台 manifest 可见；
+- Helm chart push/pull digest 与本地 tarball SHA-256 一致；
+- Cosign 3.1.3 使用一次性密钥签名并验证成功，OCI 1.1 referrers API 返回一个
+  `application/vnd.dev.sigstore.bundle.v0.3+json` artifact；
+- BuildKit `registry` cache 以 `mode=max` 导出成功，销毁首个 builder 后由新 builder 导入，
+  两个 `RUN` step 均明确命中 `CACHED`。
+
+本机安装的测试客户端包括 `/usr/local/bin/cosign` 3.1.3；安装时核对官方 Linux amd64
+binary SHA-256 `4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71`。
+上述结果仍不代表备份恢复、外部 PostgreSQL 或正式 publisher service account 已完成；
+这些项目通过前不得迁移或删除 zot。
 
 ## 数据与恢复
 
