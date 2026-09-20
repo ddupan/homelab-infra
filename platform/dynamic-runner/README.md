@@ -1,44 +1,84 @@
-# Gitea dynamic runner controller
+# Gitea dynamic runner
 
-controller 接收 Gitea `workflow_job` webhook，并将带 `[self-hosted, pod]` 或
-`[self-hosted, vm]` 的 queued job 持久化到 NATS JetStream。Pod workload 在 homelab
-集群由原生 Kubernetes worker 创建；只有 VM workload 通过 OpenSandbox Lifecycle API。
+本目录部署单副本 Go controller，默认在同一进程运行 RunnerService scheduler、原生
+Kubernetes Pod worker 和 SPIFFE mTLS facade。首轮生产 canary 只启用
+`scheduler,pod-worker`，OpenSandbox VM worker 保持关闭：
 
 ```text
-Gitea -> controller -> NATS -> pod worker -> homelab Kubernetes Pod
-                           `-> VM worker  -> OpenSandbox -> Kata/microVM
+Gitea RunnerService -> scheduler -> JetStream ci.runner.pod
+                                      |
+                                      v
+                              homelab Kubernetes Pod
+                                      |
+                         SPIFFE mTLS RunnerService facade
+                                      |
+                                      v
+                                     Gitea
 ```
 
-`dynamic-runner-pod-worker` 使用 durable `pod`，最多并发创建 4 个一次性 privileged
-Pod。任务 Pod、ServiceAccount、SPIFFE CSI socket 和生命周期都位于 homelab 的
-`dynamic-runner` namespace，不依赖 sandbox 集群或 OpenSandbox API。
+Pod backend 不经过 OpenSandbox。VM backend 后续启用时才访问 VyOS 暴露的
+OpenSandbox Lifecycle API；本目录不修改 sandbox 平台侧 ESO、Bao Terraform 或
+OpenSandbox chart 所有权边界。
 
-`10.60.0.13:8080` 是 VyOS 上的内网 HAProxy frontend，后端是 sandbox 节点的
-`30080` NodePort。它只依赖现有跨网段路由，不暴露公网，也不经过 Cloudflare
-Tunnel。controller 自身的 `192.168.10.127:8787` 仅供 Gitea webhook 和 sandbox
-通过一次性 nonce 领取 registration token。
+## Canary 安全边界
+
+- Deployment 为单副本 `Recreate`，避免两个 scheduler 共享同一个 Gitea runner 身份。
+- controller 的 single-flight gate 只允许一个已领取 task 运行；Gitea 接受终态
+  `UpdateTask` 后才领取下一条。`POD_CAPACITY=1` 同时限制 worker 创建并发。
+- executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
+  具体 Pod UID 与 `unix:uid:2000`。
+- facade 只有 ClusterIP，executor 通过
+  `dynamic-runner-controller.dynamic-runner.svc:8443` 访问；双方使用 Workload API
+  X509-SVID mTLS，不再保留公网 webhook/token endpoint。
+- controller 的 SPIFFE ID 固定为
+  `spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller`。
+- NATS 保留既有最小权限分离：`ci-producer` 仅 publish，`ci-worker` 仅 pull/ACK。
+
+当前 facade claim registry 与 single-flight gate 是进程内状态。异常重启时应先检查
+现存 assignment Pod 和 Gitea task，再人工决定是否恢复 scheduler；不能通过扩大副本数
+规避。完成 backend-driven recovery 前保持 `replicas: 1`。
 
 ## Secret 边界
 
-homelab 的 `ExternalSecret/dynamic-runner` 从既有 `ClusterSecretStore/openbao` 读取：
+`ExternalSecret/dynamic-runner` 从既有 `ClusterSecretStore/openbao` 读取：
 
-- `kv/k8s/opensandbox-api:api_key` -> `opensandbox-api-key`；
-- `kv/k8s/dynamic-runner:webhook_secret` -> `webhook-secret`；
-- `kv/k8s/gitea-runner:token` -> `token`。
+- `kv/k8s/nats`：producer/worker 密码；
+- `kv/k8s/opensandbox-api:api_key`：保留给后续 VM worker；
+- `kv/k8s/gitea-runner:token`：保留的 runner registration token；
+- `kv/k8s/dynamic-runner`：scheduler UUID/token、facade HMAC key 和回滚所需 webhook secret。
 
-API key 以只读文件挂载，controller 通过 `OPEN-SANDBOX-API-KEY` header 使用。不要把
-key 复制到 Git、Lifecycle 请求、BatchSandbox 或 sandbox 集群 Secret。本目录不创建
-Bao token，也不拥有 sandbox 平台侧的 ESO/Bao Terraform。
+scheduler credential 由官方 Gitea Runner v3.5.0 一次注册生成；它只挂载到 controller，
+不会进入 executor。facade capability key 至少 32 字节，controller 为每个 assignment
+确定性生成独立 capability。不要打印 Secret、创建静态 Bao token或把 credential 写入
+Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` token。
 
-## 调度与身份
+## 首次验收
 
-Lifecycle 请求只按 `ci-pod` / `ci-vm` 选择 Pool，并携带稳定的
-`spiffe://ddupan.top/ci/<owner>/<repository>/<task>`。job ID 只用于日志和诊断 metadata。
-runner labels 始终以 `self-hosted` 开头。
+合并后先观察 Flux 与 controller，不要立即开启 VM：
 
-registration token 通过 controller 内存中的单次 nonce URL 投递。成功领取后 nonce
-立即失效；沙箱结束、创建失败或超时时也会撤销。OpenSandbox DELETE 是最终的正常
-回收路径，OpenSandbox timeout 是 controller 异常退出时的兜底。
+```bash
+flux reconcile kustomization dynamic-runner --with-source
+kubectl -n dynamic-runner wait externalsecret/dynamic-runner \
+  --for=condition=Ready --timeout=2m
+kubectl -n dynamic-runner rollout status deploy/dynamic-runner-controller --timeout=5m
+kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
+```
 
-完整部署和验收步骤见
-[`platform/sandbox-ci-runners/README.md`](../sandbox-ci-runners/README.md)。
+确认 scheduler 只领取一条 `[self-hosted,pod]` task，然后验证：
+
+1. assignment message 进入并离开 durable `pod` consumer；
+2. `gitea-task-<task-id>` Pod 创建，取得实际 Pod UID；
+3. 同名 `ClusterStaticEntry` 的 parent ID 包含该 UID，SPIFFE ID 使用 repository/job key；
+4. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
+5. terminal gate 释放后才领取下一条任务。
+
+当前代码尚未完成 ACK 后 backend lifecycle reconciler，因此 canary 成功后可能留下
+Completed Pod/ClusterStaticEntry。首次测试要人工核对并删除已终态资源；在完整自动清理
+通过前不得提高并发或启用 VM worker。
+
+## 回滚
+
+若 controller 在领取 task 前失败，回滚到前一 commit 的 Python controller/Pod worker
+manifests。若已经创建 `gitea-task-*` Pod，先保留现场并核对 Gitea task 状态，不能直接
+重启 scheduler 造成重复执行。scheduler registration 和 capability key 保留在 Bao，
+回滚不需要删除或打印它们。

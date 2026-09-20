@@ -5,6 +5,8 @@ metadata:
   namespace: dynamic-runner
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: dynamic-runner-controller
@@ -14,17 +16,10 @@ spec:
         app.kubernetes.io/name: dynamic-runner-controller
     spec:
       serviceAccountName: dynamic-runner-controller
-      automountServiceAccountToken: false
       initContainers:
         - name: fetch-internal-ca
           image: curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6
-          args:
-            - --fail
-            - --silent
-            - --show-error
-            - --output
-            - /trust/ca.pem
-            - https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+          args: [--fail, --silent, --show-error, --output, /trust/ca.pem, https://bao.ad.ddupan.top:8200/v1/pki/ca/pem]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -40,9 +35,18 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:9f23e84934643bbe859dc0f8da418421dc8ab7b0958fdf1fdc91d562c30e246f
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:83ac5dc53116d5f60692709b5e5f585ff3e3c52487083db02ec66af1e2fb8eba
           imagePullPolicy: IfNotPresent
+          args: [controller]
           env:
+            - name: COMPONENTS
+              value: scheduler,pod-worker
+            - name: GITEA_INSTANCE_URL
+              value: https://git.ddupan.top
+            - name: GITEA_RUNNER_UUID_FILE
+              value: /run/dynamic-runner-secrets/scheduler-uuid
+            - name: GITEA_RUNNER_TOKEN_FILE
+              value: /run/dynamic-runner-secrets/scheduler-token
             - name: NATS_URL
               value: tls://nats.ad.ddupan.top:4222
             - name: NATS_CA_FILE
@@ -51,41 +55,55 @@ spec:
               value: /run/dynamic-runner-secrets/nats-password
             - name: NATS_WORKER_PASSWORD_FILE
               value: /run/dynamic-runner-secrets/nats-worker-password
-            - name: POD_CONSUMER_ENABLED
-              value: "false"
-            - name: VM_CONSUMER_ENABLED
-              value: "false"
-            - name: WEBHOOK_SECRET_FILE
-              value: /run/dynamic-runner-secrets/webhook-secret
-            - name: REGISTRATION_TOKEN_FILE
-              value: /run/dynamic-runner-secrets/token
-            - name: OPENSANDBOX_API
-              value: http://10.60.0.13:8080
-            - name: OPENSANDBOX_API_KEY_FILE
-              value: /run/dynamic-runner-secrets/opensandbox-api-key
-            - name: RUNNER_TOKEN_BASE_URL
-              value: http://192.168.10.127:8787/token
+            - name: RUNNER_FACADE_CAPABILITY_KEY_FILE
+              value: /run/dynamic-runner-secrets/facade-capability-key
+            - name: RUNNER_FACADE_LISTEN
+              value: :8443
+            - name: RUNNER_FACADE_URL
+              value: https://dynamic-runner-controller.dynamic-runner.svc:8443
+            - name: RUNNER_FACADE_SPIFFE_ID
+              value: spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/agent-sockets/spire-agent.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_EXECUTOR_IMAGE
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:59bdc035b9372a6ff16337e11a5c6c64db6b7ab3664ca07b85f3a060ad238a4a
+            - name: POD_SERVICE_ACCOUNT
+              value: gitea-dynamic-runner
+            - name: POD_EXECUTOR_UID
+              value: "2000"
+            - name: POD_CAPACITY
+              value: "1"
+            - name: SPIRE_CLUSTER
+              value: homelab
+            - name: SPIRE_CLASS
+              value: spire-mgmt-spire
+            - name: SSL_CERT_FILE
+              value: /run/trust/ca.pem
           ports:
-            - name: http
-              containerPort: 8787
+            - name: facade
+              containerPort: 8443
           readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
+            httpGet: null
+            tcpSocket:
+              port: facade
             periodSeconds: 5
           livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            initialDelaySeconds: 10
+            httpGet: null
+            tcpSocket:
+              port: facade
+            initialDelaySeconds: 15
             periodSeconds: 10
           resources:
             requests:
-              cpu: 25m
-              memory: 32Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 250m
-              memory: 128Mi
+              cpu: 500m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -103,6 +121,9 @@ spec:
             - name: trust
               mountPath: /run/trust
               readOnly: true
+            - name: spire-agent-socket
+              mountPath: /run/spire/agent-sockets
+              readOnly: true
       securityContext:
         fsGroup: 65532
         fsGroupChangePolicy: OnRootMismatch
@@ -116,3 +137,7 @@ spec:
         - name: trust
           emptyDir:
             sizeLimit: 1Mi
+        - name: spire-agent-socket
+          csi:
+            driver: csi.spiffe.io
+            readOnly: true

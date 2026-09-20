@@ -7,35 +7,51 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dynamic-runner-pod-worker
-  namespace: dynamic-runner
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: gitea-dynamic-runner
   namespace: dynamic-runner
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: dynamic-runner-pod-worker
+  name: dynamic-runner-controller
   namespace: dynamic-runner
 rules:
   - apiGroups: [""]
     resources: [pods]
-    verbs: [create, get, patch, delete]
+    verbs: [create, get, list, watch, patch, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: dynamic-runner-pod-worker
+  name: dynamic-runner-controller
   namespace: dynamic-runner
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: dynamic-runner-pod-worker
+  name: dynamic-runner-controller
 subjects:
   - kind: ServiceAccount
-    name: dynamic-runner-pod-worker
+    name: dynamic-runner-controller
+    namespace: dynamic-runner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dynamic-runner-spiffe-entries
+rules:
+  - apiGroups: [spire.spiffe.io]
+    resources: [clusterstaticentries]
+    verbs: [create, get, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dynamic-runner-spiffe-entries
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dynamic-runner-spiffe-entries
+subjects:
+  - kind: ServiceAccount
+    name: dynamic-runner-controller
     namespace: dynamic-runner
