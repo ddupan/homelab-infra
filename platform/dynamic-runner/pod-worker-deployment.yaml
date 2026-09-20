@@ -39,8 +39,8 @@ spec:
               mountPath: /trust
       containers:
         - name: pod-worker
-          image: gitea-dynamic-runner-controller:0.3.0-bootstrap
-          imagePullPolicy: Never
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:9f23e84934643bbe859dc0f8da418421dc8ab7b0958fdf1fdc91d562c30e246f
+          imagePullPolicy: IfNotPresent
           command: [/venv/bin/gitea-dynamic-runner-pod-worker]
           env:
             - name: NATS_URL

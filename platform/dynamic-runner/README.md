@@ -9,6 +9,10 @@ Gitea -> controller -> NATS -> pod worker -> homelab Kubernetes Pod
                            `-> VM worker  -> OpenSandbox -> Kata/microVM
 ```
 
+`dynamic-runner-pod-worker` 使用 durable `pod`，最多并发创建 4 个一次性 privileged
+Pod。任务 Pod、ServiceAccount、SPIFFE CSI socket 和生命周期都位于 homelab 的
+`dynamic-runner` namespace，不依赖 sandbox 集群或 OpenSandbox API。
+
 `10.60.0.13:8080` 是 VyOS 上的内网 HAProxy frontend，后端是 sandbox 节点的
 `30080` NodePort。它只依赖现有跨网段路由，不暴露公网，也不经过 Cloudflare
 Tunnel。controller 自身的 `192.168.10.127:8787` 仅供 Gitea webhook 和 sandbox
