@@ -22,7 +22,8 @@ OpenSandbox chart 所有权边界。
 
 ## Canary 安全边界
 
-- Deployment 为单副本 `Recreate`，避免两个 scheduler 共享同一个 Gitea runner 身份。
+- Deployment 为单副本，滚动策略固定 `maxSurge: 0`、`maxUnavailable: 1`，避免两个
+  scheduler 共享同一个 Gitea runner 身份。
 - controller 的 single-flight gate 只允许一个已领取 task 运行；Gitea 接受终态
   `UpdateTask` 后才领取下一条。`POD_CAPACITY=1` 同时限制 worker 创建并发。
 - executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
