@@ -6,3 +6,17 @@ resources:
   - rbac.yaml
   - identity-controller.yaml
   - pools.yaml
+patches:
+  # Pod jobs run directly in the homelab cluster. Keep OpenSandbox VM-only.
+  - target:
+      group: sandbox.opensandbox.io
+      version: v1alpha1
+      kind: Pool
+      name: ci-pod
+    patch: |-
+      apiVersion: sandbox.opensandbox.io/v1alpha1
+      kind: Pool
+      metadata:
+        name: ci-pod
+        namespace: opensandbox
+      $patch: delete
