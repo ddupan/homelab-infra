@@ -38,7 +38,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:83ac5dc53116d5f60692709b5e5f585ff3e3c52487083db02ec66af1e2fb8eba
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:4142b34d4073efa3d9e8462480daa5eb514a57a4e737865b5e03a8703fbf4fae
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
