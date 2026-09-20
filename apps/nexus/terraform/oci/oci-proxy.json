@@ -1,0 +1,27 @@
+{
+  "name": "oci-proxy",
+  "online": true,
+  "storage": {
+    "blobStoreName": "default",
+    "strictContentTypeValidation": true
+  },
+  "oci": {
+    "v1Enabled": false,
+    "forceBasicAuth": false,
+    "pathEnabled": true
+  },
+  "ociProxy": {
+    "indexType": "HUB",
+    "cacheForeignLayers": false,
+    "foreignLayerUrlWhitelist": []
+  },
+  "proxy": {
+    "remoteUrl": "https://registry-1.docker.io",
+    "contentMaxAge": 1440,
+    "metadataMaxAge": 60,
+    "preserveEncodedCharacters": false
+  },
+  "negativeCache": { "enabled": true, "timeToLive": 60 },
+  "httpClient": { "blocked": false, "autoBlock": true },
+  "cosign": { "enforcement": "NONE" }
+}

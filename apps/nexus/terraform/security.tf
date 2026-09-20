@@ -22,6 +22,22 @@ resource "sonatyperepo_privilege_repository_view" "anonymous_go" {
   repository  = sonatyperepo_repository_go_group.public.name
 }
 
+resource "sonatyperepo_privilege_repository_view" "anonymous_oci_public" {
+  name        = "ci-anonymous-oci-public-read"
+  description = "Anonymous read access to the public OCI group"
+  actions     = ["BROWSE", "READ"]
+  format      = "oci"
+  repository  = "oci-public"
+}
+
+resource "sonatyperepo_privilege_repository_view" "anonymous_oci_proxy" {
+  name        = "ci-anonymous-oci-proxy-read"
+  description = "Anonymous read access to the OCI proxy member"
+  actions     = ["BROWSE", "READ"]
+  format      = "oci"
+  repository  = "oci-proxy"
+}
+
 resource "sonatyperepo_role" "anonymous_ci" {
   id          = "ci-anonymous-read"
   name        = "CI anonymous read"
@@ -30,6 +46,8 @@ resource "sonatyperepo_role" "anonymous_ci" {
     sonatyperepo_privilege_repository_view.anonymous_ansible.name,
     sonatyperepo_privilege_repository_view.anonymous_ansible_proxy.name,
     sonatyperepo_privilege_repository_view.anonymous_go.name,
+    sonatyperepo_privilege_repository_view.anonymous_oci_public.name,
+    sonatyperepo_privilege_repository_view.anonymous_oci_proxy.name,
   ]
   roles = []
 }
@@ -47,4 +65,11 @@ resource "sonatyperepo_system_anonymous_access" "ci" {
   enabled    = true
   user_id    = sonatyperepo_user.anonymous.user_id
   realm_name = "NexusAuthorizingRealm"
+}
+
+resource "sonatyperepo_security_realms" "active" {
+  active = [
+    "NexusAuthenticatingRealm",
+    "OciBearerToken",
+  ]
 }
