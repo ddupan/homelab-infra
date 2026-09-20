@@ -1,8 +1,8 @@
 # OpenSandbox Gitea runner Pools
 
-本目录部署 `ci-vm` 和 `ci-pod` 两个零预热 Pool、sandbox 内的 SPIFFE identity
-controller，以及仅供内网 VyOS 转发的 OpenSandbox NodePort。`ci-vm` 使用
-`kata-clh-runtime-rs`，`ci-pod` 使用默认 runtime；两者均为单任务、用后删除。
+本目录只部署零预热的 `ci-vm` Pool、sandbox 内的 SPIFFE identity controller，以及仅供
+内网 VyOS 转发的 OpenSandbox NodePort。`ci-vm` 使用 `kata-clh-runtime-rs`，每个 VM
+执行单一任务并在结束后删除。普通 Pod job 直接运行在 homelab，不进入 OpenSandbox。
 
 Pool 中 task-executor 接收 Lifecycle API 下发的进程环境。guest-local SPIRE Agent 用
 Pod-bound PSAT 向中央 SPIRE 注册；identity controller 从 BatchSandbox allocation
