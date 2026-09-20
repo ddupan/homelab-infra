@@ -74,6 +74,12 @@ Agent 已启用 Unix workload attestor，并为本机用户 `panxiao81`（UID `1
 export SPIFFE_ENDPOINT_SOCKET=unix:///run/spire/agent-sockets/spire-agent.sock
 ```
 
+宿主机已安装与 Agent Pod 同版本的 `/usr/local/bin/spire-agent` 1.15.3，供本地进程从
+Workload API 获取 JWT-SVID。二进制来自 SPIRE 官方 `linux-amd64-musl` release，安装时
+核对 tarball SHA-256
+`ca1a4d1155317bdd2afc7f36663828a10410c7c840e54725b90b4064b0a301c7`。升级 chart 时应
+同步升级这个 CLI 并重新核对官方 checksum，不能长期混用版本。
+
 该身份仅按 Unix UID 匹配，不是 SPIRE admin，也不会匹配 `sudo` 后以 root 运行的
 进程。`ClusterStaticEntry.spec.parentID` 绑定当前 `laptop` Kubernetes node UID；若
 节点被删除后重建，需从 `spire-server agent list` 取得新 Agent ID 并同步更新该字段。

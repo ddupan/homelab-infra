@@ -49,12 +49,13 @@ DNS 期望状态已加入 `infrastructure/dns/records.yml`，需从 Samba AD Ans
 
 初始管理员密码生成在 PVC 的 `/nexus-data/admin.password`。只在交互式终端中读取并立即
 完成首次密码轮换；不得把密码复制进 shell tracing、工单、Git 或命令参数。随后将
-Terraform 管理账号的凭据存入 OpenBao，由 CI 注入以下环境变量：
+Terraform 管理账号的凭据存入 OpenBao，由 CI 通过 Terraform input variable 注入以下
+环境变量：
 
 ```text
-NXRM_SERVER_URL=https://nexus.ad.ddupan.top
-NXRM_SERVER_USERNAME=<OpenBao 注入>
-NXRM_SERVER_PASSWORD=<OpenBao 注入>
+TF_VAR_nexus_url=https://nexus.ad.ddupan.top
+TF_VAR_nexus_username=admin
+TF_VAR_nexus_password=<OpenBao kv/infra/nexus 的 admin_password 字段>
 ```
 
 `terraform/` 使用 `sonatype-nexus-community/sonatyperepo` 1.17.0，当前声明：
@@ -71,6 +72,18 @@ provider credential 不写入 HCL 或 tfvars。正式 apply 前还必须为这�
 terraform -chdir=apps/nexus/terraform init -backend=false
 terraform -chdir=apps/nexus/terraform validate
 ```
+
+Terraform 同时把内置 `anonymous` 用户从默认的全仓库 `nx-anonymous` 角色收窄到
+`ansible-public`、其返回制品 URL 使用的 `ansible-galaxy-proxy`，以及 `go-public` 的
+`browse/read` 权限。首次接管已有实例时先执行
+`terraform import sonatyperepo_user.anonymous anonymous,default`，再 apply；不要先启用默认的
+全仓库匿名读取。
+
+2026-09-20 的 POC 现场验收已确认：Flux 与 Pod Ready、PVC Bound、HTTPRoute 通过 HTTPS
+返回 Nexus 状态 200，Samba DNS 已幂等收敛。全新客户端目录通过匿名入口下载
+`community.general:11.2.0` 时冷缓存为 8.49 秒、热缓存为 1.89 秒，两次 tarball SHA-256
+一致；`golang.org/x/text@v0.30.0` 为 2.92 秒与 1.51 秒。该结果只证明 Ansible/Go
+代理链路，不代表 OCI、BuildKit cache、备份恢复或正式数据库已经验收。
 
 ## 客户端验收
 
