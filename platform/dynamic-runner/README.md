@@ -1,12 +1,12 @@
 # Gitea dynamic runner controller
 
-controller 接收 Gitea `workflow_job` webhook，对带 `[self-hosted, pod]` 或
-`[self-hosted, vm]` 的 queued job 直接调用 OpenSandbox Lifecycle API。链路不使用
-NATS、消息队列或平台侧 webhook worker。
+controller 接收 Gitea `workflow_job` webhook，并将带 `[self-hosted, pod]` 或
+`[self-hosted, vm]` 的 queued job 持久化到 NATS JetStream。Pod workload 在 homelab
+集群由原生 Kubernetes worker 创建；只有 VM workload 通过 OpenSandbox Lifecycle API。
 
 ```text
-Gitea -> dynamic-runner-controller -> http://10.60.0.13:8080/v1/sandboxes
-                                      -> ci-pod / ci-vm Pool
+Gitea -> controller -> NATS -> pod worker -> homelab Kubernetes Pod
+                           `-> VM worker  -> OpenSandbox -> Kata/microVM
 ```
 
 `10.60.0.13:8080` 是 VyOS 上的内网 HAProxy frontend，后端是 sandbox 节点的

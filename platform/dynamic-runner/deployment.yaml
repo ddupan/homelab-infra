@@ -40,7 +40,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:b65a39a8adcdb2b886f0fb956fc6e6bae822bfbc1ff8c48213948e4c0a7d551a
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:9f23e84934643bbe859dc0f8da418421dc8ab7b0958fdf1fdc91d562c30e246f
           imagePullPolicy: IfNotPresent
           env:
             - name: NATS_URL
@@ -52,7 +52,9 @@ spec:
             - name: NATS_WORKER_PASSWORD_FILE
               value: /run/dynamic-runner-secrets/nats-worker-password
             - name: POD_CONSUMER_ENABLED
-              value: "true"
+              value: "false"
+            - name: VM_CONSUMER_ENABLED
+              value: "false"
             - name: WEBHOOK_SECRET_FILE
               value: /run/dynamic-runner-secrets/webhook-secret
             - name: REGISTRATION_TOKEN_FILE
