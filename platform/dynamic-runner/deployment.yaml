@@ -38,7 +38,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:4142b34d4073efa3d9e8462480daa5eb514a57a4e737865b5e03a8703fbf4fae
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:2b24f9b511b97f9e04e9c4dc6e4036f31073d1164e3361f2b87ea84d1c94108b
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -84,6 +84,8 @@ spec:
               value: homelab
             - name: SPIRE_CLASS
               value: spire-mgmt-spire
+            - name: SPIRE_AGENT_ID
+              value: spiffe://ddupan.top/spire/agent/k8s_psat/homelab/cd2d0233-c4ea-4031-8327-e7e359e766dd
             - name: SSL_CERT_FILE
               value: /run/trust/ca.pem
           ports:
