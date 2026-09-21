@@ -24,8 +24,8 @@ OpenSandbox chart 所有权边界。
 - Deployment 为单副本，滚动策略固定 `maxSurge: 1`、`maxUnavailable: 0`，保证新
   facade Ready 后才终止旧实例。scheduler 必须通过 Kubernetes Lease 保持单 leader，
   不能依赖 Recreate 避免重复领取。
-- controller 的 single-flight gate 只允许一个已领取 task 运行；Gitea 接受终态
-  `UpdateTask` 后才领取下一条。`POD_CAPACITY=1` 同时限制 worker 创建并发。
+- scheduler 将 assignment 持久化后继续领取；`POD_CAPACITY=1` 与 `VM_CAPACITY=1`
+  分别限制两个 durable consumer，任一 backend 不占用另一方的执行槽位。
 - rollout 重叠期间只有持有 `Lease/dynamic-runner-scheduler` 的 controller 执行
   `FetchTask`；所有 Ready 实例都可通过 backend metadata 恢复 claim 并服务 facade。
 - executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
@@ -37,9 +37,9 @@ OpenSandbox chart 所有权边界。
   `spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller`。
 - NATS 保留既有最小权限分离：`ci-producer` 仅 publish，`ci-worker` 仅 pull/ACK。
 
-当前 facade claim registry 与 single-flight gate 是进程内状态。异常重启时应先检查
-现存 assignment Pod 和 Gitea task，再人工决定是否恢复 scheduler；不能通过扩大副本数
-规避。完成 backend-driven recovery 前保持 `replicas: 1`。
+facade claim registry 在启动时从 Pod/OpenSandbox metadata 恢复；scheduler leadership
+由 Kubernetes Lease 持久化协调。Deployment 仍保持 `replicas: 1`，滚动更新期间允许
+一个额外 Pod 提供 facade 连续性。
 
 ## Secret 边界
 
@@ -86,12 +86,12 @@ kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
 2. `gitea-task-<task-id>` Pod 创建，取得实际 Pod UID；
 3. 同名 `ClusterStaticEntry` 的 parent ID 包含该 UID，SPIFFE ID 使用 repository/job key；
 4. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
-5. terminal gate 释放后才领取下一条任务。
+5. Pod consumer 达到 capacity 时 VM consumer 仍可独立接受任务。
 
 Pod 与 VM 都在 Gitea 接受终态后先把 terminal marker 写入各自 backend metadata，再由
 lifecycle reconciler 删除执行器。首次 VM 测试仍须观察 BatchSandbox、Pod 与
-ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_CAPACITY`、`VM_CAPACITY`
-或 scheduler single-flight 并发。
+ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_CAPACITY` 或
+`VM_CAPACITY`。
 
 ## 回滚
 
