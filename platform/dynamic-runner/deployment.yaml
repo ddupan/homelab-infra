@@ -89,7 +89,7 @@ spec:
             - name: VM_CAPACITY
               value: "1"
             - name: VM_RUNNER_LABEL
-              value: vm-dev
+              value: vm
             - name: VM_TIMEOUT_SECONDS
               value: "14400"
             - name: SPIRE_CLUSTER
