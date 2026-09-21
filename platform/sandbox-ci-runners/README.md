@@ -64,3 +64,7 @@ kubectl -n opensandbox logs deploy/opensandbox-identity -f
 - runner 等待 SVID：核对 allocation Pod UID、ClusterStaticEntry parentID、guest Agent 日志；
 - runner 等待 token：核对 `192.168.10.127:8787` 的 sandbox 到 homelab 路由；
 - Docker 任务失败：检查 `docker` sidecar 和 `/run/docker/docker.sock` 的 group 2000。
+- kind node 的 systemd 报 `Failed to create /init.scope` 或 `Structure needs
+  cleaning`：确认 `docker` sidecar 通过 `dockerd-entrypoint.sh` 启动。直接执行
+  `dockerd` 会绕过官方 DinD cgroup v2 nesting 初始化，使子容器的私有 cgroup
+  namespace 根变成 `threaded`，systemd 无法创建 domain cgroup。
