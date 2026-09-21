@@ -14,6 +14,10 @@ VM 与 Pod backend 使用同一个 `gitea-dynamic-runner-runner` executor 镜像
 daemon。Kata VM 中的 workflow 必须先把稀疏 ext4 镜像 loop-mount 到
 `/var/lib/docker`，并完成 cgroup v2 nesting 初始化。
 
+`ci-vm` executor 固定请求并限制为 2 CPU/3GiB。真实 kind canary 表明 1 CPU/约 2GiB
+虽然能最终启动全部 control-plane 容器，但无法在 kubeadm 超时前提供可用的 API server；
+该规格是 nested Kubernetes 任务的容量下限，不是用资源掩盖存储阻塞。
+
 这些 `ClusterStaticEntry` 位于 sandbox 集群，由 central SPIRE Server 内的
 `spire-controller-manager-sandbox` 通过受限 external kubeconfig reconcile。必须在
 `platform/spire/values.yaml` 显式启用 external controller-manager 的
