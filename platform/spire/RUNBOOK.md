@@ -274,13 +274,23 @@ CI job/Agent 不应接收长期 `BAO_TOKEN`。标准启动顺序是：
 5. 在同一进程树中以环境变量调用 `tofu`、Ansible 或其他工具；
 6. cleanup 尝试 `revoke-self`，随后销毁 job/VM/容器。
 
-通用 credential-exec 包装器未来应负责步骤 3–6。它必须满足：
+Gitea Actions 可使用
+[`panxiao81/ci-actions/spiffe-openbao-login@v1`](https://git.ddupan.top/panxiao81/ci-actions/src/tag/v1/spiffe-openbao-login)
+完成步骤 3、4 和 cleanup 时的 `revoke-self`。runner 只负责提供 Node.js 20、
+`spire-agent` 与 Workload API socket；role、audience 及是否登录由 workflow 明确声明，
+目标侧 Bao policy 仍负责最终授权。该 Action 必须满足：
 
 - 不把 JWT-SVID 或 Bao token 写到 stdout/stderr；
 - 不把凭据传入命令行参数，避免出现在进程列表；
-- 子进程退出后清除环境和临时文件；
+- job 结束后销毁 runner 及其 Actions 临时文件；
 - 不尝试把短期 token 上传到 Actions Secret 或 artifact；
 - role、audience 和目标命令由受审查的 pipeline 配置决定。
+
+Action 会按 GitHub Actions 协议把短期 token 写入 `GITHUB_ENV` 和 `GITHUB_STATE`，因此
+只允许用于一次性 Pod/VM runner，不能用于共享或持久 runner。只读取 Nexus public
+repository 时不需要 Bao 登录，可直接使用
+[`panxiao81/ci-actions/setup-nexus@v1`](https://git.ddupan.top/panxiao81/ci-actions/src/tag/v1/setup-nexus)
+配置 Ansible Galaxy、Go module proxy 与 OCI endpoint。
 
 Kubernetes 以外的执行环境不能伪造 ServiceAccount。未来应分别使用 host SPIRE
 Agent、TPM/DevID、cloud instance identity、GitHub OIDC 等初始证明接入同一信任模型。

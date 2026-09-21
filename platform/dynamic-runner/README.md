@@ -53,6 +53,19 @@ scheduler credential 由官方 Gitea Runner v3.5.0 一次注册生成；它只�
 确定性生成独立 capability。不要打印 Secret、创建静态 Bao token或把 credential 写入
 Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` token。
 
+## Workflow 身份与依赖配置
+
+workflow 可复用 [`panxiao81/ci-actions`](https://git.ddupan.top/panxiao81/ci-actions)
+中的 `spiffe-openbao-login@v1` 和 `setup-nexus@v1`。这不改变 runner 的权限边界：
+runner 仅提供 Node.js 20、`spire-agent` 与 Workload API socket，workflow 负责声明 Bao
+role、audience 和具体用途，目标服务 policy 决定是否授权。短期 Bao token 会进入
+Actions job 临时文件，因此这些 Action 只允许在本目录管理的一次性 Pod/VM executor
+中使用，不能迁移到共享或持久 runner。
+
+匿名读取 Nexus public repository 只需 `setup-nexus@v1`，不应为了依赖下载额外申请
+Bao 凭据；需要发布制品时再为对应 repository 建立独立 service account 与最小权限
+policy。
+
 ## 首次验收
 
 合并后先观察 Flux 与 controller，不要立即开启 VM：
