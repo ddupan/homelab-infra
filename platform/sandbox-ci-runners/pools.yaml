@@ -113,20 +113,18 @@ spec:
           command: [/bin/sh, -c]
           args:
             - |
+              set -eu
               test -e /dev/kmsg || mknod /dev/kmsg c 1 11
+              apk add --no-cache e2fsprogs
+              truncate -s 20G /tmp/docker-data.img
+              mkfs.ext4 -F /tmp/docker-data.img
+              mount -o loop /tmp/docker-data.img /var/lib/docker
               exec dockerd-entrypoint.sh dockerd \
                 --host=unix:///run/docker/docker.sock \
                 --group=2000 \
                 --storage-driver=overlay2
           securityContext:
             privileged: true
-          resources:
-            requests:
-              cpu: "2"
-              memory: 3Gi
-            limits:
-              cpu: "2"
-              memory: 3Gi
           volumeMounts:
             - name: docker-socket
               mountPath: /run/docker
