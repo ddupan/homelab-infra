@@ -7,7 +7,6 @@ resources:
   - apps/envoy-gateway.yaml
   - apps/external-secrets.yaml
   - apps/gitea.yaml
-  - apps/gitea-actions.yaml
   - apps/http-echo.yaml
   - apps/openebs.yaml
   - apps/nats.yaml
