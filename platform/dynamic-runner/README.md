@@ -95,6 +95,10 @@ lifecycle reconciler 删除执行器。首次 VM 测试仍须观察 BatchSandbox
 ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_CAPACITY` 或
 `VM_CAPACITY`。
 
+VM backend 已通过 `vm-dev` canary 完成 Docker、kind、SPIFFE 和完整生命周期测试。
+生产调度标签为 `[self-hosted, vm]`，初始保持 `VM_CAPACITY=1`；扩容前先观察实际任务的
+资源水位、等待时间以及 OpenSandbox 是否存在 terminal sandbox 残留。
+
 ## 回滚
 
 若 controller 在领取 task 前失败，回滚到前一 commit 的 Python controller/Pod worker
