@@ -6,7 +6,7 @@ metadata:
 spec:
   interval: 10m
   path: ./platform/gitea-runner
-  prune: false
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system

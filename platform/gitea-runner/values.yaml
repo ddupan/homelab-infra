@@ -5,7 +5,7 @@ existingSecret: gitea-runner-token
 existingSecretKey: token
 
 statefulset:
-  replicas: 1
+  replicas: 0
   timezone: Etc/UTC
   serviceAccountName: gitea-actions
   extraVolumes:
