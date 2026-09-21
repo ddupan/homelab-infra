@@ -1,8 +1,7 @@
 # Gitea dynamic runner
 
-本目录部署单副本 Go controller，默认在同一进程运行 RunnerService scheduler、原生
-Kubernetes Pod worker 和 SPIFFE mTLS facade。首轮生产 canary 只启用
-`scheduler,pod-worker`，OpenSandbox VM worker 保持关闭：
+本目录部署单副本 Go controller，在同一进程运行 RunnerService scheduler、原生
+Kubernetes Pod worker、OpenSandbox VM worker 和 SPIFFE mTLS facade：
 
 ```text
 Gitea RunnerService -> scheduler -> JetStream ci.runner.pod
@@ -86,9 +85,10 @@ kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
 4. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
 5. terminal gate 释放后才领取下一条任务。
 
-当前代码尚未完成 ACK 后 backend lifecycle reconciler，因此 canary 成功后可能留下
-Completed Pod/ClusterStaticEntry。首次测试要人工核对并删除已终态资源；在完整自动清理
-通过前不得提高并发或启用 VM worker。
+Pod 与 VM 都在 Gitea 接受终态后先把 terminal marker 写入各自 backend metadata，再由
+lifecycle reconciler 删除执行器。首次 VM 测试仍须观察 BatchSandbox、Pod 与
+ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_CAPACITY`、`VM_CAPACITY`
+或 scheduler single-flight 并发。
 
 ## 回滚
 
