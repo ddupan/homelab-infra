@@ -4,10 +4,11 @@ metadata:
   name: dynamic-runner-controller
   namespace: dynamic-runner
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app.kubernetes.io/name: dynamic-runner-controller
   ports:
     - name: facade
       port: 8443
       targetPort: facade
+      nodePort: 30443
