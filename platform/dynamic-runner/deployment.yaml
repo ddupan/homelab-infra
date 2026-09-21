@@ -38,7 +38,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:ca16bd58ea5f2353fb142b4864bba8a7588200c596e48a9f97d7fda77c75a49a
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:488e85e03135e05e921984f163a7d99ecb769ad3c2304fcca29c741c6f609363
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -88,6 +88,8 @@ spec:
               value: ci-vm
             - name: VM_CAPACITY
               value: "1"
+            - name: VM_RUNNER_LABEL
+              value: vm-dev
             - name: VM_TIMEOUT_SECONDS
               value: "14400"
             - name: SPIRE_CLUSTER
