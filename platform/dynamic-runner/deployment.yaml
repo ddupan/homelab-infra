@@ -38,7 +38,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:9372ef869353dc7f79186bfae4191c1be0e52159c166489e76efd339e60c51b8
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:d9dee85b101f94a5a0532ff799241b1916b4765e83f9499abda4095a4d534173
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -73,7 +73,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: POD_EXECUTOR_IMAGE
-              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:08f83c9993645dce376140fdde7e29e809795166b2bb32e50cebdbefaf3cf303
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:e7d4bc7d7b56e249a6189d406a7179b83e1626dd66b8ff4de64fe152c9c37d2e
             - name: POD_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
