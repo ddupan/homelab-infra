@@ -68,3 +68,8 @@ kubectl -n opensandbox logs deploy/opensandbox-identity -f
   cleaning`：确认 `docker` sidecar 通过 `dockerd-entrypoint.sh` 启动。直接执行
   `dockerd` 会绕过官方 DinD cgroup v2 nesting 初始化，使子容器的私有 cgroup
   namespace 根变成 `threaded`，systemd 无法创建 domain cgroup。
+- kind 的 kubeadm 卡在 `CreateContainer`，而 nested containerd goroutine 停在
+  `bbolt` 的 `fdatasync`：不要直接把 Kata shared mount 用作 Docker 数据目录。
+  `ci-vm` 在 guest 内创建稀疏 ext4 镜像并 loop-mount 到 `/var/lib/docker`；该镜像
+  随 Sandbox 删除，不得在节点侧遗留。临时启动安装 `e2fsprogs` 仅用于首次集成
+  验证，验证后应固化到自有 DinD 镜像。
