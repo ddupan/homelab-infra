@@ -63,7 +63,7 @@ spec:
             - name: RUNNER_FACADE_LISTEN
               value: :8443
             - name: RUNNER_FACADE_URL
-              value: https://dynamic-runner-controller.dynamic-runner.svc:8443
+              value: https://192.168.10.127:30443
             - name: RUNNER_FACADE_SPIFFE_ID
               value: spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller
             - name: SPIFFE_ENDPOINT_SOCKET

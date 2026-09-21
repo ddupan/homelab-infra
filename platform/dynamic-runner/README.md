@@ -32,9 +32,9 @@ OpenSandbox chart 所有权边界。
   `FetchTask`；所有 Ready 实例都可通过 backend metadata 恢复 claim 并服务 facade。
 - executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
   具体 Pod UID 与 `unix:uid:2000`。
-- facade 只有 ClusterIP，executor 通过
-  `dynamic-runner-controller.dynamic-runner.svc:8443` 访问；双方使用 Workload API
-  X509-SVID mTLS，不再保留公网 webhook/token endpoint。
+- facade 通过仅内网可路由的 `192.168.10.127:30443` NodePort 提供给 sandbox executor；
+  双方使用 Workload API X509-SVID mTLS，并按 SPIFFE ID 而不是 IP/DNS 名验证服务端。
+  该入口不经过公网或 Cloudflare Tunnel。
 - controller 的 SPIFFE ID 固定为
   `spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller`。
 - NATS 保留既有最小权限分离：`ci-producer` 仅 publish，`ci-worker` 仅 pull/ACK。
