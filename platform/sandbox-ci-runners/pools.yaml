@@ -112,7 +112,12 @@ spec:
           image: docker.io/library/docker:29.1.5-dind
           command: [/bin/sh, -c]
           args:
-            - test -e /dev/kmsg || mknod /dev/kmsg c 1 11; exec dockerd --host=unix:///run/docker/docker.sock --group=2000 --storage-driver=overlay2
+            - |
+              test -e /dev/kmsg || mknod /dev/kmsg c 1 11
+              exec dockerd-entrypoint.sh dockerd \
+                --host=unix:///run/docker/docker.sock \
+                --group=2000 \
+                --storage-driver=overlay2
           securityContext:
             privileged: true
           volumeMounts:
