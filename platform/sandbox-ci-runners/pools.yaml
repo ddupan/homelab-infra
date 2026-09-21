@@ -66,15 +66,11 @@ spec:
               value: https://git.ddupan.top
             - name: HOME
               value: /data
-            - name: DOCKER_HOST
-              value: unix:///run/docker/docker.sock
           ports:
             - name: task-executor
               containerPort: 5758
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+            privileged: true
             runAsNonRoot: true
             runAsUser: 2000
             runAsGroup: 2000
@@ -83,8 +79,6 @@ spec:
               mountPath: /opt/opensandbox
             - name: runner-data
               mountPath: /data
-            - name: docker-socket
-              mountPath: /run/docker
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: spire-agent
@@ -108,38 +102,11 @@ spec:
               mountPath: /run/spire/data
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
-        - name: docker
-          image: docker.io/library/docker:29.1.5-dind
-          command: [/bin/sh, -c]
-          args:
-            - |
-              set -eu
-              test -e /dev/kmsg || mknod /dev/kmsg c 1 11
-              apk add --no-cache e2fsprogs
-              truncate -s 20G /tmp/docker-data.img
-              mkfs.ext4 -F /tmp/docker-data.img
-              mount -o loop /tmp/docker-data.img /var/lib/docker
-              exec dockerd-entrypoint.sh dockerd \
-                --host=unix:///run/docker/docker.sock \
-                --group=2000 \
-                --storage-driver=overlay2
-          securityContext:
-            privileged: true
-          volumeMounts:
-            - name: docker-socket
-              mountPath: /run/docker
-            - name: docker-data
-              mountPath: /var/lib/docker
       volumes:
         - name: opensandbox-bin
           emptyDir: {}
         - name: runner-data
           emptyDir: {}
-        - name: docker-data
-          emptyDir: {}
-        - name: docker-socket
-          emptyDir:
-            medium: Memory
         - name: spire-data
           emptyDir:
             medium: Memory

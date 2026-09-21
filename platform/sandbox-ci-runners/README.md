@@ -9,6 +9,11 @@ Pod-bound PSAT 向中央 SPIRE 注册；identity controller 从 BatchSandbox all
 取得真实 Pod UID，再创建精确的 `ClusterStaticEntry`。runner 只有拿到请求中的完整
 repository/task SVID 后才领取一次性 Gitea registration token。
 
+VM 与 Pod backend 使用同一个 `gitea-dynamic-runner-runner` executor 镜像。Pool 不运行
+常驻 `docker:dind` sidecar；需要 Docker 的 workflow 在 privileged executor 内按任务启动
+daemon。Kata VM 中的 workflow 必须先把稀疏 ext4 镜像 loop-mount 到
+`/var/lib/docker`，并完成 cgroup v2 nesting 初始化。
+
 这些 `ClusterStaticEntry` 位于 sandbox 集群，由 central SPIRE Server 内的
 `spire-controller-manager-sandbox` 通过受限 external kubeconfig reconcile。必须在
 `platform/spire/values.yaml` 显式启用 external controller-manager 的
@@ -63,13 +68,13 @@ kubectl -n opensandbox logs deploy/opensandbox-identity -f
 - `PoolCapacityExhausted`：检查 `ci-vm` 的 `poolMax` 及残留 BatchSandbox；
 - runner 等待 SVID：核对 allocation Pod UID、ClusterStaticEntry parentID、guest Agent 日志；
 - runner 等待 token：核对 `192.168.10.127:8787` 的 sandbox 到 homelab 路由；
-- Docker 任务失败：检查 `docker` sidecar 和 `/run/docker/docker.sock` 的 group 2000。
+- Docker 任务失败：检查 workflow 的 job-local dockerd 日志及
+  `/var/run/docker.sock`；Pool 不提供共享或常驻 daemon。
 - kind node 的 systemd 报 `Failed to create /init.scope` 或 `Structure needs
-  cleaning`：确认 `docker` sidecar 通过 `dockerd-entrypoint.sh` 启动。直接执行
-  `dockerd` 会绕过官方 DinD cgroup v2 nesting 初始化，使子容器的私有 cgroup
-  namespace 根变成 `threaded`，systemd 无法创建 domain cgroup。
+  cleaning`：确认 workflow 启动 dockerd 前完成 cgroup v2 nesting 初始化。否则
+  子容器的私有 cgroup namespace 根会变成 `threaded`，systemd 无法创建 domain
+  cgroup。
 - kind 的 kubeadm 卡在 `CreateContainer`，而 nested containerd goroutine 停在
   `bbolt` 的 `fdatasync`：不要直接把 Kata shared mount 用作 Docker 数据目录。
-  `ci-vm` 在 guest 内创建稀疏 ext4 镜像并 loop-mount 到 `/var/lib/docker`；该镜像
-  随 Sandbox 删除，不得在节点侧遗留。临时启动安装 `e2fsprogs` 仅用于首次集成
-  验证，验证后应固化到自有 DinD 镜像。
+  workflow 必须在 guest 内创建稀疏 ext4 镜像并 loop-mount 到
+  `/var/lib/docker`；该镜像随 Sandbox 删除，不得在节点侧遗留。
