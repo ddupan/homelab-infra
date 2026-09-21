@@ -120,6 +120,13 @@ spec:
                 --storage-driver=overlay2
           securityContext:
             privileged: true
+          resources:
+            requests:
+              cpu: "2"
+              memory: 3Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
           volumeMounts:
             - name: docker-socket
               mountPath: /run/docker
