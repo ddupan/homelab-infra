@@ -48,7 +48,7 @@ spec:
               mountPath: /opt/opensandbox
       containers:
         - name: sandbox
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:e7d4bc7d7b56e249a6189d406a7179b83e1626dd66b8ff4de64fe152c9c37d2e
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:b798f38592953d4159d29f1683498b857e34b2df37336f17050fd77fed2c2759
           imagePullPolicy: IfNotPresent
           command: [/opt/opensandbox/task-executor]
           args:
@@ -182,7 +182,7 @@ spec:
               mountPath: /opt/opensandbox
       containers:
         - name: sandbox
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:e7d4bc7d7b56e249a6189d406a7179b83e1626dd66b8ff4de64fe152c9c37d2e
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:b798f38592953d4159d29f1683498b857e34b2df37336f17050fd77fed2c2759
           imagePullPolicy: IfNotPresent
           command: [/opt/opensandbox/task-executor]
           args:
