@@ -73,7 +73,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: POD_EXECUTOR_IMAGE
-              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:b798f38592953d4159d29f1683498b857e34b2df37336f17050fd77fed2c2759
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:ae8e67227fedd04417f6af8f7bee75afba1c91650c83c33ea682267cd5cbec4f
             - name: POD_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
