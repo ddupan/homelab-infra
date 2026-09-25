@@ -4,9 +4,6 @@ metadata:
   name: dynamic-runner
   namespace: flux-system
 spec:
-  # Keep the v2 rollout paused while the merge commit's v1 CI drains. Remove
-  # this after the controller has been resumed and the placement smokes pass.
-  suspend: true
   dependsOn:
     - name: external-secrets
     - name: spire
