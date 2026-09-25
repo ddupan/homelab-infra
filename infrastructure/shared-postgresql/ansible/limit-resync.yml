@@ -1,0 +1,10 @@
+---
+# 新 HDD 卷初始同步曾伴随共享链路 PingAck 超时；仅约束本项目 mp0，不改全局 quorum/协议。
+- name: 限制本项目新 HDD 卷的后台同步速率
+  hosts: pg_pve
+  become: true
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: 收敛本项目数据卷同步限额
+      ansible.builtin.include_tasks: tasks/limit-resync.yml

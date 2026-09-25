@@ -1,0 +1,8 @@
+.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
+__pycache__/
+
+# 此文件是从 Bao 读取凭据的 playbook，不包含秘密值。
+!ansible/credentials.yml

@@ -1,0 +1,40 @@
+# 使用 Patroni 原生指标及现有 Alertmanager；不新增监控栈。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: shared-postgresql
+  namespace: monitoring
+spec:
+  groups:
+    - name: shared-postgresql
+      rules:
+        - alert: SharedPostgresMemberUnavailable
+          expr: up{job="shared-postgresql-patroni"} == 0
+          for: 2m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG 成员 {{ $labels.member }} 无法采集'
+        - alert: SharedPostgresNoObservedPrimary
+          expr: (sum(patroni_primary{job="shared-postgresql-patroni"}) or vector(0)) == 0
+          for: 1m
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: 共享 PG 监控未观察到 primary，请检查实际角色和入口
+        - alert: SharedPostgresMultiplePrimaries
+          expr: sum(patroni_primary{job="shared-postgresql-patroni"}) > 1
+          for: 30s
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: 共享 PG 监控观察到多个 primary，需立即核实
+        - alert: SharedPostgresReplicaNotStreaming
+          expr: patroni_replica{job="shared-postgresql-patroni"} == 1 and patroni_postgres_streaming{job="shared-postgresql-patroni"} == 0
+          for: 2m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG replica {{ $labels.member }} 没有流复制'
+        - alert: SharedPostgresProcessDown
+          expr: patroni_postgres_running{job="shared-postgresql-patroni"} == 0
+          for: 1m
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG 成员 {{ $labels.member }} 数据库进程未运行'

@@ -1,0 +1,40 @@
+---
+- name: 在已启动数据库上验证首备后启用调度
+  hosts: pg_repository
+  become: true
+  become_user: pgbackup
+  gather_facts: false
+  vars:
+    pg_backup_command: [pgbackrest, '--config=/etc/homelab-pgbackrest/repository.conf', '--stanza=prod']
+  tasks:
+    - name: 检查 stanza 元数据
+      ansible.builtin.stat:
+        path: "{{ pg_repo_path }}/backup/prod/backup.info"
+      register: pg_stanza
+    - name: 首次初始化 stanza
+      ansible.builtin.command:
+        argv: "{{ pg_backup_command + ['stanza-create'] }}"
+      when: not pg_stanza.stat.exists
+      changed_when: true
+    - name: 验证真实 WAL 归档（会触发 WAL 切换）
+      ansible.builtin.command:
+        argv: "{{ pg_backup_command + ['check'] }}"
+      changed_when: false
+    - name: 查询已有备份
+      ansible.builtin.command:
+        argv: "{{ pg_backup_command + ['--output=json', 'info'] }}"
+      register: pg_backup_info
+      changed_when: false
+    - name: 没有成功备份时创建首个 full
+      ansible.builtin.command:
+        argv: "{{ pg_backup_command + ['--type=full', 'backup'] }}"
+      when: (pg_backup_info.stdout | from_json)[0].backup | length == 0
+      changed_when: true
+    - name: 验证成功后才启用 timer
+      ansible.builtin.systemd_service:
+        name: homelab-postgresql-backup.timer
+        daemon_reload: true
+        enabled: true
+        state: started
+      become_user: root
+      become: true

@@ -1,0 +1,14 @@
+[Unit]
+Description=Shared PostgreSQL primary-aware full backup
+After=network-online.target
+RequiresMountsFor={{ pg_repo_path }}
+[Service]
+Type=oneshot
+User=pgbackup
+Group=pgbackup
+ExecStart=/usr/bin/pgbackrest --config=/etc/homelab-pgbackrest/repository.conf --stanza=prod --type=full backup
+TimeoutStartSec=2h
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

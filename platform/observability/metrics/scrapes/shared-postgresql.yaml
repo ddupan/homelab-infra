@@ -1,0 +1,14 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: shared-postgresql
+  namespace: monitoring
+spec:
+  jobName: shared-postgresql-patroni
+  targetEndpoints:
+    - targets: [192.168.10.127:8008]
+      labels: {cluster: homelab-pg-prod, member: pg-laptop}
+      interval: 15s
+    - targets: [10.60.0.20:8008]
+      labels: {cluster: homelab-pg-prod, member: pg-pve1}
+      interval: 15s

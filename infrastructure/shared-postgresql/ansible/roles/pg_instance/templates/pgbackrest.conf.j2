@@ -1,0 +1,22 @@
+[global]
+{% if pg_repo_remote | default(true) %}
+repo1-host={{ pg_repo_host }}
+repo1-host-user={{ pg_repo_user }}
+repo1-host-config=/etc/homelab-pgbackrest/repository.conf
+{% endif %}
+repo1-path={{ pg_repo_path }}
+repo1-retention-full=3
+process-max=1
+compress-type=zst
+compress-level=3
+start-fast=y
+log-level-console=warn
+log-level-file=off
+lock-path={{ pg_parent_dir }}/backup-lock
+spool-path={{ pg_parent_dir }}/backup-spool
+# 不设置 archive-push-queue-max；超限丢弃 WAL 会破坏恢复链。
+[prod]
+pg1-path={{ pg_data_dir }}
+pg1-port={{ pg_profile.port }}
+pg1-socket-path={{ pg_socket_dir }}
+pg1-user={{ pg_profile.user }}

@@ -1,0 +1,23 @@
+---
+- name: 检查承载前提
+  ansible.builtin.import_playbook: preflight.yml
+- name: 准备数据库软件，不配置或初始化实例
+  hosts: pg_hosts
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - pg_packages
+  post_tasks:
+    - name: 核对包安装没有自动创建 PG18 默认实例
+      ansible.builtin.stat:
+        path: /var/lib/postgresql/18/main/PG_VERSION
+      register: pg_package_default_cluster
+    - name: 默认实例应保持未初始化
+      ansible.builtin.assert:
+        that: not pg_package_default_cluster.stat.exists
+        fail_msg: 发现默认 PG18 main 实例，停止后续初始化；本任务不会删除已有数据。
+    - name: 验证独立 Patroni 环境可运行
+      ansible.builtin.command:
+        argv: ["{{ pg_patroni_bin }}", --version]
+      changed_when: false

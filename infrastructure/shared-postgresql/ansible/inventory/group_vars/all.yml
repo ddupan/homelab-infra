@@ -1,0 +1,40 @@
+---
+pg_major: 18
+pg_patroni_version: 4.1.5
+pg_bao_url: https://bao.ad.ddupan.top:8200
+pg_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
+pg_config_root: /etc/homelab-postgresql
+pg_data_root: /var/lib/homelab-postgresql
+pg_bin_dir: /usr/lib/postgresql/18/bin
+pg_patroni_bin: /opt/homelab-patroni/bin/patroni
+pg_allow_initialize: false
+# 仅存放 Bao 路径，值必须在控制端 no_log 读取；不从失效读请求推断秘密不存在。
+pg_secret_paths:
+  prod: infra/postgresql/prod
+  dev: infra/postgresql/dev
+pg_etcd_secret_path: infra/etcd/consumers/patroni-pg-prod
+pg_etcd_endpoints: ['192.168.10.127:2379', '10.60.0.20:2379', '10.60.0.21:2379']
+pg_profiles:
+  prod:
+    user: pgprod
+    port: 5432
+    api_port: 8008
+    dns: pg-prod.ad.ddupan.top
+    memory_high: 768M
+    memory_max: 1G
+    shared_buffers: 128MB
+    max_connections: 80
+  dev:
+    user: pgdev
+    port: 5433
+    dns: pg-dev.ad.ddupan.top
+    memory_high: 256M
+    memory_max: 384M
+    shared_buffers: 32MB
+    max_connections: 30
+# 客户端网络范围；HBA 仍需独立的 TLS + SCRAM 身份认证。
+pg_client_cidrs: ['192.168.10.0/24', '10.60.0.0/24', '10.42.0.0/16']
+pg_replication_addresses: ['192.168.10.127/32', '10.60.0.20/32']
+pg_repo_host: 10.60.0.21
+pg_repo_user: pgbackup
+pg_repo_path: /var/lib/homelab-pgbackrest

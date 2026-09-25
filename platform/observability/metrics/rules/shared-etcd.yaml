@@ -1,0 +1,61 @@
+# 参考 Pigsty v4.5.0 etcd 指标与阈值，适配原生 up 和现有标签；无 Pigsty UI 依赖。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: shared-etcd
+  namespace: monitoring
+spec:
+  groups:
+  - name: shared-etcd
+    rules:
+    - alert: SharedEtcdMemberUnavailable
+      expr: up{job="shared-etcd"} == 0
+      for: 2m
+      labels:
+        severity: warning
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd 成员 {{ $labels.member }} 无法采集
+    - alert: SharedEtcdMonitoringQuorumUnavailable
+      expr: (sum(up{job="shared-etcd"}) or vector(0)) < 2
+      for: 2m
+      labels:
+        severity: critical
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd 不足两个成员可采集，请用 endpoint health 核实 quorum
+    - alert: SharedEtcdNoLeader
+      expr: etcd_server_has_leader{job="shared-etcd"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd 成员 {{ $labels.member }} 无法确认 leader
+    - alert: SharedEtcdQuotaHigh
+      expr: etcd_mvcc_db_total_size_in_bytes{job="shared-etcd"} / etcd_server_quota_backend_bytes{job="shared-etcd"}
+        > 0.8
+      for: 10m
+      labels:
+        severity: warning
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd 后端容量超过 80%
+    - alert: SharedEtcdSlowFsync
+      expr: histogram_quantile(0.95, rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="shared-etcd"}[5m]))
+        > 0.05
+      for: 10m
+      labels:
+        severity: warning
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd {{ $labels.member }} WAL fsync p95 超过 50ms
+    - alert: SharedEtcdFrequentElections
+      expr: increase(etcd_server_leader_changes_seen_total{job="shared-etcd"}[15m])
+        > 3
+      for: 5m
+      labels:
+        severity: warning
+        service: shared-etcd
+      annotations:
+        summary: 共享 etcd 15 分钟内多次选举

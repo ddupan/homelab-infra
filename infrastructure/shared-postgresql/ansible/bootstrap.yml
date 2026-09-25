@@ -1,0 +1,20 @@
+---
+- name: 读取已有凭据
+  ansible.builtin.import_playbook: credentials.yml
+- name: 检查承载和所有权
+  ansible.builtin.import_playbook: preflight.yml
+- name: 显式初始化新实例，laptop 先启动
+  hosts: pg_hosts
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: 要求显式首次初始化开关
+      ansible.builtin.assert:
+        that: pg_allow_initialize | bool
+        fail_msg: 仅首次初始化使用 -e pg_allow_initialize=true；恢复和升级不走此入口。
+    - name: 初始化声明的实例
+      ansible.builtin.include_tasks: tasks/bootstrap-instance.yml
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance

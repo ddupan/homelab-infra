@@ -1,0 +1,23 @@
+[Unit]
+Description=Homelab shared etcd
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=homelab-etcd
+Group=homelab-etcd
+ExecStart={{ etcd_install_dir }}/etcd --config-file={{ etcd_config_dir }}/etcd.yml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+MemoryHigh={{ etcd_memory_high }}
+MemoryMax={{ etcd_memory_max }}
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths={{ etcd_data_dir }}
+
+[Install]
+WantedBy=multi-user.target

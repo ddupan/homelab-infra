@@ -1,0 +1,126 @@
+---
+# 只创建已声明且尚不存在的 LXC；不接管未知 VMID，不重启现有容器。
+- name: 创建独立 etcd LXC
+  hosts: etcd_pve
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 读取全局资源，避免 VMID 在其他节点已占用
+      ansible.builtin.command:
+        argv: [pvesh, get, /cluster/resources, --type, vm, --output-format, json]
+      register: etcd_pve_resources
+      changed_when: false
+      check_mode: false
+
+    - name: 保存同号资源
+      ansible.builtin.set_fact:
+        etcd_lxc_existing: >-
+          {{ etcd_pve_resources.stdout
+            | from_json
+            | selectattr('vmid', 'equalto', etcd_lxc_vmid)
+            | list }}
+
+    - name: 拒绝接管未知资源
+      ansible.builtin.assert:
+        that:
+          - >-
+            etcd_lxc_existing | length == 0 or
+            (etcd_lxc_existing[0].type == 'lxc' and etcd_lxc_existing[0].node == inventory_hostname
+             and etcd_lxc_existing[0].name == etcd_lxc_hostname
+             and 'shared-etcd' in (etcd_lxc_existing[0].tags | default('')))
+
+    - name: 新建无特权 LXC
+      when: etcd_lxc_existing | length == 0 and not ansible_check_mode
+      block:
+        - name: 暂存 SSH 公钥
+          ansible.builtin.copy:
+            content: "{{ etcd_lxc_pubkey }}\n"
+            dest: /run/shared-etcd-bootstrap.pub
+            mode: '0600'
+        - name: 创建声明的容器
+          ansible.builtin.command:
+            argv:
+              - pct
+              - create
+              - "{{ etcd_lxc_vmid }}"
+              - "{{ etcd_lxc_template }}"
+              - --hostname
+              - "{{ etcd_lxc_hostname }}"
+              - --unprivileged
+              - '1'
+              - --cores
+              - '1'
+              - --memory
+              - "{{ etcd_lxc_memory }}"
+              - --swap
+              - '0'
+              - --rootfs
+              - "{{ etcd_lxc_storage }}:{{ etcd_lxc_disk_gb }}"
+              - --net0
+              - "name=eth0,bridge={{ etcd_lxc_bridge }},ip={{ etcd_lxc_address }},gw={{ etcd_lxc_gateway }},type=veth"
+              - --nameserver
+              - 192.168.10.5
+              - --searchdomain
+              - ad.ddupan.top
+              - --ssh-public-keys
+              - /run/shared-etcd-bootstrap.pub
+              - --onboot
+              - '1'
+              - --tags
+              - ansible;shared-etcd
+          changed_when: true
+      always:
+        - name: 删除暂存公钥
+          ansible.builtin.file:
+            path: /run/shared-etcd-bootstrap.pub
+            state: absent
+
+    - name: 读取容器配置
+      ansible.builtin.command:
+        argv: [pct, config, "{{ etcd_lxc_vmid }}"]
+      changed_when: false
+      register: etcd_lxc_config
+      when: not ansible_check_mode or etcd_lxc_existing | length > 0
+
+    - name: 配置漂移先报错，不直接改运行中的网络/资源
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('ip=' ~ etcd_lxc_address ~ ',') in etcd_lxc_config.stdout or
+            ('ip=' ~ etcd_lxc_address ~ '\n') in etcd_lxc_config.stdout
+          - "('bridge=' ~ etcd_lxc_bridge ~ ',') in etcd_lxc_config.stdout"
+          - "'unprivileged: 1' in etcd_lxc_config.stdout"
+          - "('memory: ' ~ etcd_lxc_memory) in etcd_lxc_config.stdout"
+          - "('rootfs: ' ~ etcd_lxc_storage ~ ':') in etcd_lxc_config.stdout"
+      when: etcd_lxc_config is not skipped
+
+    - name: 读取容器运行状态
+      ansible.builtin.command:
+        argv: [pct, status, "{{ etcd_lxc_vmid }}"]
+      changed_when: false
+      register: etcd_lxc_status
+      when: not ansible_check_mode
+
+    - name: 启动容器
+      ansible.builtin.command:
+        argv: [pct, start, "{{ etcd_lxc_vmid }}"]
+      changed_when: true
+      when: not ansible_check_mode and 'running' not in etcd_lxc_status.stdout
+
+    - name: 通过可信宿主机取得容器 SSH 公钥
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ etcd_lxc_vmid }}", --, cat, /etc/ssh/ssh_host_ed25519_key.pub]
+      register: etcd_lxc_hostkey
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: etcd_lxc_hostkey.rc == 0
+      when: not ansible_check_mode
+
+    - name: 保存经宿主机验证的 SSH host key
+      ansible.builtin.known_hosts:
+        name: "{{ etcd_lxc_address.split('/')[0] }}"
+        key: "{{ etcd_lxc_address.split('/')[0] }} {{ etcd_lxc_hostkey.stdout }}"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode

@@ -1,0 +1,34 @@
+---
+- name: 从受管容器配置定位资源
+  ansible.builtin.command:
+    argv: [pct, config, "{{ pg_lxc_id }}"]
+  register: pg_resync_config
+  changed_when: false
+  check_mode: false
+- name: 核对容器和专属挂载
+  ansible.builtin.assert:
+    that:
+      - pg_lxc_id in [150, 151]
+      - "'shared-etcd' in pg_resync_config.stdout"
+      - "('mp=' ~ pg_lxc_mount ~ ',') in pg_resync_config.stdout"
+      - "pg_resync_config.stdout | regex_findall('(?m)^mp0: pve-rg-hdd:(pm-[0-9a-f]+)_') | length == 1"
+- name: 提取明确匹配的 LINSTOR resource definition
+  ansible.builtin.set_fact:
+    pg_resync_resource: "{{ (pg_resync_config.stdout | regex_findall('(?m)^mp0: pve-rg-hdd:(pm-[0-9a-f]+)_'))[0] }}"
+- name: 读取本资源已有配置
+  ansible.builtin.command:
+    argv: [linstor, resource-definition, list-properties, "{{ pg_resync_resource }}"]
+  register: pg_resync_properties
+  changed_when: false
+  check_mode: false
+- name: 每个新卷将自适应同步速率上限设为 10 MiB/s
+  ansible.builtin.command:
+    argv:
+      - linstor
+      - resource-definition
+      - set-property
+      - "{{ pg_resync_resource }}"
+      - DrbdOptions/PeerDevice/c-max-rate
+      - '10240'
+  when: pg_resync_properties.stdout is not search('c-max-rate\s*│\s*10240\s*│')
+  changed_when: true

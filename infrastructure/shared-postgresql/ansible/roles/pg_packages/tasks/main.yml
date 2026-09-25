@@ -1,0 +1,40 @@
+---
+- name: 配置官方软件源
+  ansible.builtin.import_tasks: repository.yml
+- name: 安装集群管理基础包（不安装默认主版本元包）
+  ansible.builtin.apt:
+    name: postgresql-common
+    state: present
+- name: 查询已安装包以避免重复制造临时配置变更
+  ansible.builtin.package_facts:
+    manager: apt
+- name: 临时禁止包安装自动建立默认 main 实例
+  when: >-
+    ['postgresql-18', 'postgresql-client-18', 'pgbackrest']
+    | difference(ansible_facts.packages.keys() | list) | length > 0
+  block:
+    - name: 确保包配置片段目录存在
+      ansible.builtin.file:
+        path: /etc/postgresql-common/createcluster.d
+        state: directory
+        mode: '0755'
+    - name: 禁止本次 apt postinst 自动初始化
+      ansible.builtin.copy:
+        dest: /etc/postgresql-common/createcluster.d/90-homelab-no-auto.conf
+        content: "create_main_cluster = false\n"
+        mode: '0644'
+    - name: 安装明确的 PG 主版本与备份工具
+      ansible.builtin.apt:
+        name: ['postgresql-18', 'postgresql-client-18', pgbackrest]
+        state: present
+        install_recommends: false
+  always:
+    - name: 撤回临时包安装选项
+      ansible.builtin.file:
+        path: /etc/postgresql-common/createcluster.d/90-homelab-no-auto.conf
+        state: absent
+- name: 在独立 venv 安装固定 Patroni 版本
+  ansible.builtin.pip:
+    name: 'patroni[etcd3,psycopg3]=={{ pg_patroni_version }}'
+    virtualenv: /opt/homelab-patroni
+    virtualenv_command: python3 -m venv

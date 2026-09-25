@@ -1,0 +1,17 @@
+---
+- name: 检查承载前提
+  ansible.builtin.import_playbook: preflight.yml
+- name: 验证秘密可用
+  ansible.builtin.import_playbook: credentials.yml
+- name: 配置数据库实例（不初始化、不启动、不自动重启）
+  hosts: pg_hosts
+  become: true
+  roles:
+    - pg_packages
+  tasks:
+    - name: 配置声明的实例
+      ansible.builtin.include_role:
+        name: pg_instance
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance

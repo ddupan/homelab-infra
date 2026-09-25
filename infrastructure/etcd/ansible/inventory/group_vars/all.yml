@@ -1,0 +1,20 @@
+---
+etcd_bao_url: https://bao.ad.ddupan.top:8200
+etcd_bao_pki_mount: pki
+etcd_bao_kv_mount: kv
+etcd_bao_secret_base: infra/etcd/consumers
+# 只在控制端使用，不下发 Bao token。也不读取或复制历史 .vault_pass。
+etcd_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
+etcd_consumers:
+  - name: patroni-pg-prod
+    prefix: /homelab/patroni/pg-prod/
+etcd_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+etcd_lxc_storage: pve-rg
+etcd_lxc_bridge: labnet
+etcd_lxc_gateway: 10.60.0.1
+etcd_lxc_memory: 512
+etcd_lxc_disk_gb: 8
+etcd_lxc_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+# 与现有 LAN exporter 相同的内网采集边界；禁止映射到公网。
+etcd_metrics_urls: "http://127.0.0.1:2381,http://{{ etcd_address }}:2381"

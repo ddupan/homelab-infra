@@ -1,0 +1,160 @@
+---
+- name: 配置独立备份仓库账号与工具
+  hosts: pg_repository
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: 必须先挂载专属数据盘
+      ansible.builtin.command:
+        argv: [findmnt, --mountpoint, "{{ pg_repo_path }}", --noheadings]
+      changed_when: false
+      check_mode: false
+    - name: 配置与数据库相同的软件源
+      ansible.builtin.import_role:
+        name: pg_packages
+        tasks_from: repository
+    - name: 安装备份工具（不安装数据库）
+      ansible.builtin.apt:
+        name: [pgbackrest, openssh-client]
+        state: present
+        install_recommends: false
+    - name: 创建仓库组
+      ansible.builtin.group:
+        name: pgbackup
+        system: true
+    - name: 创建仓库账号
+      ansible.builtin.user:
+        name: pgbackup
+        group: pgbackup
+        home: "{{ pg_repo_path }}"
+        create_home: false
+        system: true
+        shell: /bin/bash
+    - name: 设置仓库目录权限
+      ansible.builtin.file:
+        path: "{{ pg_repo_path }}"
+        state: directory
+        owner: pgbackup
+        group: pgbackup
+        mode: '0700'
+
+- name: 建立专用 SSH 传输身份
+  hosts: pg_hosts:pg_repository
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    pg_transport_user: "{{ 'pgbackup' if inventory_hostname in groups['pg_repository'] else 'pgprod' }}"
+    pg_transport_home: "{{ pg_repo_path if inventory_hostname in groups['pg_repository'] else pg_data_root ~ '/prod' }}"
+  tasks:
+    - name: 创建 SSH 目录
+      ansible.builtin.file:
+        path: "{{ pg_transport_home }}/.ssh"
+        state: directory
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0700'
+    # community.crypto 的跨文件系统 preserved_copy 会把 ext4 属性带到 ZFS，产生 chattr 错误。
+    - name: 仅在缺失时原地生成专属传输私钥
+      ansible.builtin.command:
+        argv: [ssh-keygen, -q, -t, ed25519, -N, '', -f, "{{ pg_transport_home }}/.ssh/id_ed25519"]
+        creates: "{{ pg_transport_home }}/.ssh/id_ed25519"
+    - name: 收敛私钥属主与权限
+      ansible.builtin.file:
+        path: "{{ pg_transport_home }}/.ssh/id_ed25519"
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0600'
+    - name: 从既有私钥派生公开部分，不重新生成密钥
+      ansible.builtin.command:
+        argv: [ssh-keygen, -y, -f, "{{ pg_transport_home }}/.ssh/id_ed25519"]
+      register: pg_transport_key
+      changed_when: false
+    - name: 保存对应公钥
+      ansible.builtin.copy:
+        content: "{{ pg_transport_key.stdout }}\n"
+        dest: "{{ pg_transport_home }}/.ssh/id_ed25519.pub"
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0644'
+    - name: 经已信任 Ansible 通道读取 SSH 主机公钥
+      ansible.builtin.slurp:
+        src: /etc/ssh/ssh_host_ed25519_key.pub
+      register: pg_transport_host_key
+
+- name: 配置专用传输授权（不允许转发和 PTY）
+  hosts: pg_hosts:pg_repository
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    pg_transport_user: "{{ 'pgbackup' if inventory_hostname in groups['pg_repository'] else 'pgprod' }}"
+    pg_transport_home: "{{ pg_repo_path if inventory_hostname in groups['pg_repository'] else pg_data_root ~ '/prod' }}"
+    pg_transport_peers: >-
+      {{ groups['pg_hosts'] if inventory_hostname in groups['pg_repository'] else groups['pg_repository'] }}
+  tasks:
+    - name: 限定专用账号的对端密钥
+      ansible.builtin.copy:
+        content: |
+          {% for peer in pg_transport_peers %}
+          restrict {{ hostvars[peer].pg_transport_key.stdout }}
+          {% endfor %}
+        dest: "{{ pg_transport_home }}/.ssh/authorized_keys"
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0600'
+    - name: 保持专用 SSH 信任文件只由 IaC 管理
+      ansible.builtin.copy:
+        content: |
+          Host {{ pg_transport_peers | map('extract', hostvars, 'ansible_host') | join(' ') }}
+              StrictHostKeyChecking yes
+              UpdateHostKeys no
+              IdentitiesOnly yes
+              IdentityFile {{ pg_transport_home }}/.ssh/id_ed25519
+              UserKnownHostsFile {{ pg_transport_home }}/.ssh/known_hosts
+        dest: "{{ pg_transport_home }}/.ssh/config"
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0600'
+    - name: 固定对端 SSH 主机身份
+      ansible.builtin.copy:
+        content: |
+          {% for peer in pg_transport_peers %}
+          {{ hostvars[peer].ansible_host }} {{ hostvars[peer].pg_transport_host_key.content | b64decode | trim }}
+          {% endfor %}
+        dest: "{{ pg_transport_home }}/.ssh/known_hosts"
+        owner: "{{ pg_transport_user }}"
+        group: "{{ pg_transport_user }}"
+        mode: '0600'
+
+- name: 配置主库感知的仓库与每日备份任务（不提前启用）
+  hosts: pg_repository
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    pg_backup_members:
+      - {address: '192.168.10.127'}
+      - {address: '10.60.0.20'}
+  tasks:
+    - name: 创建配置目录
+      ansible.builtin.file:
+        path: /etc/homelab-pgbackrest
+        state: directory
+        owner: root
+        group: pgbackup
+        mode: '0750'
+    - name: 安装仓库配置
+      ansible.builtin.template:
+        src: roles/pg_instance/templates/repository.conf.j2
+        dest: /etc/homelab-pgbackrest/repository.conf
+        owner: root
+        group: pgbackup
+        mode: '0640'
+    - name: 安装备份服务和 timer
+      ansible.builtin.template:
+        src: "roles/pg_instance/templates/backup.{{ item }}.j2"
+        dest: "/etc/systemd/system/homelab-postgresql-backup.{{ item }}"
+        mode: '0644'
+      loop: [service, timer]

@@ -1,0 +1,37 @@
+---
+- name: 收敛消费者账号及独立 prefix
+  hosts: etcd[0]
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: 加载共享默认参数
+      ansible.builtin.import_role:
+        name: shared_etcd
+        tasks_from: context
+  environment:
+    ETCDCTL_ENDPOINTS: "https://{{ etcd_address }}:{{ etcd_client_port }}"
+    ETCDCTL_CACERT: "{{ etcd_config_dir }}/ca.crt"
+    ETCDCTL_CERT: "{{ etcd_config_dir }}/admin.crt"
+    ETCDCTL_KEY: "{{ etcd_config_dir }}/admin.key"
+  tasks:
+    - name: 检查认证状态
+      ansible.builtin.command:
+        argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, auth, status]
+      register: etcd_auth_status
+      changed_when: false
+      check_mode: false
+
+    - name: 要求认证已启用
+      ansible.builtin.assert:
+        that:
+          - ((etcd_auth_status.stdout | from_json).enabled | default(false))
+          - etcd_consumers | map(attribute='name') | unique | length == etcd_consumers | length
+          - etcd_bao_token | length > 0
+      no_log: true
+
+    - name: 逐个收敛消费者
+      ansible.builtin.include_tasks: tasks/consumer.yml
+      loop: "{{ etcd_consumers }}"
+      loop_control:
+        loop_var: etcd_consumer
+        label: "{{ etcd_consumer.name }}"

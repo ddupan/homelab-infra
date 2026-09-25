@@ -1,0 +1,170 @@
+---
+- name: 验证消费者范围
+  ansible.builtin.assert:
+    that:
+      - etcd_consumer.name is match('^[a-z][a-z0-9-]+$')
+      - etcd_consumer.name != 'root'
+      - etcd_consumer.prefix is match('^/homelab/[a-zA-Z0-9/_-]+/$')
+      - etcd_consumer.prefix | length > 10
+
+- name: 读取已有用户和角色
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, "{{ item }}", list]
+  loop: [user, role]
+  register: etcd_identities
+  changed_when: false
+  check_mode: false
+
+# 404 data 也可能代表被删除/销毁的旧秘密；只有 metadata 不存在才允许生成。
+- name: 控制端读取 Bao 秘密元数据
+  ansible.builtin.uri:
+    url: "{{ etcd_bao_url }}/v1/{{ etcd_bao_kv_mount }}/metadata/{{ etcd_bao_secret_base }}/{{ etcd_consumer.name }}"
+    headers:
+      X-Vault-Token: "{{ etcd_bao_token }}"
+    status_code: [200, 404]
+  delegate_to: localhost
+  become: false
+  no_log: true
+  register: etcd_secret_metadata
+  check_mode: false
+
+- name: 禁止已有用户丢失秘密后自动换密码
+  ansible.builtin.assert:
+    that: >-
+      etcd_secret_metadata.status == 200 or
+      etcd_consumer.name not in ((etcd_identities.results[0].stdout | from_json).users | default([], true))
+    fail_msg: etcd 用户已存在但 Bao 秘密缺失；需恢复原秘密或执行显式轮换。
+
+- name: 首次创建随机秘密且禁止覆盖已有版本
+  ansible.builtin.uri:
+    url: "{{ etcd_bao_url }}/v1/{{ etcd_bao_kv_mount }}/data/{{ etcd_bao_secret_base }}/{{ etcd_consumer.name }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ etcd_bao_token }}"
+    body_format: json
+    body:
+      options: {cas: 0}
+      data:
+        username: "{{ etcd_consumer.name }}"
+        password: "{{ lookup('ansible.builtin.password', '/dev/null', length=48, chars=['ascii_letters', 'digits']) }}"
+        prefix: "{{ etcd_consumer.prefix }}"
+    status_code: 200
+  delegate_to: localhost
+  become: false
+  no_log: true
+  changed_when: true
+  when:
+    - etcd_secret_metadata.status == 404
+    - not ansible_check_mode
+
+- name: 控制端读取既有秘密
+  ansible.builtin.uri:
+    url: "{{ etcd_bao_url }}/v1/{{ etcd_bao_kv_mount }}/data/{{ etcd_bao_secret_base }}/{{ etcd_consumer.name }}"
+    headers:
+      X-Vault-Token: "{{ etcd_bao_token }}"
+    status_code: 200
+  delegate_to: localhost
+  become: false
+  register: etcd_consumer_secret
+  no_log: true
+  when: etcd_secret_metadata.status == 200 or not ansible_check_mode
+  check_mode: false
+
+- name: 核对已保存秘密归属
+  ansible.builtin.assert:
+    that:
+      - etcd_consumer_secret.json.data.data.username == etcd_consumer.name
+      - etcd_consumer_secret.json.data.data.prefix == etcd_consumer.prefix
+      - etcd_consumer_secret.json.data.data.password | length >= 32
+  no_log: true
+  when: etcd_secret_metadata.status == 200 or not ansible_check_mode
+
+- name: 新建消费者用户（密码只通过 stdin 传递）
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", user, add, "{{ etcd_consumer.name }}", --interactive=false]
+    stdin: "{{ etcd_consumer_secret.json.data.data.password }}"
+  no_log: true
+  changed_when: true
+  when:
+    - etcd_consumer.name not in ((etcd_identities.results[0].stdout | from_json).users | default([], true))
+    - not ansible_check_mode
+
+- name: 新建消费者角色
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", role, add, "{{ etcd_consumer.name }}"]
+  changed_when: true
+  when: etcd_consumer.name not in ((etcd_identities.results[1].stdout | from_json).roles | default([], true))
+
+- name: 读取角色权限
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, role, get, "{{ etcd_consumer.name }}"]
+  register: etcd_role_state
+  changed_when: false
+  when: >-
+    not ansible_check_mode or
+    etcd_consumer.name in ((etcd_identities.results[1].stdout | from_json).roles | default([], true))
+
+- name: 拒绝不符合声明的既有权限（不自动扩大或删除）
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((etcd_role_state.stdout | from_json).perm | default([], true)) in
+        [[], [{'permType': 2, 'key': etcd_consumer.prefix | b64encode,
+                'range_end': (etcd_consumer.prefix[:-1] ~ '0') | b64encode}]]
+    fail_msg: 既有角色权限与声明不同，请显式审查权限迁移。
+  when: etcd_role_state is not skipped
+
+- name: 授予唯一 prefix 读写权限
+  ansible.builtin.command:
+    argv:
+      - "{{ etcd_install_dir }}/etcdctl"
+      - role
+      - grant-permission
+      - "{{ etcd_consumer.name }}"
+      - readwrite
+      - "{{ etcd_consumer.prefix }}"
+      - --prefix=true
+  changed_when: true
+  when:
+    - etcd_role_state is not skipped
+    - ((etcd_role_state.stdout | from_json).perm | default([], true)) | length == 0
+
+- name: 读取用户角色
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, user, get, "{{ etcd_consumer.name }}"]
+  register: etcd_user_state
+  changed_when: false
+  when: >-
+    not ansible_check_mode or
+    etcd_consumer.name in ((etcd_identities.results[0].stdout | from_json).users | default([], true))
+
+- name: 拒绝消费者已有额外角色
+  ansible.builtin.assert:
+    that: >-
+      ((etcd_user_state.stdout | from_json).roles | default([], true))
+      | difference([etcd_consumer.name]) | length == 0
+  when: etcd_user_state is not skipped
+
+- name: 绑定消费者角色
+  ansible.builtin.command:
+    argv: ["{{ etcd_install_dir }}/etcdctl", user, grant-role, "{{ etcd_consumer.name }}", "{{ etcd_consumer.name }}"]
+  changed_when: true
+  when:
+    - etcd_user_state is not skipped
+    - etcd_consumer.name not in ((etcd_user_state.stdout | from_json).roles | default([], true))
+
+# 使用 gateway 的真实密码登录来核对 Bao 与 etcd 一致性，不能只看用户已存在。
+- name: 验证消费者密码可经 gateway 登录
+  ansible.builtin.uri:
+    url: "https://{{ etcd_address }}:{{ etcd_client_port }}/v3/auth/authenticate"
+    method: POST
+    client_cert: "{{ etcd_config_dir }}/gateway.crt"
+    client_key: "{{ etcd_config_dir }}/gateway.key"
+    ca_path: "{{ etcd_config_dir }}/ca.crt"
+    body_format: json
+    body:
+      name: "{{ etcd_consumer.name }}"
+      password: "{{ etcd_consumer_secret.json.data.data.password }}"
+    status_code: 200
+  no_log: true
+  when: not ansible_check_mode

@@ -1,0 +1,85 @@
+---
+# 仅扩展已经受管的两个 shared-etcd LXC；不移动/删除已有 rootfs 或数据卷。
+- name: 串行准备 standby 与备份仓库的独立 HDD 卷
+  hosts: pg_pve
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    pg_etcd_health:
+      - /opt/homelab-etcd/etcdctl
+      - --endpoints=https://192.168.10.127:2379,https://10.60.0.20:2379,https://10.60.0.21:2379
+      - --cacert=/etc/homelab-etcd/ca.crt
+      - --cert=/etc/homelab-etcd/admin.crt
+      - --key=/etc/homelab-etcd/admin.key
+      - endpoint
+      - health
+  tasks:
+    - name: 核对受管容器
+      ansible.builtin.command:
+        argv: [pct, config, "{{ pg_lxc_id }}"]
+      register: pg_lxc_config
+      changed_when: false
+      check_mode: false
+    - name: 拒绝未知容器或已有冲突挂载
+      ansible.builtin.assert:
+        that:
+          - pg_lxc_id in [150, 151]
+          - "'shared-etcd' in pg_lxc_config.stdout"
+          - "('hostname: ' ~ pg_lxc_hostname) in pg_lxc_config.stdout"
+          - >-
+            'mp0:' not in pg_lxc_config.stdout or
+            ('mp=' ~ pg_lxc_mount ~ ',') in (pg_lxc_config.stdout ~ ',')
+          - "'mp0:' not in pg_lxc_config.stdout or 'mp0: pve-rg-hdd:' in pg_lxc_config.stdout"
+    - name: 验证维护前全部 etcd 成员健康
+      ansible.builtin.command:
+        argv: "{{ pg_etcd_health }}"
+      delegate_to: localhost
+      changed_when: false
+      check_mode: false
+    - name: 首次添加独立卷
+      when: "'mp0:' not in pg_lxc_config.stdout and not ansible_check_mode"
+      block:
+        - name: 正常停止当前单个成员
+          ansible.builtin.command:
+            argv: [pct, shutdown, "{{ pg_lxc_id }}", --timeout, '60']
+          changed_when: true
+        - name: 从指定 HDD 池创建新的 mp0
+          ansible.builtin.command:
+            argv:
+              - pct
+              - set
+              - "{{ pg_lxc_id }}"
+              - --mp0
+              - "pve-rg-hdd:{{ pg_lxc_disk_gb }},mp={{ pg_lxc_mount }},backup=1"
+          changed_when: true
+        - name: 容器启动前限制新卷的初始同步速率
+          ansible.builtin.include_tasks: tasks/limit-resync.yml
+      always:
+        - name: 查询当前状态
+          ansible.builtin.command:
+            argv: [pct, status, "{{ pg_lxc_id }}"]
+          register: pg_lxc_status
+          changed_when: false
+        - name: 恢复容器运行
+          ansible.builtin.command:
+            argv: [pct, start, "{{ pg_lxc_id }}"]
+          changed_when: true
+          when: "'running' not in pg_lxc_status.stdout"
+    - name: 仅上调不足的内存限额，不缩容既有预算
+      ansible.builtin.command:
+        argv: [pct, set, "{{ pg_lxc_id }}", --memory, "{{ pg_lxc_memory }}"]
+      when: >-
+        ((pg_lxc_config.stdout | regex_findall('(?m)^memory: ([0-9]+)$')) | first | int) < pg_lxc_memory
+      changed_when: true
+    - name: 确认当前成员恢复再处理下一台
+      ansible.builtin.command:
+        argv: "{{ pg_etcd_health }}"
+      delegate_to: localhost
+      changed_when: false
+      register: pg_etcd_after
+      retries: 18
+      delay: 5
+      until: pg_etcd_after.rc == 0
+      when: not ansible_check_mode

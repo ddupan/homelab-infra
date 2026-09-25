@@ -1,0 +1,21 @@
+# 备份从仓库发起，发现实际 primary，避免切换后定时器仍依赖旧主。
+[global]
+repo1-path={{ pg_repo_path }}
+repo1-retention-full=3
+process-max=1
+compress-type=zst
+compress-level=3
+start-fast=y
+log-level-console=info
+log-level-file=off
+lock-path={{ pg_repo_path }}/lock
+[prod]
+{% for member in pg_backup_members %}
+pg{{ loop.index }}-host={{ member.address }}
+pg{{ loop.index }}-host-user=pgprod
+pg{{ loop.index }}-host-config=/etc/homelab-postgresql/prod/pgbackrest.conf
+pg{{ loop.index }}-path=/var/lib/homelab-postgresql/prod/data
+pg{{ loop.index }}-port=5432
+pg{{ loop.index }}-socket-path=/run/homelab-postgresql-prod
+pg{{ loop.index }}-user=pgprod
+{% endfor %}

@@ -1,0 +1,17 @@
+---
+etcd_version: 3.7.2
+etcd_archive_checksum: sha256:3a3679bc51a4ee9d30bccea1da7cd4fe62c6fc1d2ca1255068d2c53bf3026135
+etcd_install_dir: /opt/homelab-etcd
+etcd_config_dir: /etc/homelab-etcd
+etcd_data_dir: /var/lib/homelab-etcd
+etcd_cluster_token: homelab-shared-etcd-v1
+etcd_client_port: 2379
+etcd_peer_port: 2380
+etcd_metrics_port: 2381
+etcd_quota_bytes: 268435456
+etcd_memory_high: 256M
+etcd_memory_max: 384M
+etcd_certificate_ttl: 1440h
+etcd_renew_before: +14d
+etcd_snapshot_dir: /var/backups/homelab-etcd
+etcd_snapshot_keep: 3
