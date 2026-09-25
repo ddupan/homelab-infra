@@ -74,14 +74,17 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images",
-                    "spiffe://ddupan.top/dev/panxiao81"
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
                   ],
                   "actions": [
                     "read",
                     "create",
                     "update"
                   ]
+                },
+                {
+                  "users": ["spiffe://ddupan.top/dev/panxiao81"],
+                  "actions": ["read", "create", "update", "delete"]
                 }
               ],
               "defaultPolicy": [
@@ -92,14 +95,17 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images",
-                    "spiffe://ddupan.top/dev/panxiao81"
+                    "spiffe://ddupan.top/ci/panxiao81/gitea-dynamic-runner/publish-images"
                   ],
                   "actions": [
                     "read",
                     "create",
                     "update"
                   ]
+                },
+                {
+                  "users": ["spiffe://ddupan.top/dev/panxiao81"],
+                  "actions": ["read", "create", "update", "delete"]
                 }
               ],
               "defaultPolicy": [
