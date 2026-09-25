@@ -116,6 +116,13 @@ gitea:
       scopes: openid profile email groups
       groupClaimName: groups
       adminGroup: gitea-admins
+    - name: hydra
+      provider: openidConnect
+      existingSecret: gitea-hydra-oidc
+      autoDiscoverUrl: https://hydra.ad.ddupan.top/.well-known/openid-configuration
+      scopes: openid profile email groups
+      groupClaimName: groups
+      adminGroup: gitea-admins
 
 persistence:
   size: 20Gi
