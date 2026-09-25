@@ -1,0 +1,185 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: Flux 暂停的失败对象不报警
+  interval: 1m
+  input_series:
+  - series: gotk_resource_info{job="kube-state-metrics",ready="False",suspended="true",customresource_kind="HelmRelease",resource_namespace="app",name="paused"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: FluxResourceNotReady
+    exp_alerts: []
+- name: Flux 缺省 suspend 仍检测失败
+  interval: 1m
+  input_series:
+  - series: gotk_resource_info{job="kube-state-metrics",ready="False",customresource_kind="HelmRelease",resource_namespace="app",name="broken"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: FluxResourceNotReady
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: FluxResourceNotReady
+    exp_alerts:
+    - exp_labels:
+        job: kube-state-metrics
+        ready: 'False'
+        customresource_kind: HelmRelease
+        resource_namespace: app
+        name: broken
+        severity: warning
+      exp_annotations:
+        summary: Flux HelmRelease app/broken 未就绪
+        description: 检查对象 conditions、依赖和 controller 日志；主动 suspend 不触发，不自动解除暂停。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+- name: 证书一天内到期只由 critical 接替
+  interval: 1m
+  input_series:
+  - series: certmanager_certificate_expiration_timestamp_seconds{job="cert-manager",namespace="app",name="tls"}
+    values: 3600x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: CertificateExpiringSoon
+    exp_alerts: []
+- name: 过期证书仍持续 critical
+  interval: 1m
+  input_series:
+  - series: certmanager_certificate_expiration_timestamp_seconds{job="cert-manager",namespace="app",name="tls"}
+    values: '0x30'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: CertificateExpiryCritical
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: CertificateExpiryCritical
+    exp_alerts:
+    - exp_labels:
+        job: cert-manager
+        namespace: app
+        name: tls
+        severity: critical
+      exp_annotations:
+        summary: 证书 app/tls 即将到期或已过期
+        description: 不足一天或已经过期；立即检查续期与入口证书。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+- name: ESO False 零值不能导致健康对象误报
+  interval: 1m
+  input_series:
+  - series: externalsecret_status_condition{job="external-secrets",condition="Ready",status="False",namespace="app",name="credentials"}
+    values: '0x30'
+  - series: externalsecret_status_condition{job="external-secrets",condition="Ready",status="True",namespace="app",name="credentials"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: ExternalSecretNotReady
+    exp_alerts: []
+- name: ESO 失败持续十分钟报警
+  interval: 1m
+  input_series:
+  - series: externalsecret_status_condition{job="external-secrets",condition="Ready",status="True",namespace="app",name="credentials"}
+    values: '0x30'
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: ExternalSecretNotReady
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: ExternalSecretNotReady
+    exp_alerts:
+    - exp_labels:
+        job: external-secrets
+        condition: Ready
+        status: 'True'
+        namespace: app
+        name: credentials
+        severity: warning
+      exp_annotations:
+        summary: Secret 同步 app/credentials 未就绪
+        description: 检查 ExternalSecret 状态及 provider 权限、网络；不要输出 Secret 内容。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+- name: CNPG 聚合数据库连接并对齐实例限额
+  interval: 1m
+  input_series:
+  - series: cnpg_backends_total{job="cnpg",namespace="db",pod="pg-1",datname="a"}
+    values: 50x30
+  - series: cnpg_backends_total{job="cnpg",namespace="db",pod="pg-1",datname="b"}
+    values: 40x30
+  - series: cnpg_pg_settings_setting{job="cnpg",namespace="db",pod="pg-1",name="max_connections"}
+    values: 100x30
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: CnpgConnectionsHigh
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: CnpgConnectionsHigh
+    exp_alerts:
+    - exp_labels:
+        job: cnpg
+        namespace: db
+        pod: pg-1
+        severity: warning
+      exp_annotations:
+        summary: CNPG pg-1 连接使用率超过 80%
+        description: 检查连接池、空闲连接和连接泄漏，不直接提高 max_connections。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+- name: SeaweedFS 磁盘分母忽略 type 标签
+  interval: 1m
+  input_series:
+  - series: SeaweedFS_volumeServer_resource{job="seaweedfs-volume",name="/data",type="avail"}
+    values: 5x30
+  - series: SeaweedFS_volumeServer_resource{job="seaweedfs-volume",name="/data",type="all"}
+    values: 100x30
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: SeaweedVolumeDiskLow
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: SeaweedVolumeDiskLow
+    exp_alerts:
+    - exp_labels:
+        job: seaweedfs-volume
+        name: /data
+        severity: warning
+      exp_annotations:
+        summary: SeaweedFS /data 可用空间不足 10%
+        description: 检查 volume 文件系统容量、保留策略与底层 ZFS；不要直接删除卷文件。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+- name: NATS 历史慢消费者计数不持续报警
+  interval: 1m
+  input_series:
+  - series: nats_varz_slow_consumers{job="nats/nats"}
+    values: 10x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: NatsSlowConsumers
+    exp_alerts: []
+- name: Flux 根对象状态指标缺失报警
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: FluxStateMetricsMissing
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: FluxStateMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        job: kube-state-metrics
+        customresource_kind: Kustomization
+        resource_namespace: flux-system
+        name: flux-system
+        severity: warning
+      exp_annotations:
+        summary: Flux 对象状态指标缺失
+        description: 检查 kube-state-metrics 自定义资源配置、RBAC 与采集；不能把空结果当作健康。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+- name: OCI HelmRepository 没有 Ready 条件仍不误报
+  interval: 1m
+  input_series:
+  - series: gotk_resource_info{job="kube-state-metrics",customresource_kind="HelmRepository",repository_type="oci",name="envoy-gateway"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: FluxResourceNotReady
+    exp_alerts: []

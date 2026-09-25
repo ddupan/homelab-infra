@@ -1,0 +1,148 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: data-services
+  namespace: monitoring
+spec:
+  groups:
+  - name: data-services
+    interval: 30s
+    rules:
+    - alert: DataServiceMetricsUnavailable
+      expr: up{job="cnpg"} == 0 or absent(up{job="cnpg"})
+      for: 5m
+      labels:
+        severity: critical
+        job: cnpg
+      annotations:
+        summary: 数据服务 {{ $labels.job }} 指标不可用
+        description: 检查监控对象、Pod 与 exporter；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: DataServiceMetricsUnavailable
+      expr: up{job="seaweedfs-master"} == 0 or absent(up{job="seaweedfs-master"})
+      for: 5m
+      labels:
+        severity: critical
+        job: seaweedfs-master
+      annotations:
+        summary: 数据服务 {{ $labels.job }} 指标不可用
+        description: 检查监控对象、Pod 与 exporter；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: DataServiceMetricsUnavailable
+      expr: up{job="seaweedfs-volume"} == 0 or absent(up{job="seaweedfs-volume"})
+      for: 5m
+      labels:
+        severity: critical
+        job: seaweedfs-volume
+      annotations:
+        summary: 数据服务 {{ $labels.job }} 指标不可用
+        description: 检查监控对象、Pod 与 exporter；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: DataServiceMetricsUnavailable
+      expr: up{job="seaweedfs-filer"} == 0 or absent(up{job="seaweedfs-filer"})
+      for: 5m
+      labels:
+        severity: critical
+        job: seaweedfs-filer
+      annotations:
+        summary: 数据服务 {{ $labels.job }} 指标不可用
+        description: 检查监控对象、Pod 与 exporter；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: CnpgPostgresDown
+      expr: cnpg_collector_up{job="cnpg"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: CNPG {{ $labels.pod }} PostgreSQL 不可用
+        description: 检查数据库 Pod 状态、实例日志和存储；exporter up 不代表数据库可用。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: CnpgMetricsCollectionFailed
+      expr: cnpg_collector_last_collection_error{job="cnpg"} == 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: CNPG {{ $labels.pod }} SQL 指标采集失败
+        description: 检查内置 exporter 日志、数据库连接与查询兼容性。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: CnpgConnectionsHigh
+      expr: sum by (job,namespace,pod) (cnpg_backends_total{job="cnpg"}) / on(job,namespace,pod)
+        max by(job,namespace,pod) (cnpg_pg_settings_setting{job="cnpg",name="max_connections"})
+        > 0.8
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: CNPG {{ $labels.pod }} 连接使用率超过 80%
+        description: 检查连接池、空闲连接和连接泄漏，不直接提高 max_connections。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: CnpgLongTransaction
+      expr: cnpg_backends_max_tx_duration_seconds{job="cnpg",state!="idle"} > 300
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: CNPG {{ $labels.pod }} 存在长事务
+        description: 事务持续超过五分钟并维持五分钟，检查阻塞与 idle in transaction；先确认业务再处理。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: NatsJetStreamStorageHigh
+      expr: nats_varz_jetstream_stats_storage{job="nats/nats"} / nats_varz_jetstream_config_max_storage{job="nats/nats"}
+        > 0.8
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: NATS JetStream 文件容量超过 80%
+        description: 检查服务端配额与消息保留策略；该指标不代表单个 Account 或 stream 配额。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: NatsJetStreamMemoryHigh
+      expr: nats_varz_jetstream_stats_memory{job="nats/nats"} / nats_varz_jetstream_config_max_memory{job="nats/nats"}
+        > 0.8
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: NATS JetStream 内存容量超过 80%
+        description: 检查 memory store 消息保留与服务端内存配额。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: NatsSlowConsumers
+      expr: increase(nats_varz_slow_consumers{job="nats/nats"}[10m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: NATS 检测到慢消费者
+        description: 检查消费者处理速率与网络；此规则不能代替 JetStream consumer 积压监控。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: SeaweedVolumeDiskLow
+      expr: SeaweedFS_volumeServer_resource{job="seaweedfs-volume",type="avail"} /
+        ignoring(type) SeaweedFS_volumeServer_resource{job="seaweedfs-volume",type="all"}
+        < 0.1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: SeaweedFS {{ $labels.name }} 可用空间不足 10%
+        description: 检查 volume 文件系统容量、保留策略与底层 ZFS；不要直接删除卷文件。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: SeaweedVolumeDiskReadOnly
+      expr: SeaweedFS_volumeServer_read_only_volumes{job="seaweedfs-volume",type="isDiskSpaceLow"}
+        > 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: SeaweedFS 因磁盘空间不足限制卷写入
+        description: 检查磁盘容量和 volume 日志；主动只读或满卷切换不按此故障处理。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    - alert: SeaweedVolumeWriteFailures
+      expr: increase(SeaweedFS_volumeServer_file_write_failures{job="seaweedfs-volume"}[5m])
+        > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: SeaweedFS 卷写入失败
+        description: 检查 volume 日志、磁盘状态及上游请求；不代表已经验证 S3 端到端可用。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md

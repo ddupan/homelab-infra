@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cnpg
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - shared-db
+  selector:
+    matchLabels:
+      cnpg.io/cluster: shared-postgresql
+      cnpg.io/podRole: instance
+  podTargetLabels:
+  - cnpg.io/cluster
+  podMetricsEndpoints:
+  - port: metrics
+    interval: 30s
+    honorLabels: true
+    relabelings:
+    - targetLabel: job
+      replacement: cnpg
