@@ -1,10 +1,10 @@
 # Gitea dynamic runner
 
 本目录部署单副本 Go controller，在同一进程运行 RunnerService scheduler、原生
-Kubernetes Pod worker、OpenSandbox VM worker 和 SPIFFE mTLS facade：
+Kubernetes worker、OpenSandbox worker 和 SPIFFE mTLS facade：
 
 ```text
-Gitea RunnerService -> scheduler -> JetStream ci.runner.pod
+Gitea RunnerService -> scheduler -> JetStream ci.runner.container.kubernetes
                                       |
                                       v
                               homelab Kubernetes Pod
@@ -15,7 +15,8 @@ Gitea RunnerService -> scheduler -> JetStream ci.runner.pod
                                      Gitea
 ```
 
-Pod backend 不经过 OpenSandbox。VM backend 后续启用时才访问 VyOS 暴露的
+`container+kubernetes` placement 不经过 OpenSandbox；`vm+opensandbox` placement
+访问 VyOS 暴露的
 OpenSandbox Lifecycle API；本目录不修改 sandbox 平台侧 ESO、Bao Terraform 或
 OpenSandbox chart 所有权边界。
 
@@ -82,9 +83,9 @@ kubectl -n dynamic-runner rollout status deploy/dynamic-runner-controller --time
 kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
 ```
 
-确认 scheduler 只领取一条 `[self-hosted,pod]` task，然后验证：
+确认 scheduler 只领取一条 `[self-hosted,container,kubernetes]` task，然后验证：
 
-1. assignment message 进入并离开 durable `pod` consumer；
+1. assignment message 进入并离开 durable `container.kubernetes` consumer；
 2. `gitea-task-<task-id>` Pod 创建，取得实际 Pod UID；
 3. 同名 `ClusterStaticEntry` 的 parent ID 包含该 UID，SPIFFE ID 使用 repository/job key；
 4. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
@@ -96,7 +97,8 @@ ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_C
 `VM_CAPACITY`。
 
 VM backend 已通过 `vm-dev` canary 完成 Docker、kind、SPIFFE 和完整生命周期测试。
-生产调度标签为 `[self-hosted, vm]`，初始保持 `VM_CAPACITY=1`；扩容前先观察实际任务的
+生产规范标签为 `[self-hosted, vm, opensandbox]`，旧 `[self-hosted, vm]` 仍严格映射到
+同一 placement。初始保持 `VM_CAPACITY=1`；扩容前先观察实际任务的
 资源水位、等待时间以及 OpenSandbox 是否存在 terminal sandbox 残留。
 
 ## 回滚

@@ -38,12 +38,12 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:7374a08a238ca1c76a9aee33c57520ae0edaa9b5b443708487d5b3a69a61da4e
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:17edfa094b0fa7fcbe5cd39301c3bfc662431860bb99390c34b05b59bc7af3d7
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
             - name: COMPONENTS
-              value: scheduler,pod-worker,vm-worker
+              value: scheduler,kubernetes-worker,opensandbox-worker
             - name: GITEA_INSTANCE_URL
               value: https://git.ddupan.top
             - name: GITEA_RUNNER_UUID_FILE
