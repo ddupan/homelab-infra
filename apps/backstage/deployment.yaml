@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backstage
-          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:97ebaf4b1086bff2e70ddc4a02e90c95d347db0803becec388c781e463d40b97
+          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:493aed471c58b21db7a108a333417498fc03682d119282b89cd0318563d6cae6
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
@@ -40,8 +40,6 @@ spec:
               value: backstage
             - name: GITEA_HOST
               value: git.ddupan.top
-            - name: GITEA_ORG
-              value: panxiao81
           envFrom:
             - secretRef:
                 name: backstage
