@@ -1,0 +1,22 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: backstage
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: envoy-gateway
+    - name: external-secrets
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: backstage
+      namespace: backstage
+  interval: 10m
+  path: ./apps/backstage
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 5m
+  wait: true
