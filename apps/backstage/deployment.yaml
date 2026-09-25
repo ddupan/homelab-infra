@@ -5,6 +5,7 @@ metadata:
   namespace: backstage
   labels:
     app.kubernetes.io/name: backstage
+    backstage.io/kubernetes-id: homelab-backstage
 spec:
   replicas: 1
   strategy:
@@ -16,6 +17,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: backstage
+        backstage.io/kubernetes-id: homelab-backstage
     spec:
       serviceAccountName: backstage
       securityContext:
@@ -25,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backstage
-          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:493aed471c58b21db7a108a333417498fc03682d119282b89cd0318563d6cae6
+          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:e5a12550726f19a680bc7c40e2cc07cc624318f9279ee121814d293a006ef210
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
