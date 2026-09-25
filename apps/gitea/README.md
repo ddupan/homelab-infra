@@ -44,3 +44,15 @@ API、OIDC、Git/Flux 和 runner 均已验证。第二跳按明确决定跳过�
 结构，或者 release notes 指出相关 breaking migration 时，才恢复停机一致备份、分阶段
 suspend、详细日志审计和扩展验收。出现启动失败或 migration error 时也立即升级为完整
 故障流程。
+
+## Hydra 人类登录 PoC
+
+新增 `hydra` OIDC 登录源，旧 `authelia` 入口保留。Hydra 通过通用 OIDC Login/Consent
+适配器转到现有 Authelia 完成人类认证；不是 Gitea 直接验证 LDAP 或 SPIFFE。
+入口为 `https://git.ddupan.top/user/oauth2/hydra`，需 LAN/Tailscale 可达 Hydra 内网域名。
+
+新 client secret 通过 `ExternalSecret/gitea-hydra-oidc` 从 OpenBao 投射。沿用
+preferred_username、已验证邮箱与 groups；当前仍映射 gitea-admins，不在本轮切换组模型。
+先部署并验证 Hydra discovery 后再接入本配置，避免 Gitea init 因上游不可达而失败。
+
+实际登录验收与部署状态见 wiki；依赖和回退见 [Hydra README](../hydra/README.md)。
