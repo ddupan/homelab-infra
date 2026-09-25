@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra-public
+  namespace: hydra
+spec:
+  selector:
+    app: hydra
+  ports:
+  - port: 4444
+    targetPort: 4444
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra-admin
+  namespace: hydra
+spec:
+  selector:
+    app: hydra
+  ports:
+  - port: 4445
+    targetPort: 4445
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra-login
+  namespace: hydra
+spec:
+  selector:
+    app: hydra-login
+  ports:
+  - port: 8080
+    targetPort: 8080
