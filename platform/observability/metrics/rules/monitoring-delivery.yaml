@@ -1,0 +1,58 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: monitoring-delivery
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  - name: monitoring-delivery
+    interval: 30s
+    rules:
+    - alert: KubeStateMetricsUnavailable
+      expr: up{job="kube-state-metrics"} == 0 or absent(up{job="kube-state-metrics"})
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: kube-state-metrics 采集不可用
+        description: 检查 HelmRelease、ServiceMonitor 转换、targets 与 exporter；目标消失也会触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: NodeExporterUnavailable
+      expr: up{job="node-exporter"} == 0 or absent(up{job="node-exporter"})
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: node-exporter 采集不可用
+        description: 检查节点与 exporter，主机健康规则依赖此采集。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: NatsMetricsUnavailable
+      expr: up{job="nats/nats"} == 0 or absent(up{job="nats/nats"})
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: NATS 指标采集不可用
+        description: 依次检查 PodMonitor、转换后的 VMPodScrape、:7777 exporter 及 targets。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: AlertmanagerTelegramDeliveryFailed
+      expr: sum by(job,instance,integration) (increase(alertmanager_notifications_failed_total{job="vmalertmanager-main",integration="telegram"}[5m]))
+        > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Alertmanager 向 Telegram 发送失败
+        description: 检查网络、bot token 和频道权限。若 Telegram 完全不可达，本告警也无法经同一渠道送达；需在 Alertmanager/Grafana 排查，集群外心跳另行建设。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: AlertmanagerConfigurationReloadFailed
+      expr: alertmanager_config_last_reload_successful{job="vmalertmanager-main"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: Alertmanager 配置加载失败
+        description: 检查 operator 和 Alertmanager 日志、配置格式及 Secret 引用。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

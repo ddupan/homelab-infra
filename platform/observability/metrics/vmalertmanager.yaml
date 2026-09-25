@@ -24,6 +24,12 @@ spec:
         - receiver: telegram
           matchers:
             - severity="warning"
+    inhibit_rules:
+      - source_matchers:
+          - alertname="KubePodCrashLooping"
+        target_matchers:
+          - alertname="KubePodFrequentRestarts"
+        equal: [namespace, pod, container]
     receivers:
       - name: blackhole
       - name: telegram

@@ -1,0 +1,137 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 健康 ZFS 的零值故障状态不报警
+  interval: 1m
+  input_series:
+  - series: node_zfs_zpool_state{job="node-exporter",instance="laptop",zpool="data",state="degraded"}
+    values: '0x20'
+  - series: node_zfs_zpool_state{job="node-exporter",instance="laptop",zpool="data",state="online"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: HostZpoolUnhealthy
+    exp_alerts: &id001 []
+- name: ZFS 降级持续五分钟触发
+  interval: 1m
+  input_series:
+  - series: node_zfs_zpool_state{job="node-exporter",instance="laptop",zpool="data",state="degraded"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: HostZpoolUnhealthy
+    exp_alerts: *id001
+  - eval_time: 6m
+    alertname: HostZpoolUnhealthy
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        zpool: data
+        state: degraded
+        severity: critical
+      exp_annotations:
+        summary: 主机 laptop ZFS 池 data 状态 degraded
+        description: 检查 zpool status、磁盘和冗余；零值状态不触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 忽略旧 docker-hosts 重复主机指标
+  interval: 1m
+  input_series:
+  - series: node_memory_MemAvailable_bytes{job="node-exporter",instance="laptop"}
+    values: 50x20
+  - series: node_memory_MemTotal_bytes{job="node-exporter",instance="laptop"}
+    values: 100x20
+  - series: node_memory_MemAvailable_bytes{job="docker-hosts",instance="laptop"}
+    values: 1x20
+  - series: node_memory_MemTotal_bytes{job="docker-hosts",instance="laptop"}
+    values: 100x20
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: HostMemoryLow
+    exp_alerts: *id001
+- name: 临时文件系统耗尽不触发持久磁盘告警
+  interval: 1m
+  input_series:
+  - series: node_filesystem_avail_bytes{job="node-exporter",instance="laptop",device="tmpfs",mountpoint="/run",fstype="tmpfs"}
+    values: 1x20
+  - series: node_filesystem_size_bytes{job="node-exporter",instance="laptop",device="tmpfs",mountpoint="/run",fstype="tmpfs"}
+    values: 100x20
+  - series: node_filesystem_readonly{job="node-exporter",instance="laptop",device="tmpfs",mountpoint="/run",fstype="tmpfs"}
+    values: '0x20'
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HostFilesystemSpaceLow
+    exp_alerts: *id001
+- name: Deployment 允许短暂滚动且缩零不报错
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{job="kube-state-metrics",namespace="app",deployment="web"}
+    values: 2x20
+  - series: kube_deployment_status_replicas_available{job="kube-state-metrics",namespace="app",deployment="web"}
+    values: 1x20
+  - series: kube_deployment_spec_replicas{job="kube-state-metrics",namespace="app",deployment="scaled-down"}
+    values: '0x20'
+  - series: kube_deployment_status_replicas_available{job="kube-state-metrics",namespace="app",deployment="scaled-down"}
+    values: '0x20'
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: *id001
+  - eval_time: 11m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: app
+        deployment: web
+        severity: warning
+      exp_annotations:
+        summary: Deployment app/web 副本不足
+        description: 可用副本持续 10 分钟低于声明值；缩容至零不会触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: NATS 发现集合完全消失也报警
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: NatsMetricsUnavailable
+    exp_alerts:
+    - exp_labels:
+        job: nats/nats
+        severity: warning
+      exp_annotations:
+        summary: NATS 指标采集不可用
+        description: 依次检查 PodMonitor、转换后的 VMPodScrape、:7777 exporter 及 targets。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 历史 OOM 没有新重启不反复报警
+  interval: 1m
+  input_series:
+  - series: kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",namespace="app",pod="web",container="web",reason="OOMKilled"}
+    values: 1x20
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web"}
+    values: 5x20
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubePodOOMKilled
+    exp_alerts: *id001
+- name: Telegram 失败跨 reason 汇总为一条
+  interval: 1m
+  input_series:
+  - series: alertmanager_notifications_failed_total{job="vmalertmanager-main",instance="am",integration="telegram",reason="clientError"}
+    values: 0+1x20
+  - series: alertmanager_notifications_failed_total{job="vmalertmanager-main",instance="am",integration="telegram",reason="serverError"}
+    values: 0+1x20
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: AlertmanagerTelegramDeliveryFailed
+    exp_alerts:
+    - exp_labels:
+        job: vmalertmanager-main
+        instance: am
+        integration: telegram
+        severity: critical
+      exp_annotations:
+        summary: Alertmanager 向 Telegram 发送失败
+        description: 检查网络、bot token 和频道权限。若 Telegram 完全不可达，本告警也无法经同一渠道送达；需在 Alertmanager/Grafana
+          排查，集群外心跳另行建设。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

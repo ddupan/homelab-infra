@@ -1,0 +1,66 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: host-health
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  - name: host-health
+    interval: 30s
+    rules:
+    - alert: HostMemoryLow
+      expr: (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})
+        < 0.10
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} 可用内存不足 10%
+        description: 检查主机内存、Swap、进程 PSS；仅使用 node-exporter job，避免重复采集统计。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostFilesystemSpaceLow
+      expr: (node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        < 0.10) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        == 0)
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} {{ $labels.mountpoint }} 可用空间不足 10%
+        description: 检查文件系统和 ZFS dataset 容量，清理前确认数据归属。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostFilesystemInodesLow
+      expr: (node_filesystem_files_free{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        / node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        < 0.10) and on(instance,device,mountpoint) (node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        > 0) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        == 0)
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} {{ $labels.mountpoint }} inode 不足 10%
+        description: 检查小文件数量，确认 filesystem 是否耗尽 inode。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostFilesystemReadOnly
+      expr: node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+        == 1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: 主机 {{ $labels.instance }} {{ $labels.mountpoint }} 变为只读
+        description: 排查磁盘和文件系统错误；不要直接强制重新挂载。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostZpoolUnhealthy
+      expr: node_zfs_zpool_state{job="node-exporter",state!="online"} == 1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: 主机 {{ $labels.instance }} ZFS 池 {{ $labels.zpool }} 状态 {{ $labels.state }}
+        description: 检查 zpool status、磁盘和冗余；零值状态不触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

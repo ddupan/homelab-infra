@@ -17,3 +17,7 @@ resources:
   - scrapes/kubelet.yaml
   - exporters/node-exporter.yaml
   - exporters/process-exporter.yaml
+  - exporters/kube-state-metrics-helmrelease.yaml
+  - rules/kubernetes-health.yaml
+  - rules/host-health.yaml
+  - rules/monitoring-delivery.yaml

@@ -4,6 +4,8 @@ metadata:
   name: vm-operator
   namespace: monitoring
 spec:
+  dependsOn:
+    - name: prometheus-operator-crds
   chart:
     spec:
       chart: victoria-metrics-operator
