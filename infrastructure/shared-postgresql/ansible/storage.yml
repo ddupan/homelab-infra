@@ -1,0 +1,57 @@
+---
+# 只创建专属 dataset；PVE 新挂载需串行重启 etcd 成员，单独处理，不混入日常数据库收敛。
+- name: 创建 laptop 独立生产与开发 dataset
+  hosts: pg-laptop
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 查询专属 ZFS dataset
+      ansible.builtin.command:
+        argv: [zfs, list, -H, -o, name, "data/homelab-pg-{{ item }}"]
+      loop: [prod, dev]
+      register: pg_datasets
+      changed_when: false
+      failed_when: pg_datasets.rc not in [0, 1]
+      check_mode: false
+    - name: 检查新 dataset 挂载路径未被占用
+      ansible.builtin.stat:
+        path: "{{ pg_data_root }}/{{ item.item }}"
+      loop: "{{ pg_datasets.results }}"
+      when: item.rc == 1
+      register: pg_new_mounts
+    - name: 禁止覆盖已有目录
+      ansible.builtin.assert:
+        that: not item.stat.exists
+      loop: "{{ pg_new_mounts.results }}"
+      when: not (item.skipped | default(false))
+    - name: 新建本项目专用 ZFS dataset
+      ansible.builtin.command:
+        argv:
+          - zfs
+          - create
+          - -o
+          - "mountpoint={{ pg_data_root }}/{{ item.item }}"
+          - -o
+          - recordsize=16K
+          - -o
+          - compression=lz4
+          - -o
+          - atime=off
+          - -o
+          - "quota={{ '32G' if item.item == 'prod' else '8G' }}"
+          - -o
+          - org.homelab:owner=shared-postgresql
+          - "data/homelab-pg-{{ item.item }}"
+      loop: "{{ pg_datasets.results }}"
+      when: item.rc == 1
+      changed_when: true
+    - name: 核对所有权与挂载路径
+      ansible.builtin.command:
+        argv: [zfs, get, -H, -o, value, 'org.homelab:owner,mountpoint', "data/homelab-pg-{{ item }}"]
+      loop: [prod, dev]
+      register: pg_dataset_owner
+      changed_when: false
+      failed_when: >-
+        pg_dataset_owner.rc != 0 or
+        pg_dataset_owner.stdout_lines != ['shared-postgresql', pg_data_root ~ '/' ~ item]
+      when: not ansible_check_mode

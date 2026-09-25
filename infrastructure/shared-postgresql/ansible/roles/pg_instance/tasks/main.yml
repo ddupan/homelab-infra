@@ -1,0 +1,80 @@
+---
+- name: 派生实例专用路径
+  ansible.builtin.set_fact:
+    pg_profile: "{{ pg_profiles[pg_instance] }}"
+    pg_config_dir: "{{ pg_config_root }}/{{ pg_instance }}"
+    pg_parent_dir: "{{ pg_data_root }}/{{ pg_instance }}"
+    pg_data_dir: "{{ pg_data_root }}/{{ pg_instance }}/data"
+    pg_socket_dir: "/run/homelab-postgresql-{{ pg_instance }}"
+    pg_member: "{{ inventory_hostname }}"
+    pg_credentials: "{{ hostvars['localhost'].pg_loaded_credentials[pg_instance] }}"
+    pg_etcd_credentials: "{{ hostvars['localhost'].pg_loaded_etcd }}"
+  no_log: true
+- name: 创建实例操作系统组
+  ansible.builtin.group:
+    name: "{{ pg_profile.user }}"
+    system: true
+- name: 创建实例操作系统账号
+  ansible.builtin.user:
+    name: "{{ pg_profile.user }}"
+    group: "{{ pg_profile.user }}"
+    home: "{{ pg_parent_dir }}"
+    create_home: false
+    shell: /bin/bash
+    system: true
+- name: 创建隔离目录
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ pg_profile.user }}"
+    group: "{{ pg_profile.user }}"
+    mode: '0700'
+  loop:
+    - "{{ pg_parent_dir }}"
+    - "{{ pg_data_dir }}"
+    - "{{ pg_socket_dir }}"
+    - "{{ pg_parent_dir }}/backup-lock"
+    - "{{ pg_parent_dir }}/backup-spool"
+- name: 保持共享配置父目录可遍历，实例目录各自受限
+  ansible.builtin.file:
+    path: "{{ pg_config_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: 创建 root 管理的配置目录
+  ansible.builtin.file:
+    path: "{{ pg_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ pg_profile.user }}"
+    mode: '0750'
+- name: 签发实例服务器证书
+  ansible.builtin.include_tasks: certificate.yml
+  vars:
+    pg_cert_name: server
+    pg_cert_cn: "{{ pg_profile.dns }}"
+    pg_cert_role: "homelab-pg-{{ pg_instance }}"
+    pg_cert_eku: [serverAuth]
+- name: 签发 Patroni 独立无 CN 客户端证书
+  ansible.builtin.include_tasks: certificate.yml
+  vars:
+    pg_cert_name: etcd
+    pg_cert_cn: ''
+    pg_cert_role: homelab-etcd-client
+    pg_cert_eku: [clientAuth]
+  when: pg_instance == 'prod'
+- name: 写入实例配置
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ pg_config_dir }}/{{ item }}"
+    owner: root
+    group: "{{ pg_profile.user }}"
+    mode: '0640'
+  loop: "{{ ['patroni.yml', 'pgbackrest.conf'] if pg_instance == 'prod' else ['postgresql.conf', 'pg_hba.conf'] }}"
+  no_log: true
+- name: 安装实例专用服务（不自动启动或重启）
+  ansible.builtin.template:
+    src: instance.service.j2
+    dest: "/etc/systemd/system/homelab-postgresql-{{ pg_instance }}.service"
+    mode: '0644'

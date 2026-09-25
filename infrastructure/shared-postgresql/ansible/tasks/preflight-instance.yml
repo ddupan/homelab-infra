@@ -1,0 +1,33 @@
+---
+- name: 检查现有 PGDATA
+  ansible.builtin.stat:
+    path: "{{ pg_data_root }}/{{ pg_instance }}/data/PG_VERSION"
+  register: pg_existing_version
+- name: 检查本项目所有权标记
+  ansible.builtin.stat:
+    path: "{{ pg_data_root }}/{{ pg_instance }}/.homelab-owned"
+  register: pg_owned_marker
+- name: 拒绝接管未知现有实例
+  ansible.builtin.assert:
+    that: not pg_existing_version.stat.exists or pg_owned_marker.stat.exists
+    fail_msg: 发现未登记 PGDATA，停止；导入和恢复必须使用独立流程。
+- name: 核对已登记实例
+  when: pg_owned_marker.stat.exists
+  block:
+    - name: 读取实例标记
+      ansible.builtin.slurp:
+        src: "{{ pg_data_root }}/{{ pg_instance }}/.homelab-owned"
+      register: pg_marker_content
+    - name: 验证实例身份
+      ansible.builtin.assert:
+        that: (pg_marker_content.content | b64decode | trim) == ('shared-postgresql/' ~ pg_instance)
+- name: 核对已有实例主版本，禁止隐式升级
+  when: pg_existing_version.stat.exists
+  block:
+    - name: 读取 PG_VERSION
+      ansible.builtin.slurp:
+        src: "{{ pg_data_root }}/{{ pg_instance }}/data/PG_VERSION"
+      register: pg_existing_version_content
+    - name: 主版本必须匹配
+      ansible.builtin.assert:
+        that: (pg_existing_version_content.content | b64decode | trim) == (pg_major | string)

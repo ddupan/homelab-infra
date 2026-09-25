@@ -1,0 +1,56 @@
+---
+- name: 设置现有实例路径
+  ansible.builtin.set_fact:
+    pg_profile: "{{ pg_profiles[pg_instance] }}"
+    pg_config_dir: "{{ pg_config_root }}/{{ pg_instance }}"
+    pg_socket_dir: "/run/homelab-postgresql-{{ pg_instance }}"
+    pg_certificates_changed: false
+- name: 续签前必须存在运行中的受管服务
+  ansible.builtin.command:
+    argv: [systemctl, is-active, "homelab-postgresql-{{ pg_instance }}.service"]
+  changed_when: false
+- name: 检查服务器证书续签
+  ansible.builtin.include_role:
+    name: pg_instance
+    tasks_from: certificate
+  vars:
+    pg_cert_name: server
+    pg_cert_cn: "{{ pg_profile.dns }}"
+    pg_cert_role: "homelab-pg-{{ pg_instance }}"
+    pg_cert_eku: [serverAuth]
+- name: 检查生产 DCS 客户端证书续签
+  ansible.builtin.include_role:
+    name: pg_instance
+    tasks_from: certificate
+  vars:
+    pg_cert_name: etcd
+    pg_cert_cn: ''
+    pg_cert_role: homelab-etcd-client
+    pg_cert_eku: [clientAuth]
+  when: pg_instance == 'prod'
+- name: 重载已续签实例（Patroni 或 PostgreSQL 主进程接收 HUP）
+  ansible.builtin.command:
+    argv: [systemctl, kill, --kill-whom=main, --signal=HUP, "homelab-postgresql-{{ pg_instance }}.service"]
+  when: pg_certificates_changed
+  changed_when: true
+- name: 检查重载后的本机 SQL 可用
+  ansible.builtin.command:
+    argv:
+      - "{{ pg_bin_dir }}/psql"
+      - -X
+      - -At
+      - -h
+      - "{{ pg_socket_dir }}"
+      - -p
+      - "{{ pg_profile.port | string }}"
+      - -d
+      - postgres
+      - -c
+      - SELECT 1
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  changed_when: false
+  register: pg_renew_sql
+  retries: 6
+  delay: 2
+  until: pg_renew_sql.rc == 0 and pg_renew_sql.stdout | trim == '1'

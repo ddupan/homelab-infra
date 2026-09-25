@@ -1,0 +1,33 @@
+[Unit]
+Description=Homelab PostgreSQL {{ pg_instance }}{{ ' through Patroni' if pg_instance == 'prod' else '' }}
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor={{ pg_parent_dir }}
+[Service]
+User={{ pg_profile.user }}
+Group={{ pg_profile.user }}
+UMask=0077
+RuntimeDirectory=homelab-postgresql-{{ pg_instance }}
+RuntimeDirectoryMode=0700
+{% if pg_instance == 'prod' %}
+Type=simple
+ExecStart={{ pg_patroni_bin }} {{ pg_config_dir }}/patroni.yml
+KillMode=process
+{% else %}
+Type=simple
+ExecStart={{ pg_bin_dir }}/postgres -D {{ pg_data_dir }} -c config_file={{ pg_config_dir }}/postgresql.conf
+KillSignal=SIGINT
+{% endif %}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=120
+MemoryHigh={{ pg_profile.memory_high }}
+MemoryMax={{ pg_profile.memory_max }}
+OOMPolicy=stop
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths={{ pg_parent_dir }} {{ pg_config_dir }} {{ pg_socket_dir }}
+[Install]
+WantedBy=multi-user.target

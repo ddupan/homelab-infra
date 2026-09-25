@@ -1,0 +1,90 @@
+---
+# 首次部署承载调整，逐节点迁移；普通 lxc.yml 不自动移动磁盘。
+- name: 逐个将新 etcd 容器迁入声明的 SSD 池
+  hosts: etcd_pve
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    etcd_move_health_command:
+      - /opt/homelab-etcd/etcdctl
+      - --endpoints=https://192.168.10.127:2379,https://10.60.0.20:2379,https://10.60.0.21:2379
+      - --cacert=/etc/homelab-etcd/ca.crt
+      - --cert=/etc/homelab-etcd/admin.crt
+      - --key=/etc/homelab-etcd/admin.key
+      - endpoint
+      - health
+  tasks:
+    - name: 核对容器配置
+      ansible.builtin.command:
+        argv: [pct, config, "{{ etcd_lxc_vmid }}"]
+      register: etcd_move_config
+      changed_when: false
+      check_mode: false
+
+    - name: 限定本项目新建容器与允许的源池
+      ansible.builtin.assert:
+        that:
+          - etcd_lxc_vmid in [150, 151]
+          - "('hostname: ' ~ etcd_lxc_hostname) in etcd_move_config.stdout"
+          - "'shared-etcd' in etcd_move_config.stdout"
+          - "'rootfs: local-lvm:' in etcd_move_config.stdout or 'rootfs: pve-rg:' in etcd_move_config.stdout"
+          - etcd_lxc_storage == 'pve-rg'
+
+    - name: 验证迁移前全部端点健康
+      ansible.builtin.command:
+        argv: "{{ etcd_move_health_command }}"
+      delegate_to: localhost
+      changed_when: false
+      check_mode: false
+
+    - name: 迁移当前尚在本地池的根卷
+      when: "'rootfs: local-lvm:' in etcd_move_config.stdout and not ansible_check_mode"
+      block:
+        - name: 创建已验证的集群快照
+          ansible.builtin.command:
+            argv: [systemctl, start, homelab-etcd-snapshot.service]
+          delegate_to: localhost
+          changed_when: true
+
+        - name: 正常关闭一个容器
+          ansible.builtin.command:
+            argv: [pct, shutdown, "{{ etcd_lxc_vmid }}", --timeout, '60']
+          changed_when: true
+
+        - name: 复制成功后移除该新建容器的原卷
+          ansible.builtin.command:
+            argv:
+              - pct
+              - move-volume
+              - "{{ etcd_lxc_vmid }}"
+              - rootfs
+              - "{{ etcd_lxc_storage }}"
+              - --delete
+              - '1'
+              - --bwlimit
+              - '32768'
+          changed_when: true
+      always:
+        - name: 核对容器运行状态
+          ansible.builtin.command:
+            argv: [pct, status, "{{ etcd_lxc_vmid }}"]
+          register: etcd_move_status
+          changed_when: false
+        - name: 重新启动容器
+          ansible.builtin.command:
+            argv: [pct, start, "{{ etcd_lxc_vmid }}"]
+          when: "'running' not in etcd_move_status.stdout"
+          changed_when: true
+
+    - name: 等待当前成员回归
+      ansible.builtin.command:
+        argv: "{{ etcd_move_health_command }}"
+      delegate_to: localhost
+      changed_when: false
+      register: etcd_move_health
+      retries: 18
+      delay: 5
+      until: etcd_move_health.rc == 0
+      when: not ansible_check_mode

@@ -1,0 +1,19 @@
+# 参考 Pigsty v4.5.0 的 Patroni 角色检查与旧连接摘除行为。
+global
+    maxconn 256
+    log stdout format raw local0
+    stats socket /tmp/homelab-pg-haproxy.sock mode 600 level admin
+defaults
+    mode tcp
+    timeout connect 3s
+    timeout client 1h
+    timeout server 1h
+    timeout check 3s
+listen pg-prod
+    bind {{ pg_proxy_bind }}
+    option httpchk GET /primary
+    http-check expect status 200
+    default-server inter 2s fall 3 rise 2 on-marked-down shutdown-sessions
+{% for member in pg_proxy_members %}
+    server {{ member.name }} {{ member.address }}:{{ member.port }} check port {{ member.api_port }}
+{% endfor %}

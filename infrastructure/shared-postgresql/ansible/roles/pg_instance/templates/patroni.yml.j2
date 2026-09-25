@@ -1,0 +1,99 @@
+# 实例化部署；不引用 Pigsty 的全局 /pg 或宿主内存自动调优。
+name: {{ pg_member | to_json }}
+namespace: /homelab/patroni/
+scope: pg-prod
+restapi:
+  listen: {{ pg_address }}:{{ pg_profile.api_port }}
+  connect_address: {{ pg_address }}:{{ pg_profile.api_port }}
+  authentication:
+    username: patroni
+    password: {{ pg_credentials.rest_password | to_json }}
+etcd3:
+  hosts: {{ pg_etcd_endpoints | to_json }}
+  protocol: https
+  username: {{ pg_etcd_credentials.username | to_json }}
+  password: {{ pg_etcd_credentials.password | to_json }}
+  cacert: {{ pg_config_dir }}/ca.crt
+  cert: {{ pg_config_dir }}/etcd.crt
+  key: {{ pg_config_dir }}/etcd.key
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    check_timeline: true
+    synchronous_mode: false
+    failsafe_mode: false
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        max_connections: {{ pg_profile.max_connections }}
+        wal_level: replica
+        hot_standby: 'on'
+        wal_log_hints: 'on'
+        max_wal_senders: 5
+        max_replication_slots: 5
+        max_slot_wal_keep_size: 2GB
+        max_wal_size: 1GB
+        min_wal_size: 80MB
+        archive_mode: 'on'
+        archive_timeout: 300s
+        archive_command: "pgbackrest --config={{ pg_config_dir }}/pgbackrest.conf --stanza=prod archive-push %p"
+  initdb:
+    - encoding: UTF8
+    - locale: C.UTF-8
+    - data-checksums
+postgresql:
+  listen: {{ pg_address }}:{{ pg_profile.port }}
+  connect_address: {{ pg_address }}:{{ pg_profile.port }}
+  data_dir: {{ pg_data_dir }}
+  bin_dir: {{ pg_bin_dir }}
+  pgpass: {{ pg_parent_dir }}/pgpass
+  use_unix_socket: true
+  use_unix_socket_repl: true
+  authentication:
+    superuser:
+      username: {{ pg_profile.user }}
+      password: {{ pg_credentials.superuser_password | to_json }}
+    replication:
+      username: replicator
+      password: {{ pg_credentials.replication_password | to_json }}
+      sslmode: verify-full
+      sslrootcert: {{ pg_config_dir }}/ca.crt
+  parameters:
+    unix_socket_directories: {{ pg_socket_dir }}
+    unix_socket_permissions: '0700'
+    password_encryption: scram-sha-256
+    shared_buffers: {{ pg_profile.shared_buffers }}
+    work_mem: 4MB
+    maintenance_work_mem: 64MB
+    ssl: 'on'
+    ssl_cert_file: {{ pg_config_dir }}/server.crt
+    ssl_key_file: {{ pg_config_dir }}/server.key
+    ssl_ca_file: {{ pg_config_dir }}/ca.crt
+    log_statement: none
+    log_min_error_statement: panic
+  pg_hba:
+    - local all {{ pg_profile.user }} peer
+    - local replication {{ pg_profile.user }} peer
+    - local replication replicator scram-sha-256
+{% for address in pg_replication_addresses %}
+    - hostssl replication replicator {{ address }} scram-sha-256
+    - hostssl all {{ pg_profile.user }} {{ address }} scram-sha-256
+{% endfor %}
+{% for cidr in pg_client_cidrs %}
+    - hostssl all all {{ cidr }} scram-sha-256
+{% endfor %}
+    - host all all 0.0.0.0/0 reject
+    - host all all ::/0 reject
+  remove_data_directory_on_rewind_failure: false
+  remove_data_directory_on_diverged_timelines: false
+watchdog:
+  mode: 'off'
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

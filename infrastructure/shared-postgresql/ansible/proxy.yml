@@ -1,0 +1,87 @@
+---
+# 单独 HAProxy 实例复用 VyOS 的二进制与 HA 承载，避免修改发行版生成的全局模板。
+- name: 发布已经有唯一可写主库的生产入口
+  hosts: pg_proxy
+  become: true
+  gather_facts: false
+  vars:
+    pg_proxy_bind: 192.168.10.2:5432
+    pg_proxy_members:
+      - {name: laptop, address: '192.168.10.127', port: 5432, api_port: 8008}
+      - {name: pve1, address: '10.60.0.20', port: 5432, api_port: 8008}
+  tasks:
+    - name: 前置核对角色端点，不为未就绪实例发布入口
+      ansible.builtin.uri:
+        url: "http://{{ item.address }}:{{ item.api_port }}/primary"
+        status_code: [200, 503]
+      loop: "{{ pg_proxy_members }}"
+      register: pg_proxy_primary
+      check_mode: false
+    - name: 必须有且只有一个 primary
+      ansible.builtin.assert:
+        that: pg_proxy_primary.results | selectattr('status', 'equalto', 200) | list | length == 1
+    - name: 创建跨 VyOS 镜像升级保留的配置目录
+      ansible.builtin.file:
+        path: /config/homelab-pg
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: 写入并校验角色感知 HAProxy 配置
+      ansible.builtin.template:
+        src: roles/pg_instance/templates/haproxy.cfg.j2
+        dest: /config/homelab-pg/haproxy.cfg
+        mode: '0644'
+        validate: /usr/sbin/haproxy -c -f %s
+      notify: 重载数据库代理
+    - name: 保存独立服务定义
+      ansible.builtin.copy:
+        dest: /config/homelab-pg/homelab-pg-proxy.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Shared PostgreSQL role-aware TCP entry point
+          After=network-online.target
+          Wants=network-online.target
+          [Service]
+          Type=simple
+          DynamicUser=true
+          ExecStart=/usr/sbin/haproxy -W -db -f /config/homelab-pg/haproxy.cfg
+          ExecReload=/bin/kill -USR2 $MAINPID
+          Restart=on-failure
+          RestartSec=3
+          MemoryMax=64M
+          LimitNOFILE=2048
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectSystem=strict
+          ProtectHome=true
+          [Install]
+          WantedBy=multi-user.target
+      notify: 重载数据库代理
+    - name: 安装服务链接
+      ansible.builtin.file:
+        src: /config/homelab-pg/homelab-pg-proxy.service
+        dest: /etc/systemd/system/homelab-pg-proxy.service
+        state: link
+    - name: 通过既有 postconfig hook 在系统升级后恢复服务链接
+      ansible.builtin.blockinfile:
+        path: /config/scripts/vyos-postconfig-bootup.script
+        marker: '# {mark} ANSIBLE HOMELAB PG PROXY'
+        insertbefore: '^exit 0'
+        block: |
+          ln -sfn /config/homelab-pg/homelab-pg-proxy.service /etc/systemd/system/homelab-pg-proxy.service
+          systemctl daemon-reload
+          systemctl enable --now homelab-pg-proxy.service
+    - name: 启动独立入口
+      ansible.builtin.systemd_service:
+        name: homelab-pg-proxy
+        daemon_reload: true
+        enabled: true
+        state: started
+  handlers:
+    - name: 重载数据库代理
+      ansible.builtin.systemd_service:
+        name: homelab-pg-proxy
+        daemon_reload: true
+        state: reloaded

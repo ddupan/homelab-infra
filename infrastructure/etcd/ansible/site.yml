@@ -1,0 +1,66 @@
+---
+# 先配置全体，再滚动启动：首次集群形成不能在第一个节点等待 quorum。
+- name: 配置 shared etcd 成员
+  hosts: etcd
+  become: true
+  roles:
+    - shared_etcd
+
+- name: 滚动启动并验证 shared etcd
+  hosts: etcd
+  become: true
+  serial: 1
+  pre_tasks:
+    - name: 加载共享默认参数
+      ansible.builtin.import_role:
+        name: shared_etcd
+        tasks_from: context
+  tasks:
+    - name: 启动已配置的成员
+      ansible.builtin.systemd_service:
+        name: homelab-etcd
+        enabled: true
+        daemon_reload: true
+        state: "{{ 'restarted' if etcd_config_changed | bool else 'started' }}"
+    - name: 等待本机客户端端口
+      ansible.builtin.wait_for:
+        host: "{{ etcd_address }}"
+        port: "{{ etcd_client_port }}"
+        timeout: 60
+      when: not ansible_check_mode
+
+    - name: 已有集群每次激活后等待本成员恢复 quorum 通信
+      ansible.builtin.command:
+        argv:
+          - "{{ etcd_install_dir }}/etcdctl"
+          - --endpoints=https://{{ etcd_address }}:{{ etcd_client_port }}
+          - --cacert={{ etcd_config_dir }}/ca.crt
+          - --cert={{ etcd_config_dir }}/admin.crt
+          - --key={{ etcd_config_dir }}/admin.key
+          - endpoint
+          - health
+      changed_when: false
+      register: etcd_member_health
+      retries: 12
+      delay: 5
+      until: etcd_member_health.rc == 0
+      when: etcd_activated_file.stat.exists and not ansible_check_mode
+
+- name: 核对全部成员
+  ansible.builtin.import_playbook: verify.yml
+
+- name: 记录已成功激活的配置
+  hosts: etcd
+  become: true
+  pre_tasks:
+    - name: 加载共享默认参数
+      ansible.builtin.import_role:
+        name: shared_etcd
+        tasks_from: context
+  tasks:
+    - name: 写入激活指纹（全体健康检查通过后）
+      ansible.builtin.copy:
+        content: "{{ etcd_config_fingerprint }}\n"
+        dest: "{{ etcd_config_dir }}/activated.sha256"
+        mode: '0644'
+      when: not ansible_check_mode

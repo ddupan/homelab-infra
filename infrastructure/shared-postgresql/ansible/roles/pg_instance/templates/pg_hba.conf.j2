@@ -1,0 +1,6 @@
+local all {{ pg_profile.user }} peer
+{% for cidr in pg_client_cidrs %}
+hostssl all all {{ cidr }} scram-sha-256
+{% endfor %}
+host all all 0.0.0.0/0 reject
+host all all ::/0 reject

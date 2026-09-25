@@ -1,0 +1,172 @@
+---
+- name: 设置实例初始化参数
+  ansible.builtin.set_fact:
+    pg_profile: "{{ pg_profiles[pg_instance] }}"
+    pg_parent_dir: "{{ pg_data_root }}/{{ pg_instance }}"
+    pg_data_dir: "{{ pg_data_root }}/{{ pg_instance }}/data"
+    pg_config_dir: "{{ pg_config_root }}/{{ pg_instance }}"
+    pg_bootstrap_password: "{{ hostvars['localhost'].pg_loaded_credentials[pg_instance].ayatori_password }}"
+    pg_socket_dir: "/run/homelab-postgresql-{{ pg_instance }}"
+  no_log: true
+- name: 检查版本标记
+  ansible.builtin.stat:
+    path: "{{ pg_data_dir }}/PG_VERSION"
+  register: pg_version_file
+- name: 核对未初始化目录为空
+  ansible.builtin.find:
+    paths: "{{ pg_data_dir }}"
+    hidden: true
+    file_type: any
+  register: pg_initial_files
+  when: not pg_version_file.stat.exists
+- name: 禁止覆盖不完整或未知数据
+  ansible.builtin.assert:
+    that: pg_version_file.stat.exists or pg_initial_files.matched == 0
+- name: 初始化独立开发实例
+  when: pg_instance == 'dev' and not pg_version_file.stat.exists
+  block:
+    - name: 临时写入开发管理员密码
+      ansible.builtin.copy:
+        content: "{{ hostvars['localhost'].pg_loaded_credentials.dev.superuser_password }}\n"
+        dest: "{{ pg_parent_dir }}/.init-password"
+        owner: "{{ pg_profile.user }}"
+        mode: '0600'
+      no_log: true
+    - name: 仅在空目录初始化
+      ansible.builtin.command:
+        argv:
+          - "{{ pg_bin_dir }}/initdb"
+          - -D
+          - "{{ pg_data_dir }}"
+          - --username={{ pg_profile.user }}
+          - --pwfile={{ pg_parent_dir }}/.init-password
+          - --auth-local=peer
+          - --auth-host=scram-sha-256
+          - --encoding=UTF8
+          - --locale=C.UTF-8
+          - --data-checksums
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      changed_when: true
+      no_log: true
+  always:
+    - name: 删除临时初始化密码文件
+      ansible.builtin.file:
+        path: "{{ pg_parent_dir }}/.init-password"
+        state: absent
+- name: 登记专属数据目录（启动失败后仍可辨认来源）
+  ansible.builtin.copy:
+    content: "shared-postgresql/{{ pg_instance }}\n"
+    dest: "{{ pg_parent_dir }}/.homelab-owned"
+    owner: root
+    mode: '0644'
+- name: 启动配置完成的新实例
+  ansible.builtin.systemd_service:
+    name: "homelab-postgresql-{{ pg_instance }}"
+    daemon_reload: true
+    enabled: true
+    state: started
+- name: 等待本机 SQL 可连接
+  ansible.builtin.command:
+    argv:
+      - '{{ pg_bin_dir }}/psql'
+      - -X
+      - -At
+      - -h
+      - '{{ pg_socket_dir }}'
+      - -p
+      - '{{ pg_profile.port | string }}'
+      - -d
+      - postgres
+      - -c
+      - SELECT 1
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  register: pg_ready
+  until: pg_ready.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+- name: 核对本节点是否可写
+  ansible.builtin.command:
+    argv:
+      - '{{ pg_bin_dir }}/psql'
+      - -X
+      - -At
+      - -h
+      - '{{ pg_socket_dir }}'
+      - -p
+      - '{{ pg_profile.port | string }}'
+      - -d
+      - postgres
+      - -c
+      - SELECT NOT pg_is_in_recovery()
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  register: pg_is_primary
+  changed_when: false
+- name: 在可写实例创建 Ayatori 最小管理账号
+  when: pg_is_primary.stdout | trim == 't'
+  block:
+    - name: 查询 Ayatori 账号
+      ansible.builtin.command:
+        argv:
+          - '{{ pg_bin_dir }}/psql'
+          - -X
+          - -At
+          - -h
+          - '{{ pg_socket_dir }}'
+          - -p
+          - '{{ pg_profile.port | string }}'
+          - -d
+          - postgres
+          - -c
+          - SELECT count(*) FROM pg_roles WHERE rolname = 'ayatori'
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      register: pg_ayatori_exists
+      changed_when: false
+    - name: 首次建立受限角色（不静默轮换已存在密码）
+      ansible.builtin.command:
+        argv:
+          - '{{ pg_bin_dir }}/psql'
+          - -X
+          - -v
+          - ON_ERROR_STOP=1
+          - -h
+          - '{{ pg_socket_dir }}'
+          - -p
+          - '{{ pg_profile.port | string }}'
+          - -d
+          - postgres
+        stdin: >-
+          CREATE ROLE ayatori LOGIN NOSUPERUSER CREATEDB CREATEROLE NOREPLICATION NOBYPASSRLS
+          PASSWORD '{{ pg_bootstrap_password | replace("'", "''") }}';
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      when: pg_ayatori_exists.stdout | trim == '0'
+      changed_when: true
+      no_log: true
+    - name: 以实际保存密码及 verify-full 验证权限
+      ansible.builtin.command:
+        argv:
+          - "{{ pg_bin_dir }}/psql"
+          - -X
+          - -At
+          - -c
+          - >-
+            SELECT NOT rolsuper AND rolcreatedb AND rolcreaterole AND NOT pg_is_in_recovery()
+            FROM pg_roles WHERE rolname = current_user
+      environment:
+        PGHOST: "{{ pg_profile.dns }}"
+        PGHOSTADDR: "{{ pg_address }}"
+        PGPORT: "{{ pg_profile.port | string }}"
+        PGDATABASE: postgres
+        PGUSER: ayatori
+        PGPASSWORD: "{{ hostvars['localhost'].pg_loaded_credentials[pg_instance].ayatori_password }}"
+        PGSSLMODE: verify-full
+        PGSSLROOTCERT: "{{ pg_config_dir }}/ca.crt"
+      register: pg_ayatori_check
+      changed_when: false
+      failed_when: pg_ayatori_check.rc != 0 or pg_ayatori_check.stdout | trim != 't'
+      no_log: true

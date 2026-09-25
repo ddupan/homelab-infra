@@ -21,6 +21,10 @@ resources:
   - rules/kubernetes-health.yaml
   - rules/host-health.yaml
   - rules/monitoring-delivery.yaml
+  - rules/shared-etcd.yaml
+  - scrapes/shared-etcd.yaml
+  - rules/shared-postgresql.yaml
+  - scrapes/shared-postgresql.yaml
   - scrapes/platform-controllers.yaml
   - rules/platform-controllers.yaml
   - scrapes/cnpg.yaml

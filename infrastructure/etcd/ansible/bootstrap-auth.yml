@@ -1,0 +1,60 @@
+---
+# 与常规 site 分离，防止重建/恢复时默默创建新的认证域。
+- name: 初始化共享 etcd 认证
+  hosts: etcd[0]
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: 加载共享默认参数
+      ansible.builtin.import_role:
+        name: shared_etcd
+        tasks_from: context
+  environment:
+    ETCDCTL_ENDPOINTS: "https://{{ etcd_address }}:{{ etcd_client_port }}"
+    ETCDCTL_CACERT: "{{ etcd_config_dir }}/ca.crt"
+    ETCDCTL_CERT: "{{ etcd_config_dir }}/admin.crt"
+    ETCDCTL_KEY: "{{ etcd_config_dir }}/admin.key"
+  tasks:
+    - name: 读取认证状态
+      ansible.builtin.command:
+        argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, auth, status]
+      changed_when: false
+      register: etcd_auth_status
+      check_mode: false
+
+    - name: 初始化管理员与认证
+      when: not ((etcd_auth_status.stdout | from_json).enabled | default(false))
+      block:
+        - name: 要求显式初始化参数
+          ansible.builtin.assert:
+            that: etcd_bootstrap_auth | default(false) | bool
+            fail_msg: 首次初始化需要 -e etcd_bootstrap_auth=true；常规运行不能重建认证。
+
+        - name: 读取现有用户
+          ansible.builtin.command:
+            argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, user, list]
+          changed_when: false
+          register: etcd_users
+
+        - name: 创建仅证书认证的 root 用户
+          ansible.builtin.command:
+            argv: ["{{ etcd_install_dir }}/etcdctl", user, add, root, --no-password]
+          when: "'root' not in ((etcd_users.stdout | from_json).users | default([], true))"
+          changed_when: true
+
+        - name: 读取管理员角色
+          ansible.builtin.command:
+            argv: ["{{ etcd_install_dir }}/etcdctl", --write-out=json, user, get, root]
+          changed_when: false
+          register: etcd_root_roles
+
+        - name: 授予 root 管理角色
+          ansible.builtin.command:
+            argv: ["{{ etcd_install_dir }}/etcdctl", user, grant-role, root, root]
+          when: "'root' not in ((etcd_root_roles.stdout | from_json).roles | default([], true))"
+          changed_when: true
+
+        - name: 开启认证
+          ansible.builtin.command:
+            argv: ["{{ etcd_install_dir }}/etcdctl", auth, enable]
+          changed_when: true

@@ -1,0 +1,26 @@
+---
+- name: 创建仅 root 可访问的快照目录
+  ansible.builtin.file:
+    path: "{{ etcd_snapshot_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: 写入快照脚本和 systemd 任务
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {src: snapshot.sh.j2, dest: "{{ etcd_install_dir }}/snapshot", mode: '0700'}
+    - {src: snapshot.service.j2, dest: /etc/systemd/system/homelab-etcd-snapshot.service, mode: '0644'}
+    - {src: snapshot.timer.j2, dest: /etc/systemd/system/homelab-etcd-snapshot.timer, mode: '0644'}
+  register: etcd_snapshot_units
+
+- name: 启用本地快照计划
+  ansible.builtin.systemd_service:
+    name: homelab-etcd-snapshot.timer
+    daemon_reload: "{{ etcd_snapshot_units is changed }}"
+    enabled: true
+    state: started

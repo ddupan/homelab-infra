@@ -1,0 +1,14 @@
+---
+# 只续签和重载证书，不安装包、不变更数据库参数或重启服务。
+- name: 串行检查实例证书续签窗口
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: 逐实例续签
+      ansible.builtin.include_tasks: tasks/renew-instance.yml
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance

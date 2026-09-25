@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+export ETCDCTL_ENDPOINTS="https://{{ etcd_address }}:{{ etcd_client_port }}"
+export ETCDCTL_CACERT="{{ etcd_config_dir }}/ca.crt"
+export ETCDCTL_CERT="{{ etcd_config_dir }}/admin.crt"
+export ETCDCTL_KEY="{{ etcd_config_dir }}/admin.key"
+repo="{{ etcd_snapshot_dir }}"
+exec 9>"$repo/.lock"
+flock -n 9 || exit 0
+output="$repo/$(date -u +%Y%m%dT%H%M%SZ).db"
+trap 'rm -f "$output.partial" "$output.partial.part"' EXIT
+{{ etcd_install_dir }}/etcdctl snapshot save "$output.partial"
+{{ etcd_install_dir }}/etcdutl snapshot status "$output.partial" >/dev/null
+mv "$output.partial" "$output"
+# 只有新快照成功且验证可读才清理旧备份。目录仅由此任务管理。
+mapfile -t snapshots < <(find "$repo" -maxdepth 1 -type f -name '????????T??????Z.db' -printf '%f\n' | sort -r)
+for old in "${snapshots[@]:{{ etcd_snapshot_keep }}}"; do
+    rm -- "$repo/$old"
+done

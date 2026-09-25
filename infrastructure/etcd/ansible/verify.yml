@@ -1,0 +1,29 @@
+---
+- name: 验证 shared etcd 全部端点
+  hosts: etcd[0]
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: 加载共享默认参数
+      ansible.builtin.import_role:
+        name: shared_etcd
+        tasks_from: context
+  tasks:
+    - name: 通过管理员 mTLS 检查所有端点健康
+      ansible.builtin.command:
+        argv:
+          - "{{ etcd_install_dir }}/etcdctl"
+          - >-
+            --endpoints={{ groups['etcd'] | map('extract', hostvars, 'etcd_address')
+            | map('regex_replace', '^(.*)$', 'https://\1:' ~ etcd_client_port) | join(',') }}
+          - --cacert={{ etcd_config_dir }}/ca.crt
+          - --cert={{ etcd_config_dir }}/admin.crt
+          - --key={{ etcd_config_dir }}/admin.key
+          - endpoint
+          - health
+      changed_when: false
+      register: etcd_health
+      retries: 12
+      delay: 5
+      until: etcd_health.rc == 0
+      when: not ansible_check_mode

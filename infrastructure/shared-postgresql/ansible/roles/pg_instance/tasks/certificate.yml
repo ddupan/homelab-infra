@@ -1,0 +1,69 @@
+---
+- name: 本地生成私钥
+  community.crypto.openssl_privatekey:
+    path: "{{ pg_config_dir }}/{{ pg_cert_name }}.key"
+    type: ECC
+    curve: secp256r1
+    owner: root
+    group: "{{ pg_profile.user }}"
+    mode: '0640'
+- name: 本地生成 CSR
+  community.crypto.openssl_csr:
+    path: "{{ pg_config_dir }}/{{ pg_cert_name }}.csr"
+    privatekey_path: "{{ pg_config_dir }}/{{ pg_cert_name }}.key"
+    common_name: "{{ pg_cert_cn | default(omit, true) }}"
+    use_common_name_for_san: false
+    subject_alt_name: >-
+      {{ ['DNS:' ~ pg_profile.dns, 'IP:' ~ pg_address] if pg_cert_name == 'server'
+         else ['DNS:etcd-patroni-pg-prod'] }}
+    extended_key_usage: "{{ pg_cert_eku }}"
+    key_usage: [digitalSignature]
+    mode: '0644'
+  register: pg_csr
+- name: 检查证书文件
+  ansible.builtin.stat:
+    path: "{{ pg_config_dir }}/{{ pg_cert_name }}.crt"
+  register: pg_cert_file
+- name: 检查续签窗口
+  community.crypto.x509_certificate_info:
+    path: "{{ pg_config_dir }}/{{ pg_cert_name }}.crt"
+    valid_at: {renewal: '+14d'}
+  register: pg_cert_info
+  when: pg_cert_file.stat.exists
+- name: 需要时请求中央 CA 签发
+  when: not pg_cert_file.stat.exists or pg_csr is changed or not (pg_cert_info.valid_at.renewal | default(false))
+  block:
+    - name: 读取公开 CSR
+      ansible.builtin.slurp:
+        src: "{{ pg_config_dir }}/{{ pg_cert_name }}.csr"
+      register: pg_csr_content
+    - name: 请求签发（凭据仅在控制端）
+      ansible.builtin.uri:
+        url: "{{ pg_bao_url }}/v1/pki/sign/{{ pg_cert_role }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ pg_bao_token }}"
+        body_format: json
+        body:
+          csr: "{{ pg_csr_content.content | b64decode }}"
+          ttl: 1440h
+        status_code: 200
+      delegate_to: localhost
+      become: false
+      register: pg_signed
+      no_log: true
+    - name: 保存证书和信任链
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ pg_config_dir }}/{{ item.name }}"
+        owner: root
+        group: "{{ pg_profile.user }}"
+        mode: '0644'
+      loop:
+        - name: "{{ pg_cert_name }}.crt"
+          content: "{{ pg_signed.json.data.certificate }}\n{{ pg_signed.json.data.ca_chain | join('\n') }}\n"
+        - name: ca.crt
+          content: "{{ pg_signed.json.data.ca_chain | join('\n') }}\n"
+    - name: 记录本轮已签发证书以供显式续签入口重载
+      ansible.builtin.set_fact:
+        pg_certificates_changed: true

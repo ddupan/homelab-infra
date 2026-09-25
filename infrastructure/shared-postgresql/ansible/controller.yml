@@ -1,0 +1,70 @@
+---
+- name: 安装每日证书续签控制任务
+  hosts: pg-laptop
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 创建 root 管理的程序目录
+      ansible.builtin.file:
+        path: /opt/homelab-postgresql-controller
+        state: directory
+        mode: '0755'
+    - name: 安装短期身份包装器
+      ansible.builtin.copy:
+        src: ../run.py
+        dest: /opt/homelab-postgresql-controller/run.py
+        owner: root
+        group: root
+        mode: '0755'
+    - name: 安装固定 Ansible 配置副本
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/"
+        dest: /opt/homelab-postgresql-controller/ansible/
+        owner: root
+        group: root
+        mode: preserve
+    - name: 使用 SPIFFE 执行一次续签预检（不输出 token）
+      ansible.builtin.command:
+        argv: [python3, /opt/homelab-postgresql-controller/run.py, --spiffe, ansible, renew-certificates.yml]
+      environment:
+        PG_BAO_SPIFFE_ROLE: homelab-postgresql
+        PATH: /home/panxiao81/.local/bin:/usr/local/bin:/usr/bin:/bin
+      become: true
+      become_user: panxiao81
+      changed_when: false
+    - name: 安装续签 service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-postgresql-renew.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Renew shared PostgreSQL certificates using short-lived SPIFFE identity
+          After=network-online.target
+          [Service]
+          Type=oneshot
+          User=panxiao81
+          Environment=HOME=/home/panxiao81
+          Environment=PATH=/home/panxiao81/.local/bin:/usr/local/bin:/usr/bin:/bin
+          Environment=PG_BAO_SPIFFE_ROLE=homelab-postgresql
+          ExecStart=/usr/bin/python3 /opt/homelab-postgresql-controller/run.py --spiffe ansible renew-certificates.yml
+          TimeoutStartSec=14min
+          UMask=0077
+    - name: 安装每日 timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-postgresql-renew.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Daily shared PostgreSQL certificate renewal
+          [Timer]
+          OnCalendar=*-*-* 04:30:00 UTC
+          RandomizedDelaySec=15min
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+    - name: 预检通过后启用调度
+      ansible.builtin.systemd_service:
+        name: homelab-postgresql-renew.timer
+        daemon_reload: true
+        enabled: true
+        state: started

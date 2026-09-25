@@ -1,0 +1,26 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: shared-etcd
+  namespace: monitoring
+spec:
+  jobName: shared-etcd
+  targetEndpoints:
+  - targets:
+    - 192.168.10.127:2381
+    labels:
+      cluster: homelab-etcd
+      member: etcd-laptop
+    interval: 30s
+  - targets:
+    - 10.60.0.20:2381
+    labels:
+      cluster: homelab-etcd
+      member: etcd-pve1
+    interval: 30s
+  - targets:
+    - 10.60.0.21:2381
+    labels:
+      cluster: homelab-etcd
+      member: etcd-pve2
+    interval: 30s

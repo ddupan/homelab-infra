@@ -1,0 +1,51 @@
+---
+# 共用宿主机上其他第三方源故障不能阻塞本项目；仅刷新 Ubuntu/PGDG，仍强制签名验证。
+- name: 仅刷新 Ubuntu 官方基础软件源 # noqa: command-instead-of-module
+  ansible.builtin.command:
+    argv:
+      - apt-get
+      - -o
+      - Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources
+      - -o
+      - Dir::Etc::sourceparts=-
+      - -o
+      - APT::Get::List-Cleanup=0
+      - -o
+      - APT::Update::Error-Mode=any
+      - update
+  changed_when: false
+- name: 安装软件源及 Python 依赖
+  ansible.builtin.apt:
+    name: [ca-certificates, python3-debian, python3-venv, python3-cryptography, acl]
+    state: present
+- name: 安装官方 PGDG 公钥
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /usr/share/keyrings/homelab-pgdg.asc
+    mode: '0644'
+  register: pg_repo_key
+  retries: 3
+  delay: 5
+  until: pg_repo_key is succeeded
+- name: 声明 PGDG 官方软件源
+  ansible.builtin.deb822_repository:
+    name: homelab-pgdg
+    uris: https://apt.postgresql.org/pub/repos/apt
+    suites: noble-pgdg
+    components: main
+    architectures: amd64
+    signed_by: /usr/share/keyrings/homelab-pgdg.asc
+- name: 仅刷新本项目 PGDG 软件源 # noqa: command-instead-of-module
+  ansible.builtin.command:
+    argv:
+      - apt-get
+      - -o
+      - Dir::Etc::sourcelist=/etc/apt/sources.list.d/homelab-pgdg.sources
+      - -o
+      - Dir::Etc::sourceparts=-
+      - -o
+      - APT::Get::List-Cleanup=0
+      - -o
+      - APT::Update::Error-Mode=any
+      - update
+  changed_when: false

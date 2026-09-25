@@ -1,0 +1,28 @@
+---
+- name: 只读核对数据库宿主与数据挂载
+  hosts: pg_hosts
+  become: true
+  tasks:
+    - name: 限定已验证的平台
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - ansible_facts.architecture == 'x86_64'
+          - pg_instances | difference(['prod', 'dev']) | length == 0
+    - name: 核对共置内存预算
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.memtotal_mb >= (2048 if 'dev' in pg_instances else 1536)
+        fail_msg: PG 与 etcd 共置前需通过承载 IaC 扩容；不能以当前 512 MiB LXC 直接上线。
+    - name: 核对每个数据父目录已单独挂载
+      ansible.builtin.command:
+        argv: [findmnt, --mountpoint, "{{ pg_data_root }}/{{ item }}", --noheadings, --output, 'TARGET,FSTYPE,SOURCE']
+      loop: "{{ pg_instances }}"
+      changed_when: false
+      check_mode: false
+    - name: 核对已有数据所有权
+      ansible.builtin.include_tasks: tasks/preflight-instance.yml
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance
