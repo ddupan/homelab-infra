@@ -198,6 +198,9 @@ spec:
                 - conditions
                 - '[type=Ready]'
                 - status
+                repository_type:
+                - spec
+                - type
           - groupVersionKind:
               group: source.toolkit.fluxcd.io
               version: v1

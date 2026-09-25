@@ -140,7 +140,7 @@ spec:
         description: 检查 OpenBao 可达性与 ESO 身份鉴权；可能影响多个命名空间。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
     - alert: FluxResourceNotReady
-      expr: gotk_resource_info{job="kube-state-metrics",ready!="True",suspended!="true"}
+      expr: gotk_resource_info{job="kube-state-metrics",ready!="True",suspended!="true",repository_type!="oci"}
         == 1
       for: 15m
       labels:

@@ -174,3 +174,12 @@ tests:
         summary: Flux 对象状态指标缺失
         description: 检查 kube-state-metrics 自定义资源配置、RBAC 与采集；不能把空结果当作健康。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+- name: OCI HelmRepository 没有 Ready 条件仍不误报
+  interval: 1m
+  input_series:
+  - series: gotk_resource_info{job="kube-state-metrics",customresource_kind="HelmRepository",repository_type="oci",name="envoy-gateway"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: FluxResourceNotReady
+    exp_alerts: []
