@@ -70,6 +70,24 @@ configFiles:
         },
         "accessControl": {
           "repositories": {
+            "panxiao81/backstage": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/backstage/image",
+                    "spiffe://ddupan.top/dev/panxiao81"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update"
+                  ]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
             "panxiao81/gitea-dynamic-runner-controller": {
               "policies": [
                 {
