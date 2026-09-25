@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backstage
-          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:6d6a11f8611a85237e3b0ffd30a2a6e119b1e5258b2ca6c193d60a8c3ec52553
+          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:97ebaf4b1086bff2e70ddc4a02e90c95d347db0803becec388c781e463d40b97
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
@@ -51,14 +51,14 @@ spec:
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /healthcheck
+              path: /.backstage/health/v1/readiness
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /healthcheck
+              path: /.backstage/health/v1/liveness
               port: http
             initialDelaySeconds: 30
             periodSeconds: 20
