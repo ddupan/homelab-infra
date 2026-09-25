@@ -157,5 +157,7 @@ prefix 隔离、gateway 账号登录和单成员故障。假 Bao 不验证真实
 
 监控接入验收（2026-09-25）：三个 `up{job="shared-etcd"}` 均为 1，六条规则 health=ok，
 三端点健康检查通过。新增续签调度四项失败/成功路径测试通过，Terraform validate 与 Ansible lint 通过，
-隔离三成员测试再次通过。监控 CR 已现场应用且已加入 Kustomization，IaC 通过独立 PR 发布，尚待合并；
-GitOps 来源关联仍待完成。备份/证书年龄告警不包含在这六条规则中。
+隔离三成员测试再次通过。[IaC PR #159](https://git.ddupan.top/panxiao81/homelab-infra/pulls/159) 已合并。
+2026-09-25 合并后核实：Flux observability Ready，应用版本 `f6d12d6`，
+etcd/PG 的两份 VMRule 与两份 VMStaticScrape 均已纳入 inventory，状态 operational；
+三个 etcd 与两个 Patroni 抓取目标均 up=1，相关 11 条告警 health=ok、inactive。备份/证书年龄告警不包含在这六条规则中。
