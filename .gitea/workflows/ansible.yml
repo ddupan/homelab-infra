@@ -16,9 +16,6 @@ on:
       - '.ansible-lint'
       - '.gitea/workflows/ansible.yml'
 
-env:
-  ANSIBLE_COLLECTIONS_PATH: /root/.ansible/collections
-
 jobs:
   lint:
     runs-on: [self-hosted, pod]
@@ -30,6 +27,7 @@ jobs:
           python3 -m pip install --user --break-system-packages \
             --index-url https://pypi.org/simple --quiet uv==0.11.7
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "ANSIBLE_COLLECTIONS_PATH=$HOME/.ansible/collections" >> "$GITHUB_ENV"
 
       - name: Install ansible-lint and collections
         run: |
@@ -50,7 +48,7 @@ jobs:
       - name: ansible-lint
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:/root/.ansible/collections"
+          export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:$HOME/.ansible/collections"
           # 静态检查不应依赖生产 vault 凭据。一次性 checkout 可以去掉加密变量文件；
           # syntax-check 只验证结构，不需要解析变量的运行时值。
           rm -f \

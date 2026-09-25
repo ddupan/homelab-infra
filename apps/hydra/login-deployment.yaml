@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydra-login
+  namespace: hydra
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hydra-login
+  template:
+    metadata:
+      labels:
+        app: hydra-login
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: login-consent
+        image: zot.ad.ddupan.top/iam/oidc-login-consent@sha256:fede9b9e93c457c4b7a8a6022d9df86ff5d5900d3f6b6c4f3439851a0ae1e944
+        env:
+        - name: HYDRA_ADMIN_URL
+          value: http://hydra-admin.hydra.svc.cluster.local:4445
+        - name: HYDRA_PUBLIC_URL
+          value: https://hydra.ad.ddupan.top
+        - name: UPSTREAM_ISSUER
+          value: https://auth.ddupan.top
+        - name: UPSTREAM_CLIENT_ID
+          value: hydra-login
+        - name: CALLBACK_URL
+          value: https://hydra-login.ad.ddupan.top/callback
+        - name: ALLOWED_CLIENTS
+          value: gitea
+        - name: UPSTREAM_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: hydra
+              key: upstream_client_secret
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydra
+  namespace: hydra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hydra
+  template:
+    metadata:
+      labels:
+        app: hydra
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: migrate
+        image: docker.io/oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
+        args:
+        - migrate
+        - sql
+        - -e
+        - --yes
+        env:
+        - name: DSN
+          valueFrom:
+            secretKeyRef:
+              name: hydra
+              key: dsn
+        securityContext: &id002
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources: &id001
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+      containers:
+      - name: hydra
+        image: docker.io/oryd/hydra:v26.2.0@sha256:ff67c7fb5f95074fa53374d41151713554960504b340cd3f95b09e65deaea2a9
+        args:
+        - serve
+        - all
+        - --config
+        - /etc/hydra/hydra.yaml
+        - --sqa-opt-out
+        env:
+        - name: DSN
+          valueFrom:
+            secretKeyRef:
+              name: hydra
+              key: dsn
+        - name: SECRETS_SYSTEM
+          valueFrom:
+            secretKeyRef:
+              name: hydra
+              key: system_secret
+        ports:
+        - name: public
+          containerPort: 4444
+        - name: admin
+          containerPort: 4445
+        resources: *id001
+        securityContext: *id002
+        volumeMounts:
+        - name: config
+          mountPath: /etc/hydra
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: admin
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health/alive
+            port: admin
+          initialDelaySeconds: 20
+          periodSeconds: 20
+      volumes:
+      - name: config
+        configMap:
+          name: hydra-config

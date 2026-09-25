@@ -1,0 +1,22 @@
+name: hydra-login
+on:
+  pull_request:
+    paths:
+      - 'apps/hydra/login-consent/**'
+      - '.gitea/workflows/hydra.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/hydra/login-consent/go.mod
+          cache-dependency-path: apps/hydra/login-consent/go.sum
+      - name: Test authentication boundaries
+        working-directory: apps/hydra/login-consent
+        run: |
+          go test -race ./...
+          go vet ./...
+          CGO_ENABLED=0 go build -trimpath .

@@ -1,0 +1,25 @@
+serve:
+  public:
+    port: 4444
+  admin:
+    port: 4445
+  tls:
+    allow_termination_from:
+    - 10.42.0.0/16
+  cookies:
+    same_site_mode: Lax
+urls:
+  self:
+    issuer: https://hydra.ad.ddupan.top
+    public: https://hydra.ad.ddupan.top
+  login: https://hydra-login.ad.ddupan.top/login
+  consent: https://hydra-login.ad.ddupan.top/consent
+ttl:
+  access_token: 15m
+  id_token: 15m
+  auth_code: 5m
+log:
+  level: info
+  leak_sensitive_values: false
+oauth2:
+  expose_internal_errors: false
