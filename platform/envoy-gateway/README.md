@@ -131,3 +131,11 @@ iptables/NodePort rather than binding. Test with `curl`, not `ss`.
 Contour source manifests were removed from the clean baseline. Live leftovers may
 still exist and must be inventoried before deletion; do not infer live state from
 the archive cleanup. The legacy Git history retains the retired manifests.
+
+## 后端 TLS 版本
+
+`EnvoyProxy/eg` 显式允许后端 TLS 1.2–1.3，由 `Gateway/eg` 的
+`infrastructure.parametersRef` 引用。Incus 7.5.1 只接受 TLS 1.3；
+仅创建 BackendTLSPolicy 时，现有 Envoy 上游默认最高 TLS 1.2，会返回
+`TLSV1_ALERT_PROTOCOL_VERSION` 并导致入口 503。此设置保留 TLS 1.2 后端兼容性，
+不改变前端 TLS listener、证书和路由；各后端仍需各自的 BackendTLSPolicy。

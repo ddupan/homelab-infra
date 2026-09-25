@@ -1,0 +1,10 @@
+# Incus 只接受 TLS 1.3；显式允许后端协商 1.2–1.3，保留其他后端兼容性。
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: eg
+  namespace: envoy-gateway-system
+spec:
+  backendTLS:
+    minVersion: '1.2'
+    maxVersion: '1.3'

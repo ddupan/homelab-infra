@@ -24,6 +24,11 @@ metadata:
   namespace: envoy-gateway-system
 spec:
   gatewayClassName: eg
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: eg
   listeners:
     # Plaintext :80 — ACME http-01 (the bao-acme ClusterIssuer solves through here)
     # and HTTP->HTTPS redirects. Never serve anything sensitive on it.
