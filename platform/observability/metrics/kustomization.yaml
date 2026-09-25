@@ -30,3 +30,5 @@ resources:
   - scrapes/cnpg.yaml
   - scrapes/seaweedfs.yaml
   - rules/data-services.yaml
+  - scrapes/openbao.yaml
+  - rules/openbao.yaml

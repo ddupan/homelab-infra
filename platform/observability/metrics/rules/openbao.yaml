@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: openbao
+  namespace: monitoring
+spec:
+  groups:
+  - name: openbao
+    rules:
+    - alert: OpenBaoMetricsUnavailable
+      expr: up{job="openbao"} == 0 or absent(up{job="openbao"})
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: OpenBao 受鉴权指标采集不可用
+        description: 检查 Bao 健康与 sealed 状态、采集 Agent 登录/续期、TLS 和目标发现；此告警不区分停机与鉴权失败。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md

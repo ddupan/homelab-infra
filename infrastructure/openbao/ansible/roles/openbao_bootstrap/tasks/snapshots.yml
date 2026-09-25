@@ -17,11 +17,11 @@
     path: /etc/openbao/snapshot.token
   register: snap_tok_stat
 
-- name: Create a periodic snapshot token (once)
+- name: Create or explicitly rotate the periodic snapshot token
   ansible.builtin.command: "bao token create -policy=snapshot -period=768h -orphan -field=token"
   environment: "{{ openbao_cli_env }}"
   register: snap_tok_new
-  when: not snap_tok_stat.stat.exists
+  when: (not snap_tok_stat.stat.exists) or (openbao_snapshot_rotate_token | bool)
   changed_when: snap_tok_new.rc == 0
   no_log: true
 
@@ -32,7 +32,7 @@
     owner: root
     group: root
     mode: "0600"
-  when: not snap_tok_stat.stat.exists
+  when: (not snap_tok_stat.stat.exists) or (openbao_snapshot_rotate_token | bool)
   no_log: true
 
 - name: Ensure the snapshot output directory exists

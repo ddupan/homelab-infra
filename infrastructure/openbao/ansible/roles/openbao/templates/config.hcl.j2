@@ -25,3 +25,9 @@ seal "transit" {
   mount_path = "{{ openbao_transit_mount_path }}"
 }
 {% endif %}
+
+# 显式固定 Prometheus 行为；应用此配置会经 handler 重启，须人工解封。
+telemetry {
+  prometheus_retention_time = "{{ openbao_prometheus_retention_time }}"
+  disable_hostname = true
+}

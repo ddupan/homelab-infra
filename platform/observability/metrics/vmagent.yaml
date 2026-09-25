@@ -1,6 +1,3 @@
-# Scrape agent. selectAllByDefault picks up every VMServiceScrape / VMPodScrape /
-# VMNodeScrape / VMStaticScrape in ALL namespaces, so app teams add their own
-# scrape CRs and vmagent discovers them automatically. Writes to VMSingle.
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMAgent
 metadata:
@@ -11,11 +8,85 @@ spec:
   selectAllByDefault: true
   scrapeInterval: 30s
   remoteWrite:
-    - url: http://vmsingle-main.monitoring.svc:8428/api/v1/write
+  - url: http://vmsingle-main.monitoring.svc:8428/api/v1/write
   resources:
     requests:
       cpu: 100m
       memory: 256Mi
     limits:
-      cpu: "1"
+      cpu: '1'
       memory: 1Gi
+  volumes:
+  - name: bao-agent-config
+    configMap:
+      name: bao-metrics-agent
+  - name: bao-metrics-token
+    emptyDir:
+      medium: Memory
+  - name: bao-metrics-jwt
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3600
+  volumeMounts:
+  - name: bao-metrics-token
+    mountPath: /var/run/bao-metrics
+    readOnly: true
+  containers:
+  - name: bao-metrics-agent
+    image: quay.io/openbao/openbao:2.6.1
+    command:
+    - bao
+    args:
+    - agent
+    - -config=/etc/bao-agent/config.hcl
+    env:
+    - name: HOME
+      value: /tmp
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    volumeMounts:
+    - name: bao-agent-config
+      mountPath: /etc/bao-agent
+      readOnly: true
+    - name: bao-metrics-token
+      mountPath: /var/run/bao-metrics
+    - name: bao-metrics-jwt
+      mountPath: /var/run/bao-jwt
+      readOnly: true
+  securityContext:
+    fsGroup: 65534
+  initContainers:
+  - name: prepare-bao-token-file
+    image: quay.io/openbao/openbao:2.6.1
+    command:
+    - sh
+    - -ec
+    - 'umask 0022; : > /var/run/bao-metrics/token'
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - name: bao-metrics-token
+      mountPath: /var/run/bao-metrics

@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bao-metrics-agent
+  namespace: monitoring
+data:
+  config.hcl: "disable_mlock = true\nexit_after_auth = false\nvault {\n  address =\
+    \ \"https://bao.ad.ddupan.top:8200\"\n}\nauto_auth {\n  method \"kubernetes\"\
+    \ {\n    mount_path = \"auth/kubernetes\"\n    config = {\n      role = \"metrics\"\
+    \n      token_path = \"/var/run/bao-jwt/token\"\n    }\n  }\n  sink \"file\" {\n\
+    \    config = {\n      path = \"/var/run/bao-metrics/token\"\n      mode = 0644\n\
+    \    }\n  }\n}\n"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbao-metrics
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: openbao-metrics
+spec:
+  ports:
+  - name: https
+    port: 8200
+    targetPort: 8200
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: openbao-metrics
+  namespace: monitoring
+subsets:
+- addresses:
+  - ip: 192.168.10.8
+  ports:
+  - name: https
+    port: 8200
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openbao
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openbao-metrics
+  endpoints:
+  - port: https
+    scheme: https
+    path: /v1/sys/metrics
+    params:
+      format:
+      - prometheus
+    interval: 30s
+    scrapeTimeout: 10s
+    bearerTokenFile: /var/run/bao-metrics/token
+    tlsConfig:
+      serverName: bao.ad.ddupan.top
+    relabelings:
+    - targetLabel: job
+      replacement: openbao

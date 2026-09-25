@@ -3,18 +3,25 @@
 # Take a Raft snapshot and prune old ones. Ship {{ openbao_snapshot_dir }} off-box
 # separately (rsync/restic/scp) — a snapshot on the same host is not a backup.
 set -euo pipefail
+umask 077
 
 export BAO_ADDR="{{ openbao_addr }}"
 export BAO_CACERT="{{ openbao_tls_dir }}/cert.pem"
 BAO_TOKEN="$(cat /etc/openbao/snapshot.token)"
 export BAO_TOKEN
 
+# periodic token 不会自动续期；在每日快照前续期，避免 768h 后永久失败。
+bao token renew >/dev/null
+
 dir="{{ openbao_snapshot_dir }}"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="${dir}/openbao-${stamp}.snap"
 
-bao operator raft snapshot save "${out}"
-chmod 600 "${out}"
+partial="${out}.partial"
+trap 'rm -f -- "$partial"' EXIT
+bao operator raft snapshot save "${partial}"
+chmod 600 "${partial}"
+mv -- "${partial}" "${out}"
 
 # Retention: keep the newest {{ openbao_snapshot_keep }}.
 ls -1t "${dir}"/openbao-*.snap 2>/dev/null | tail -n +{{ openbao_snapshot_keep + 1 }} | xargs -r rm -f

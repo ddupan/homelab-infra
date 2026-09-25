@@ -68,3 +68,14 @@ import {
   to = vault_pki_secret_backend_config_urls.this
   id = "pki/config/urls"
 }
+
+# 本次维护预检先通过同名 API 配置验证，后续 Terraform 纳入既有主 state。
+import {
+  to = vault_policy.metrics
+  id = "metrics"
+}
+
+import {
+  to = vault_kubernetes_auth_backend_role.metrics
+  id = "auth/kubernetes/role/metrics"
+}

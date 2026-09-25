@@ -96,3 +96,6 @@ openbao_snapshot_oncalendar: "*-*-* 02:00:00"
 #   3. terraform apply                          # mounts, roles, policies
 #   4. ansible-playbook bootstrap-openbao.yml   # CA material, OIDC secret, snapshots
 openbao_config_managed_by_terraform: true
+
+# 仅在维护窗口显式启用，用于替换已失效的快照 token；不读取/打印 token。
+openbao_snapshot_rotate_token: false
