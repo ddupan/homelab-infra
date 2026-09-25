@@ -21,3 +21,8 @@ resources:
   - rules/kubernetes-health.yaml
   - rules/host-health.yaml
   - rules/monitoring-delivery.yaml
+  - scrapes/platform-controllers.yaml
+  - rules/platform-controllers.yaml
+  - scrapes/cnpg.yaml
+  - scrapes/seaweedfs.yaml
+  - rules/data-services.yaml

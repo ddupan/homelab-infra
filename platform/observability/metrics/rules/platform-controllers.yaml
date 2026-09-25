@@ -1,0 +1,161 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-controllers
+  namespace: monitoring
+spec:
+  groups:
+  - name: platform-controllers
+    interval: 30s
+    rules:
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="cert-manager"} == 0 or absent(up{job="cert-manager"})
+      for: 5m
+      labels:
+        severity: warning
+        job: cert-manager
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="external-secrets"} == 0 or absent(up{job="external-secrets"})
+      for: 5m
+      labels:
+        severity: warning
+        job: external-secrets
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="external-secrets-cert-controller"} == 0 or absent(up{job="external-secrets-cert-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: external-secrets-cert-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="external-secrets-webhook"} == 0 or absent(up{job="external-secrets-webhook"})
+      for: 5m
+      labels:
+        severity: warning
+        job: external-secrets-webhook
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="helm-controller"} == 0 or absent(up{job="helm-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: helm-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="kustomize-controller"} == 0 or absent(up{job="kustomize-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: kustomize-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="source-controller"} == 0 or absent(up{job="source-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: source-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="notification-controller"} == 0 or absent(up{job="notification-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: notification-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: CertificateNotReady
+      expr: certmanager_certificate_ready_status{job="cert-manager",condition="True"}
+        == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: 证书 {{ $labels.namespace }}/{{ $labels.name }} 未就绪
+        description: 检查 Certificate、CertificateRequest、Issuer、Order 与 Challenge；允许短暂签发过程。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: CertificateExpiringSoon
+      expr: (certmanager_certificate_expiration_timestamp_seconds{job="cert-manager"}
+        - time() < 7 * 86400) and (certmanager_certificate_expiration_timestamp_seconds{job="cert-manager"}
+        - time() >= 86400)
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: 证书 {{ $labels.namespace }}/{{ $labels.name }} 将在七天内到期
+        description: 检查自动续期链路及实际入口证书；一天内到期由 critical 规则接替。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: CertificateExpiryCritical
+      expr: certmanager_certificate_expiration_timestamp_seconds{job="cert-manager"}
+        - time() < 86400
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: 证书 {{ $labels.namespace }}/{{ $labels.name }} 即将到期或已过期
+        description: 不足一天或已经过期；立即检查续期与入口证书。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: ExternalSecretNotReady
+      expr: externalsecret_status_condition{job="external-secrets",condition="Ready",status="True"}
+        == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Secret 同步 {{ $labels.namespace }}/{{ $labels.name }} 未就绪
+        description: 检查 ExternalSecret 状态及 provider 权限、网络；不要输出 Secret 内容。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: ClusterSecretStoreNotReady
+      expr: clustersecretstore_status_condition{job="external-secrets",condition="Ready",status="True"}
+        == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: ClusterSecretStore {{ $labels.name }} 未就绪
+        description: 检查 OpenBao 可达性与 ESO 身份鉴权；可能影响多个命名空间。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: FluxResourceNotReady
+      expr: gotk_resource_info{job="kube-state-metrics",ready!="True",suspended!="true"}
+        == 1
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: Flux {{ $labels.customresource_kind }} {{ $labels.resource_namespace
+          }}/{{ $labels.name }} 未就绪
+        description: 检查对象 conditions、依赖和 controller 日志；主动 suspend 不触发，不自动解除暂停。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: FluxStateMetricsMissing
+      expr: absent(gotk_resource_info{job="kube-state-metrics",customresource_kind="Kustomization",resource_namespace="flux-system",name="flux-system"})
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Flux 对象状态指标缺失
+        description: 检查 kube-state-metrics 自定义资源配置、RBAC 与采集；不能把空结果当作健康。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md

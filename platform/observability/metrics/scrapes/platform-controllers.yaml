@@ -1,0 +1,57 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/component: controller
+  jobLabel: app.kubernetes.io/name
+  endpoints:
+  - port: http-metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: external-secrets
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - external-secrets
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: external-secrets
+  jobLabel: app.kubernetes.io/name
+  podMetricsEndpoints:
+  - port: metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-controllers
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - flux-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: flux
+  jobLabel: app
+  podMetricsEndpoints:
+  - port: http-prom
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
