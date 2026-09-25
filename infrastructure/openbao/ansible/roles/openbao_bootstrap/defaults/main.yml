@@ -99,3 +99,5 @@ openbao_config_managed_by_terraform: true
 
 # 仅在维护窗口显式启用，用于替换已失效的快照 token；不读取/打印 token。
 openbao_snapshot_rotate_token: false
+
+openbao_snapshot_metrics_dir: /var/lib/prometheus/node-exporter

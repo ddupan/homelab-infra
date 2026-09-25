@@ -1,27 +1,58 @@
 #!/usr/bin/env bash
 # {{ ansible_managed }}
-# Take a Raft snapshot and prune old ones. Ship {{ openbao_snapshot_dir }} off-box
-# separately (rsync/restic/scp) — a snapshot on the same host is not a backup.
+# 本机快照不等于异地备份。结果通过独立 node_exporter 上报。
 set -euo pipefail
 umask 077
+
+dir="{{ openbao_snapshot_dir }}"
+metrics_dir="{{ openbao_snapshot_metrics_dir }}"
+# systemd oneshot 不会并发；flock 同时阻止手动执行与 timer 竞争。
+exec 9>"${dir}/.snapshot.lock"
+flock -n 9 || exit 0
+partial=""
+metrics_tmp=""
+finish() {
+  rc=$?
+  trap - EXIT
+  [ -z "$partial" ] || rm -f -- "$partial"
+  # success 文件只在实际快照完成后更新；失败不能抹掉上次成功时间。
+  metrics_tmp="$(mktemp "${metrics_dir}/.openbao-result.XXXXXX")" || exit 1
+  {
+    echo '# HELP openbao_snapshot_last_run_success Whether the last snapshot run succeeded.'
+    echo '# TYPE openbao_snapshot_last_run_success gauge'
+    if [ "$rc" -eq 0 ]; then echo 'openbao_snapshot_last_run_success 1'; else echo 'openbao_snapshot_last_run_success 0'; fi
+    echo '# HELP openbao_snapshot_last_run_timestamp_seconds Completion time of the last snapshot attempt.'
+    echo '# TYPE openbao_snapshot_last_run_timestamp_seconds gauge'
+    echo "openbao_snapshot_last_run_timestamp_seconds $(date +%s)"
+  } > "$metrics_tmp"
+  chmod 644 "$metrics_tmp"
+  mv -f -- "$metrics_tmp" "${metrics_dir}/openbao_snapshot_result.prom"
+  exit "$rc"
+}
+trap finish EXIT
 
 export BAO_ADDR="{{ openbao_addr }}"
 export BAO_CACERT="{{ openbao_tls_dir }}/cert.pem"
 BAO_TOKEN="$(cat /etc/openbao/snapshot.token)"
 export BAO_TOKEN
-
-# periodic token 不会自动续期；在每日快照前续期，避免 768h 后永久失败。
 bao token renew >/dev/null
 
-dir="{{ openbao_snapshot_dir }}"
 stamp="$(date +%Y%m%d-%H%M%S)"
 out="${dir}/openbao-${stamp}.snap"
-
 partial="${out}.partial"
-trap 'rm -f -- "$partial"' EXIT
-bao operator raft snapshot save "${partial}"
-chmod 600 "${partial}"
-mv -- "${partial}" "${out}"
+bao operator raft snapshot save "$partial"
+chmod 600 "$partial"
+mv -- "$partial" "$out"
+partial=""
 
-# Retention: keep the newest {{ openbao_snapshot_keep }}.
+metrics_tmp="$(mktemp "${metrics_dir}/.openbao-success.XXXXXX")"
+{
+  echo '# HELP openbao_snapshot_last_success_timestamp_seconds Completion time of the last successful local Raft snapshot.'
+  echo '# TYPE openbao_snapshot_last_success_timestamp_seconds gauge'
+  echo "openbao_snapshot_last_success_timestamp_seconds $(date +%s)"
+} > "$metrics_tmp"
+chmod 644 "$metrics_tmp"
+mv -f -- "$metrics_tmp" "${metrics_dir}/openbao_snapshot_success.prom"
+
+# 只有产生完整快照后才做保留清理。
 ls -1t "${dir}"/openbao-*.snap 2>/dev/null | tail -n +{{ openbao_snapshot_keep + 1 }} | xargs -r rm -f

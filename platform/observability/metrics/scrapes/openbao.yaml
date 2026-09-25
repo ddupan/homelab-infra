@@ -61,3 +61,48 @@ spec:
     relabelings:
     - targetLabel: job
       replacement: openbao
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbao-node-metrics
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: openbao-node-metrics
+spec:
+  ports:
+  - name: http
+    port: 9100
+    targetPort: 9100
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: openbao-node-metrics
+  namespace: monitoring
+subsets:
+- addresses:
+  - ip: 192.168.10.8
+  ports:
+  - name: http
+    port: 9100
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openbao-node
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openbao-node-metrics
+  endpoints:
+  - port: http
+    interval: 30s
+    scrapeTimeout: 10s
+    relabelings:
+    - targetLabel: job
+      replacement: node-exporter
+    - targetLabel: node
+      replacement: bao1

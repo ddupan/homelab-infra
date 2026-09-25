@@ -1,0 +1,35 @@
+---
+- name: 安装 Ubuntu node_exporter 软件包
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    install_recommends: false
+    policy_rc_d: 101
+
+- name: 创建只允许 root 写入的 textfile 目录
+  ansible.builtin.file:
+    path: "{{ openbao_snapshot_metrics_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 将 exporter 绑定到内网地址并启用 textfile
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Ansible managed; no Bao credentials needed.
+      ARGS="--web.listen-address={{ openbao_metrics_listen_address }} --collector.textfile.directory={{ openbao_snapshot_metrics_dir }}"
+  notify: restart openbao node exporter
+
+- name: 启用主机指标服务
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+  when: not ansible_check_mode

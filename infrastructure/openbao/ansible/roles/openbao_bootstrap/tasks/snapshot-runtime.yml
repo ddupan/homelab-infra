@@ -1,0 +1,34 @@
+---
+- name: Ensure the snapshot output directory exists
+  ansible.builtin.file:
+    path: "{{ openbao_snapshot_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Install the snapshot script
+  ansible.builtin.template:
+    src: bao-snapshot.sh.j2
+    dest: /usr/local/bin/bao-snapshot.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the snapshot systemd service + timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - openbao-snapshot.service
+    - openbao-snapshot.timer
+
+- name: Enable and start the snapshot timer
+  ansible.builtin.systemd:
+    name: openbao-snapshot.timer
+    state: started
+    enabled: true
+    daemon_reload: true

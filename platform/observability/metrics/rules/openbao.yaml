@@ -16,3 +16,53 @@ spec:
         summary: OpenBao 受鉴权指标采集不可用
         description: 检查 Bao 健康与 sealed 状态、采集 Agent 登录/续期、TLS 和目标发现；此告警不区分停机与鉴权失败。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    - alert: OpenBaoInternalUnhealthy
+      expr: (min by(job) (vault_core_active{job="openbao"}) < 1 or min by(job) (vault_core_unsealed{job="openbao"})
+        < 1 or min by(job) (vault_autopilot_node_healthy{job="openbao"}) < 1) and on(job) (up{job="openbao"} ==
+        1)
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: OpenBao 内部健康异常
+        description: 单节点部署应保持 active、unsealed 和 autopilot node healthy；检查 Raft 状态和服务日志。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    - alert: OpenBaoHealthMetricsMissing
+      expr: (absent(vault_core_active{job="openbao"}) or absent(vault_core_unsealed{job="openbao"}) or absent(vault_autopilot_node_healthy{job="openbao"}))
+        and on(job) (up{job="openbao"} == 1)
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenBao 内部健康指标缺失
+        description: 接口可采集但核心 gauge 缺失；检查 telemetry、版本和指标过滤，不将缺数据视为健康。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    - alert: OpenBaoSnapshotFailed
+      expr: openbao_snapshot_last_run_success{job="node-exporter",node="bao1"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenBao 最近一次本地快照失败
+        description: 检查 openbao-snapshot.service 日志、sealed 状态、快照 token 续期与磁盘；修复后重跑任务。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    - alert: OpenBaoSnapshotStale
+      expr: time() - openbao_snapshot_last_success_timestamp_seconds{job="node-exporter",node="bao1"} > 36 * 3600
+        or absent(openbao_snapshot_last_success_timestamp_seconds{job="node-exporter",node="bao1"})
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: OpenBao 本地快照已超时或没有成功记录
+        description: 每日快照超过 36 小时未成功，或成功指标缺失；检查定时器与快照任务。此指标不证明异地备份或恢复可用。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    - alert: OpenBaoSnapshotMetricsUnavailable
+      expr: up{job="node-exporter",node="bao1"} == 0 or absent(up{job="node-exporter",node="bao1"}) or node_textfile_scrape_error{job="node-exporter",node="bao1"}
+        == 1 or absent(openbao_snapshot_last_run_success{job="node-exporter",node="bao1"}) or absent(openbao_snapshot_last_run_timestamp_seconds{job="node-exporter",node="bao1"})
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenBao 快照监控不可用
+        description: 检查 bao1:9100 的 node_exporter、textfile 目录及快照脚本；采集独立于 Bao 的鉴权接口。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md

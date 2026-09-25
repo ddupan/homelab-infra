@@ -1,0 +1,13 @@
+---
+# 只部署 exporter、快照脚本和 timer，不改 Bao 配置、不重启 Bao、不创建 token。
+# 前提：bootstrap 已安装有效的 /etc/openbao/snapshot.token。
+- name: 补齐 OpenBao 主机和快照监控
+  hosts: openbao
+  become: true
+  roles:
+    - openbao_monitoring
+  tasks:
+    - name: 更新快照运行文件
+      ansible.builtin.include_role:
+        name: openbao_bootstrap
+        tasks_from: snapshot-runtime

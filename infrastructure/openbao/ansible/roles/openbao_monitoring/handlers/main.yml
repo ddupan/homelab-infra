@@ -1,0 +1,6 @@
+---
+- name: restart openbao node exporter
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    state: restarted
+  when: not ansible_check_mode
