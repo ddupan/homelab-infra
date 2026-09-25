@@ -32,6 +32,14 @@ datasources:
         isDefault: true
         jsonData:
           prometheusType: Prometheus
+      - name: Alertmanager
+        uid: alertmanager
+        type: alertmanager
+        access: proxy
+        url: http://vmalertmanager-main.monitoring.svc:9093
+        jsonData:
+          implementation: prometheus
+          handleGrafanaManagedAlerts: false
       - name: VictoriaLogs
         type: victoriametrics-logs-datasource
         access: proxy
