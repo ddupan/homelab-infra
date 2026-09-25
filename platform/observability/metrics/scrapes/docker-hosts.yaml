@@ -1,6 +1,6 @@
-# Pull metrics from Docker hosts running ../../docker-hosts/compose.yaml.
-# vmagent scrapes each host's node-exporter (:9100) and cAdvisor (:8080) over the LAN.
-# Add one target block per host; keep the `host` label in sync with its HOST_LABEL.
+# 仅抓取已存在的宿主机 node-exporter。旧 :8080 目标实际返回 nginx 404，
+# 独立 Docker cAdvisor 尚未部署；部署并确认端口后再添加其目标。
+# Kubernetes 容器指标由 kubelet.yaml 的 /metrics/cadvisor 独立采集。
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
 metadata:
@@ -17,13 +17,6 @@ spec:
       labels:
         job: node-exporter
         host: docker-01
-    - targets:
-        - "192.168.10.127:8080"
-      labels:
-        job: cadvisor
-        host: docker-01
-    # --- add more hosts below, mirroring the two blocks above ---
+    # --- 新增主机前确认 exporter 已部署且 /metrics 返回成功 ---
     # - targets: ["192.168.10.x:9100"]
     #   labels: { job: node-exporter, host: docker-02 }
-    # - targets: ["192.168.10.x:8080"]
-    #   labels: { job: cadvisor, host: docker-02 }

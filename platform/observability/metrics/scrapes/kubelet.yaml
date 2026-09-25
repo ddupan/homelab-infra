@@ -13,6 +13,9 @@ spec:
   honorLabels: true
   honorTimestamps: false
   interval: 30s
+  # k3s 此端点包含 apiserver/etcd 指标，响应已超过默认 16 MiB。
+  # 仅放宽 kubelet 任务，其他采集目标保留默认限制。
+  max_scrape_size: "32MiB"
   tlsConfig:
     insecureSkipVerify: true
     caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
