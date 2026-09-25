@@ -6,6 +6,7 @@ resources:
   - vmagent.yaml
   - vmalert.yaml
   - vmalertmanager.yaml
+  - alertmanager-external-secret.yaml
   - reload-rbac.yaml
   - rules/vm-health.yaml
   - rules/vmagent.yaml
