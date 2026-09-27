@@ -5,7 +5,9 @@
 实现由 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 发布。
 
 2026-09-27：三个主机端已部署并验证，Ansible 重跑均 `changed=0`；vmagent Pod 能访问三个
-内网 `:9109/metrics`。抓取声明和八条规则尚待 PR 合并，不能视为已启用告警。
+内网 `:9109/metrics`。PR #166 已合并，Flux observability Ready，应用版本 `589c34e`；
+PrometheusRule 与 VMStaticScrape 已进入 inventory，converter 生成的 VMRule 为 operational。
+三个抓取目标均 up=1，八条规则均 health=ok、inactive，告警已启用。
 
 ## 采集和阈值
 
@@ -53,7 +55,7 @@ sudo journalctl -u homelab-data-collect.service --since '2 hours ago'
 ```
 
 主机端 `check_success` 应全为 1、`dev_sql_ready=1`，`node_textfile_scrape_error=0`。
-合并后检查 `up{job="shared-data-maintenance"}` 三个目标及 `shared-data-maintenance` 规则组。
+日常检查 `up{job="shared-data-maintenance"}` 三个目标及 `shared-data-maintenance` 规则组。
 告警声明使用 `monitoring.coreos.com/v1` 的 `PrometheusRule`，由现有 converter 生成 VMRule；
 静态主机抓取使用 VMStaticScrape。Kubernetes 资源由现有 observability Kustomization 纳管；
 主机端由此 Ansible 独立维护。

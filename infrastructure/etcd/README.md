@@ -106,7 +106,7 @@ quota 初始 256 MiB，按 1 小时保留进行自动 compaction；defrag 另择
 对应 VMRule 覆盖成员不可采集、少于两个可采集成员、无 leader、容量、WAL fsync 和频繁选举。
 采集失败不等于 quorum 丢失，需结合管理员 endpoint health 判断。
 备份年龄、证书到期与续签检查的主机采集已于 2026-09-27 部署，
-告警规则待 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 合并；
+告警规则已随 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 合并并由 Flux 接管；
 部署、阈值和排障见 [维护监控](../shared-data-monitoring/README.md)。既有 Alertmanager 已接入 Telegram，
 维护者已收到本次成员无 leader 与频繁选举通知；接收器配置由现有监控栈维护。
 
@@ -155,7 +155,7 @@ prefix 隔离、gateway 账号登录和单成员故障。假 Bao 不验证真实
 现场验证：Bao PKI roles/policies 已应用，三成员已签发证书并启动；认证初始化与
 `patroni-pg-prod` 账号创建成功，随机密码已保存 Bao，实际 gateway 登录验证通过。
 两台 LXC 的 rootfs 均为 `pve-rg`，运行状态正常；迁移后全部端点成功提交健康探测。
-现有监控已接入；自动续签已启用；备份/证书年龄告警尚待补齐。PostgreSQL 部署状态见其 README。
+现有监控已接入；自动续签已启用；备份/证书年龄告警于 2026-09-27 补齐并启用。PostgreSQL 部署状态见其 README。
 
 监控接入验收（2026-09-25）：三个 `up{job="shared-etcd"}` 均为 1，六条规则 health=ok，
 三端点健康检查通过。新增续签调度四项失败/成功路径测试通过，Terraform validate 与 Ansible lint 通过，
