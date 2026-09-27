@@ -1,0 +1,43 @@
+---
+- name: 为 laptop 的 VM 和服务预留内存
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    laptop_zfs_arc_max_bytes: 4294967296
+  tasks:
+    - name: 确认目标和 ARC 预算
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.hostname == 'laptop'
+          - laptop_zfs_arc_max_bytes | int == 4294967296
+        fail_msg: 此 play 仅用于 laptop 的 4 GiB ARC 预算。
+
+    - name: 读取运行中的 ARC 上限参数
+      ansible.builtin.command: cat /sys/module/zfs/parameters/zfs_arc_max
+      register: arc_max_before
+      changed_when: false
+      check_mode: false
+
+    - name: 持久化 ARC 上限
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/homelab-zfs-arc.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Ansible managed: infrastructure/host-memory/laptop-arc.yml
+          # 4 GiB ARC budget for laptop; retain the automatic minimum.
+          options zfs zfs_arc_max={{ laptop_zfs_arc_max_bytes }}
+      notify: 更新已安装内核的 initramfs
+
+    - name: 在线应用 ARC 上限
+      ansible.builtin.shell: "printf '%s\\n' {{ laptop_zfs_arc_max_bytes | string | quote }} > /sys/module/zfs/parameters/zfs_arc_max"
+      when: arc_max_before.stdout | int != laptop_zfs_arc_max_bytes | int
+      changed_when: true
+
+  handlers:
+    - name: 更新已安装内核的 initramfs
+      ansible.builtin.command: nice -n 10 ionice -c 3 update-initramfs -u -k all
+      changed_when: true
