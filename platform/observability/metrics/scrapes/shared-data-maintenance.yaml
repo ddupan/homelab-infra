@@ -1,0 +1,17 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: shared-data-maintenance
+  namespace: monitoring
+spec:
+  jobName: shared-data-maintenance
+  targetEndpoints:
+    - targets: ['192.168.10.127:9109']
+      labels: {member: laptop}
+      interval: 30s
+    - targets: ['10.60.0.20:9109']
+      labels: {member: etcd-pve1}
+      interval: 30s
+    - targets: ['10.60.0.21:9109']
+      labels: {member: etcd-pve2}
+      interval: 30s

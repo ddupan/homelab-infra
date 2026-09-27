@@ -1,0 +1,168 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 过期证书持续 critical
+  interval: 1m
+  input_series:
+  - series: homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",certificate="etcd-peer"}
+    values: '0x15'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCertificateExpiryCritical
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        certificate: etcd-peer
+        severity: critical
+        service: shared-data
+      exp_annotations:
+        summary: 共享数据证书不足 3 天、已过期或无法读取
+- name: critical 证书不再重复 warning
+  interval: 1m
+  input_series:
+  - series: homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",certificate="etcd-peer"}
+    values: '0x15'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCertificateExpiringSoon
+    exp_alerts: []
+- name: 正常证书不误报
+  interval: 1m
+  input_series:
+  - series: homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",certificate="etcd-peer"}
+    values: 5184000x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCertificateExpiringSoon
+    exp_alerts: []
+- name: 七天内证书预警
+  interval: 1m
+  input_series:
+  - series: homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",certificate="etcd-peer"}
+    values: 604800x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCertificateExpiringSoon
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        certificate: etcd-peer
+        severity: warning
+        service: shared-data
+      exp_annotations:
+        summary: 共享数据证书剩余不足 10 天，请检查自动续签
+- name: 备份超过36小时
+  interval: 1m
+  input_series:
+  - series: homelab_data_backup_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",backup="etcd"}
+    values: -130000x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataBackupStale
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        backup: etcd
+        severity: warning
+        service: shared-data
+      exp_annotations:
+        summary: 共享数据备份已超过 36 小时或没有成功备份
+- name: 新备份没有告警
+  interval: 1m
+  input_series:
+  - series: homelab_data_backup_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",backup="etcd"}
+    values: 0+60x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataBackupStale
+    exp_alerts: []
+- name: exporter 存活但没有采集文件
+  interval: 1m
+  input_series:
+  - series: up{job="shared-data-maintenance",instance="host:9109"}
+    values: 1x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCollectorStale
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        severity: warning
+        service: shared-data
+      exp_annotations: &id001
+        summary: 共享数据本地采集结果缺失或停止更新
+- name: 采集心跳过期
+  interval: 1m
+  input_series:
+  - series: homelab_data_collection_timestamp_seconds{job="shared-data-maintenance",instance="host:9109"}
+    values: '0x15'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataCollectorStale
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        severity: warning
+        service: shared-data
+      exp_annotations: *id001
+- name: SQL 拒绝和只读触发 dev 告警
+  interval: 1m
+  input_series:
+  - series: homelab_data_dev_sql_ready{job="shared-data-maintenance",instance="host:9109"}
+    values: '0x15'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedPostgresDevUnavailable
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        severity: warning
+        service: shared-postgresql
+      exp_annotations:
+        summary: 共享 PG 开发实例本地 SQL 不可用或处于只读状态
+- name: dev 恢复后解除
+  interval: 1m
+  input_series:
+  - series: homelab_data_dev_sql_ready{job="shared-data-maintenance",instance="host:9109"}
+    values: 0x4 1x10
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedPostgresDevUnavailable
+    exp_alerts: []
+- name: 续签检查超过36小时
+  interval: 1m
+  input_series:
+  - series: homelab_data_renewal_success_timestamp_seconds{job="shared-data-maintenance",instance="host:9109",unit="homelab-etcd-renew"}
+    values: -130000x15
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataRenewalStale
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        unit: homelab-etcd-renew
+        severity: warning
+        service: shared-data
+      exp_annotations:
+        summary: 共享数据续签检查失败、停用或超过 36 小时未成功
+- name: 整个 scrape 消失仍报警
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedDataMonitoringUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        service: shared-data
+        job: shared-data-maintenance
+      exp_annotations:
+        summary: 共享数据维护指标无法采集

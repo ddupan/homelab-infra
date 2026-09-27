@@ -1,0 +1,63 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: shared-data-maintenance
+  namespace: monitoring
+spec:
+  groups:
+    - name: shared-data-maintenance
+      rules:
+        - alert: SharedDataMonitoringUnavailable
+          expr: up{job="shared-data-maintenance"} == 0 or absent(up{job="shared-data-maintenance"})
+          for: 3m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据维护指标无法采集
+        - alert: SharedDataCollectorStale
+          expr: >-
+            (time() - homelab_data_collection_timestamp_seconds{job="shared-data-maintenance"} > 180)
+            or (up{job="shared-data-maintenance"} == 1
+            unless on(instance) homelab_data_collection_timestamp_seconds{job="shared-data-maintenance"})
+            or node_textfile_scrape_error{job="shared-data-maintenance"} == 1
+          for: 3m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据本地采集结果缺失或停止更新
+        - alert: SharedDataCheckFailed
+          expr: homelab_data_check_success{job="shared-data-maintenance"} == 0
+          for: 3m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据维护检查失败，请核对对应检查项
+        - alert: SharedDataBackupStale
+          expr: time() - homelab_data_backup_timestamp_seconds{job="shared-data-maintenance"} > 36 * 3600
+          for: 5m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据备份已超过 36 小时或没有成功备份
+        - alert: SharedDataCertificateExpiringSoon
+          expr: >-
+            homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance"} - time() < 10 * 86400
+            and homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance"} - time() >= 3 * 86400
+          for: 5m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据证书剩余不足 10 天，请检查自动续签
+        - alert: SharedDataCertificateExpiryCritical
+          expr: homelab_data_certificate_expiry_timestamp_seconds{job="shared-data-maintenance"} - time() < 3 * 86400
+          for: 5m
+          labels: {severity: critical, service: shared-data}
+          annotations:
+            summary: 共享数据证书不足 3 天、已过期或无法读取
+        - alert: SharedDataRenewalStale
+          expr: time() - homelab_data_renewal_success_timestamp_seconds{job="shared-data-maintenance"} > 36 * 3600
+          for: 5m
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 共享数据续签检查失败、停用或超过 36 小时未成功
+        - alert: SharedPostgresDevUnavailable
+          expr: homelab_data_dev_sql_ready{job="shared-data-maintenance"} == 0
+          for: 3m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: 共享 PG 开发实例本地 SQL 不可用或处于只读状态

@@ -1,0 +1,145 @@
+---
+- name: 采集共享数据服务维护指标
+  hosts: shared_data_monitoring
+  become: true
+  gather_facts: false
+  vars:
+    data_monitor_root: /opt/homelab-data-monitoring
+    data_monitor_exporter_version: 1.9.1
+    data_monitor_download_base: https://github.com/prometheus/node_exporter/releases/download
+    data_monitor_archive: "node_exporter-{{ data_monitor_exporter_version }}.linux-amd64"
+  tasks:
+    - name: 检查仅支持 amd64
+      ansible.builtin.command: uname -m
+      register: data_monitor_arch
+      changed_when: false
+    - name: 拒绝错误架构
+      ansible.builtin.assert:
+        that: data_monitor_arch.stdout == 'x86_64'
+    - name: 创建 root 管理目录
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ data_monitor_root }}"
+        - /etc/homelab-data-monitoring
+        - /var/lib/homelab-data-monitoring
+    - name: 下载已固定校验和的上游 exporter
+      ansible.builtin.get_url:
+        url: >-
+          {{ data_monitor_download_base }}/v{{ data_monitor_exporter_version }}/{{ data_monitor_archive }}.tar.gz
+        dest: "{{ data_monitor_root }}/node_exporter.tar.gz"
+        checksum: sha256:becb950ee80daa8ae7331d77966d94a611af79ad0d3307380907e0ec08f5b4e8
+        owner: root
+        group: root
+        mode: '0644'
+    - name: 解压 exporter（保留上游许可证）
+      ansible.builtin.unarchive:
+        src: "{{ data_monitor_root }}/node_exporter.tar.gz"
+        dest: "{{ data_monitor_root }}"
+        remote_src: true
+        creates: "{{ data_monitor_root }}/node_exporter-{{ data_monitor_exporter_version }}.linux-amd64/node_exporter"
+    - name: 安装只读采集程序
+      ansible.builtin.copy:
+        src: ../files/collect.py
+        dest: "{{ data_monitor_root }}/collect.py"
+        owner: root
+        group: root
+        mode: '0755'
+    - name: 配置明确的证书与检查清单
+      ansible.builtin.template:
+        src: config.json.j2
+        dest: /etc/homelab-data-monitoring/config.json
+        owner: root
+        group: root
+        mode: '0644'
+    - name: 安装采集 service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-data-collect.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Read-only shared data maintenance checks
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 {{ data_monitor_root }}/collect.py \
+            --config /etc/homelab-data-monitoring/config.json \
+            --output /var/lib/homelab-data-monitoring/health.prom
+          Environment=LC_ALL=C
+          Environment=PGCONNECT_TIMEOUT=5
+          Environment="PGOPTIONS=-c statement_timeout=5000"
+          TimeoutStartSec=50
+          UMask=0022
+          ProtectSystem=strict
+          ReadWritePaths=/var/lib/homelab-data-monitoring
+          PrivateTmp=true
+          MemoryMax=96M
+          Nice=10
+    - name: 安装每分钟采集 timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-data-collect.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Collect shared data maintenance metrics every minute
+          [Timer]
+          OnBootSec=30s
+          OnUnitActiveSec=60s
+          AccuracySec=5s
+          [Install]
+          WantedBy=timers.target
+    - name: 安装仅内网 textfile exporter
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-data-exporter.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Shared data textfile metrics
+          After=network-online.target
+          Wants=network-online.target
+          [Service]
+          DynamicUser=true
+          ExecStart={{ data_monitor_root }}/{{ data_monitor_archive }}/node_exporter \
+            --web.listen-address={{ ansible_host }}:9109 \
+            --collector.disable-defaults --collector.textfile \
+            --collector.textfile.directory=/var/lib/homelab-data-monitoring --web.disable-exporter-metrics
+          Restart=on-failure
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ProtectHome=true
+          PrivateTmp=true
+          MemoryMax=64M
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart shared data exporter
+    - name: 重载 unit 声明
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    - name: 首次只读采集并检查程序能够完成
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - "{{ data_monitor_root }}/collect.py"
+          - --config
+          - /etc/homelab-data-monitoring/config.json
+          - --output
+          - /var/lib/homelab-data-monitoring/health.prom
+      environment:
+        LC_ALL: C
+        PGCONNECT_TIMEOUT: '5'
+        PGOPTIONS: '-c statement_timeout=5000'
+      changed_when: false
+    - name: 启用监控服务
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop: [homelab-data-collect.timer, homelab-data-exporter.service]
+  handlers:
+    - name: Restart shared data exporter
+      ansible.builtin.systemd_service:
+        name: homelab-data-exporter.service
+        state: restarted

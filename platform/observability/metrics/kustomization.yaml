@@ -32,3 +32,5 @@ resources:
   - rules/data-services.yaml
   - scrapes/openbao.yaml
   - rules/openbao.yaml
+  - scrapes/shared-data-maintenance.yaml
+  - rules/shared-data-maintenance.yaml
