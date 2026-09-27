@@ -105,7 +105,9 @@ quota 初始 256 MiB，按 1 小时保留进行自动 compaction；defrag 另择
 现有 VictoriaMetrics 使用 `platform/observability/metrics/scrapes/shared-etcd.yaml` 采集，
 对应 VMRule 覆盖成员不可采集、少于两个可采集成员、无 leader、容量、WAL fsync 和频繁选举。
 采集失败不等于 quorum 丢失，需结合管理员 endpoint health 判断。
-备份年龄、证书到期与续签任务告警尚待补齐。既有 Alertmanager 已接入 Telegram，
+备份年龄、证书到期与续签检查的主机采集已于 2026-09-27 部署，
+告警规则待 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 合并；
+部署、阈值和排障见 [维护监控](../shared-data-monitoring/README.md)。既有 Alertmanager 已接入 Telegram，
 维护者已收到本次成员无 leader 与频繁选举通知；接收器配置由现有监控栈维护。
 
 ### DRBD I/O 故障导致成员根卷只读

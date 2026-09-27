@@ -97,8 +97,9 @@ Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复及�
 
 现有 VictoriaMetrics/Alertmanager 已采集生产两节点 Patroni 原生指标，规则位于
 `platform/observability/metrics/{scrapes,rules}/shared-postgresql.yaml`。覆盖成员不可采集、无可见主库、
-多主、replica 未流复制及 PG 进程停止。没有部署另一套监控栈；数据库 SQL 级 exporter、dev 运行告警、
-备份年龄与证书到期告警尚待补齐，不能宣称监控完整。
+多主、replica 未流复制及 PG 进程停止。没有部署另一套监控栈；数据库 SQL 级 exporter 仍后置。dev SQL、备份年龄、证书和续签检查的主机采集已于 2026-09-27 部署，
+新增规则待 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 合并；
+阈值、验证边界和排障见 [维护监控](../shared-data-monitoring/README.md)。
 
 2026-09-25 已验证：
 
