@@ -25,7 +25,8 @@
 证书在不足 14 天时由原自动续签任务处理，10 天阈值给重试留出余量；critical 不重复触发 warning。
 36 小时适用于现有每日快照/full/续签检查计划。dev 未新增备份，异地备份仍后置。
 
-node_exporter 固定为现有监控所用的 1.9.1，并校验官方 SHA256；保留上游 LICENSE。
+node_exporter 当前版本为 1.9.1；下载包与官方 `sha256sums.txt` 均由
+`data_monitor_exporter_version` 生成，Ansible 按包名匹配摘要，升级只改版本变量；保留上游 LICENSE。
 仅启用 textfile，使用 DynamicUser，绑定各主机内网地址的 9109，与现有 9100 不冲突。
 采集程序以 root 运行，以便读取快照元数据和切换为 pgdev/pgbackup；systemd 限制文件系统写入
 到 textfile 目录，限制执行时间与内存。无需 Bao 登录；数据库和 etcd 不因部署监控重启。
@@ -53,7 +54,9 @@ sudo journalctl -u homelab-data-collect.service --since '2 hours ago'
 
 主机端 `check_success` 应全为 1、`dev_sql_ready=1`，`node_textfile_scrape_error=0`。
 合并后检查 `up{job="shared-data-maintenance"}` 三个目标及 `shared-data-maintenance` 规则组。
-Kubernetes 资源由现有 observability Kustomization 纳管；主机端由此 Ansible 独立维护。
+告警声明使用 `monitoring.coreos.com/v1` 的 `PrometheusRule`，由现有 converter 生成 VMRule；
+静态主机抓取使用 VMStaticScrape。Kubernetes 资源由现有 observability Kustomization 纳管；
+主机端由此 Ansible 独立维护。
 
 2026-09-27 验证：6 项采集测试、12 个新增 promtool 场景及既有规则回归通过；Ansible lint
 零失败零告警；Kustomize 渲染通过；三主机实际采集和 vmagent 网络路径通过。未停止业务来测试告警。
