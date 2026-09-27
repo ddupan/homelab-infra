@@ -27,12 +27,13 @@
         - "{{ data_monitor_root }}"
         - /etc/homelab-data-monitoring
         - /var/lib/homelab-data-monitoring
-    - name: 下载已固定校验和的上游 exporter
+    - name: 下载 exporter 并校验同版本官方摘要
       ansible.builtin.get_url:
         url: >-
           {{ data_monitor_download_base }}/v{{ data_monitor_exporter_version }}/{{ data_monitor_archive }}.tar.gz
         dest: "{{ data_monitor_root }}/node_exporter.tar.gz"
-        checksum: sha256:becb950ee80daa8ae7331d77966d94a611af79ad0d3307380907e0ec08f5b4e8
+        checksum: >-
+          sha256:{{ data_monitor_download_base }}/v{{ data_monitor_exporter_version }}/sha256sums.txt
         owner: root
         group: root
         mode: '0644'
