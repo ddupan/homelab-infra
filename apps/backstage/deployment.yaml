@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backstage
-          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:e5a12550726f19a680bc7c40e2cc07cc624318f9279ee121814d293a006ef210
+          image: zot.ad.ddupan.top/panxiao81/backstage@sha256:008a3ccf832c9ee061ef03766022789a7539bd9d001a658af2e9f3ff59a9a5cc
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
