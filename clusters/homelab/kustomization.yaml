@@ -8,6 +8,7 @@ resources:
   - apps/external-secrets.yaml
   - apps/gitea.yaml
   - apps/backstage.yaml
+  - apps/flux-image-automation.yaml
   - apps/http-echo.yaml
   - apps/openebs.yaml
   - apps/nats.yaml

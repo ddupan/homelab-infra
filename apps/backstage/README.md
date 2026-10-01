@@ -18,3 +18,13 @@ OCI digest 固定镜像。
 
 Flux 等待 ExternalSecret 和 Deployment 就绪；任何前置缺失都会使该
 Kustomization 保持 NotReady，而不会回退到明文 Secret。
+
+## 镜像更新
+
+`panxiao81/backstage` 的 CI 在 main push 后只推送 `:latest`。
+`platform/flux-image-automation` 跟踪 `latest` 背后的 digest，由 `flux-bot`
+直接提交到本仓库 main，不经过 PR。`deployment.yaml` 中 image 行的
+`$imagepolicy` 注释是 setter 标记，删除后自动更新会静默停止。
+
+旧 digest 失去 tag 后会被 zot GC 回收（24h），因此不要把 Deployment 手工固定到
+一个已不是 `latest` 的 digest 并长期保留。
