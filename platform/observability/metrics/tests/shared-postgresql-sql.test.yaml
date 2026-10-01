@@ -1,0 +1,165 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: dev SQL 不通时告警带 env=dev 以便分流
+  interval: 1m
+  input_series:
+  - series: pg_up{job="shared-postgresql-sql",instance="h:9188",cluster="homelab-pg-dev",member="pg-laptop",env="dev"}
+    values: '0x5'
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: SharedPostgresSqlUnreachable
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'h:9188', cluster: homelab-pg-dev, member: pg-laptop, env: dev, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG dev pg-laptop 无法以监控角色执行 SQL
+- name: 回放落后持续超过 1 MiB 告警
+  interval: 1m
+  input_series:
+  - series: pg_stat_replication_pg_wal_lsn_diff{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",application_name="pg-laptop"}
+    values: '2097152x10'
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: SharedPostgresReplicationLagging
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, application_name: pg-laptop, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod 副本 pg-laptop 回放落后超过 1 MiB，已不满足自动切换条件
+- name: 短暂落后不告警
+  interval: 1m
+  input_series:
+  - series: pg_stat_replication_pg_wal_lsn_diff{job="shared-postgresql-sql",instance="p:9187",env="prod",application_name="pg-laptop"}
+    values: '2097152x2 0x8'
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: SharedPostgresReplicationLagging
+    exp_alerts: []
+- name: 复制槽积压只在主库告警
+  interval: 1m
+  input_series:
+  - series: pg_replication_slots_pg_wal_lsn_diff{job="shared-postgresql-sql",instance="p:9187",env="prod",slot_name="pg_laptop"}
+    values: '2147483648x15'
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="p:9187",env="prod"}
+    values: '0x15'
+  - series: pg_replication_slots_pg_wal_lsn_diff{job="shared-postgresql-sql",instance="r:9187",env="prod",slot_name="pg_pve1"}
+    values: '2147483648x15'
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="r:9187",env="prod"}
+    values: '1x15'
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: SharedPostgresReplicationSlotRetention
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', env: prod, slot_name: pg_laptop, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod 复制槽 pg_laptop 保留 WAL 超过 1 GiB
+- name: 回卷 critical 时不重复 warning
+  interval: 1m
+  input_series:
+  - series: pg_database_wraparound_age_datfrozenxid_seconds{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app"}
+    values: '1700000000x15'
+  - series: pg_database_wraparound_age_datminmxid_seconds{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app"}
+    values: '1200000000x15'
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: SharedPostgresWraparoundRisk
+    exp_alerts: []
+  - eval_time: 12m
+    alertname: SharedPostgresWraparoundImminent
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: critical, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-pve1 XID/MXID 接近回卷停写，需立即 VACUUM FREEZE
+- name: 回卷 warning
+  interval: 1m
+  input_series:
+  - series: pg_database_wraparound_age_datfrozenxid_seconds{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app"}
+    values: '1200000000x15'
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: SharedPostgresWraparoundRisk
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-pve1 XID/MXID 年龄超过 10 亿
+- name: 只计客户端连接
+  interval: 1m
+  input_series:
+  - series: pg_stat_activity_count{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app",state="active",usename="a",application_name="x",backend_type="client backend",wait_event_type="",wait_event=""}
+    values: '50x10'
+  - series: pg_stat_activity_count{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app",state="idle",usename="b",application_name="y",backend_type="client backend",wait_event_type="",wait_event=""}
+    values: '20x10'
+  - series: pg_stat_activity_count{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="",state="",usename="",application_name="",backend_type="autovacuum worker",wait_event_type="",wait_event=""}
+    values: '30x10'
+  - series: pg_settings_max_connections{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod"}
+    values: '80x10'
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: SharedPostgresConnectionsHigh
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-pve1 客户端连接超过 max_connections 的 80%
+- name: 后台进程不计入连接使用率
+  interval: 1m
+  input_series:
+  - series: pg_stat_activity_count{job="shared-postgresql-sql",instance="p:9187",env="prod",datname="app",state="active",usename="a",application_name="x",backend_type="client backend",wait_event_type="",wait_event=""}
+    values: '40x10'
+  - series: pg_stat_activity_count{job="shared-postgresql-sql",instance="p:9187",env="prod",datname="",state="",usename="",application_name="",backend_type="autovacuum worker",wait_event_type="",wait_event=""}
+    values: '40x10'
+  - series: pg_settings_max_connections{job="shared-postgresql-sql",instance="p:9187",env="prod"}
+    values: '80x10'
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: SharedPostgresConnectionsHigh
+    exp_alerts: []
+- name: 死锁计数增长告警
+  interval: 1m
+  input_series:
+  - series: pg_stat_database_deadlocks{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app"}
+    values: '0 0 0 1 1 1'
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: SharedPostgresDeadlocks
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-pve1 15 分钟内出现死锁
+- name: 空闲事务超过 10 分钟
+  interval: 1m
+  input_series:
+  - series: pg_stat_activity_max_tx_duration{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app",state="idle in transaction",usename="a",application_name="x",backend_type="client backend",wait_event_type="Client",wait_event="ClientRead"}
+    values: '700x5'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: SharedPostgresIdleInTransaction
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-pve1 有事务空闲未提交超过 10 分钟
+- name: 主库落在 pve1 持续 15 分钟提示回切
+  interval: 1m
+  input_series:
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="10.60.0.20:9187",cluster="homelab-pg-prod",member="pg-pve1",env="prod"}
+    values: '0x20'
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="192.168.10.127:9187",cluster="homelab-pg-prod",member="pg-laptop",env="prod"}
+    values: '1x20'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: '10.60.0.20:9187', cluster: homelab-pg-prod, member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG 生产主库运行在 pg-pve1（HDD），请确认切换原因并计划回切 laptop
+- name: 主库在 laptop 不提示
+  interval: 1m
+  input_series:
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="10.60.0.20:9187",member="pg-pve1",env="prod"}
+    values: '1x20'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts: []

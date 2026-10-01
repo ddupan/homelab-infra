@@ -19,6 +19,7 @@ pg_profiles:
     user: pgprod
     port: 5432
     api_port: 8008
+    exporter_port: 9187
     dns: pg-prod.ad.ddupan.top
     memory_high: 768M
     memory_max: 1G
@@ -28,6 +29,7 @@ pg_profiles:
     user: pgdev
     port: 5433
     dns: pg-dev.ad.ddupan.top
+    exporter_port: 9188
     memory_high: 256M
     memory_max: 384M
     shared_buffers: 32MB
@@ -38,3 +40,8 @@ pg_replication_addresses: ['192.168.10.127/32', '10.60.0.20/32']
 pg_repo_host: 10.60.0.21
 pg_repo_user: pgbackup
 pg_repo_path: /var/lib/homelab-pgbackrest
+# SQL 指标：exporter 以实例 OS 用户经本地 socket 连接，peer + ident 映射到只读监控角色，
+# 因此无需密码或 Bao；角色仅有 pg_monitor，不复用实例管理账号。
+pg_monitor_user: homelab_monitor
+# 升级只改版本；安装包与同版本官方 sha256sums.txt 一起下载校验，不写死摘要。
+pg_exporter_version: 0.20.1

@@ -1,0 +1,73 @@
+---
+- name: 设置现有实例路径
+  ansible.builtin.set_fact:
+    pg_profile: "{{ pg_profiles[pg_instance] }}"
+    pg_config_dir: "{{ pg_config_root }}/{{ pg_instance }}"
+    pg_socket_dir: "/run/homelab-postgresql-{{ pg_instance }}"
+- name: 激活前必须存在运行中的受管服务
+  ansible.builtin.command:
+    argv: [systemctl, is-active, "homelab-postgresql-{{ pg_instance }}.service"]
+  changed_when: false
+  check_mode: false
+# 生产：Patroni 只在自身 reload 时把本地配置写成数据目录里的 postgresql.conf/pg_ident.conf，
+# 所以文件视图能说明 Patroni 是否已接收新配置；预加载库是否已生效另看 current_setting。
+# 重启前 pg_file_settings 对该行报 "setting could not be applied"，属预期，不能按 error 过滤。
+# dev：ident_file 是 postmaster 级参数，视图读取的是“当前生效”的那个文件，
+# 所以启动时仍指向旧路径就会读不到映射；两列都为真才算已加载。
+- name: 读取监控配置的激活状态
+  ansible.builtin.command:
+    argv:
+      - "{{ pg_bin_dir }}/psql"
+      - -X
+      - -At
+      - -h
+      - "{{ pg_socket_dir }}"
+      - -p
+      - "{{ pg_profile.port | string }}"
+      - -d
+      - postgres
+      - -c
+      - >-
+        SELECT
+        EXISTS (SELECT 1 FROM pg_ident_file_mappings WHERE map_name = 'monitor' AND error IS NULL)
+        AND EXISTS (SELECT 1 FROM pg_file_settings WHERE name = 'shared_preload_libraries'
+                    AND setting ~ 'pg_stat_statements'),
+        current_setting('shared_preload_libraries') ~ 'pg_stat_statements'
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  changed_when: false
+  check_mode: false
+  register: pg_monitor_state
+- name: 让 Patroni 接收新的本地配置（reload，不重启）
+  ansible.builtin.command:
+    argv: [systemctl, kill, --kill-whom=main, --signal=HUP, homelab-postgresql-prod.service]
+  when: pg_instance == 'prod' and pg_monitor_state.stdout.split('|')[0] != 't'
+  changed_when: true
+- name: 等待 Patroni 写出新配置
+  ansible.builtin.command:
+    argv: "{{ pg_monitor_state.cmd }}"
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  when: pg_instance == 'prod' and pg_monitor_state.stdout.split('|')[0] != 't' and not ansible_check_mode
+  changed_when: false
+  register: pg_monitor_reloaded
+  retries: 10
+  delay: 3
+  until: pg_monitor_reloaded.stdout.split('|')[0] == 't'
+# dev 没有 Patroni；预加载库与 ident_file 都是 postmaster 级参数，只能重启。
+- name: 重启 dev 以加载监控配置
+  ansible.builtin.systemd_service:
+    name: homelab-postgresql-dev.service
+    state: restarted
+  when: pg_instance == 'dev' and pg_monitor_state.stdout != 't|t'
+- name: 检查 dev 重启后监控配置已生效
+  ansible.builtin.command:
+    argv: "{{ pg_monitor_state.cmd }}"
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  when: pg_instance == 'dev' and not ansible_check_mode
+  changed_when: false
+  register: pg_monitor_dev
+  retries: 10
+  delay: 3
+  until: pg_monitor_dev.rc == 0 and pg_monitor_dev.stdout == 't|t'

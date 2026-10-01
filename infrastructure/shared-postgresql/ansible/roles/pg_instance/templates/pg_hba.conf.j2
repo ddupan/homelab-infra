@@ -1,3 +1,4 @@
+local all {{ pg_monitor_user }} peer map=monitor
 local all {{ pg_profile.user }} peer
 {% for cidr in pg_client_cidrs %}
 hostssl all all {{ cidr }} scram-sha-256

@@ -1,0 +1,81 @@
+---
+# SQL 指标：激活监控所需的 HBA/ident 与 pg_stat_statements，创建只读监控角色并安装 exporter。
+# 不需要 Bao：模板先由 site.yml 写入；本 play 只做激活与验证。会重启实例（仅在预加载库未生效时），
+# 因此不放进 site.yml。重复执行应为 changed=0。
+- name: 激活实例监控配置
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: 逐实例激活
+      ansible.builtin.include_tasks: tasks/monitoring-activate.yml
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance
+
+- name: 重启 pending 的生产成员以加载 pg_stat_statements
+  hosts: pg-laptop
+  become: true
+  become_user: "{{ pg_profiles.prod.user }}"
+  gather_facts: false
+  vars:
+    pg_patronictl: [/opt/homelab-patroni/bin/patronictl, -c, "{{ pg_config_root }}/prod/patroni.yml"]
+  tasks:
+    # JSON 输出会省略空值字段：没有 pending 的成员不带 "Pending restart" 键。
+    - name: 读取集群成员状态
+      ansible.builtin.command:
+        argv: "{{ pg_patronictl + ['list', '-f', 'json'] }}"
+      register: pg_members
+      changed_when: false
+      check_mode: false
+    # Patroni 在原位重启 primary，不触发 failover；写入会短暂中断，客户端需重试。
+    - name: 仅重启 pending restart 的成员
+      ansible.builtin.command:
+        argv: "{{ pg_patronictl + ['restart', 'pg-prod', '--pending', '--force'] }}"
+      when: pg_members.stdout | from_json | selectattr('Pending restart', 'defined') | selectattr('Pending restart', 'equalto', '*') | list | length > 0
+      changed_when: true
+    - name: 等待两个成员恢复且无 pending
+      ansible.builtin.command:
+        argv: "{{ pg_patronictl + ['list', '-f', 'json'] }}"
+      register: pg_members_after
+      changed_when: false
+      when: not ansible_check_mode
+      retries: 30
+      delay: 4
+      until: >-
+        (pg_members_after.stdout | from_json | length) == 2
+        and (pg_members_after.stdout | from_json | selectattr('Pending restart', 'defined') | selectattr('Pending restart', 'equalto', '*') | list | length) == 0
+        and (pg_members_after.stdout | from_json | selectattr('State', 'in', ['running', 'streaming']) | list | length) == 2
+
+- name: 创建监控角色并安装 exporter
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 下载 postgres_exporter 并校验同版本官方摘要
+      ansible.builtin.get_url:
+        url: "{{ pg_exporter_base }}/postgres_exporter-{{ pg_exporter_version }}.linux-amd64.tar.gz"
+        dest: /opt/homelab-postgres-exporter.tar.gz
+        checksum: "sha256:{{ pg_exporter_base }}/sha256sums.txt"
+        mode: '0644'
+      vars:
+        pg_exporter_base: https://github.com/prometheus-community/postgres_exporter/releases/download/v{{ pg_exporter_version }}
+      register: pg_exporter_download
+      retries: 5
+      delay: 10
+      until: pg_exporter_download is succeeded
+    - name: 解压 exporter（保留上游许可证）
+      ansible.builtin.unarchive:
+        src: /opt/homelab-postgres-exporter.tar.gz
+        dest: /opt
+        remote_src: true
+        creates: /opt/postgres_exporter-{{ pg_exporter_version }}.linux-amd64/postgres_exporter
+      # check 模式不下载，首次时没有可解压的文件。
+      when: not (ansible_check_mode and pg_exporter_download is changed)
+    - name: 逐实例配置
+      ansible.builtin.include_tasks: tasks/monitoring-exporter.yml
+      loop: "{{ pg_instances }}"
+      loop_control:
+        loop_var: pg_instance

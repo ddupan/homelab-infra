@@ -69,7 +69,10 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 6. `bootstrap-backup.yml` 验证 WAL 与首备成功后启用每日 timer；`proxy.yml` 要求唯一 primary 才发布入口。
 7. DNS 由 `infrastructure/dns/records.yml` 与 Samba `provision-dc.yml --tags dns` 管理。
 8. `controller.yml` 安装 PG 证书每日续签调度，预检通过才启用。
-9. Ayatori 独立控制面就绪后按 [接入说明](ayatori/README.md) 注册；CNPG 迁移另行按应用验收。
+9. `monitoring.yml` 激活 SQL 指标：先由 `site.yml` 写入模板，再执行本 play。它只在配置未生效时
+   向 Patroni 发 HUP、对 pending 成员 `patronictl restart --pending`（primary 原位重启，不 failover，
+   写入短暂中断）或重启 dev；随后在可写实例创建监控角色与扩展并安装 exporter。不需要 Bao。
+10. Ayatori 独立控制面就绪后按 [接入说明](ayatori/README.md) 注册；CNPG 迁移另行按应用验收。
 
 普通 `site.yml` 不代表所有配置已在线激活；尚未实现通用参数变更的 rolling restart。
 专用 `renew-certificates.yml` 只处理证书，60 天有效期、剩余不足 14 天续签；逐主机检查服务，
@@ -97,9 +100,29 @@ Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复及�
 
 现有 VictoriaMetrics/Alertmanager 已采集生产两节点 Patroni 原生指标，规则位于
 `platform/observability/metrics/{scrapes,rules}/shared-postgresql.yaml`。覆盖成员不可采集、无可见主库、
-多主、replica 未流复制及 PG 进程停止。没有部署另一套监控栈；数据库 SQL 级 exporter 仍后置。dev SQL、备份年龄、证书和续签检查的主机采集已于 2026-09-27 部署，
+多主、replica 未流复制及 PG 进程停止。没有部署另一套监控栈。dev SQL、备份年龄、证书和续签检查的主机采集已于 2026-09-27 部署，
 新增规则已随 [PR #166](https://git.ddupan.top/panxiao81/homelab-infra/pulls/166) 合并并由 Flux 接管；
 阈值、验证边界和排障见 [维护监控](../shared-data-monitoring/README.md)。
+
+### SQL 级指标（2026-10-01 主机端上线）
+
+每个实例在自身主机上运行 [prometheus-community/postgres_exporter](https://github.com/prometheus-community/postgres_exporter)
+（`pg_exporter_version`，安装包与官方 `sha256sums.txt` 同源校验）：prod 为 laptop/pve1 的 `:9187`，
+dev 为 laptop `:9188`，仅监听实例内网地址。exporter 以实例 OS 用户走本地 socket，由
+`local all homelab_monitor peer map=monitor` 与 ident 映射登录到 `homelab_monitor`
+（仅 `pg_monitor`、无密码、`CONNECTION LIMIT 3`）。这只约束 exporter 自己的查询，**不是隔离边界**：
+同一 OS 用户仍可经 peer 以 superuser 登录，exporter 被攻破等同实例属主；systemd
+`InaccessiblePaths` 只让它读不到数据目录、私钥与 pgpass。prod/dev 启用 `pg_stat_statements`。
+
+规则 `platform/observability/metrics/rules/shared-postgresql-sql.yaml`（PrometheusRule）以上游
+`postgres_mixin` 为底改写：采集/SQL 不通、复制回放落后 > 1 MiB（与 failover 阈值一致）、主库复制槽
+保留 > 1 GiB、主库落在 pve1（HDD）超过 15 分钟、WAL 归档失败、XID/MXID 年龄、客户端连接 > 80%、空闲事务 > 10 分钟、事务 > 1 小时、
+死锁、频繁请求 checkpoint。目标带 `env` 标签，Alertmanager 把 `env="dev"` 送到独立 dev 频道。
+
+2026-10-01 验证：隔离集成测试覆盖 peer+ident 登录（主/备/dev）、读取 `pg_stat_statements`、
+监控角色不可写；线上激活时两个 prod 成员按 pending 重启，时间线未变（未切换）；三个端点 `pg_up 1`、
+无采集失败，exporter 各约 8 MiB；重跑 `changed=0`；vmagent Pod 可达三个端点。规则 promtool 场景通过。
+`monitoring.yml --check` 不会显示 HUP、restart 与建角色（均为 command 任务），只能作参考。
 
 2026-09-25 已验证：
 

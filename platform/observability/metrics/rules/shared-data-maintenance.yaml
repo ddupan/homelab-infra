@@ -58,6 +58,7 @@ spec:
         - alert: SharedPostgresDevUnavailable
           expr: homelab_data_dev_sql_ready{job="shared-data-maintenance"} == 0
           for: 3m
-          labels: {severity: warning, service: shared-postgresql}
+          # env 供 Alertmanager 把 dev 分流到独立 channel。
+          labels: {severity: warning, service: shared-postgresql, env: dev}
           annotations:
             summary: 共享 PG 开发实例本地 SQL 不可用或处于只读状态

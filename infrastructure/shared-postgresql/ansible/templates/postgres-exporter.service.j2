@@ -1,0 +1,27 @@
+[Unit]
+Description=PostgreSQL {{ pg_instance }} SQL metrics
+After=homelab-postgresql-{{ pg_instance }}.service
+[Service]
+# 本地 socket 上 TLS 无意义，sslmode=disable 只是避免驱动默认尝试 TLS。
+# 以实例 OS 用户运行才能进入 0700 的 socket 目录；peer + ident 把它映射成只读监控角色。
+# 监控角色只约束 exporter 自己发出的查询；这不是隔离边界——同一 OS 用户仍可经 peer 以
+# superuser 登录，exporter 被攻破即等同实例属主。InaccessiblePaths 只是不让它直接读写
+# 数据目录、私钥与 pgpass。暴露面因此仅限内网监听地址。
+User={{ pg_profile.user }}
+Group={{ pg_profile.user }}
+Environment="DATA_SOURCE_NAME=host={{ pg_socket_dir }} port={{ pg_profile.port }} user={{ pg_monitor_user }} dbname=postgres sslmode=disable application_name=postgres_exporter"
+ExecStart=/opt/postgres_exporter-{{ pg_exporter_version }}.linux-amd64/postgres_exporter \
+  --web.listen-address={{ pg_address }}:{{ pg_profile.exporter_port }} \
+  --collector.database_wraparound --collector.long_running_transactions \
+  --collector.stat_checkpointer --collector.stat_wal_receiver --collector.stat_statements
+Restart=on-failure
+RestartSec=5
+InaccessiblePaths={{ pg_parent_dir }} {{ pg_config_dir }}
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+MemoryMax=64M
+[Install]
+WantedBy=multi-user.target

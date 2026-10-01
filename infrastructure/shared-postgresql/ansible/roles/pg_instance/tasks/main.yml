@@ -71,7 +71,7 @@
     owner: root
     group: "{{ pg_profile.user }}"
     mode: '0640'
-  loop: "{{ ['patroni.yml', 'pgbackrest.conf'] if pg_instance == 'prod' else ['postgresql.conf', 'pg_hba.conf'] }}"
+  loop: "{{ ['patroni.yml', 'pgbackrest.conf'] if pg_instance == 'prod' else ['postgresql.conf', 'pg_hba.conf', 'pg_ident.conf'] }}"
   no_log: true
 - name: 安装实例专用服务（不自动启动或重启）
   ansible.builtin.template:

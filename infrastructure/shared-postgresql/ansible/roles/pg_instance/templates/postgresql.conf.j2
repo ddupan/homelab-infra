@@ -3,6 +3,7 @@ port = {{ pg_profile.port }}
 unix_socket_directories = '{{ pg_socket_dir }}'
 unix_socket_permissions = 0700
 hba_file = '{{ pg_config_dir }}/pg_hba.conf'
+ident_file = '{{ pg_config_dir }}/pg_ident.conf'
 password_encryption = 'scram-sha-256'
 shared_buffers = '{{ pg_profile.shared_buffers }}'
 max_connections = {{ pg_profile.max_connections }}
@@ -16,3 +17,5 @@ ssl_ca_file = '{{ pg_config_dir }}/ca.crt'
 archive_mode = off
 log_statement = none
 log_min_error_statement = panic
+# postmaster 级参数：变更后需由 monitoring.yml 重启 dev 实例。
+shared_preload_libraries = 'pg_stat_statements'

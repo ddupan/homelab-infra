@@ -74,6 +74,6 @@ sudo journalctl -u homelab-data-collect.service --since '2 hours ago'
 
 备份年龄不能证明恢复能力或 WAL 连续性；定期隔离恢复演练仍必要。证书指标读取磁盘文件，
 不证明运行进程已重载该证书。dev 检查不验证外部 DNS/TLS 路径、不执行写入。
-SQL 级 exporter、异地备份及应用迁移不在本次范围。
+SQL 级指标见 [共享 PG](../shared-postgresql/README.md#sql-级指标2026-10-01-主机端上线)；异地备份及应用迁移不在本次范围。
 
 跨服务状态见 [共享 PG wiki](https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/shared-postgresql.md)。
