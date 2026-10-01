@@ -8,8 +8,15 @@ metadata:
     backstage.io/kubernetes-id: homelab-backstage
 spec:
   replicas: 1
+  # Backstage is multi-instance safe (scheduler locks, event bus, and auth keys
+  # live in PostgreSQL), so surge one new pod and keep the old one serving
+  # until it is ready. Migrations run on the new pod while the old one still
+  # serves; revisit if an upgrade ships a backward-incompatible migration.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: backstage
