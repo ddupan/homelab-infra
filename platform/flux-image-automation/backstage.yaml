@@ -1,0 +1,26 @@
+# CI pushes only :latest from main; follow the digest behind it. Old digests
+# lose their tag and are collected by zot GC, so the deployment must keep
+# tracking the current one.
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: backstage
+  namespace: flux-system
+spec:
+  image: zot.ad.ddupan.top/panxiao81/backstage
+  interval: 1m
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: backstage
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: backstage
+  filterTags:
+    pattern: '^latest$'
+  policy:
+    alphabetical: {}
+  digestReflectionPolicy: Always
+  interval: 1m

@@ -1,0 +1,15 @@
+# Write-capable source used only by ImageUpdateAutomation. The flux-system
+# GitRepository stays anonymous and read-only.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: homelab-infra-write
+  namespace: flux-system
+spec:
+  interval: 10m
+  ref:
+    branch: main
+  secretRef:
+    name: homelab-infra-write
+  timeout: 60s
+  url: http://gitea-http.gitea.svc.cluster.local:3000/panxiao81/homelab-infra.git

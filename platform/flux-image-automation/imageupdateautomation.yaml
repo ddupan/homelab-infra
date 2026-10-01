@@ -1,0 +1,28 @@
+# Commits digest changes straight to main (no PR): dev images are expected to
+# deploy as soon as CI pushes them. Scoped to apps/backstage so a stray setter
+# elsewhere cannot be rewritten.
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: homelab-infra
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: homelab-infra-write
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: flux-bot
+        email: flux-bot@noreply.git.ddupan.top
+      messageTemplate: |
+        chore(image): update {{ range .Changed.Changes }}{{ .OldValue }} -> {{ .NewValue }} {{ end }}
+    push:
+      branch: main
+  update:
+    path: ./apps/backstage
+    strategy: Setters
