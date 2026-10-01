@@ -23,27 +23,30 @@
   vars:
     pg_patronictl: [/opt/homelab-patroni/bin/patronictl, -c, "{{ pg_config_root }}/prod/patroni.yml"]
   tasks:
+    # JSON 输出会省略空值字段：没有 pending 的成员不带 "Pending restart" 键。
     - name: 读取集群成员状态
       ansible.builtin.command:
-        argv: "{{ pg_patronictl + ['list', '-e', '-f', 'json'] }}"
+        argv: "{{ pg_patronictl + ['list', '-f', 'json'] }}"
       register: pg_members
       changed_when: false
+      check_mode: false
     # Patroni 在原位重启 primary，不触发 failover；写入会短暂中断，客户端需重试。
     - name: 仅重启 pending restart 的成员
       ansible.builtin.command:
         argv: "{{ pg_patronictl + ['restart', 'pg-prod', '--pending', '--force'] }}"
-      when: pg_members.stdout | from_json | selectattr('Pending restart', 'equalto', '*') | list | length > 0
+      when: pg_members.stdout | from_json | selectattr('Pending restart', 'defined') | selectattr('Pending restart', 'equalto', '*') | list | length > 0
       changed_when: true
     - name: 等待两个成员恢复且无 pending
       ansible.builtin.command:
-        argv: "{{ pg_patronictl + ['list', '-e', '-f', 'json'] }}"
+        argv: "{{ pg_patronictl + ['list', '-f', 'json'] }}"
       register: pg_members_after
       changed_when: false
+      when: not ansible_check_mode
       retries: 30
       delay: 4
       until: >-
         (pg_members_after.stdout | from_json | length) == 2
-        and (pg_members_after.stdout | from_json | selectattr('Pending restart', 'equalto', '*') | list | length) == 0
+        and (pg_members_after.stdout | from_json | selectattr('Pending restart', 'defined') | selectattr('Pending restart', 'equalto', '*') | list | length) == 0
         and (pg_members_after.stdout | from_json | selectattr('State', 'in', ['running', 'streaming']) | list | length) == 2
 
 - name: 创建监控角色并安装 exporter
@@ -69,6 +72,8 @@
         dest: /opt
         remote_src: true
         creates: /opt/postgres_exporter-{{ pg_exporter_version }}.linux-amd64/postgres_exporter
+      # check 模式不下载，首次时没有可解压的文件。
+      when: not (ansible_check_mode and pg_exporter_download is changed)
     - name: 逐实例配置
       ansible.builtin.include_tasks: tasks/monitoring-exporter.yml
       loop: "{{ pg_instances }}"

@@ -8,6 +8,7 @@
   ansible.builtin.command:
     argv: [systemctl, is-active, "homelab-postgresql-{{ pg_instance }}.service"]
   changed_when: false
+  check_mode: false
 # 生产：Patroni 只在自身 reload 时把本地配置写成数据目录里的 postgresql.conf/pg_ident.conf，
 # 所以文件视图能说明 Patroni 是否已接收新配置；预加载库是否已生效另看 current_setting。
 # dev：ident_file 是 postmaster 级参数，视图读取的是“当前生效”的那个文件，
@@ -34,6 +35,7 @@
   become: true
   become_user: "{{ pg_profile.user }}"
   changed_when: false
+  check_mode: false
   register: pg_monitor_state
 - name: 让 Patroni 接收新的本地配置（reload，不重启）
   ansible.builtin.command:
@@ -45,7 +47,7 @@
     argv: "{{ pg_monitor_state.cmd }}"
   become: true
   become_user: "{{ pg_profile.user }}"
-  when: pg_instance == 'prod' and pg_monitor_state.stdout.split('|')[0] != 't'
+  when: pg_instance == 'prod' and pg_monitor_state.stdout.split('|')[0] != 't' and not ansible_check_mode
   changed_when: false
   register: pg_monitor_reloaded
   retries: 10
@@ -62,7 +64,7 @@
     argv: "{{ pg_monitor_state.cmd }}"
   become: true
   become_user: "{{ pg_profile.user }}"
-  when: pg_instance == 'dev'
+  when: pg_instance == 'dev' and not ansible_check_mode
   changed_when: false
   register: pg_monitor_dev
   retries: 10

@@ -22,6 +22,7 @@
   become: true
   become_user: "{{ pg_profile.user }}"
   changed_when: false
+  check_mode: false
   register: pg_monitor_role
 - name: 创建或修正监控角色（无密码，仅能经本地 ident 映射登录）
   ansible.builtin.command:
@@ -49,6 +50,8 @@
     daemon_reload: "{{ pg_exporter_unit is changed }}"
     enabled: true
     state: "{{ 'restarted' if pg_exporter_unit is changed else 'started' }}"
+  # check 模式下 unit 文件尚未写入，systemd 找不到服务。
+  when: not (ansible_check_mode and pg_exporter_unit is changed)
 # 同时证明 HBA/ident 已加载、角色可登录、exporter 能查询。
 - name: 检查 exporter 已连上数据库
   ansible.builtin.uri:
@@ -56,6 +59,7 @@
     return_content: true
   register: pg_exporter_metrics
   changed_when: false
+  when: not ansible_check_mode
   retries: 10
   delay: 3
   until: pg_exporter_metrics.status == 200 and pg_exporter_metrics.content is search('(?m)^pg_up 1$')
