@@ -61,7 +61,7 @@ CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=o
 - `ansible/templates/gateway.yaml.j2`：独立 namespace、Service/EndpointSlice、HTTPRoute、
   BackendTLSPolicy。入口复用现有通配符证书，后端以 Incus 的公共 server.crt 验证
   `laptop` SAN，不跳过 TLS 验证。公共证书由 playbook 读取，不复制私钥。
-- `infrastructure/dns/records.yml`：唯一 DNS 声明；`ansible/dns.yml` 只协调 Incus 记录。
+- `infrastructure/dns/records.yml`：唯一 DNS 声明；`ansible/dns.yml` 只协调 Incus 与两个 Ayatori 容器的记录。
 
 入口资源由此 Ansible playbook 管理，尚未交由 Flux。共享 Gateway 的后端 TLS
 兼容配置由 Flux 管理：EnvoyProxy `eg` 允许 TLS 1.2–1.3，以连接要求 TLS 1.3
@@ -110,9 +110,12 @@ ANSIBLE_CONFIG=ansible.cfg ANSIBLE_COLLECTIONS_PATH=collections ANSIBLE_LOCAL_TE
 2 GiB 内存、20 GiB rootfs，禁用容器 swap，自动启动。没有安装 Ayatori、k0s、
 kube-apiserver、controller 或数据库；准备 Prod 空容器不代表生产服务已上线。
 
-网络使用既有 `br0` 的 DHCP，固定 MAC 分别为 `02:16:3e:aa:00:01`、
-`02:16:3e:aa:00:02`。地址不是静态分配，不发布 DNS；后续固定服务地址前应建立
-DHCP reservation 或核对地址池后配置静态地址。
+网络接入既有 `br0`，固定 MAC 分别为 `02:16:3e:aa:00:01`、`02:16:3e:aa:00:02`。
+首次启动走 DHCP，随后 `ansible/containers.yml` 改为静态地址：Dev `192.168.10.11`、
+Prod `192.168.10.12`（`ayatori-{dev,prod}.ad.ddupan.top`）。地址只在
+`infrastructure/dns/records.yml` 声明一次，netplan 与 AD DNS 均从此读取；须位于
+NEC IX DHCP 池（`.128–.250`）之外。容器内禁用 cloud-init 网络模块，否则每次启动都会
+重写回 DHCP。
 
 初始账号 `panxiao81`，使用 `ansible/files/panxiao81.pub` 公钥登录，可 sudo；
 密码登录关闭。宿主也可使用 `incus exec local:ayatori-dev -- bash`。
@@ -141,5 +144,5 @@ cloud-init 用户设置主要在首次启动执行，修改声明不能替代后
 `mkdir ... file exists` 竞争；按上面的串行 apply 执行。失败后先重新 plan，
 保留已成功创建的实例，不清理或销毁其资源。
 
-当前 DHCP 地址：Dev `192.168.10.131`，Prod `192.168.10.132`（2026-09-25）。
-`ansible/containers.yml` 通过本机 Incus exec 幂等安装并启用 SSH server。
+`ansible/containers.yml` 通过本机 Incus exec 幂等固定静态地址，并安装、启用 SSH server；
+走 exec 而非 SSH，切换地址不会切断 Ansible 自身连接。

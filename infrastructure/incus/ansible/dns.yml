@@ -1,21 +1,23 @@
 ---
-- name: 仅协调 Incus 的 AD DNS 记录
+- name: 仅协调 Incus 与 Ayatori 容器的 AD DNS 记录
   hosts: samba_dc
   become: true
   gather_facts: false
+  vars:
+    incus_dns_names: [incus, ayatori-dev, ayatori-prod]
   vars_files:
     - ../../dns/records.yml
     - ../../samba-ad/ansible/group_vars/all/vars.yml
   tasks:
-    - name: 从共享清单选择 Incus RRset
+    - name: 从共享清单选择 Incus 相关 RRset
       ansible.builtin.set_fact:
-        incus_dns_records: "{{ homelab_dns.samba.records | selectattr('name', 'equalto', 'incus') | selectattr('zone', 'equalto', 'ad.ddupan.top') | list }}"
-    - name: 确认只有一个受管 A 记录
+        incus_dns_records: "{{ homelab_dns.samba.records | selectattr('name', 'in', incus_dns_names) | selectattr('zone', 'equalto', 'ad.ddupan.top') | list }}"
+    - name: 确认每个名称恰有一个受管 A 记录
       ansible.builtin.assert:
         that:
-          - incus_dns_records | length == 1
-          - incus_dns_records[0].type == 'A'
-    - name: 协调 Incus A 记录
+          - incus_dns_records | length == incus_dns_names | length
+          - incus_dns_records | map(attribute='type') | unique == ['A']
+    - name: 协调 A 记录
       ddupan.homelab.samba_dns_record:
         server: "{{ samba_ad_dc_ip }}"
         zone: "{{ item.zone }}"

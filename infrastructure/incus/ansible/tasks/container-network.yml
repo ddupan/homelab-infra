@@ -1,0 +1,52 @@
+---
+# 地址必须在 NEC IX DHCP 池（.128–.250）之外；池由路由器手工维护，没有 reservation 可声明。
+# 用 incus exec 而非 SSH 执行，切换地址不会断开 Ansible 自身的连接。
+- name: 读取容器的 AD DNS 地址
+  ansible.builtin.set_fact:
+    container_ipv4: >-
+      {{ (homelab_dns.samba.records
+          | selectattr('zone', 'equalto', 'ad.ddupan.top')
+          | selectattr('name', 'equalto', incus_container)
+          | first)['values'] | first }}
+
+# cloud-init 网络模块每次启动都会重写 50-cloud-init.yaml，必须先禁用它，静态配置才能持久。
+# 网关与 resolver 照搬原 DHCP 下发值（.1 网关；Blocky .127 优先、路由器 .1 兜底）。
+- name: 声明静态网络
+  ansible.builtin.command:
+    argv:
+      - incus
+      - exec
+      - "local:{{ incus_container }}"
+      - --env
+      - "CLOUD_CFG={{ container_cloud_cfg }}"
+      - --env
+      - "NETPLAN={{ container_netplan }}"
+      - --
+      - sh
+      - -euc
+      - |
+        changed=0
+        put() {
+          if [ "$(cat "$1" 2>/dev/null)" != "$2" ]; then
+            printf '%s\n' "$2" > "$1"; chmod 600 "$1"; changed=1
+          fi
+        }
+        put /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg "$CLOUD_CFG"
+        put /etc/netplan/60-static.yaml "$NETPLAN"
+        if [ -e /etc/netplan/50-cloud-init.yaml ]; then
+          rm /etc/netplan/50-cloud-init.yaml; changed=1
+        fi
+        if [ "$changed" = 1 ]; then netplan apply; echo CHANGED; fi
+  vars:
+    container_cloud_cfg: "network: {config: disabled}"
+    container_netplan: |-
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            dhcp4: false
+            addresses: [{{ container_ipv4 }}/24]
+            routes: [{to: default, via: 192.168.10.1}]
+            nameservers: {addresses: [192.168.10.127, 192.168.10.1]}
+  register: container_network
+  changed_when: "'CHANGED' in container_network.stdout"

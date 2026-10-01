@@ -7,6 +7,10 @@ homelab_dns:
     # RRsets are reconciled; Samba-generated AD/Kerberos records are untouched.
     records:
       - { zone: ad.ddupan.top, name: incus, type: A, values: [192.168.10.127] }
+      # Static, outside the NEC IX pool (.128-.250); infrastructure/incus/ansible/containers.yml
+      # reads these same values to pin each container's netplan address.
+      - { zone: ad.ddupan.top, name: ayatori-dev, type: A, values: [192.168.10.11] }
+      - { zone: ad.ddupan.top, name: ayatori-prod, type: A, values: [192.168.10.12] }
       - { zone: ad.ddupan.top, name: bao, type: A, values: [192.168.10.8] }
       - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
       - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
