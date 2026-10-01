@@ -117,9 +117,9 @@ tests:
   interval: 1m
   input_series:
   - series: pg_stat_database_deadlocks{job="shared-postgresql-sql",instance="p:9187",member="pg-pve1",env="prod",datname="app"}
-    values: '0 0 0 1 1 1'
+    values: '0x20 1x5'
   alert_rule_test:
-  - eval_time: 5m
+  - eval_time: 22m
     alertname: SharedPostgresDeadlocks
     exp_alerts:
     - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
@@ -162,4 +162,34 @@ tests:
   alert_rule_test:
   - eval_time: 16m
     alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts: []
+- name: 新出现的计数器序列带历史累计值不误报归档失败
+  interval: 1m
+  input_series:
+  - series: pg_stat_archiver_failed_count{job="shared-postgresql-sql",instance="l:9187",member="pg-laptop",env="prod"}
+    values: '_x20 9x20'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: SharedPostgresWalArchiveFailing
+    exp_alerts: []
+- name: 归档失败计数增长告警
+  interval: 1m
+  input_series:
+  - series: pg_stat_archiver_failed_count{job="shared-postgresql-sql",instance="l:9187",member="pg-laptop",env="prod"}
+    values: '9x20 10x5'
+  alert_rule_test:
+  - eval_time: 22m
+    alertname: SharedPostgresWalArchiveFailing
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: 'l:9187', member: pg-laptop, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG prod pg-laptop WAL 归档失败，PITR 链可能中断
+- name: 计数器重置不误报 checkpoint
+  interval: 1m
+  input_series:
+  - series: pg_stat_checkpointer_num_requested_total{job="shared-postgresql-sql",instance="l:9187",member="pg-laptop",env="prod"}
+    values: '16x60 0x30'
+  alert_rule_test:
+  - eval_time: 85m
+    alertname: SharedPostgresCheckpointsRequested
     exp_alerts: []
