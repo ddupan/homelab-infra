@@ -44,6 +44,37 @@ locals {
   }
 }
 
+# 镜像不含 openssh-server。不设 ssh_pwauth：它会在装包前写出残缺的 sshd_config，
+# 使包自带的默认配置（UsePAM yes、Include sshd_config.d）无法落地，锁定密码的账号随即被拒。
+# 改为装包后（defer）再写 drop-in，只覆盖需要收紧的项。
+locals {
+  ayatori_cloud_config = {
+    manage_etc_hosts = true
+    disable_root     = true
+    users = [{
+      name                = "panxiao81"
+      groups              = ["sudo"]
+      shell               = "/bin/bash"
+      sudo                = ["ALL=(ALL) NOPASSWD:ALL"]
+      lock_passwd         = true
+      ssh_authorized_keys = [trimspace(file("${path.module}/../ansible/files/panxiao81.pub"))]
+    }]
+    # WAN 随机掉线，装包须重试。
+    apt            = { conf = "Acquire::Retries \"5\";" }
+    package_update = true
+    packages       = ["openssh-server"]
+    write_files = [{
+      path    = "/etc/ssh/sshd_config.d/60-homelab.conf"
+      defer   = true
+      content = <<-EOT
+        PasswordAuthentication no
+        KbdInteractiveAuthentication no
+        PermitRootLogin no
+      EOT
+    }]
+  }
+}
+
 resource "incus_instance" "ayatori" {
   for_each    = toset(["dev", "prod"])
   name        = "ayatori-${each.key}"
@@ -73,20 +104,9 @@ resource "incus_instance" "ayatori" {
         }
       }
     })
-    "cloud-init.user-data" = "#cloud-config\n${yamlencode({
-      hostname         = "ayatori-${each.key}"
-      manage_etc_hosts = true
-      ssh_pwauth       = false
-      disable_root     = true
-      users = [{
-        name                = "panxiao81"
-        groups              = ["sudo"]
-        shell               = "/bin/bash"
-        sudo                = ["ALL=(ALL) NOPASSWD:ALL"]
-        lock_passwd         = true
-        ssh_authorized_keys = [trimspace(file("${path.module}/../ansible/files/panxiao81.pub"))]
-      }]
-    })}"
+    "cloud-init.user-data" = "#cloud-config\n${yamlencode(merge(local.ayatori_cloud_config, {
+      hostname = "ayatori-${each.key}"
+    }))}"
   }
   device {
     name = "root"

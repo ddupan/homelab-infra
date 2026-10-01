@@ -117,15 +117,16 @@ Prod `192.168.10.12`（`ayatori-{dev,prod}.ad.ddupan.top`）。地址只在
 NEC IX DHCP 池（`.128–.250`）之外。⚠ 镜像模板只在创建/复制时渲染 cloud-init seed，
 对已有实例改地址不会生效（重启、`cloud-init clean` 都不行），只能重建实例。
 
-初始账号 `panxiao81`，使用 `ansible/files/panxiao81.pub` 公钥登录，可 sudo；
-密码登录关闭。宿主也可使用 `incus exec local:ayatori-dev -- bash`。
+SSH 全部由 cloud-init 完成：安装 openssh-server，创建 `panxiao81`（`ansible/files/panxiao81.pub`
+公钥、免密 sudo），装包后再写 `/etc/ssh/sshd_config.d/60-homelab.conf` 关闭密码与 root 登录。
+不使用 `ssh_pwauth`：它在装包前写出残缺的 `sshd_config`，包自带的 `UsePAM yes` 落不下来，
+锁定密码的账号会被拒（2026-09-25 曾发生）。宿主也可使用 `incus exec local:ayatori-dev -- bash`。
 provider 通过本地 Unix socket 操作，执行账号须有 socket 权限。
 
 ```bash
 terraform -chdir=infrastructure/incus/terraform init
 terraform -chdir=infrastructure/incus/terraform plan -out=containers.tfplan
 terraform -chdir=infrastructure/incus/terraform apply -parallelism=1 containers.tfplan
-ANSIBLE_LOCAL_TEMP=/tmp/ansible-incus ansible-playbook -i infrastructure/incus/ansible/inventory/hosts.yml infrastructure/incus/ansible/containers.yml
 terraform -chdir=infrastructure/incus/terraform output containers
 terraform -chdir=infrastructure/incus/terraform plan -detailed-exitcode
 ```
@@ -144,5 +145,3 @@ cloud-init 用户设置主要在首次启动执行，修改声明不能替代后
 首次从同一远端并行创建实例时，Incus 7.5.1 曾出现 simplestreams 缓存目录
 `mkdir ... file exists` 竞争；按上面的串行 apply 执行。失败后先重新 plan，
 保留已成功创建的实例，不清理或销毁其资源。
-
-`ansible/containers.yml` 通过本机 Incus exec 幂等安装并启用 SSH server。
