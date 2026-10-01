@@ -11,6 +11,7 @@
   check_mode: false
 # 生产：Patroni 只在自身 reload 时把本地配置写成数据目录里的 postgresql.conf/pg_ident.conf，
 # 所以文件视图能说明 Patroni 是否已接收新配置；预加载库是否已生效另看 current_setting。
+# 重启前 pg_file_settings 对该行报 "setting could not be applied"，属预期，不能按 error 过滤。
 # dev：ident_file 是 postmaster 级参数，视图读取的是“当前生效”的那个文件，
 # 所以启动时仍指向旧路径就会读不到映射；两列都为真才算已加载。
 - name: 读取监控配置的激活状态
@@ -30,7 +31,7 @@
         SELECT
         EXISTS (SELECT 1 FROM pg_ident_file_mappings WHERE map_name = 'monitor' AND error IS NULL)
         AND EXISTS (SELECT 1 FROM pg_file_settings WHERE name = 'shared_preload_libraries'
-                    AND setting ~ 'pg_stat_statements' AND error IS NULL),
+                    AND setting ~ 'pg_stat_statements'),
         current_setting('shared_preload_libraries') ~ 'pg_stat_statements'
   become: true
   become_user: "{{ pg_profile.user }}"
