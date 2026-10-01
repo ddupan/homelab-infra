@@ -66,6 +66,8 @@ postgresql:
     unix_socket_directories: {{ pg_socket_dir }}
     unix_socket_permissions: '0700'
     password_encryption: scram-sha-256
+    # postmaster 级参数：变更后需由 monitoring.yml 执行 Patroni pending restart。
+    shared_preload_libraries: pg_stat_statements
     shared_buffers: {{ pg_profile.shared_buffers }}
     work_mem: 4MB
     maintenance_work_mem: 64MB
@@ -76,6 +78,7 @@ postgresql:
     log_statement: none
     log_min_error_statement: panic
   pg_hba:
+    - local all {{ pg_monitor_user }} peer map=monitor
     - local all {{ pg_profile.user }} peer
     - local replication {{ pg_profile.user }} peer
     - local replication replicator scram-sha-256
@@ -88,6 +91,9 @@ postgresql:
 {% endfor %}
     - host all all 0.0.0.0/0 reject
     - host all all ::/0 reject
+  # 只有实例 OS 用户（exporter 运行身份）可映射为监控角色。
+  pg_ident:
+    - monitor {{ pg_profile.user }} {{ pg_monitor_user }}
   remove_data_directory_on_rewind_failure: false
   remove_data_directory_on_diverged_timelines: false
 watchdog:

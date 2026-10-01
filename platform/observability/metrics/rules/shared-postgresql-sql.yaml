@@ -1,0 +1,109 @@
+# 以 postgres_exporter 上游 postgres_mixin 为底按本环境改写：实例停止、多主、角色变化已由
+# Patroni 规则（shared-postgresql.yaml）覆盖；QPS/缓存命中率/回滚数不是故障信号，未采用；
+# 上游 PostgresHasReplicationSlotUsed 会被 Patroni 在 standby 保留的非活跃槽持续触发，未采用。
+# 每条告警都带抓取目标的 env 标签，Alertmanager 按它把 dev 分流到独立 channel。
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shared-postgresql-sql
+  namespace: monitoring
+spec:
+  groups:
+    - name: shared-postgresql-sql
+      rules:
+        - alert: SharedPostgresSqlExporterDown
+          expr: up{job="shared-postgresql-sql"} == 0
+          for: 3m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 的 SQL exporter 无法采集'
+        # 进程停止已有 Patroni critical；这里覆盖进程在但 SQL 不通（HBA、连接耗尽、dev 实例）。
+        - alert: SharedPostgresSqlUnreachable
+          expr: pg_up{job="shared-postgresql-sql"} == 0
+          for: 2m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 无法以监控角色执行 SQL'
+        - alert: SharedPostgresSqlCollectorFailing
+          expr: pg_scrape_collector_success{job="shared-postgresql-sql"} == 0 or pg_exporter_last_scrape_error{job="shared-postgresql-sql"} == 1
+          for: 10m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 部分 SQL 指标采集失败 {{ $labels.collector }}'
+        # 与 Patroni maximum_lag_on_failover（1 MiB）一致：持续超过即该 standby 不再是合格的切换候选。
+        - alert: SharedPostgresReplicationLagging
+          expr: pg_stat_replication_pg_wal_lsn_diff{job="shared-postgresql-sql"} > 1048576
+          for: 5m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} 副本 {{ $labels.application_name }} 回放落后超过 1 MiB，已不满足自动切换条件'
+        # 只看可写成员：standby 上 Patroni 维护的槽副本不反映真实保留压力。
+        # 1 GiB 是 max_slot_wal_keep_size（2GB）的一半，留出处理时间。
+        - alert: SharedPostgresReplicationSlotRetention
+          expr: >-
+            pg_replication_slots_pg_wal_lsn_diff{job="shared-postgresql-sql"} > 1073741824
+            and on(instance) pg_replication_is_replica{job="shared-postgresql-sql"} == 0
+          for: 10m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} 复制槽 {{ $labels.slot_name }} 保留 WAL 超过 1 GiB'
+        - alert: SharedPostgresWalArchiveFailing
+          expr: increase(pg_stat_archiver_failed_count{job="shared-postgresql-sql"}[15m]) > 0
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} WAL 归档失败，PITR 链可能中断'
+        # XID/MXID 上限约 2^31；超过一半说明 freeze 跟不上，超过 75% 已接近强制停写；critical 时不重复 warning。
+        - alert: SharedPostgresWraparoundRisk
+          expr: >-
+            (max without(datname) (pg_database_wraparound_age_datfrozenxid_seconds{job="shared-postgresql-sql"}) > 1e9
+            or max without(datname) (pg_database_wraparound_age_datminmxid_seconds{job="shared-postgresql-sql"}) > 1e9)
+            unless (max without(datname) (pg_database_wraparound_age_datfrozenxid_seconds{job="shared-postgresql-sql"}) > 1.6e9
+            or max without(datname) (pg_database_wraparound_age_datminmxid_seconds{job="shared-postgresql-sql"}) > 1.6e9)
+          for: 10m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} XID/MXID 年龄超过 10 亿'
+        - alert: SharedPostgresWraparoundImminent
+          expr: >-
+            max without(datname) (pg_database_wraparound_age_datfrozenxid_seconds{job="shared-postgresql-sql"}) > 1.6e9
+            or max without(datname) (pg_database_wraparound_age_datminmxid_seconds{job="shared-postgresql-sql"}) > 1.6e9
+          for: 5m
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} XID/MXID 接近回卷停写，需立即 VACUUM FREEZE'
+        - alert: SharedPostgresConnectionsHigh
+          expr: >-
+            sum without(datname, state, usename, application_name, backend_type, wait_event_type, wait_event)
+              (pg_stat_activity_count{job="shared-postgresql-sql", backend_type="client backend"})
+            / pg_settings_max_connections{job="shared-postgresql-sql"} > 0.8
+          for: 5m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 客户端连接超过 max_connections 的 80%'
+        # 长事务阻止 vacuum 回收并持有锁；idle in transaction 通常是应用忘记提交。
+        - alert: SharedPostgresIdleInTransaction
+          expr: >-
+            max without(datname, state, usename, application_name, backend_type, wait_event_type, wait_event)
+              (pg_stat_activity_max_tx_duration{job="shared-postgresql-sql", state=~"idle in transaction.*"}) > 600
+          for: 1m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 有事务空闲未提交超过 10 分钟'
+        - alert: SharedPostgresLongTransaction
+          expr: pg_long_running_transactions_oldest_timestamp_seconds{job="shared-postgresql-sql"} > 3600
+          for: 1m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 最老事务已运行超过 1 小时'
+        - alert: SharedPostgresDeadlocks
+          expr: sum without(datname) (increase(pg_stat_database_deadlocks{job="shared-postgresql-sql"}[15m])) > 0
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 15 分钟内出现死锁'
+        # 每日 pgBackRest full 会请求一次 checkpoint；每小时多于 4 次通常意味着 max_wal_size 偏小。
+        - alert: SharedPostgresCheckpointsRequested
+          expr: increase(pg_stat_checkpointer_num_requested_total{job="shared-postgresql-sql"}[1h]) > 4
+          for: 15m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 频繁请求 checkpoint，max_wal_size 可能偏小'

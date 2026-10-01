@@ -25,6 +25,8 @@ resources:
   - scrapes/shared-etcd.yaml
   - rules/shared-postgresql.yaml
   - scrapes/shared-postgresql.yaml
+  - rules/shared-postgresql-sql.yaml
+  - scrapes/shared-postgresql-sql.yaml
   - scrapes/platform-controllers.yaml
   - rules/platform-controllers.yaml
   - scrapes/cnpg.yaml

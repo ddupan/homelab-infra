@@ -88,9 +88,9 @@ def main():
                        pg_etcd_endpoints=[f'{h["etcd_address"]}:23379' for h in hosts.values()],
                        pg_config_dir='/node/config',pg_parent_dir='/node',pg_data_dir='/node/data',pg_socket_dir='/node/socket',
                        pg_bin_dir='/usr/lib/postgresql/18/bin',pg_replication_addresses=['127.0.0.0/8'],pg_client_cidrs=['127.0.0.0/8'],
-                       pg_repo_remote=False,pg_repo_path='/repo')
+                       pg_repo_remote=False,pg_repo_path='/repo',pg_monitor_user='homelab_monitor')
                 values[name]=v
-                for template in (['postgresql.conf','pg_hba.conf'] if name=='dev' else ['patroni.yml','pgbackrest.conf']):
+                for template in (['postgresql.conf','pg_hba.conf','pg_ident.conf'] if name=='dev' else ['patroni.yml','pgbackrest.conf']):
                     (cfg/template).write_text(env.get_template(template+'.j2').render(**v))
                 for folder in ['socket','backup-lock','backup-spool']:(d/folder).mkdir()
             (pg/'repo').mkdir();(pg/'restore').mkdir();(pg/'pitr').mkdir()
@@ -131,6 +131,20 @@ def main():
             initial_backup=json.loads(backrest('p1','--output=json','info').stdout)[0]['backup'][-1]['label']
             recovery_target=sql('p1','SELECT clock_timestamp()::text')
             print('PASS: separate dev, TLS verify-full, non-superuser Ayatori native privileges, initial backup',flush=True)
+            # 与 monitoring.yml 相同的声明：无密码，只能由实例 OS 用户经 peer + ident 映射登录。
+            monitor_role="CREATE ROLE homelab_monitor LOGIN CONNECTION LIMIT 3 PASSWORD NULL; GRANT pg_monitor TO homelab_monitor; CREATE EXTENSION pg_stat_statements;"
+            sql('p1',monitor_role);sql('dev',monitor_role)
+            def monitor(name,query):
+                return run(['docker','exec','-i',prefix+'-'+name,'psql','-X','-v','ON_ERROR_STOP=1','-At','-h','/node/socket','-p','25432','-U','homelab_monitor','postgres'],input=query).stdout.strip()
+            for name in ['p1','p2','dev']:
+                wait_for(lambda: monitor(name,"SELECT current_setting('shared_preload_libraries')||(SELECT count(*)>=0 FROM pg_stat_statements)")=='pg_stat_statementstrue')
+            for name in ['p1','dev']:
+                try:
+                    monitor(name,'CREATE TABLE public.monitor_write(id int)')
+                    raise AssertionError(f'monitor role could write on {name}')
+                except subprocess.CalledProcessError:
+                    pass
+            print('PASS: monitor role logs in via peer+ident on primary/standby/dev, reads pg_stat_statements, cannot write',flush=True)
             proxycfg=w/'proxy.cfg'
             # 文件父目录仍由调用者拥有，新增代理配置不触碰 PG 文件。
             proxycfg.write_text(env.get_template('haproxy.cfg.j2').render(pg_proxy_bind='127.0.2.10:26432',pg_proxy_members=[dict(name=n,address=values[n]['pg_address'],port=25432,api_port=28008) for n in ['p1','p2']]))

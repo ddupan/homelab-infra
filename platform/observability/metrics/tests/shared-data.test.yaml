@@ -125,6 +125,7 @@ tests:
         instance: host:9109
         severity: warning
         service: shared-postgresql
+        env: dev
       exp_annotations:
         summary: 共享 PG 开发实例本地 SQL 不可用或处于只读状态
 - name: dev 恢复后解除

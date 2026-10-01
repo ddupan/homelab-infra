@@ -1,0 +1,61 @@
+---
+- name: 设置现有实例路径
+  ansible.builtin.set_fact:
+    pg_profile: "{{ pg_profiles[pg_instance] }}"
+    pg_config_dir: "{{ pg_config_root }}/{{ pg_instance }}"
+    pg_parent_dir: "{{ pg_data_root }}/{{ pg_instance }}"
+    pg_socket_dir: "/run/homelab-postgresql-{{ pg_instance }}"
+    pg_psql: ["{{ pg_bin_dir }}/psql", -X, -At, -v, ON_ERROR_STOP=1, -h, "/run/homelab-postgresql-{{ pg_instance }}",
+              -p, "{{ pg_profiles[pg_instance].port | string }}", -d, postgres]
+# 角色与扩展只在可写实例上创建，standby 经复制获得。
+- name: 检查监控角色与扩展是否符合声明
+  ansible.builtin.command:
+    argv: "{{ pg_psql + ['-c', pg_monitor_check] }}"
+  vars:
+    pg_monitor_check: >-
+      SELECT pg_is_in_recovery(),
+      COALESCE((SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb
+                AND NOT rolreplication AND NOT rolbypassrls AND rolconnlimit = 3 AND rolpassword IS NULL
+                AND pg_has_role(oid, 'pg_monitor', 'MEMBER')
+                FROM pg_authid WHERE rolname = '{{ pg_monitor_user }}'), false)
+      AND EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  changed_when: false
+  register: pg_monitor_role
+- name: 创建或修正监控角色（无密码，仅能经本地 ident 映射登录）
+  ansible.builtin.command:
+    argv: "{{ pg_psql }}"
+    stdin: |
+      SELECT 'CREATE ROLE {{ pg_monitor_user }}'
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ pg_monitor_user }}') \gexec
+      ALTER ROLE {{ pg_monitor_user }} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
+        CONNECTION LIMIT 3 PASSWORD NULL;
+      GRANT pg_monitor TO {{ pg_monitor_user }};
+      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+  become: true
+  become_user: "{{ pg_profile.user }}"
+  when: pg_monitor_role.stdout == 'f|f'
+  changed_when: true
+- name: 安装实例 exporter 服务
+  ansible.builtin.template:
+    src: postgres-exporter.service.j2
+    dest: "/etc/systemd/system/homelab-postgresql-{{ pg_instance }}-exporter.service"
+    mode: '0644'
+  register: pg_exporter_unit
+- name: 启用 exporter
+  ansible.builtin.systemd_service:
+    name: "homelab-postgresql-{{ pg_instance }}-exporter.service"
+    daemon_reload: "{{ pg_exporter_unit is changed }}"
+    enabled: true
+    state: "{{ 'restarted' if pg_exporter_unit is changed else 'started' }}"
+# 同时证明 HBA/ident 已加载、角色可登录、exporter 能查询。
+- name: 检查 exporter 已连上数据库
+  ansible.builtin.uri:
+    url: "http://{{ pg_address }}:{{ pg_profile.exporter_port }}/metrics"
+    return_content: true
+  register: pg_exporter_metrics
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: pg_exporter_metrics.status == 200 and pg_exporter_metrics.content is search('(?m)^pg_up 1$')
