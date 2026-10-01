@@ -116,7 +116,7 @@ dev 为 laptop `:9188`，仅监听实例内网地址。exporter 以实例 OS 用
 
 规则 `platform/observability/metrics/rules/shared-postgresql-sql.yaml`（PrometheusRule）以上游
 `postgres_mixin` 为底改写：采集/SQL 不通、复制回放落后 > 1 MiB（与 failover 阈值一致）、主库复制槽
-保留 > 1 GiB、WAL 归档失败、XID/MXID 年龄、客户端连接 > 80%、空闲事务 > 10 分钟、事务 > 1 小时、
+保留 > 1 GiB、主库落在 pve1（HDD）超过 15 分钟、WAL 归档失败、XID/MXID 年龄、客户端连接 > 80%、空闲事务 > 10 分钟、事务 > 1 小时、
 死锁、频繁请求 checkpoint。目标带 `env` 标签，Alertmanager 把 `env="dev"` 送到独立 dev 频道。
 
 2026-10-01 验证：隔离集成测试覆盖 peer+ident 登录（主/备/dev）、读取 `pg_stat_statements`、

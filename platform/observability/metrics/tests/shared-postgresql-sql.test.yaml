@@ -137,3 +137,29 @@ tests:
     - exp_labels: {job: shared-postgresql-sql, instance: 'p:9187', member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
       exp_annotations:
         summary: 共享 PG prod pg-pve1 有事务空闲未提交超过 10 分钟
+- name: 主库落在 pve1 持续 15 分钟提示回切
+  interval: 1m
+  input_series:
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="10.60.0.20:9187",cluster="homelab-pg-prod",member="pg-pve1",env="prod"}
+    values: '0x20'
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="192.168.10.127:9187",cluster="homelab-pg-prod",member="pg-laptop",env="prod"}
+    values: '1x20'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts:
+    - exp_labels: {job: shared-postgresql-sql, instance: '10.60.0.20:9187', cluster: homelab-pg-prod, member: pg-pve1, env: prod, severity: warning, service: shared-postgresql}
+      exp_annotations:
+        summary: 共享 PG 生产主库运行在 pg-pve1（HDD），请确认切换原因并计划回切 laptop
+- name: 主库在 laptop 不提示
+  interval: 1m
+  input_series:
+  - series: pg_replication_is_replica{job="shared-postgresql-sql",instance="10.60.0.20:9187",member="pg-pve1",env="prod"}
+    values: '1x20'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: SharedPostgresPrimaryOnStandbyHost
+    exp_alerts: []
