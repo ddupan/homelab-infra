@@ -1,17 +1,8 @@
 ---
-- name: 准备 Ayatori 基础容器的网络与 SSH 入口
+- name: 准备 Ayatori 基础容器的 SSH 入口
   hosts: incus_hosts
   gather_facts: false
-  # 静态地址与 AD DNS 记录同源，避免两处地址漂移。
-  vars_files:
-    - ../../dns/records.yml
   tasks:
-    - name: 按容器协调静态地址
-      ansible.builtin.include_tasks: tasks/container-network.yml
-      loop: [ayatori-dev, ayatori-prod]
-      loop_control:
-        loop_var: incus_container
-
     - name: 按容器协调 SSH
       ansible.builtin.include_tasks: tasks/container-ssh.yml
       loop: [ayatori-dev, ayatori-prod]

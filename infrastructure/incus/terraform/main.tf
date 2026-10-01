@@ -34,12 +34,24 @@ resource "incus_storage_pool" "ayatori" {
   }
 }
 
+# 地址只在 records.yml 声明一次，AD DNS（ansible/dns.yml）与此处同源读取；
+# 须位于 NEC IX DHCP 池（.128–.250）之外，池由路由器手工维护，无法声明 reservation。
+locals {
+  ayatori_ipv4 = {
+    for r in yamldecode(file("${path.module}/../../dns/records.yml")).homelab_dns.samba.records :
+    trimprefix(r.name, "ayatori-") => r.values[0]
+    if r.zone == "ad.ddupan.top" && startswith(r.name, "ayatori-")
+  }
+}
+
 resource "incus_instance" "ayatori" {
   for_each    = toset(["dev", "prod"])
   name        = "ayatori-${each.key}"
   description = "Ayatori ${each.key} 基础容器；应用由独立部署流程管理"
   # Ubuntu 24.04 cloud amd64，20260924_07:42；固定指纹避免重建时静默更换镜像。
-  image    = "images:b39d3d56c30738ad74c507066cc5d410e1c0f1647bdcdff398be1ee51d63862a"
+  # 上游 images: 已不再提供该构建（2026-10-01 重建时 "image couldn't be found"），只能取本机缓存；
+  # ⚠ 缓存镜像闲置超过 images.remote_cache_expiry（默认 10 天）会被 Incus 自动删除。
+  image    = "local:b39d3d56c30738ad74c507066cc5d410e1c0f1647bdcdff398be1ee51d63862a"
   type     = "container"
   profiles = []
   running  = true
@@ -50,6 +62,19 @@ resource "incus_instance" "ayatori" {
     "limits.cpu"          = "2"
     "limits.memory"       = "2GiB"
     "limits.memory.swap"  = "false"
+    # ⚠ 镜像模板只在 create/copy 时渲染 cloud-init seed（when: [create, copy]），
+    # 对已有实例修改此键不会生效，重启或 cloud-init clean 也不会；改地址须重建实例。
+    # 网关与 resolver 沿用 LAN DHCP 下发值：.1 网关；Blocky .127 优先、路由器 .1 兜底。
+    "cloud-init.network-config" = yamlencode({
+      version = 2
+      ethernets = {
+        eth0 = {
+          addresses   = ["${local.ayatori_ipv4[each.key]}/24"]
+          routes      = [{ to = "default", via = "192.168.10.1" }]
+          nameservers = { addresses = ["192.168.10.127", "192.168.10.1"] }
+        }
+      }
+    })
     "cloud-init.user-data" = "#cloud-config\n${yamlencode({
       hostname         = "ayatori-${each.key}"
       manage_etc_hosts = true

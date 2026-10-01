@@ -111,11 +111,11 @@ ANSIBLE_CONFIG=ansible.cfg ANSIBLE_COLLECTIONS_PATH=collections ANSIBLE_LOCAL_TE
 kube-apiserver、controller 或数据库；准备 Prod 空容器不代表生产服务已上线。
 
 网络接入既有 `br0`，固定 MAC 分别为 `02:16:3e:aa:00:01`、`02:16:3e:aa:00:02`。
-首次启动走 DHCP，随后 `ansible/containers.yml` 改为静态地址：Dev `192.168.10.11`、
+Terraform 通过 `cloud-init.network-config` 配置静态地址：Dev `192.168.10.11`、
 Prod `192.168.10.12`（`ayatori-{dev,prod}.ad.ddupan.top`）。地址只在
-`infrastructure/dns/records.yml` 声明一次，netplan 与 AD DNS 均从此读取；须位于
-NEC IX DHCP 池（`.128–.250`）之外。容器内禁用 cloud-init 网络模块，否则每次启动都会
-重写回 DHCP。
+`infrastructure/dns/records.yml` 声明一次，Terraform 与 AD DNS 均从此读取；须位于
+NEC IX DHCP 池（`.128–.250`）之外。⚠ 镜像模板只在创建/复制时渲染 cloud-init seed，
+对已有实例改地址不会生效（重启、`cloud-init clean` 都不行），只能重建实例。
 
 初始账号 `panxiao81`，使用 `ansible/files/panxiao81.pub` 公钥登录，可 sudo；
 密码登录关闭。宿主也可使用 `incus exec local:ayatori-dev -- bash`。
@@ -131,7 +131,9 @@ terraform -chdir=infrastructure/incus/terraform plan -detailed-exitcode
 ```
 
 provider 固定 1.2.0 并保留 lockfile，镜像固定 Ubuntu 24.04 cloud 构建指纹。
-上游滚动镜像不保证永久保存，重建前需确认本机镜像缓存或归档可用。
+上游滚动镜像不保证永久保存：该指纹在 2026-10-01 已从 `images:` 下架，现从 `local:`
+缓存创建；缓存闲置超过 `images.remote_cache_expiry`（默认 10 天）会被自动删除，重建前需确认
+本机缓存或归档可用，否则须改用新指纹。
 cloud-init 用户设置主要在首次启动执行，修改声明不能替代后续用户/密钥轮换流程。
 
 当前 state 位于 `terraform/terraform.tfstate`（Git 忽略），是本地 backend；
@@ -144,5 +146,4 @@ cloud-init 用户设置主要在首次启动执行，修改声明不能替代后
 `mkdir ... file exists` 竞争；按上面的串行 apply 执行。失败后先重新 plan，
 保留已成功创建的实例，不清理或销毁其资源。
 
-`ansible/containers.yml` 通过本机 Incus exec 幂等固定静态地址，并安装、启用 SSH server；
-走 exec 而非 SSH，切换地址不会切断 Ansible 自身连接。
+`ansible/containers.yml` 通过本机 Incus exec 幂等安装并启用 SSH server。

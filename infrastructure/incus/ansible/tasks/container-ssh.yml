@@ -55,9 +55,11 @@
   register: container_sshd_write
   changed_when: true
 
+# 24.04 新装时只有 ssh.socket 运行，/run/sshd 要等 ssh.service 的 RuntimeDirectory 才创建，
+# 缺它时 sshd -t 直接失败；按同样的 0755 预建（/run 为 tmpfs，不留持久状态）。
 - name: 校验 SSH 配置
   ansible.builtin.command:
-    argv: [incus, exec, "local:{{ incus_container }}", --, /usr/sbin/sshd, -t]
+    argv: [incus, exec, "local:{{ incus_container }}", --, sh, -c, install -d -m 0755 /run/sshd && exec /usr/sbin/sshd -t]
   changed_when: false
 
 - name: 更新运行中的 SSH 配置
