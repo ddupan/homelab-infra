@@ -56,8 +56,13 @@ spec:
           labels: {severity: warning, service: shared-postgresql}
           annotations:
             summary: '共享 PG {{ $labels.env }} 复制槽 {{ $labels.slot_name }} 保留 WAL 超过 1 GiB'
+        # 计数器规则不用 increase()：MetricsQL 把新序列首个样本视为从 0 增长，exporter 新上线或
+        # 角色变化时，历史累计值（如 2026-09-25 搭建期的 9 次归档失败）会被当成刚发生而误报。
+        # 与 offset 相减对新序列返回空；计数器重置（重启/stats reset）得负值，同样不告警。
         - alert: SharedPostgresWalArchiveFailing
-          expr: increase(pg_stat_archiver_failed_count{job="shared-postgresql-sql"}[15m]) > 0
+          expr: >-
+            pg_stat_archiver_failed_count{job="shared-postgresql-sql"}
+            - pg_stat_archiver_failed_count{job="shared-postgresql-sql"} offset 15m > 0
           labels: {severity: warning, service: shared-postgresql}
           annotations:
             summary: '共享 PG {{ $labels.env }} {{ $labels.member }} WAL 归档失败，PITR 链可能中断'
@@ -105,13 +110,17 @@ spec:
           annotations:
             summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 最老事务已运行超过 1 小时'
         - alert: SharedPostgresDeadlocks
-          expr: sum without(datname) (increase(pg_stat_database_deadlocks{job="shared-postgresql-sql"}[15m])) > 0
+          expr: >-
+            sum without(datname) (pg_stat_database_deadlocks{job="shared-postgresql-sql"}
+            - pg_stat_database_deadlocks{job="shared-postgresql-sql"} offset 15m) > 0
           labels: {severity: warning, service: shared-postgresql}
           annotations:
             summary: '共享 PG {{ $labels.env }} {{ $labels.member }} 15 分钟内出现死锁'
         # 每日 pgBackRest full 会请求一次 checkpoint；每小时多于 4 次通常意味着 max_wal_size 偏小。
         - alert: SharedPostgresCheckpointsRequested
-          expr: increase(pg_stat_checkpointer_num_requested_total{job="shared-postgresql-sql"}[1h]) > 4
+          expr: >-
+            pg_stat_checkpointer_num_requested_total{job="shared-postgresql-sql"}
+            - pg_stat_checkpointer_num_requested_total{job="shared-postgresql-sql"} offset 1h > 4
           for: 15m
           labels: {severity: warning, service: shared-postgresql}
           annotations:
