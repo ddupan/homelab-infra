@@ -1,6 +1,20 @@
 serve:
   public:
     port: 4444
+    # The iam-login /console admin UI is a public OIDC client that exchanges its code from the
+    # browser, so only that origin may call the public endpoints cross-origin. Server-side
+    # clients such as Gitea are unaffected by CORS.
+    cors:
+      enabled: true
+      allowed_origins:
+      - https://laptop.tail7e769.ts.net:18082
+      allowed_methods:
+      - GET
+      - POST
+      allowed_headers:
+      - Authorization
+      - Content-Type
+      allow_credentials: false
   admin:
     port: 4445
   tls:

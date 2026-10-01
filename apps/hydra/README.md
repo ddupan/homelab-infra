@@ -3,7 +3,7 @@
 本目录提供独立 Hydra 签发服务。当前分支将实验性 Hydra 登录入口接至 Spring `iam-login`
 开发实例，由其执行 AD 密码、WebAuthn 和授权确认；不改变 issuer、Gitea 登录源或数据库。
 旧 Go OIDC 适配器继续部署以便回退，Gitea 的直接 Authelia 登录源也保留。
-该配置需经 PR 合并与 Flux 应用后才生效；下面原有 Go/Authelia 说明保留为回退路径资料。
+该切换已于 2026-10-01 经 PR #168 合并并由 Flux 应用；下面原有 Go/Authelia 说明保留为回退路径资料。
 
 ```text
 Gitea → Hydra → iam-login（Tailscale 开发实例）→ Samba AD + WebAuthn
@@ -24,6 +24,30 @@ Hydra 回调为 `/oauth2/start`、`/oauth2/consent`、`/oauth2/logout`；默认�
 验收前已只读核对目标 Gitea 账号的现有 Hydra 外部关联，并将旧 sub 显式绑定到 AD
 稳定主体；不按邮箱重建关联、不修改 Gitea 账号或仓库权限。客户端管理仅允许有效 MFA 且
 直接属于 AD Domain Admins 的用户；这是验收期明确指定的粗粒度管理组。
+
+### 客户端管理 `/console`
+
+iam-login 的客户端管理 API 只接受 Hydra 签发、带 `iam.clients.manage` scope 的 access token；
+`/console` 是调用该 API 的前端，在 Hydra 中登记为普通 **public** 客户端 `iam-admin-ui`。
+该 scope 只在 consent 时发给 `iam-admin-ui` 且直接属于管理组的用户，规则在 iam-login。
+
+浏览器直接向 Hydra 换取 token，因此 `hydra.yaml` 为 public 端口开启 CORS，只允许开发实例
+origin；不放行 cookie 凭据。Gitea 等服务端客户端不受影响。
+
+`iam-admin-ui` 无 secret，与 `gitea` 一样经 Admin 带外登记（它是 public 客户端，iam-login API
+看不到也删不掉它，恢复同样走此通道）：
+
+```sh
+curl -fsS -X POST http://127.0.0.1:18445/admin/clients -H 'Content-Type: application/json' -d '{
+  "client_id": "iam-admin-ui", "client_name": "IAM 管理",
+  "redirect_uris": ["https://laptop.tail7e769.ts.net:18082/console/callback"],
+  "grant_types": ["authorization_code"], "response_types": ["code"],
+  "scope": "openid iam.clients.manage", "token_endpoint_auth_method": "none",
+  "subject_type": "public", "metadata": {"iam_login_enabled": true}}'
+```
+
+开发实例另需 `iam.clients.admin-ui-client-id=iam-admin-ui`；未配置时 `/console` 不提供，API
+无法获得可用 token（fail closed）。
 
 从 Gitea `/user/oauth2/hydra` 发起，应进入新密码/Passkey 页，确认授权后返回原账号，核对
 仓库权限。当前 Gitea client 未登记 front/back-channel 或 post-logout 回调，不能声称 Gitea 会话会
