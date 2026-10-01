@@ -1,0 +1,32 @@
+---
+name: dind-fuse-image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - platform/gitea-runner/images/dind-fuse/**
+      - .gitea/workflows/dind-fuse-image.yml
+
+jobs:
+  publish:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the Gitea container registry
+        uses: docker/login-action@v3
+        with:
+          registry: git.ddupan.top
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Build and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: platform/gitea-runner/images/dind-fuse
+          push: true
+          tags: |
+            git.ddupan.top/panxiao81/dind-fuse:29.7.1
+            git.ddupan.top/panxiao81/dind-fuse:latest

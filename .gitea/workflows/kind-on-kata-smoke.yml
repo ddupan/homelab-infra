@@ -1,0 +1,63 @@
+---
+name: kind-on-kata-smoke
+
+on:
+  push:
+    branches:
+      - poc/kind-on-kata
+    paths:
+      - .gitea/workflows/kind-on-kata-smoke.yml
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, pod]
+    steps:
+      - name: Create nested kind cluster
+        shell: sh
+        env:
+          KIND_VERSION: v0.27.0
+          KIND_NODE_IMAGE: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
+        run: |
+          set -eu
+          apk add --no-cache ca-certificates curl docker-cli
+          curl --retry 5 --retry-all-errors --connect-timeout 15 -fsSLo /tmp/kind \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          curl --retry 5 --retry-all-errors --connect-timeout 15 -fsSLo /tmp/kind.sha256sum \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
+          expected="$(awk '{print $1}' /tmp/kind.sha256sum)"
+          printf '%s  %s\n' "$expected" /tmp/kind | sha256sum -c -
+          install -m 0755 /tmp/kind /usr/local/bin/kind
+          docker info --format 'kernel={{.KernelVersion}} driver={{.Driver}}'
+          test "$(docker info --format '{{.Driver}}')" = overlay2
+
+          cleanup() {
+            kind delete cluster --name nested >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          cat >/tmp/kind-config.yaml <<'EOF'
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          name: nested
+          nodes:
+            - role: control-plane
+              extraMounts:
+                - hostPath: /dev/kmsg
+                  containerPath: /dev/kmsg
+          EOF
+          kind create cluster -v 9 --retain --config /tmp/kind-config.yaml --image "$KIND_NODE_IMAGE" --wait 5m
+          docker exec nested-control-plane kubectl \
+            --kubeconfig=/etc/kubernetes/admin.conf wait \
+            --for=condition=Ready node/nested-control-plane --timeout=2m
+          docker exec nested-control-plane kubectl \
+            --kubeconfig=/etc/kubernetes/admin.conf run smoke \
+            --image=docker.io/library/busybox:1.37 --restart=Never \
+            --command -- sh -c 'echo kind-on-kata-ok'
+          docker exec nested-control-plane kubectl \
+            --kubeconfig=/etc/kubernetes/admin.conf wait \
+            --for=jsonpath='{.status.phase}'=Succeeded pod/smoke --timeout=2m
+          test "$(docker exec nested-control-plane kubectl \
+            --kubeconfig=/etc/kubernetes/admin.conf logs smoke)" = kind-on-kata-ok
+          kind delete cluster --name nested
+          trap - EXIT

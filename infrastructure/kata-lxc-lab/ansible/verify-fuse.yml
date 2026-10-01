@@ -1,0 +1,73 @@
+---
+- name: Verify fuse-overlayfs for Docker inside Kata
+  hosts: kata-lab
+  gather_facts: false
+  tasks:
+    - name: Remove an earlier fuse-overlayfs smoke Pod
+      ansible.builtin.command:
+        cmd: k3s kubectl delete pod kata-fuse-smoke --ignore-not-found --wait=true
+      changed_when: false
+
+    - name: Create Kata Docker Pod using fuse-overlayfs
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          k3s kubectl apply -f - <<'EOF'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: kata-fuse-smoke
+          spec:
+            runtimeClassName: kata
+            restartPolicy: Never
+            containers:
+              - name: dockerd
+                image: docker.io/library/docker:27-dind
+                securityContext:
+                  privileged: true
+                env:
+                  - name: DOCKER_TLS_CERTDIR
+                    value: ""
+                command:
+                  - sh
+                  - -c
+                  - |
+                    apk add --no-cache fuse-overlayfs
+                    test -e /dev/fuse || mknod /dev/fuse c 10 229
+                    chmod 0666 /dev/fuse
+                    exec dockerd-entrypoint.sh --storage-driver=fuse-overlayfs
+              - name: client
+                image: docker.io/library/docker:27-cli
+                env:
+                  - name: DOCKER_HOST
+                    value: tcp://127.0.0.1:2375
+                command:
+                  - sh
+                  - -c
+                  - |
+                    until docker info >/dev/null 2>&1; do sleep 1; done
+                    docker info --format 'storage-driver={{ "{{" }}.Driver{{ "}}" }}'
+                    docker run --rm docker.io/library/busybox:1.37 echo fuse-nested-docker-ok
+          EOF
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Wait for the Docker client to finish
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl wait --for=jsonpath='{.status.containerStatuses[?(@.name=="client")].state.terminated.exitCode}'=0
+          pod/kata-fuse-smoke --timeout=10m
+      changed_when: false
+
+    - name: Read Docker client result
+      ansible.builtin.command:
+        cmd: k3s kubectl logs kata-fuse-smoke -c client
+      register: kata_fuse_smoke_log
+      changed_when: false
+
+    - name: Require fuse-overlayfs and nested Docker
+      ansible.builtin.assert:
+        that:
+          - "'storage-driver=fuse-overlayfs' in kata_fuse_smoke_log.stdout"
+          - "'fuse-nested-docker-ok' in kata_fuse_smoke_log.stdout"
+        success_msg: Docker used fuse-overlayfs and completed a nested container inside Kata

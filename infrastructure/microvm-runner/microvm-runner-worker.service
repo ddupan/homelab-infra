@@ -1,0 +1,19 @@
+[Unit]
+Description=Gitea kind microVM runner worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/microvm-runner/worker.env
+ExecStart=/opt/microvm-runner/venv/bin/python /opt/microvm-runner/worker.py
+Restart=on-failure
+RestartSec=5s
+SupplementaryGroups=kvm
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/microvm-runner /run/microvm-runner
+
+[Install]
+WantedBy=multi-user.target

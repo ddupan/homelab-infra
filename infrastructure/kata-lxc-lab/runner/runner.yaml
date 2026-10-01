@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: kata-ephemeral-runner-
+  namespace: gitea-actions
+  labels:
+    app.kubernetes.io/name: kata-ephemeral-runner
+spec:
+  runtimeClassName: kata
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 330
+  automountServiceAccountToken: false
+  initContainers:
+    # Native sidecar: startupProbe gates the runner, and kubelet terminates this
+    # container after the ephemeral runner exits so the Kata sandbox can end.
+    - name: docker
+      image: zot.ad.ddupan.top/panxiao81/dind-fuse:29.7.1
+      imagePullPolicy: Never
+      restartPolicy: Always
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+        - name: DIND_LOOPBACK_SIZE
+          value: 6G
+        - name: DIND_LOOPBACK_FILE
+          value: /loopback/docker.img
+      args:
+        - --host=tcp://0.0.0.0:2375
+        - --tls=false
+        - --mtu=1450
+        - --default-network-opt=bridge=com.docker.network.driver.mtu=1450
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+          ephemeral-storage: 1Gi
+        limits:
+          cpu: "4"
+          memory: 6Gi
+          ephemeral-storage: 8Gi
+      volumeMounts:
+        - name: docker-data
+          mountPath: /var/lib/docker
+        - name: loopback-data
+          mountPath: /loopback
+      startupProbe:
+        tcpSocket:
+          port: 2375
+        periodSeconds: 2
+        failureThreshold: 150
+      readinessProbe:
+        tcpSocket:
+          port: 2375
+        periodSeconds: 5
+  containers:
+    - name: runner
+      image: docker.io/gitea/runner:2.3.0
+      imagePullPolicy: Never
+      env:
+        - name: CONFIG_FILE
+          value: /config/config.yaml
+        - name: DOCKER_HOST
+          value: tcp://127.0.0.1:2375
+        - name: GITEA_INSTANCE_URL
+          value: https://git.ddupan.top
+        - name: GITEA_RUNNER_EPHEMERAL
+          value: "1"
+        - name: GITEA_RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: GITEA_RUNNER_LABELS
+          value: kata-poc:docker://docker.io/library/alpine:3.22
+        - name: GITEA_RUNNER_REGISTRATION_TOKEN_FILE
+          value: /registration/token
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: registration
+          mountPath: /registration
+          readOnly: true
+        - name: runner-state
+          mountPath: /runner-state
+  volumes:
+    - name: config
+      configMap:
+        name: kata-ephemeral-runner-config
+    - name: registration
+      secret:
+        secretName: gitea-runner-registration
+    - name: runner-state
+      emptyDir:
+        medium: Memory
+        sizeLimit: 16Mi
+    - name: docker-data
+      emptyDir:
+        sizeLimit: 8Gi
+    - name: loopback-data
+      emptyDir:
+        medium: Memory
+        sizeLimit: 6Gi

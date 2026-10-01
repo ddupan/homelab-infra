@@ -1,0 +1,3 @@
+---
+# Reuse the guest-kernel and Docker sidecar smoke tests against the LXC worker.
+- import_playbook: ../../kata-lab/ansible/verify.yml

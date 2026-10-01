@@ -1,0 +1,125 @@
+---
+- name: Verify Kata isolation with a disposable Pod
+  hosts: kata-lab
+  gather_facts: false
+  tasks:
+    - name: Remove an earlier smoke Pod
+      ansible.builtin.command:
+        cmd: k3s kubectl delete pod kata-smoke --ignore-not-found --wait=true
+      changed_when: false
+
+    - name: Create the Kata smoke Pod
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          k3s kubectl apply -f - <<'EOF'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: kata-smoke
+          spec:
+            runtimeClassName: kata
+            restartPolicy: Never
+            containers:
+              - name: smoke
+                image: docker.io/library/busybox:1.37
+                command:
+                  - sh
+                  - -c
+                  - 'printf "guest-kernel="; uname -r; test -c /dev/kvm && exit 1 || true'
+          EOF
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Wait for the Kata Pod to finish
+      ansible.builtin.command:
+        cmd: k3s kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/kata-smoke --timeout=10m
+      changed_when: false
+
+    - name: Read the guest kernel version
+      ansible.builtin.command:
+        cmd: k3s kubectl logs kata-smoke
+      register: kata_smoke_log
+      changed_when: false
+
+    - name: Read the host kernel version
+      ansible.builtin.command:
+        cmd: uname -r
+      register: kata_host_kernel
+      changed_when: false
+
+    - name: Require a distinct guest kernel
+      ansible.builtin.assert:
+        that:
+          - kata_smoke_log.stdout is match('^guest-kernel=.+')
+          - kata_smoke_log.stdout | regex_replace('^guest-kernel=', '') != kata_host_kernel.stdout
+        success_msg: >-
+          Kata guest {{ kata_smoke_log.stdout }} differs from host-kernel={{ kata_host_kernel.stdout }}
+
+    - name: Remove an earlier Docker sidecar smoke Pod
+      ansible.builtin.command:
+        cmd: k3s kubectl delete pod kata-docker-smoke --ignore-not-found --wait=true
+      changed_when: false
+
+    - name: Create a Kata Pod with a Docker daemon sidecar
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          k3s kubectl apply -f - <<'EOF'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: kata-docker-smoke
+          spec:
+            runtimeClassName: kata
+            restartPolicy: Never
+            volumes:
+              - name: docker-run
+                emptyDir: {}
+            containers:
+              - name: dockerd
+                image: docker.io/library/docker:27-dind
+                securityContext:
+                  privileged: true
+                env:
+                  - name: DOCKER_TLS_CERTDIR
+                    value: ""
+                volumeMounts:
+                  - name: docker-run
+                    mountPath: /var/run
+              - name: client
+                image: docker.io/library/docker:27-cli
+                env:
+                  - name: DOCKER_HOST
+                    value: tcp://127.0.0.1:2375
+                volumeMounts:
+                  - name: docker-run
+                    mountPath: /var/run
+                command:
+                  - sh
+                  - -c
+                  - |
+                    until docker info >/dev/null 2>&1; do sleep 1; done
+                    docker run --rm docker.io/library/busybox:1.37 echo nested-docker-ok
+          EOF
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Wait for the Docker client to finish
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl wait --for=jsonpath='{.status.containerStatuses[?(@.name=="client")].state.terminated.exitCode}'=0
+          pod/kata-docker-smoke --timeout=10m
+      changed_when: false
+
+    - name: Read the Docker client result
+      ansible.builtin.command:
+        cmd: k3s kubectl logs kata-docker-smoke -c client
+      register: kata_docker_smoke_log
+      changed_when: false
+
+    - name: Require Docker to run a nested container
+      ansible.builtin.assert:
+        that:
+          - "'nested-docker-ok' in kata_docker_smoke_log.stdout"
+        success_msg: Docker daemon sidecar completed a nested container inside the Kata VM

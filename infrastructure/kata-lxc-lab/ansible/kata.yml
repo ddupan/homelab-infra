@@ -1,0 +1,3 @@
+---
+# Reuse the proven Kata 4.1.0 installation playbook against the LXC inventory.
+- import_playbook: ../../kata-lab/ansible/kata.yml

@@ -1,0 +1,137 @@
+---
+- name: Create the disposable Kata LXC worker
+  hosts: pve2
+  gather_facts: false
+  vars:
+    kata_lxc_id: 147
+    kata_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+  tasks:
+    - name: Check whether the LXC already exists
+      ansible.builtin.stat:
+        path: /etc/pve/lxc/{{ kata_lxc_id }}.conf
+      register: kata_lxc_config
+
+    - name: Create privileged LXC with Kata host devices
+      ansible.builtin.command:
+        argv:
+          - pct
+          - create
+          - "{{ kata_lxc_id }}"
+          - "{{ kata_lxc_template }}"
+          - --hostname
+          - kata-lxc-lab
+          - --ostype
+          - ubuntu
+          - --rootfs
+          - local-lvm:12
+          - --cores
+          - "4"
+          - --memory
+          - "8192"
+          - --swap
+          - "0"
+          - --net0
+          - name=eth0,bridge=vmbr0,ip=dhcp
+          - --features
+          - nesting=1,keyctl=1,fuse=1,mknod=1,force_rw_sys=1
+          - --unprivileged
+          - "0"
+          - --onboot
+          - "0"
+          - --ssh-public-keys
+          - /root/.ssh/authorized_keys
+          - --dev0
+          - path=/dev/kvm,mode=0660
+          - --dev1
+          - path=/dev/vhost-net,mode=0660
+          - --dev2
+          - path=/dev/vhost-vsock,mode=0660
+          - --dev3
+          - path=/dev/kmsg,mode=0660
+          - --dev4
+          - path=/dev/net/tun,mode=0666
+          - --tags
+          - disposable;kata;lxc;ansible
+      when: not kata_lxc_config.stat.exists
+
+    - name: Read LXC status
+      ansible.builtin.command:
+        cmd: pct status {{ kata_lxc_id }}
+      register: kata_lxc_status
+      changed_when: false
+
+    - name: Read current LXC configuration
+      ansible.builtin.command:
+        cmd: pct config {{ kata_lxc_id }}
+      register: kata_lxc_current_config
+      changed_when: false
+
+    - name: Ensure kubelet kernel log device is present
+      ansible.builtin.command:
+        cmd: pct set {{ kata_lxc_id }} --dev3 path=/dev/kmsg,mode=0660
+      register: kata_lxc_kmsg
+      when: "'/dev/kmsg' not in kata_lxc_current_config.stdout"
+
+    - name: Enable writable sysctls required by kubelet
+      ansible.builtin.command:
+        cmd: >-
+          pct set {{ kata_lxc_id }} --features
+          nesting=1,keyctl=1,fuse=1,mknod=1,force_rw_sys=1
+      register: kata_lxc_rw_sys
+      when: "'force_rw_sys=1' not in kata_lxc_current_config.stdout"
+
+    - name: Ensure TUN device required by Kata networking is present
+      ansible.builtin.command:
+        cmd: pct set {{ kata_lxc_id }} --dev4 path=/dev/net/tun,mode=0666
+      register: kata_lxc_tun
+      when: "'/dev/net/tun' not in kata_lxc_current_config.stdout"
+
+    - name: Configure privileged nested-runtime LXC directives
+      ansible.builtin.lineinfile:
+        path: /etc/pve/lxc/{{ kata_lxc_id }}.conf
+        regexp: "^{{ item.key | regex_escape }}:"
+        line: "{{ item.key }}: {{ item.value }}"
+      loop:
+        - key: lxc.apparmor.profile
+          value: unconfined
+        - key: lxc.cgroup2.devices.allow
+          value: a
+        - key: lxc.cap.drop
+          value: ""
+        - key: lxc.mount.auto
+          value: proc:rw sys:rw
+      register: kata_lxc_raw_config
+
+    - name: Restart LXC after device configuration change
+      ansible.builtin.command:
+        cmd: pct reboot {{ kata_lxc_id }}
+      when: >-
+        kata_lxc_kmsg.changed or kata_lxc_rw_sys.changed or kata_lxc_tun.changed or
+        kata_lxc_raw_config.changed
+
+    - name: Start LXC
+      ansible.builtin.command:
+        cmd: pct start {{ kata_lxc_id }}
+      when: "'status: stopped' in kata_lxc_status.stdout"
+
+    - name: Wait for systemd in LXC
+      ansible.builtin.command:
+        cmd: pct exec {{ kata_lxc_id }} -- systemctl is-system-running --wait
+      register: kata_lxc_systemd
+      retries: 30
+      delay: 2
+      until: kata_lxc_systemd.rc in [0, 1]
+      changed_when: false
+      failed_when: kata_lxc_systemd.rc not in [0, 1]
+
+    - name: Show LXC address and Kata devices
+      ansible.builtin.command:
+        cmd: >-
+          pct exec {{ kata_lxc_id }} -- sh -c
+          'hostname -I; ls -l /dev/kvm /dev/vhost-net /dev/vhost-vsock /dev/net/tun'
+      register: kata_lxc_facts
+      changed_when: false
+
+    - name: Report LXC address and devices
+      ansible.builtin.debug:
+        var: kata_lxc_facts.stdout_lines

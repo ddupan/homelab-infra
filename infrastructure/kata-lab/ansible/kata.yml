@@ -1,0 +1,88 @@
+---
+- name: Install Kata Containers in the disposable k3s lab
+  hosts: kata-lab
+  gather_facts: false
+  vars:
+    kata_version: "4.1.0"
+    kata_chart_url: >-
+      https://github.com/kata-containers/kata-containers/releases/download/{{ kata_version }}/kata-deploy-{{ kata_version }}.tgz
+  tasks:
+    - name: Check nested KVM is usable
+      ansible.builtin.stat:
+        path: /dev/kvm
+      register: kata_kvm
+
+    - name: Require nested KVM
+      ansible.builtin.assert:
+        that:
+          - kata_kvm.stat.exists
+          - kata_kvm.stat.ischr
+        fail_msg: /dev/kvm is unavailable; Kata QEMU cannot start efficiently
+
+    - name: Install Kata through the k3s Helm controller
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/k3s/server/manifests/kata-deploy.yaml
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          apiVersion: helm.cattle.io/v1
+          kind: HelmChart
+          metadata:
+            name: kata-deploy
+            namespace: kube-system
+          spec:
+            chart: {{ kata_chart_url }}
+            targetNamespace: kata-system
+            createNamespace: true
+            timeout: 15m
+            failurePolicy: abort
+            valuesContent: |-
+              deploymentMode: job
+              k8sDistribution: k3s
+              snapshotter:
+                setup: []
+              shims:
+                disableAll: true
+                qemu-runtime-rs:
+                  enabled: true
+              runtimeClasses:
+                enabled: true
+                createDefault: true
+              node-feature-discovery:
+                enabled: false
+
+    - name: Wait for the Helm installation job to appear
+      ansible.builtin.command:
+        cmd: k3s kubectl get job/helm-install-kata-deploy -n kube-system
+      register: kata_helm_job
+      retries: 60
+      delay: 2
+      until: kata_helm_job.rc == 0
+      changed_when: false
+
+    - name: Wait for the Helm installation job to finish
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl wait --for=condition=complete
+          job/helm-install-kata-deploy -n kube-system --timeout=20m
+      changed_when: false
+
+    - name: Wait for Kata node installation jobs
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          jobs=$(k3s kubectl get jobs -n kata-system -l app.kubernetes.io/instance=kata-deploy -o name)
+          test -n "${jobs}"
+          k3s kubectl wait --for=condition=complete -n kata-system $jobs --timeout=20m
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Wait for the default Kata RuntimeClass
+      ansible.builtin.command:
+        cmd: k3s kubectl get runtimeclass kata
+      register: kata_runtime_class
+      retries: 30
+      delay: 2
+      until: kata_runtime_class.rc == 0
+      changed_when: false

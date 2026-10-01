@@ -1,0 +1,58 @@
+---
+- name: Bootstrap k3s in the Kata LXC worker
+  hosts: pve2
+  gather_facts: false
+  vars:
+    kata_lxc_id: 147
+  tasks:
+    - name: Check base packages in LXC
+      ansible.builtin.command:
+        cmd: >-
+          pct exec {{ kata_lxc_id }} -- dpkg-query -W
+          ca-certificates curl jq openssh-server
+      register: kata_lxc_packages
+      changed_when: false
+      failed_when: false
+
+    - name: Install base packages and SSH server in LXC
+      ansible.builtin.command:
+        cmd: >-
+          pct exec {{ kata_lxc_id }} -- bash -lc
+          'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
+          ca-certificates curl jq openssh-server'
+      when: kata_lxc_packages.rc != 0
+
+    - name: Install k3s in LXC
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          pct exec {{ kata_lxc_id }} -- bash -lc '
+            if ! command -v k3s >/dev/null; then
+              curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
+              chmod 0755 /tmp/install-k3s.sh
+              INSTALL_K3S_EXEC="server --disable=traefik --write-kubeconfig-mode=0644" /tmp/install-k3s.sh
+            fi
+          '
+        executable: /bin/bash
+      register: kata_lxc_k3s_install
+      changed_when: "'No change detected' not in kata_lxc_k3s_install.stdout"
+
+    - name: Wait for k3s node readiness
+      ansible.builtin.command:
+        cmd: >-
+          pct exec {{ kata_lxc_id }} -- /usr/local/bin/k3s kubectl wait
+          --for=condition=Ready node/kata-lxc-lab --timeout=180s
+      changed_when: false
+
+    - name: Check LXC virtualization and devices
+      ansible.builtin.command:
+        cmd: >-
+          pct exec {{ kata_lxc_id }} -- bash -lc
+          'systemd-detect-virt; ls -l /dev/kvm /dev/vhost-net /dev/vhost-vsock;
+          /usr/local/bin/k3s kubectl get node -o wide'
+      register: kata_lxc_ready
+      changed_when: false
+
+    - name: Report k3s readiness
+      ansible.builtin.debug:
+        var: kata_lxc_ready.stdout_lines

@@ -1,0 +1,24 @@
+---
+name: kata-runner-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - poc/kata-runner-smoke
+    paths:
+      - .gitea/workflows/kata-runner-smoke.yml
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, pod]
+    steps:
+      - name: Verify isolated job environment
+        shell: sh
+        run: |
+          set -eu
+          uname -a
+          grep -q '^ID=alpine$' /etc/os-release
+          test -f /.dockerenv
+          test ! -e /dev/kvm
+          printf 'kata ephemeral runner job ok\n'
