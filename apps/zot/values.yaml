@@ -27,6 +27,21 @@ configFiles:
         "gc": true,
         "gcDelay": "24h",
         "gcInterval": "24h",
+        "retention": {
+          "delay": "24h",
+          "policies": [
+            {
+              "repositories": ["panxiao81/backstage"],
+              "deleteUntagged": true,
+              "keepTags": [{ "patterns": ["^latest$"] }]
+            },
+            {
+              "repositories": ["**"],
+              "deleteUntagged": true,
+              "keepTags": [{ "patterns": [".*"] }]
+            }
+          ]
+        },
         "storageDriver": {
           "name": "s3",
           "region": "us-east-1",
