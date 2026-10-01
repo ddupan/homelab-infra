@@ -6,6 +6,7 @@ homelab_dns:
     # Samba remains authoritative for the AD zone. Only these explicitly listed
     # RRsets are reconciled; Samba-generated AD/Kerberos records are untouched.
     records:
+      - { zone: ad.ddupan.top, name: incus, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: bao, type: A, values: [192.168.10.8] }
       - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
       - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }

@@ -1,0 +1,27 @@
+---
+- name: 仅协调 Incus 的 AD DNS 记录
+  hosts: samba_dc
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../../dns/records.yml
+    - ../../samba-ad/ansible/group_vars/all/vars.yml
+  tasks:
+    - name: 从共享清单选择 Incus RRset
+      ansible.builtin.set_fact:
+        incus_dns_records: "{{ homelab_dns.samba.records | selectattr('name', 'equalto', 'incus') | selectattr('zone', 'equalto', 'ad.ddupan.top') | list }}"
+    - name: 确认只有一个受管 A 记录
+      ansible.builtin.assert:
+        that:
+          - incus_dns_records | length == 1
+          - incus_dns_records[0].type == 'A'
+    - name: 协调 Incus A 记录
+      ddupan.homelab.samba_dns_record:
+        server: "{{ samba_ad_dc_ip }}"
+        zone: "{{ item.zone }}"
+        name: "{{ item.name }}"
+        type: "{{ item.type }}"
+        values: "{{ item['values'] }}"
+        state: present
+        exact: true
+      loop: "{{ incus_dns_records }}"
