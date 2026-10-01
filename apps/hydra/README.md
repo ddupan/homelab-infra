@@ -1,13 +1,44 @@
-# Hydra 与 OIDC Login/Consent PoC
+# Hydra 与独立 IAM 登录接入
 
-本目录提供独立 Hydra 签发服务，以及一个薄的 **OIDC 上游适配器**。当前上游配置为
-Authelia；适配器不连接 LDAP，也不管理用户目录。Samba AD、密码和 MFA 继续由现有
-Authelia 链路负责。第一轮只接入人类和 Gitea，不实现 agent 动态授权。
+本目录提供独立 Hydra 签发服务。当前分支将实验性 Hydra 登录入口接至 Spring `iam-login`
+开发实例，由其执行 AD 密码、WebAuthn 和授权确认；不改变 issuer、Gitea 登录源或数据库。
+旧 Go OIDC 适配器继续部署以便回退，Gitea 的直接 Authelia 登录源也保留。
+该配置需经 PR 合并与 Flux 应用后才生效；下面原有 Go/Authelia 说明保留为回退路径资料。
 
 ```text
-Gitea → Hydra → OIDC Login/Consent → Authelia → Samba AD
-      ← OIDC ← 经验证的上游身份 ← OIDC callback
+Gitea → Hydra → iam-login（Tailscale 开发实例）→ Samba AD + WebAuthn
 ```
+
+## Spring 开发路径验收
+
+源码版本：[iam-login 5f49a7c](https://git.ddupan.top/panxiao81/iam-login/commit/5f49a7c)。
+开发 UI 是 `https://laptop.tail7e769.ts.net:18082`，已有 Passkey RP ID 保持不变。
+Hydra 回调为 `/oauth2/start`、`/oauth2/consent`、`/oauth2/logout`；默认注销回到 `/signin`。
+浏览器需要 Tailscale 连通性；开发服务暂由本地 JVM 容器运行，并非生产 Native 部署。
+
+开发服务通过 `kubectl -n hydra port-forward --address 127.0.0.1 service/hydra-admin 18445:4445`
+访问私有 Admin API。转发需在 Hydra 滚动更新后重连；验收运行器会循环重建该通道。
+该通道与本地容器是临时验收依赖，必须保持运行；不修改 NetworkPolicy、
+不新增 Admin HTTPRoute。临时运行配置与旧版回退备份仅保存在受限本地运行目录，不提交秘密。
+
+验收前已只读核对目标 Gitea 账号的现有 Hydra 外部关联，并将旧 sub 显式绑定到 AD
+稳定主体；不按邮箱重建关联、不修改 Gitea 账号或仓库权限。客户端管理仅允许有效 MFA 且
+直接属于 AD Domain Admins 的用户；这是验收期明确指定的粗粒度管理组。
+
+从 Gitea `/user/oauth2/hydra` 发起，应进入新密码/Passkey 页，确认授权后返回原账号，核对
+仓库权限。当前 Gitea client 未登记 front/back-channel 或 post-logout 回调，不能声称 Gitea 会话会
+随 IAM 注销。应用的注销协议兼容性需单独验收。旧 `authelia` 登录源始终保留。
+
+开发配置关闭 Boot 默认 LDAP health indicator：它未配置目录连接，不对应同用户 bind 的
+AD 仓储。总健康检查仍验证数据库，真实 AD 认证由本次人类登录验收，不将 readiness 当作
+AD 凭据有效性的证明。
+
+Hydra 的 login/consent URL 是全局配置，本次影响全部经 Hydra 的登录请求（当前接入 Gitea），
+不影响直接走 Authelia 的应用。不要在无法访问 Tailscale 开发实例时合并此切换。
+验收失败时 revert 本次回调变更，恢复旧 Go 的 `/login`、`/consent`；不删除客户端、签名密钥、
+数据库、用户关联或 Passkey。最终 `auth.ddupan.top` 同源部署另开 PR，不在此次切换范围内。
+
+## 原 Go/Authelia 路径与回退资料
 
 目标入口：
 
