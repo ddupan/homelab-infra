@@ -130,10 +130,9 @@ terraform -chdir=infrastructure/incus/terraform output containers
 terraform -chdir=infrastructure/incus/terraform plan -detailed-exitcode
 ```
 
-provider 固定 1.2.0 并保留 lockfile，镜像固定 Ubuntu 24.04 cloud 构建指纹。
-上游滚动镜像不保证永久保存：该指纹在 2026-10-01 已从 `images:` 下架，现从 `local:`
-缓存创建；缓存闲置超过 `images.remote_cache_expiry`（默认 10 天）会被自动删除，重建前需确认
-本机缓存或归档可用，否则须改用新指纹。
+provider 固定 1.2.0 并保留 lockfile。镜像跟随 `images:ubuntu/24.04/cloud` 最新构建，
+只在创建时使用（`ignore_changes`）；不固定指纹，因为上游会下架旧构建，2026-10-01
+重建时固定指纹已无法获取。
 cloud-init 用户设置主要在首次启动执行，修改声明不能替代后续用户/密钥轮换流程。
 
 当前 state 位于 `terraform/terraform.tfstate`（Git 忽略），是本地 backend；

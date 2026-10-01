@@ -48,10 +48,8 @@ resource "incus_instance" "ayatori" {
   for_each    = toset(["dev", "prod"])
   name        = "ayatori-${each.key}"
   description = "Ayatori ${each.key} 基础容器；应用由独立部署流程管理"
-  # Ubuntu 24.04 cloud amd64，20260924_07:42；固定指纹避免重建时静默更换镜像。
-  # 上游 images: 已不再提供该构建（2026-10-01 重建时 "image couldn't be found"），只能取本机缓存；
-  # ⚠ 缓存镜像闲置超过 images.remote_cache_expiry（默认 10 天）会被 Incus 自动删除。
-  image    = "local:b39d3d56c30738ad74c507066cc5d410e1c0f1647bdcdff398be1ee51d63862a"
+  # 跟随 24.04 cloud 最新构建：同一发行版的构建只差安全更新，固定指纹会随上游下架而无法重建。
+  image    = "images:ubuntu/24.04/cloud"
   type     = "container"
   profiles = []
   running  = true
@@ -114,6 +112,8 @@ resource "incus_instance" "ayatori" {
     nic  = "eth0"
   }
   lifecycle {
+    # 镜像只在创建时使用；provider 按字符串比较，改写它不应触发重建现有实例。
+    ignore_changes  = [image]
     prevent_destroy = true
   }
 }
