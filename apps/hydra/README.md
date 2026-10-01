@@ -27,9 +27,10 @@ Hydra 回调为 `/oauth2/start`、`/oauth2/consent`、`/oauth2/logout`；默认�
 
 ### 客户端管理 `/console`
 
-iam-login 的客户端管理 API 只接受 Hydra 签发、带 `iam.clients.manage` scope 的 access token；
-`/console` 是调用该 API 的前端，在 Hydra 中登记为普通 **public** 客户端 `iam-admin-ui`。
-该 scope 只在 consent 时发给 `iam-admin-ui` 且直接属于管理组的用户，规则在 iam-login。
+iam-login 的客户端管理 API 是普通 resource server：只接受 Hydra 签发、`aud` 含 `iam-login`
+且 `groups` 含管理组的 access token。`/console` 是调用该 API 的前端，在 Hydra 中登记为普通
+**public** 客户端 `iam-admin-ui`；只有它被允许申请 audience `iam-login`（Hydra 按客户端登记的
+audience 白名单执行），所以其他应用拿到的管理员 token 不能调用该 API。
 
 浏览器直接向 Hydra 换取 token，因此 `hydra.yaml` 为 public 端口开启 CORS，只允许开发实例
 origin；不放行 cookie 凭据。Gitea 等服务端客户端不受影响。
@@ -42,11 +43,11 @@ curl -fsS -X POST http://127.0.0.1:18445/admin/clients -H 'Content-Type: applica
   "client_id": "iam-admin-ui", "client_name": "IAM 管理",
   "redirect_uris": ["https://laptop.tail7e769.ts.net:18082/console/callback"],
   "grant_types": ["authorization_code"], "response_types": ["code"],
-  "scope": "openid iam.clients.manage", "token_endpoint_auth_method": "none",
+  "scope": "openid groups", "audience": ["iam-login"], "token_endpoint_auth_method": "none",
   "subject_type": "public", "metadata": {"iam_login_enabled": true}}'
 ```
 
-开发实例另需 `iam.clients.admin-ui-client-id=iam-admin-ui`；未配置时 `/console` 不提供，API
+开发实例另需 `iam.clients.admin-ui-client-id=iam-admin-ui` 与 `iam.clients.admin-groups`（组名）；未配置时 `/console` 不提供，API
 无法获得可用 token（fail closed）。
 
 从 Gitea `/user/oauth2/hydra` 发起，应进入新密码/Passkey 页，确认授权后返回原账号，核对
