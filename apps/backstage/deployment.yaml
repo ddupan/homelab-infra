@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backstage
-          image: zot.ad.ddupan.top/panxiao81/backstage:latest@sha256:bbc8bacf373ae9009047d3bd00b885995efdd6d365452206d4ed5cf364912668 # {"$imagepolicy": "flux-system:backstage"}
+          image: zot.ad.ddupan.top/panxiao81/backstage:latest@sha256:fadd1ac9eaec52eddf105a81f5750878ca1b6fe49e0c6a987c346e501c59b95d # {"$imagepolicy": "flux-system:backstage"}
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
