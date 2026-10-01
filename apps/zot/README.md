@@ -26,8 +26,11 @@ SPIRE 认证链路已经验证，但当前没有常驻 publisher 或删除授权
 `/var/lib/registry` 是 `emptyDir`，仅用于运行时本地工作数据。
 
 两个单副本实例共用同一 bucket 和前缀：`zot` 负责鉴权写入，`zot-reader` 负责匿名
-读取。关闭跨仓库 dedupe，不额外部署 Redis/DynamoDB 缓存。只有写入实例启用 GC，
-暂不配置自动删除已发布版本的 retention policy。增加副本、启用 dedupe 或搜索等
+读取。关闭跨仓库 dedupe，不额外部署 Redis/DynamoDB 缓存。只有写入实例启用 GC。
+retention policy 只针对 `panxiao81/backstage`：仅保留 `latest`，历史 sha tag 与失去
+tag 的 digest 在 24h 后回收（dev 镜像由 Flux 跟踪 `latest` 的 digest）。其余仓库由
+`**` 兜底策略保留全部 tag，行为与未配置 retention 时一致；新增按仓库的清理规则时，
+必须放在兜底策略之前，否则不会生效。增加副本、启用 dedupe 或搜索等
 扩展前，需要重新检查共享元数据与缓存的持久化要求。
 
 凭据链路：
