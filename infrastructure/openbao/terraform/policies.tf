@@ -42,3 +42,8 @@ resource "vault_policy" "sandbox_external_secrets" {
   name   = "sandbox-external-secrets"
   policy = file("${path.module}/policies/sandbox-external-secrets.hcl")
 }
+
+resource "vault_policy" "ci_techdocs_publisher" {
+  name   = "ci-techdocs-publisher"
+  policy = file("${path.module}/policies/ci-techdocs-publisher.hcl")
+}

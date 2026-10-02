@@ -9,6 +9,8 @@ OCI digest 固定镜像。
 - OpenBao `kv/k8s/backstage` 必须包含以下与容器环境变量同名的字段：
   `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`AUTH_OIDC_CLIENT_ID`、
   `AUTH_OIDC_CLIENT_SECRET`、`POSTGRES_PASSWORD`、`GITEA_TOKEN`。
+- OpenBao `kv/k8s/techdocs-s3-reader` 提供 TechDocs 只读 S3 凭据，投射为
+  `TECHDOCS_S3_ACCESS_KEY_ID` / `TECHDOCS_S3_SECRET_ACCESS_KEY`。
 - PostgreSQL 需要在共享集群中预先创建由 `backstage` 角色拥有的 `backstage`
   数据库；密码必须与 OpenBao 中的 `POSTGRES_PASSWORD` 一致。
 - Authelia OIDC 客户端回调地址为
@@ -28,3 +30,10 @@ Kustomization 保持 NotReady，而不会回退到明文 Secret。
 
 旧 digest 失去 tag 后会被 zot GC 回收（24h），因此不要把 Deployment 手工固定到
 一个已不是 `latest` 的 digest 并长期保留。
+
+## TechDocs
+
+文档不随镜像构建。各仓库用 job id 为 `techdocs` 的 workflow 调用
+`panxiao81/ci-actions/publish-techdocs`，生成后上传到 SeaweedFS bucket `techdocs`；
+Backstage 以 `builder: external` 只读该 bucket。发布身份由 OpenBao role
+`ci-techdocs-publisher` 统一授予，凭据在 `kv/k8s/techdocs-s3-publisher`。

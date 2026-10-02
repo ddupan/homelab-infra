@@ -52,3 +52,12 @@ KV compare-and-set 保留已有内容，不覆盖 Terraform 或其他应用的 A
 运行版本 `4.22` 可在 Secret volume 更新后向 filer/内嵌 S3 的 `weed` 进程发送
 SIGHUP，重新加载静态配置，无需重启共享 S3 服务。本次接入没有启用 SeaweedFS
 OIDC/STS；SPIRE 认证发生在 zot 的客户端入口。
+
+## TechDocs 文档存储
+
+`techdocs` bucket 存放各仓库发布的 Backstage TechDocs 静态站点。两个静态身份：
+`techdocs-publisher`（Read/Write/List，供 CI 经 OpenBao role `ci-techdocs-publisher`
+取用）与 `techdocs-reader`（Read/List，供 Backstage）。凭据唯一来源为
+`kv/k8s/techdocs-s3-publisher` 与 `kv/k8s/techdocs-s3-reader`，由同一个
+ExternalSecret 模板追加到服务端配置。bucket 需一次性创建：
+`weed shell` 中执行 `s3.bucket.create -name techdocs`。
