@@ -51,3 +51,27 @@ resource "vault_jwt_auth_backend_role" "local_development" {
   token_ttl               = 300
   token_max_ttl           = 900
 }
+
+# Every repository publishes TechDocs from a job named `techdocs` through
+# panxiao81/ci-actions/publish-techdocs. The job key comes from Gitea's trusted
+# task payload (gitea-dynamic-runner taskidentity), not from workflow input.
+# ponytail: one shared publisher identity, so any of these repositories can
+# overwrite another's docs; split into per-repository roles and S3 identities
+# once repositories outside this single owner publish docs.
+resource "vault_jwt_auth_backend_role" "ci_techdocs_publisher" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "ci-techdocs-publisher"
+  role_type = "jwt"
+
+  user_claim        = "sub"
+  bound_audiences   = ["openbao"]
+  bound_claims_type = "glob"
+  bound_claims = {
+    sub = "spiffe://ddupan.top/ci/panxiao81/*/techdocs"
+  }
+
+  token_policies          = [vault_policy.ci_techdocs_publisher.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}
