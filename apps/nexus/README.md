@@ -66,8 +66,11 @@ TF_VAR_nexus_password=<OpenBao kv/infra/nexus 的 admin_password 字段>
 - `go-proxy` → `https://proxy.golang.org`
 - `go-public` group
 
-provider credential 不写入 HCL 或 tfvars。正式 apply 前还必须为这个独立 Terraform root
-配置远端 backend；本地 state 只允许用于可丢弃的 POC，不提交。验证命令：
+provider credential 不写入 HCL 或 tfvars。Nexus 已由 POC 转为正式使用；state 自 2026-10-04 起
+位于 SeaweedFS S3 `tfstate/nexus/terraform.tfstate`（`backend.tf`），与其他 root 相同，使用
+Bao `kv/k8s/seaweedfs-s3` 中受限的 `terraform` 身份，以 `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` 环境变量注入。迁移前的本地 state 已删除，迁移后 plan 无变更。
+不再使用本地 state。离线验证命令：
 
 ```bash
 terraform -chdir=apps/nexus/terraform init -backend=false
