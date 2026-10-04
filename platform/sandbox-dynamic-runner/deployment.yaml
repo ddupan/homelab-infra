@@ -1,5 +1,5 @@
-# Worker only: the homelab scheduler publishes every task to NATS, and this
-# worker pulls from the shared queue whenever it has free capacity.
+# A member of the pod pool: fetches from Gitea with its own registration,
+# only while it has free capacity. Gitea distributes the pool's tasks.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,24 +39,20 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:2f36750957f9c00754d5e081aeb1ea0e48d9d86901eb106ac44fd9d21ec9a37a
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:d12632ef151a917fb8f61f59f9ba10fff6e5413e0f923a8f61c6773a24b0921e
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
             - name: COMPONENTS
               value: kubernetes-worker
+            - name: TASK_SOURCE
+              value: gitea
             - name: GITEA_INSTANCE_URL
               value: https://git.ddupan.top
-            - name: GITEA_RUNNER_UUID_FILE
-              value: /run/dynamic-runner-secrets/scheduler-uuid
-            - name: GITEA_RUNNER_TOKEN_FILE
-              value: /run/dynamic-runner-secrets/scheduler-token
-            - name: NATS_URL
-              value: tls://nats.ad.ddupan.top:4222
-            - name: NATS_CA_FILE
-              value: /run/trust/ca.pem
-            - name: NATS_WORKER_PASSWORD_FILE
-              value: /run/dynamic-runner-secrets/nats-worker-password
+            - name: POD_GITEA_RUNNER_UUID_FILE
+              value: /run/dynamic-runner-secrets/pod-runner-uuid
+            - name: POD_GITEA_RUNNER_TOKEN_FILE
+              value: /run/dynamic-runner-secrets/pod-runner-token
             - name: RUNNER_FACADE_CAPABILITY_KEY_FILE
               value: /run/dynamic-runner-secrets/password
             - name: RUNNER_FACADE_LISTEN
