@@ -20,3 +20,4 @@ resources:
   - apps/hydra.yaml
   - apps/smtp-relay.yaml
   - apps/research-auto.yaml
+  - apps/seaweedfs.yaml
