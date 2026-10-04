@@ -1,0 +1,64 @@
+#include <tunables/global>
+
+# node-exporter 专用 profile = containerd 默认 profile（cri-containerd.apparmor.d）+ 只读
+# 查询 systemd 的 D-Bus 权限。默认 profile 没有任何 dbus 规则，宿主 dbus-daemon 做 AppArmor
+# 仲裁，于是 systemd collector 连 Hello 都被拒（"An AppArmor policy prevents this sender…"）。
+# 其余规则刻意照抄默认模板，保证其他 collector 的行为不变；唯一的放宽是下面的 dbus 段。
+profile homelab-node-exporter flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  network,
+  capability,
+  file,
+  umount,
+
+  signal (receive) peer=unconfined,
+  signal (receive) peer=runc,
+  signal (receive) peer=cri-containerd.apparmor.d,
+  signal (send,receive) peer=homelab-node-exporter,
+
+  # 连接 system bus：socket 文件 + Hello/AddMatch。
+  #include <abstractions/dbus-strict>
+
+  # systemd collector 只读：Manager 的 ListUnits*/GetUnit，以及 Manager/unit 对象上的
+  # Properties.Get/GetAll（Version、SystemState、timer 的 LastTriggerUSec 等）。
+  # 不放开 Start/Stop/Restart 等任何会改变 unit 状态的 member。
+  dbus send
+       bus=system
+       path=/org/freedesktop/systemd1
+       interface=org.freedesktop.systemd1.Manager
+       member={ListUnits,ListUnitsFiltered,ListUnitsByPatterns,ListUnitsByNames,GetUnit}
+       peer=(name=org.freedesktop.systemd1),
+  dbus send
+       bus=system
+       path=/org/freedesktop/systemd1{,/**}
+       interface=org.freedesktop.DBus.Properties
+       member={Get,GetAll}
+       peer=(name=org.freedesktop.systemd1),
+  # go-systemd 连接时订阅 JobRemoved 信号；拒收只会刷审计日志，所以显式放行。
+  dbus receive
+       bus=system
+       path=/org/freedesktop/systemd1
+       interface=org.freedesktop.systemd1.Manager
+       member=JobRemoved,
+
+  deny @{PROC}/* w,
+  deny @{PROC}/{[^1-9],[^1-9][^0-9],[^1-9s][^0-9y][^0-9s],[^1-9][^0-9][^0-9][^0-9/]*}/** w,
+  deny @{PROC}/sys/[^k]** w,
+  deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/kcore rwklx,
+
+  deny mount,
+
+  deny /sys/[^f]*/** wklx,
+  deny /sys/f[^s]*/** wklx,
+  deny /sys/fs/[^c]*/** wklx,
+  deny /sys/fs/c[^g]*/** wklx,
+  deny /sys/fs/cg[^r]*/** wklx,
+  deny /sys/firmware/** rwklx,
+  deny /sys/devices/virtual/powercap/** rwklx,
+  deny /sys/kernel/security/** rwklx,
+
+  ptrace (trace,read,tracedby,readby) peer=homelab-node-exporter,
+}

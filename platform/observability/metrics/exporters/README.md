@@ -40,3 +40,38 @@ Grafana 新增 `Homelab 内存与 Swap`（UID `homelab-memory`），由 sidecar 
 所有新增 manifest 已纳入对应 Kustomization，并已单独应用到 live；尚未提交到远端，
 Flux source 尚未包含这些新增资源。修改 exporter ConfigMap 后需滚动重启 DaemonSet，
 程序不会自动重载进程匹配配置。
+
+## node-exporter 的 AppArmor profile（systemd collector）
+
+#215 给 node-exporter 开了 `--collector.systemd`，但在笔记本上**一直失败**：
+`couldn't get dbus connection: An AppArmor policy prevents this sender from sending this message`。
+Pod 跑在 containerd 默认 profile `cri-containerd.apparmor.d` 下，它没有任何 dbus 规则，而宿主
+dbus-daemon 会做 AppArmor 仲裁，所以连 `Hello` 都被拒。现象只有
+`node_scrape_collector_success{collector="systemd"} == 0`，其余 collector 不受影响，
+`HostSystemdUnitFailed` 对笔记本静默失效（bao1 用的是 Debian 包的 node-exporter，不受影响）。
+
+`apparmor/homelab-node-exporter` = 默认模板照抄 + 只读查询 systemd 的 dbus 规则（ListUnits*、
+GetUnit、Properties.Get/GetAll），不放开任何改变 unit 状态的 member。不用 `Unconfined`：
+node-exporter 挂了宿主 `/`、开着 hostPID，去掉 AppArmor 的代价不对等。
+
+**顺序很重要**——Pod 引用一个未加载的 profile 会起不来，DaemonSet 一坏就丢掉全部主机指标。
+profile 由 `infrastructure/host-apparmor/laptop-apparmor.yml` 安装并加载（同时接管
+process-exporter 的 profile），2026-10-04 已在 laptop 执行，二次运行 `changed=0`。
+扩展到其他节点前先在该节点跑这个 play。
+
+2026-10-04 用一次性 Pod（同镜像、同挂载、只开 systemd collector）验证：
+`node_scrape_collector_success{collector="systemd"} 1`，约 1965 条 unit_state 序列 + 21 个
+timer，内核与 dbus 日志均无 `DENIED`。之后再让 DaemonSet 引用该 profile。
+
+验证（端口在宿主网络上）：
+
+```bash
+curl -s localhost:9100/metrics | grep 'node_scrape_collector_success{collector="systemd"}'   # 期望 1
+sudo journalctl -k --since -10min | grep 'apparmor="DENIED".*homelab-node-exporter'           # 期望为空
+```
+
+有 DENIED 就按审计日志里的 path/member 补规则，重跑 play 原位重载即可，无需重启 Pod。
+
+⚠ 一旦 systemd 指标进来，笔记本上现存的 failed unit 会各报一条 `HostSystemdUnitFailed`
+（2026-10-04 有 6 个：nvidia-cdi-refresh ×2、nvidia-fabricmanager、rpc-svcgssd、
+systemd-ask-password-console.path、systemd-networkd-wait-online，详见 #215）。这些告警是真实状态，清理 unit 即可恢复。

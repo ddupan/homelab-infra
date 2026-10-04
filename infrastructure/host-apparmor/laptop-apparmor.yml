@@ -1,0 +1,49 @@
+# 安装并以 enforce 加载 laptop 上 exporter 专用的 AppArmor profile。profile 源文件留在
+# platform/observability/metrics/exporters/apparmor/，与引用它们的 DaemonSet 放在一起。
+#
+# 先跑这个 play，再合并引用 profile 的 manifest：Pod 引用未加载的 profile 会起不来。
+# 加载新 profile 或原位重载（apparmor_parser -r）不影响任何运行中的进程，只影响此后
+# 以该 profile 启动的容器；已在跑的容器在重载后按新规则执行。
+- name: 安装 laptop 的 exporter AppArmor profile
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    apparmor_profile_src: "{{ playbook_dir }}/../../platform/observability/metrics/exporters/apparmor"
+    apparmor_profiles:
+      - homelab-process-exporter
+      - homelab-node-exporter
+  tasks:
+    - name: 确认目标
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.hostname == 'laptop'
+        fail_msg: 此 play 仅用于 laptop。
+
+    - name: 安装 profile（先离线解析，语法错误不会落盘）
+      ansible.builtin.copy:
+        src: "{{ apparmor_profile_src }}/{{ item }}"
+        dest: "/etc/apparmor.d/{{ item }}"
+        owner: root
+        group: root
+        mode: '0644'
+        validate: apparmor_parser --skip-kernel-load --skip-cache -I /etc/apparmor.d %s
+      loop: "{{ apparmor_profiles }}"
+      register: apparmor_installed
+
+    # 文件没变但 profile 没加载（例如手工 unload 过）时也要加载，所以不能只靠 handler。
+    - name: 读取已加载的 profile
+      ansible.builtin.slurp:
+        src: /sys/kernel/security/apparmor/profiles
+      register: apparmor_loaded_raw
+
+    - name: 加载新增或变化的 profile
+      ansible.builtin.command: "apparmor_parser -r /etc/apparmor.d/{{ item.item }}"
+      loop: "{{ apparmor_installed.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: >-
+        item.changed or
+        (item.item ~ ' (enforce)') not in (apparmor_loaded_raw.content | b64decode).splitlines()
+      changed_when: true
