@@ -24,11 +24,11 @@ laptop ZFS 使用 recordsize=16K、lz4、atime=off。预算不是容量或 SLA �
 现场版本为 PostgreSQL 18.6、Patroni 4.1.5、pgBackRest 2.59.1。
 
 客户端必须使用自己的业务凭据及 `sslmode=verify-full`。本轮仅建立 Ayatori 非 superuser
-管理账号（CREATEDB/CREATEROLE），未交付普通应用账号。公开中央 CA 位于 `ayatori/ca.crt`。
+管理账号（CREATEDB/CREATEROLE），未交付普通应用账号。公开中央 CA 位于 `ca.crt`。
 例如，在已获管理身份的受控终端用交互密码提示验证，不在命令行填写密码：
 
 ```bash
-psql 'host=pg-prod.ad.ddupan.top hostaddr=192.168.10.2 port=5432 dbname=postgres user=ayatori sslmode=verify-full sslrootcert=ayatori/ca.crt' -W
+psql 'host=pg-prod.ad.ddupan.top hostaddr=192.168.10.2 port=5432 dbname=postgres user=ayatori sslmode=verify-full sslrootcert=ca.crt' -W
 ```
 
 生产采用异步复制，自动切换可能损失未复制的已提交事务；最大候选落后阈值 1 MiB 不是精确 RPO。
@@ -72,7 +72,8 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 9. `monitoring.yml` 激活 SQL 指标：先由 `site.yml` 写入模板，再执行本 play。它只在配置未生效时
    向 Patroni 发 HUP、对 pending 成员 `patronictl restart --pending`（primary 原位重启，不 failover，
    写入短暂中断）或重启 dev；随后在可写实例创建监控角色与扩展并安装 exporter。不需要 Bao。
-10. Ayatori 独立控制面就绪后按 [接入说明](ayatori/README.md) 注册；CNPG 迁移另行按应用验收。
+10. Ayatori 已接入（Instance、管理凭据同步由 Ayatori 部署 role 与 `infrastructure/ayatori/ansible` 管理，
+    数据库经 `clusters/ayatori-<env>/` 申请）；CNPG 迁移另行按应用验收。
 
 普通 `site.yml` 不代表所有配置已在线激活；尚未实现通用参数变更的 rolling restart。
 专用 `renew-certificates.yml` 只处理证书，60 天有效期、剩余不足 14 天续签；逐主机检查服务，

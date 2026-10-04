@@ -52,7 +52,7 @@ def main():
         env = dict(os.environ, PGHOST='pg-prod.ad.ddupan.top', PGHOSTADDR='192.168.10.2',
                    PGPORT='5432', PGDATABASE='postgres', PGUSER=credentials['username'],
                    PGPASSWORD=credentials['password'], PGSSLMODE='verify-full',
-                   PGSSLROOTCERT=str(ROOT / 'ayatori/ca.crt'), PGCONNECT_TIMEOUT='3')
+                   PGSSLROOTCERT=str(ROOT / 'ca.crt'), PGCONNECT_TIMEOUT='3')
 
         def sql(query, db='postgres'):
             result = command(['/usr/lib/postgresql/18/bin/psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1'],
