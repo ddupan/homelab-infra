@@ -49,8 +49,7 @@ job 的 JWT-SVID → bao role `ci-terraform`（admin policy，原因见 `auth-sp
 `TF_VAR_<key>`。首次启用：
 
 1. 本地 `bao login -method=oidc` 后 apply `infrastructure/openbao/terraform`，创建 `ci-terraform`；
-2. 写入 `kv/infra/terraform/cloudflared`（`cloudflare_api_token`、`zone_id`）与
-   `kv/infra/terraform/netbox`（`netbox_token`）；
+2. 写入 `kv/infra/terraform/cloudflared`（`cloudflare_api_token`、`zone_id`）；
 3. 把 `terraform-plan` 设为 `main` 分支保护的必需状态检查，否则评论只是参考。
 
 **Stage 2 — server-side dry-run.**
