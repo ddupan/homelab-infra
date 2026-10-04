@@ -19,12 +19,11 @@
 2. 由 Flux（`clusters/homelab/apps/seaweedfs.yaml`）部署；改 `values.yaml` 或 chart
    版本后合并到 `main` 即可。
 
-**Flux 接管**
-- 2026-10-04 在原 release（chart `4.22.0`，revision 4）上接管，values 与线上一致，
-  接管本身不改 chart 版本；升级走后续独立 PR。`prune: false`。
-- filer 的 pod template 带有 2026-07-28 `rollout restart` 留下的 `restartedAt`；
-  HelmRelease 走 Helm 三方合并通常保留它，若接管时 filer 滚动一次属预期。
-- 升级前回滚点：`data/ceph/<pvc>@pre-4.48` ZFS 快照（三个 PVC 同一原子快照）。
+**Flux 接管与 4.48 升级**
+- 2026-10-04 接管原 release（chart `4.22.0`，revision 4），同时升级到 chart `4.48.0`。`prune: false`。
+- 4.48 的两处 breaking：volume `idx` 不再允许 emptyDir（改为与 `.dat` 同一 PVC）；
+  `weed admin` >= 4.46 无认证拒绝非回环监听，暂用 `allowInsecureBind` 维持原状。
+- 回滚点：`data/ceph/<pvc>@pre-4.48` ZFS 快照（三个 PVC 同一原子快照）。
 
 **Access**
 - Inside the cluster, the S3 endpoint is `http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333`.

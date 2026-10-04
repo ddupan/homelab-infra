@@ -7,9 +7,9 @@ spec:
   chart:
     spec:
       chart: seaweedfs
-      # Adopted at the version helm.sh last installed; the chart version also picks the image
+      # The chart version also picks the image
       # (global.seaweedfs.image.tag in values.yaml is not read by this chart).
-      version: 4.22.0
+      version: 4.48.0
       interval: 1h
       sourceRef:
         kind: HelmRepository

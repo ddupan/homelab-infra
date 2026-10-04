@@ -24,8 +24,9 @@ volume:
       size: 100Gi
       storageClass: localpv-zfs-ceph
       maxVolumes: 0
-  idx:
-    type: emptyDir
+  # Index lives next to the .dat on the data PVC. emptyDir (used up to 4.22) wiped it on every
+  # restart and forced a full rebuild from the .dat; chart >= 4.4x refuses to render it.
+  idx: {}
   logs:
     type: emptyDir
 
@@ -60,6 +61,10 @@ s3:
 admin:
   enabled: true
   replicas: 1
+  # ponytail: keeps the pre-4.46 behaviour — no admin auth, reachable from the tailnet and from
+  # any pod in the cluster. `weed admin` >= 4.46 refuses a non-loopback bind without this. Upgrade
+  # path: admin.secret.existingSecret fed by ESO from Bao.
+  allowInsecureBind: true
   data:
     type: emptyDir
   logs:
