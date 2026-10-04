@@ -5,6 +5,8 @@ operator-driven, running in the `monitoring` namespace. Replaces the standalone
 Docker Compose monitoring stack. The retired stack and its three Docker data volumes
 were removed on 2026-09-16 with the maintainer's explicit approval.
 
+监控覆盖缺口与补齐路线图见 [COVERAGE.md](COVERAGE.md)。
+
 ## Grafana 当前入口（2026-09-16）
 
 统一使用 <https://grafana.ad.ddupan.top>，A 记录指向 `192.168.10.127`，由共享

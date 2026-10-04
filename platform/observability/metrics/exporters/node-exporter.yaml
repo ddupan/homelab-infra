@@ -29,6 +29,9 @@ spec:
             - --path.sysfs=/host/sys
             - --path.rootfs=/host/root
             - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+            # systemd 默认关闭；HostSystemdUnitFailed 依赖它。经宿主 D-Bus 只读查询 unit 状态，
+            # 默认已排除 mount/scope/slice 等单元，k3s 的大量 Pod scope 不会进来。
+            - --collector.systemd
           ports:
             - name: metrics
               containerPort: 9100
@@ -44,10 +47,12 @@ spec:
             - { name: proc, mountPath: /host/proc, readOnly: true }
             - { name: sys, mountPath: /host/sys, readOnly: true }
             - { name: root, mountPath: /host/root, readOnly: true, mountPropagation: HostToContainer }
+            - { name: dbus, mountPath: /var/run/dbus/system_bus_socket, readOnly: true }
       volumes:
         - { name: proc, hostPath: { path: /proc } }
         - { name: sys, hostPath: { path: /sys } }
         - { name: root, hostPath: { path: / } }
+        - { name: dbus, hostPath: { path: /run/dbus/system_bus_socket, type: Socket } }
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMNodeScrape

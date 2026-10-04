@@ -1,0 +1,137 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 交流电断开两分钟触发，USB-C 口离线不触发
+  interval: 1m
+  input_series:
+  - series: node_power_supply_online{job="node-exporter",instance="laptop",power_supply="AC"}
+    values: 1 1 0x10
+  - series: node_power_supply_online{job="node-exporter",instance="laptop",power_supply="ucsi-source-psy-USBC000:001"}
+    values: 0x12
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: HostOnBattery
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: HostOnBattery
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        power_supply: AC
+        severity: critical
+      exp_annotations:
+        summary: 主机 laptop 已断开交流电，正在用电池运行
+        description: 检查电源适配器和插座；电池耗尽时整个 lab（k3s、NFS、libvirt 上的 DC/bao）一起掉线。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 电池低于 30% 触发
+  interval: 1m
+  input_series:
+  - series: node_power_supply_capacity{job="node-exporter",instance="laptop",power_supply="BAT0"}
+    values: 40 35 29 25 20
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: HostBatteryLow
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: HostBatteryLow
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        power_supply: BAT0
+        severity: critical
+      exp_annotations:
+        summary: 主机 laptop 电池电量 20%
+        description: 恢复供电，或在电量耗尽前有序关停 guest，避免 ZFS/数据库非正常断电。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: systemd unit failed 持续十分钟触发，短暂失败后恢复不触发
+  interval: 1m
+  input_series:
+  - series: node_systemd_unit_state{job="node-exporter",instance="laptop",name="flaky.service",state="failed"}
+    values: 1x5 0x10
+  - series: node_systemd_unit_state{job="node-exporter",instance="laptop",name="broken.service",state="failed"}
+    values: 1x15
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: HostSystemdUnitFailed
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        name: broken.service
+        state: failed
+        severity: warning
+      exp_annotations:
+        summary: 主机 laptop systemd unit broken.service 处于 failed
+        description: systemctl status / journalctl -u 查看原因；确认无用的 unit 用 systemctl reset-failed 清除。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: CPU 贴近 TjMax 不告警，持续达到 crit 才告警
+  interval: 1m
+  input_series:
+  - series: node_hwmon_temp_celsius{job="node-exporter",instance="laptop",chip="platform_coretemp_0",sensor="temp1"}
+    values: 97x5 100x12
+  - series: node_hwmon_temp_crit_celsius{job="node-exporter",instance="laptop",chip="platform_coretemp_0",sensor="temp1"}
+    values: 100x17
+  - series: node_hwmon_temp_celsius{job="node-exporter",instance="laptop",chip="nvme_nvme0",sensor="temp1"}
+    values: 47x17
+  - series: node_hwmon_temp_crit_celsius{job="node-exporter",instance="laptop",chip="nvme_nvme0",sensor="temp1"}
+    values: 81.85x17
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: HostTemperatureCritical
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: HostTemperatureCritical
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        chip: platform_coretemp_0
+        sensor: temp1
+        severity: warning
+      exp_annotations:
+        summary: 主机 laptop platform_coretemp_0/temp1 持续达到临界温度 100°C
+        description: 检查散热（风扇、积灰、通风）和当前负载；持续过热会降频并拖慢所有服务。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: IO 等待占比持续超过 30% 触发，短时尖峰不触发
+  interval: 1m
+  input_series:
+  # 每分钟增长 24s = 40%；尖峰只持续 5 分钟后回落到 3s/min = 5%
+  - series: node_pressure_io_waiting_seconds_total{job="node-exporter",instance="spike"}
+    values: 0+24x5 120+3x20
+  - series: node_pressure_io_waiting_seconds_total{job="node-exporter",instance="laptop"}
+    values: 0+24x25
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: HostIoPressureHigh
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        severity: warning
+      exp_annotations:
+        summary: 主机 laptop IO 压力过高（40% 时间有任务在等 IO）
+        description: 找出写盘大户（iotop、CI 构建 Pod、VM 磁盘）；同主机上的 VMSingle 查询会随之超时。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 内存全量停顿超过 5% 触发
+  interval: 1m
+  input_series:
+  # 每分钟增长 6s = 10%
+  - series: node_pressure_memory_stalled_seconds_total{job="node-exporter",instance="laptop"}
+    values: 0+6x15
+  - series: node_pressure_memory_stalled_seconds_total{job="node-exporter",instance="idle"}
+    values: 0+0.6x15
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: HostMemoryPressureHigh
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        severity: warning
+      exp_annotations:
+        summary: 主机 laptop 内存压力过高（10% 时间全部任务卡在内存回收上）
+        description: 内存与 swap 都快耗尽，OOM 随时可能发生；查看进程 PSS 看板，优先停掉 CI 构建等可推迟负载。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
