@@ -42,8 +42,8 @@ found a real defect: `infrastructure/proxmox/ansible/` had no `requirements.yml`
 fresh checkout could not reproduce its collections.
 
 **Terraform plan/apply — built, needs bootstrap.** `.gitea/workflows/terraform.yml`
-对 PR 改动的 root 运行 plan 并维护一条 PR 评论；合并到 `main` 后对改动的 root apply
-（重新 plan，不是执行评论里那份）。接入的 root 列在 workflow 的 `TF_ROOTS`。凭据链：
+在 PR 上对全部 root 运行 plan 并维护一条 PR 评论；合并到 `main` 后对全部 root apply
+（重新 plan，不是执行评论里那份）——main 即期望状态，漂移与手工改动在下次合并时收敛。接入的 root 列在 workflow 的 `TF_ROOTS`。凭据链：
 job 的 JWT-SVID → bao role `ci-terraform`（admin policy，原因见 `auth-spire.tf`）→
 `kv/k8s/seaweedfs-s3` 取 tfstate 身份，`kv/infra/terraform/<root 名>` 的每个 key 作为
 `TF_VAR_<key>`。首次启用：

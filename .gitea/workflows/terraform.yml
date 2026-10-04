@@ -59,8 +59,6 @@ jobs:
     runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: hashicorp/setup-terraform@v3
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
@@ -70,17 +68,14 @@ jobs:
         with:
           role: ci-terraform
 
+      # 全量 plan：合并后 apply 是全量的，评论必须展示它将执行的全部变更，
+      # 包括与本 PR 无关的漂移——合并即批准把这些漂移收敛回 main。
       - name: plan
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
           GITEA_TOKEN: ${{ github.token }}
         run: |
-          changed=$(git diff --name-only "$BASE"...HEAD)
-          # 改流水线本身时 plan 全部 root，等于对它做一次端到端验证。
-          all=$(grep -qxE '\.gitea/(workflows/terraform\.yml|scripts/tf\.py)' <<<"$changed" && echo 1 || true)
           md=$RUNNER_TEMP/plan.md; rc=0
           for r in $TF_ROOTS; do
-            [ -n "$all" ] || grep -q "^$r/" <<<"$changed" || continue
             echo "::group::$r"
             log=$RUNNER_TEMP/plan.log; code=0
             # init 拉 provider 走 WAN，会随机失败。
@@ -103,16 +98,15 @@ jobs:
           [ -s "$md" ] && python3 .gitea/scripts/tf.py comment "$md"
           exit $rc
 
-  # 合并即批准：apply 前重新 plan，而不是执行 PR 上那份 plan，两者之间 main 若有
-  # 其它合并或漂移，结果会与评论不同。按 TF_ROOTS 顺序执行，失败即停，不继续依赖它的 root。
+  # main 即期望状态：每次合并对全部 root apply，手工改动会被回滚。apply 前重新 plan，
+  # 而不是执行 PR 上那份 plan，两者之间若有其它合并或新漂移，结果会与评论不同。
+  # 按 TF_ROOTS 顺序执行，失败即停，不继续依赖它的 root。
   terraform-apply:
     if: github.event_name == 'push'
     needs: validate
     runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.15.8
@@ -122,13 +116,9 @@ jobs:
           role: ci-terraform
 
       - name: apply
-        env:
-          BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          changed=$(git diff --name-only "$BEFORE" HEAD)
           for r in $TF_ROOTS; do
-            grep -q "^$r/" <<<"$changed" || continue
             echo "::group::$r"
             for i in 1 2 3; do
               python3 .gitea/scripts/tf.py run "$r" init -input=false -no-color && break
