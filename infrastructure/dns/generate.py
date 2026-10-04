@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import ipaddress
 from pathlib import Path
 import sys
 
@@ -46,7 +47,51 @@ def load_inventory() -> dict:
             raise ValueError(f"managed Terraform record needs resource_name: {record['name']}")
         if len(record["values"]) != 1:
             raise ValueError(f"Cloudflare Terraform supports one value per record: {record['name']}")
+    allocations(data)
     return inventory
+
+
+def allocations(data: dict) -> dict:
+    """Validate homelab_ipam against the A records and return {ip: owner}."""
+    ipam = data["homelab_ipam"]
+    prefixes = [ipaddress.ip_network(p["prefix"]) for p in ipam["prefixes"]]
+    ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]), r["description"])
+              for r in ipam["ranges"]]
+    owners: dict = {}
+    for entry in ipam["addresses"]:
+        ip = ipaddress.ip_address(entry["address"])
+        if ip in owners:
+            raise ValueError(f"{ip} allocated twice: {owners[ip]} and {entry['name']}")
+        owners[ip] = entry["name"]
+    # An A record is itself an allocation. Several names on one address are only
+    # legitimate when that address is declared as a shared host (ingress, router);
+    # otherwise two records on one IP is the copy-paste mistake this exists to catch.
+    named: dict = {}
+    for record in data["homelab_dns"]["samba"]["records"]:
+        if record["type"] == "A":
+            for value in record["values"]:
+                named.setdefault(ipaddress.ip_address(value), []).append(record["name"])
+    for ip, names in named.items():
+        if len(names) > 1 and ip not in owners:
+            raise ValueError(f"{ip} is used by {', '.join(names)}; declare its host in homelab_ipam.addresses")
+        owners.setdefault(ip, names[0])
+    for ip, owner in owners.items():
+        if not any(ip in net for net in prefixes):
+            raise ValueError(f"{owner} ({ip}) is outside every homelab_ipam prefix")
+        for start, end, description in ranges:
+            if start <= ip <= end:
+                raise ValueError(f"{owner} ({ip}) is inside a non-static range: {description}")
+    return owners
+
+
+def next_free(data: dict, prefix: str) -> ipaddress.IPv4Address:
+    owners = allocations(data)
+    ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]))
+              for r in data["homelab_ipam"]["ranges"]]
+    for ip in ipaddress.ip_network(prefix).hosts():
+        if ip not in owners and not any(start <= ip <= end for start, end in ranges):
+            return ip
+    raise ValueError(f"no free static address in {prefix}")
 
 
 def require_fields(record: dict, *fields: str) -> None:
@@ -115,10 +160,18 @@ def outputs(inventory: dict) -> dict[Path, str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="fail when generated files differ")
+    parser.add_argument("--next-free", metavar="PREFIX", help="print the first unallocated static address")
     args = parser.parse_args()
+    if args.next_free:
+        try:
+            print(next_free(yaml.safe_load((DNS_DIR / "records.yml").read_text()), args.next_free))
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"ipam lookup failed: {exc}", file=sys.stderr)
+            return 2
+        return 0
     try:
         rendered_outputs = outputs(load_inventory())
-    except (OSError, ValueError, yaml.YAMLError) as exc:
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as exc:
         print(f"dns generation failed: {exc}", file=sys.stderr)
         return 2
 

@@ -84,3 +84,24 @@ homelab_dns:
         proxied: false
         ttl: 300
         terraform: { managed: false }
+
+# 地址分配（IPAM）。A 记录本身就是地址分配，这里只补 A 记录表达不了的部分：
+# 网段、不可静态分配的地址段，以及没有静态 A 记录的地址（路由器、网关、
+# 自行向 AD 注册 DNS 的域成员、AP、laptop）。generate.py 校验并查找空闲地址。
+homelab_ipam:
+  prefixes:
+    - { prefix: 192.168.10.0/24, description: "LAN，一台傻瓜交换机下的扁平二层；OSPF area 0" }
+    - { prefix: 10.60.0.0/24, vlan: 100, description: "PVE SDN VNet labnet，网关在 vyos eth1" }
+    - { prefix: 10.61.0.0/24, vlan: 110, description: "PVE SDN VNet retronet，网关在 vyos eth2" }
+  ranges:
+    - { start: 192.168.10.128, end: 192.168.10.250, description: "NEC IX DHCP 地址池（2026-09-14 起）" }
+    - { start: 192.168.10.251, end: 192.168.10.254, description: "用户确认预留；扫描无响应不代表空闲" }
+  addresses:
+    - { address: 192.168.10.1, name: ix2215, description: "NEC IX：网关、DHCP、DNS proxy" }
+    - { address: 192.168.10.2, name: vyos-rtr, description: "VyOS LAN 侧（pg-prod 也解析到这里）" }
+    - { address: 192.168.10.5, name: dc1, description: "Samba AD DC，自行注册 DNS" }
+    - { address: 192.168.10.6, name: winadmin, description: "Windows 管理机，域成员" }
+    - { address: 192.168.10.10, name: ap-buffalo, description: "无线 AP" }
+    - { address: 192.168.10.127, name: laptop, description: "k3s/NFS/libvirt；Envoy ingress 也在这里" }
+    - { address: 10.60.0.1, name: vyos-rtr-labnet, description: "labnet 网关" }
+    - { address: 10.61.0.1, name: vyos-rtr-retronet, description: "retronet 网关" }
