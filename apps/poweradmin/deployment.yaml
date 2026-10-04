@@ -67,9 +67,9 @@ spec:
             # libldap reads this; without it LDAPS fails ("Can't contact LDAP server").
             - name: LDAPTLS_CACERT
               value: /etc/bao-ca/ca.pem
-            # Envoy sits in front; trust its X-Forwarded-For so lockout sees real clients.
-            - name: TRUSTED_PROXIES
-              value: 10.42.0.0/16
+            # No TRUSTED_PROXIES: the entrypoint applies it by rewriting the
+            # Caddyfile, which uid 82 cannot write ("not writable - skipping").
+            # Client IPs in Poweradmin's logs are therefore Envoy's.
           envFrom:
             - secretRef:
                 name: poweradmin
