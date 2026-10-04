@@ -53,5 +53,5 @@ spec:
         SPRING_DATASOURCE_PASSWORD: '{{ .password }}'
   dataFrom:
     - extract:
-        key: AYATORI_CREDENTIAL_PATH_PENDING
-        version: 'AYATORI_CREDENTIAL_VERSION_PENDING'
+        key: ayatori/prod/applications/2665d345-adbe-4f44-9fc7-ef8dd701468e
+        version: '1'
