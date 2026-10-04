@@ -1,0 +1,7 @@
+---
+# Copy to vault.yml and encrypt:  ansible-vault encrypt host_vars/oci_arm/vault.yml
+# NEVER commit the decrypted vault.yml.
+#
+# 与 Bao kv/k8s/alertmanager 的 telegram_bot_token 是同一个值。外部看守刻意不在部署时
+# 读 Bao：bao1 跑在 laptop 上，laptop 挂了正是需要重建看守的时候。
+vault_watcher_telegram_bot_token: "CHANGE-ME-telegram-bot-token"

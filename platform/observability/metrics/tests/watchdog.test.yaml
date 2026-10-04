@@ -1,0 +1,14 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: Watchdog 永远在响
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: Watchdog
+    exp_alerts:
+    - exp_labels:
+        severity: none
+      exp_annotations:
+        summary: 告警链路心跳，永远在响
+        description: 由 oci-arm 外部看守消费；不要静默或删除，否则会触发 LabWatchdogMissing。

@@ -21,8 +21,12 @@ spec:
     url: http://vmsingle-main.monitoring.svc:8428
   remoteRead:
     url: http://vmsingle-main.monitoring.svc:8428
-  notifier:
-    url: http://vmalertmanager-main.monitoring.svc:9093
+  # 第二个 notifier 是 oci-arm 上的外部 Alertmanager（经 Tailscale），dead-man 用：
+  # 它靠持续收到 Watchdog 来抑制 LabWatchdogMissing。所有告警都会推过去，那边只代发
+  # 告警链路自身的故障，其余丢弃。oci-arm 不可达时这里会累计发送错误，触发 AlertmanagerErrors。
+  notifiers:
+    - url: http://vmalertmanager-main.monitoring.svc:9093
+    - url: http://100.99.94.44:9093
   resources:
     requests:
       cpu: 50m

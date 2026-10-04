@@ -1,0 +1,7 @@
+---
+# oci-arm 外部看守。Telegram token 在 host_vars/oci_arm/vault.yml（ansible-vault），见 README。
+- name: 在 oci-arm 上部署 lab 外部看守
+  hosts: oci_arm
+  become: true
+  roles:
+    - outside_watcher

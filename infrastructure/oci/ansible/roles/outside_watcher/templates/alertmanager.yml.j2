@@ -1,0 +1,40 @@
+# {{ ansible_managed }}
+route:
+  receiver: blackhole
+  group_by: [alertname, instance]
+  group_wait: 1m
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # laptop vmalert 把所有告警都推过来；Watchdog 只作为抑制源，其余默认丢弃，
+    # 避免和 laptop 自己的 Alertmanager 重复发 Telegram。
+    - receiver: blackhole
+      matchers:
+        - alertname="Watchdog"
+    - receiver: telegram
+      matchers:
+        - alertname="LabWatchdogMissing"
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 1h
+    - receiver: telegram
+      matchers:
+        - watcher="oci-arm"
+    # laptop → Telegram 这条路本身坏了的告警，由这里代发。
+    - receiver: telegram
+      matchers:
+        - alertname=~"{{ watcher_forward_from_lab | join('|') }}"
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="Watchdog"
+    target_matchers:
+      - alertname="LabWatchdogMissing"
+
+receivers:
+  - name: blackhole
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /etc/prometheus/alertmanager-telegram-token
+        chat_id: {{ watcher_telegram_chat_id }}
+        send_resolved: true
