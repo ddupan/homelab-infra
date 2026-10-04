@@ -63,7 +63,7 @@ OIDC/STS；SPIRE 认证发生在 zot 的客户端入口。
 ## TechDocs 文档存储
 
 `techdocs` bucket 存放各仓库发布的 Backstage TechDocs 静态站点，由
-`terraform/techdocs.tf` 管理：IAM 用户 `techdocs-publisher`（Get/Put/Delete/List，供 CI
+`terraform/techdocs.tf` 管理：IAM 用户 `techdocs-publisher`（Get/Put/DeleteObject/List，供 CI
 经 OpenBao role `ci-techdocs-publisher` 取用）与 `techdocs-reader`（Get/List，供
 Backstage），access key 由 Terraform 生成并写入 `kv/k8s/techdocs-s3-publisher`、
 `kv/k8s/techdocs-s3-reader`（字段 `access_key` / `secret_key`）。不要手工改这两条 KV，
@@ -81,4 +81,6 @@ IAM API（同一端点 `https://s3.ad.ddupan.top`）。已接入 CI（`TF_ROOTS`
   `/etc/iam/policies.json`，与静态文件合并生效；备份依赖 filer 元数据。
 - **TF 管理的用户名不得与静态身份重名**：对静态身份的 IAM 写操作静默成功但不生效。
 - `aws_iam_user` 需要 SeaweedFS >= 4.48（更早版本 GetUser 不返回 Arn）。
+- 内联 policy 的 action 通配：4.48 接受 `s3:Get*`/`s3:Put*`/`s3:List*`，拒绝 `s3:Delete*`
+  （MalformedPolicyDocument），删除权限写 `s3:DeleteObject`。
 - 现有 bucket 以 `import` 纳管并 `prevent_destroy`。新 bucket 加到 `local.buckets`。
