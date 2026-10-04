@@ -67,3 +67,8 @@ resource "vault_policy" "ayatori_prod_external_secrets" {
   name   = "ayatori-prod-external-secrets"
   policy = file("${path.module}/policies/ayatori-prod-external-secrets.hcl")
 }
+
+resource "vault_policy" "iam_login_database" {
+  name   = "iam-login-database"
+  policy = file("${path.module}/policies/iam-login-database.hcl")
+}

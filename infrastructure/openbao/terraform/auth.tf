@@ -165,3 +165,17 @@ resource "vault_kubernetes_auth_backend_role" "ayatori_prod_external_secrets" {
   token_policies = [vault_policy.ayatori_prod_external_secrets.name]
   token_ttl      = 3600
 }
+
+# Per-application consumer of an Ayatori credential: bound to iam-login's own SA, so
+# the shared external-secrets identity never gains read on tenant credentials.
+# Consumed by ../../../apps/iam-login/database.yaml.
+resource "vault_kubernetes_auth_backend_role" "iam_login_database" {
+  backend   = "kubernetes"
+  role_name = "iam-login-database"
+
+  bound_service_account_names      = ["iam-login-database"]
+  bound_service_account_namespaces = ["iam-login"]
+
+  token_policies = [vault_policy.iam_login_database.name]
+  token_ttl      = 3600
+}

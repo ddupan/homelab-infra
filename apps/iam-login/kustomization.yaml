@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - external-secret.yaml
+  - database.yaml
   - deployment.yaml
   - service.yaml
   - httproute.yaml
@@ -12,3 +13,4 @@ configMapGenerator:
     namespace: iam-login
     files:
       - application.yaml
+      - internal-ca.pem

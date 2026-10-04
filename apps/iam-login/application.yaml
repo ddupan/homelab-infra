@@ -1,5 +1,5 @@
-# Non-secret configuration. Secrets (DB password, signing key, LDAPS truststore)
-# come from kv/k8s/iam-login via external-secret.yaml and are referenced by path/env only.
+# Non-secret configuration. The signing key and LDAPS truststore come from kv/k8s/iam-login
+# (external-secret.yaml); the datasource comes from Ayatori (database.yaml).
 iam:
   ad:
     enabled: true
@@ -26,10 +26,6 @@ iam:
   clients:
     admin-groups:
       - Domain Admins
-spring:
-  datasource:
-    url: jdbc:postgresql://shared-postgresql-rw.shared-db.svc.cluster.local:5432/iam_login
-    username: iam_login
 server:
   port: 8080
   # TLS ends at Envoy (LAN) or Cloudflare (tunnel); both send X-Forwarded-Proto.

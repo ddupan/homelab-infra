@@ -32,10 +32,9 @@ spec:
             - -Djavax.net.ssl.trustStore=/run/secrets/iam/truststore.p12
             - -Djavax.net.ssl.trustStorePassword=changeit
             - --spring.config.additional-location=file:/config/
-          env:
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef: { name: iam-login, key: db_password }
+          # SPRING_DATASOURCE_URL/USERNAME/PASSWORD, rendered from the Ayatori credential.
+          envFrom:
+            - secretRef: { name: iam-login-db }
           ports:
             - name: http
               containerPort: 8080

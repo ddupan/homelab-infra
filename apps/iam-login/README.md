@@ -7,7 +7,7 @@
 ```text
 浏览器 ─ Cloudflare ─ tunnel ─┐
                               ├─→ Service iam-login:8080 ─→ Samba AD（LDAPS，同用户 bind）
-集群内 RP（Gitea）─ Envoy ────┘                          └─→ shared-postgresql（iam_login）
+集群内 RP（Gitea）─ Envoy ────┘                          └─→ pg-prod（iam_login，Ayatori 供应）
 ```
 
 - 公网：Cloudflare tunnel 直达 Service（`infrastructure/cloudflared/terraform/main.tf`），
@@ -21,7 +21,6 @@
 
 | 属性 | 内容 | 生成 |
 |---|---|---|
-| `db_password` | `iam_login` 角色密码 | 随机生成，同时设置到 PostgreSQL |
 | `signing_key` | PKCS#8 PEM RSA 签名私钥 | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
 | `truststore` | base64 PKCS#12，只含公开的 `ddupan.top Internal CA` | `keytool -importcert`，口令 `changeit`（只含公钥证书，口令无保护意义） |
 
@@ -29,8 +28,15 @@
 轮换：新密钥放在 `signing-keys` 首位并保留旧密钥，旧 token 全部过期后再移除（见 iam-login
 `docs/authorization-server.md`）。
 
-数据库 `iam_login`（owner `iam_login`）在共享 CloudNativePG 中带外创建，与 Hydra 相同；表由应用的
-Flyway 迁移创建。数据库保存 passkey、客户端与授权记录，恢复以数据库为准。
+## 数据库
+
+经 Ayatori 自助申请（`clusters/ayatori-prod/iam-login.yaml`）：pg-prod 上的 `iam_login` 库与同名
+登录角色，表由应用 Flyway 迁移创建。凭据只交付到 OpenBao，本 namespace 以自己的 SA
+`iam-login-database` 登录 bao（role/policy 在 `infrastructure/openbao/terraform`，只能读这一份凭据），
+`database.yaml` 渲染为 `SPRING_DATASOURCE_*`。ExternalSecret 固定 Tenant status 中的
+`credentialVersion`，凭据重发时需显式更新。连接 `sslmode=verify-full`，服务端证书由内部 CA 签发，
+CA 公钥证书 `internal-ca.pem` 随 ConfigMap 提供。库中保存 passkey、客户端与授权记录，恢复以
+数据库为准。
 
 ## 镜像
 
