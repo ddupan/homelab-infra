@@ -1,0 +1,17 @@
+# iam-login CI publish identity on the iam-build runner (pve1 LXC 104), used by
+# scripts/publish-image to push the tested native image to zot iam/iam-login.
+# parentID is that host's join_token agent; the token in it was consumed at attestation
+# (2026-10-04) and is only an identifier now. Re-attesting the host means a new agent ID
+# here. uid 0: the runner runs every job as root. See external-agent/README.md.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: iam-build-ci-publish
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/agent/join_token/a3936422-fe5d-4478-ac92-4b03f1d6ca35
+  spiffeID: spiffe://ddupan.top/ci/panxiao81/iam-login/publish
+  selectors:
+    - unix:uid:0
