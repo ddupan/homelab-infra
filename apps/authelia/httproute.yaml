@@ -13,7 +13,7 @@
 #
 # NOTE: this does NOT get an Authelia SecurityPolicy. Authelia must never sit
 # behind its own forward-auth — that is an infinite redirect. Only the apps it
-# protects get one (see ../netbox/securitypolicy.yaml).
+# protects get one (template: ../../platform/envoy-gateway/examples/).
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

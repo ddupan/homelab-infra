@@ -200,15 +200,13 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 - `platform/envoy-gateway/` — **the LAN ingress**. Gateway API; Envoy holds 192.168.10.127 and
   routes `*.ad.ddupan.top` by Host header. Adding a service = an `HTTPRoute` + a DNS A
   record in `samba-ad`; no cert work (see `platform/cert-manager/`). Authelia forward-auth is
-  available per-route via a `SecurityPolicy` — `apps/netbox/securitypolicy.yaml` is the worked
+  available per-route via a `SecurityPolicy` — `platform/envoy-gateway/examples/` holds the worked
   example, and it is what makes AD-group→role mapping possible for apps whose own SSO
   cannot do it.
 - `platform/cert-manager/` — two ClusterIssuers: `letsencrypt` (DNS-01 via Cloudflare) and
   `bao-acme` (OpenBao internal PKI). One `*.ad.ddupan.top` wildcard serves every LAN
   service, deliberately, so per-host names stay out of Certificate Transparency logs.
-- `apps/netbox/` — **deployed** at `netbox.ad.ddupan.top`, still an *evaluation*: nothing
-  consumes it yet, so deleting it breaks nothing. `terraform/topology.yml` is the
-  authoritative data (git → NetBox, a derived mirror — never edit via the UI);
-  `apps/netbox/terraform/` applies it. `generate/*.py` read back out and `--diff` against live
-  systems. Read `apps/netbox/README.md`; `CONTEXT.md` is the original brief.
+- **IPAM is `infrastructure/dns/records.yml`** (`homelab_ipam` + the A records), checked by
+  `generate.py`; `--next-free <prefix>` allocates. NetBox was evaluated and retired 2026-10-04:
+  a derived mirror nobody read, and too heavy for the single node. Do not reintroduce a UI SoT.
 - `archive/keycloak/` and `archive/casdoor/` are retired IdP experiments; Authelia is the only identity stack.

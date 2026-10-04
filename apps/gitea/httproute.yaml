@@ -15,7 +15,7 @@
 # NO SecurityPolicy here on purpose. Gitea does its own authentication (local
 # accounts plus Authelia OIDC), and git over HTTPS uses token/basic auth that
 # forward-auth would intercept and 302 to a login page — the same breakage
-# documented for NetBox's API in ../netbox/securitypolicy.yaml.
+# NetBox's API hit (see the bypass rule history in ../authelia/values.yaml).
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

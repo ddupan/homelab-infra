@@ -12,12 +12,13 @@ ServiceLB); routing is by `Host` header.
 ## Adding a service
 
 1. an `HTTPRoute` with `parentRefs` → `eg` / `envoy-gateway-system`, `sectionName: https`
-2. an A record in `samba_ad_extra_a_records` → `192.168.10.127` (`../../infrastructure/samba-ad`), then
-   `ansible-playbook provision-dc.yml --tags dns`
-3. **optionally** a `SecurityPolicy` for Authelia forward-auth — see `../../apps/netbox`
+2. an A record in `../../infrastructure/dns/records.yml` → `192.168.10.127`, then
+   `ansible-playbook provision-dc.yml --tags dns` (`../../infrastructure/samba-ad`)
+3. **optionally** a `SecurityPolicy` for Authelia forward-auth — templates in `examples/`
 
 No certificate work: the `:443` listener already serves the `*.ad.ddupan.top` wildcard
-from `../cert-manager`. Worked example: `../../apps/netbox`.
+from `../cert-manager`. The forward-auth templates in `examples/` were extracted from
+NetBox (retired 2026-10-04), the only app that used them.
 
 ## Why not Contour
 
@@ -47,10 +48,10 @@ Pieces, each in the directory that owns it:
 
 | where | what |
 |---|---|
-| `../../apps/netbox/securitypolicy.yaml` | `SecurityPolicy` targeting the app's HTTPRoute |
-| `../../apps/authelia/referencegrant-extauth.yaml` | lets a SecurityPolicy in another namespace reference the Authelia Service |
+| `examples/securitypolicy-forward-auth.yaml` | `SecurityPolicy` targeting the app's HTTPRoute |
+| `examples/referencegrant-extauth.yaml` (apply in `authelia`) | lets a SecurityPolicy in another namespace reference the Authelia Service |
 | `../../apps/authelia/values.yaml` | `server.endpoints.authz.ext-authz` + an `access_control` rule |
-| `../../apps/netbox/networkpolicy.yaml` | stops anything bypassing Envoy to reach the app directly |
+| `examples/networkpolicy-gateway-only.yaml` | stops anything bypassing Envoy to reach the app directly |
 
 ### Three details that cost time
 

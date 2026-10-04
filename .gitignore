@@ -1,5 +1,5 @@
 # Root ignore rules. Per-service .gitignore files (samba-ad/, proxmox/, openbao/,
-# smtp-relay/, netbox/, cert-manager/) still own their own vault/secret paths —
+# smtp-relay/, cert-manager/) still own their own vault/secret paths —
 # this file covers everything added since those were written.
 
 # ─── Secrets ───────────────────────────────────────────────────────────────
@@ -77,8 +77,8 @@ tfplan*
 __pycache__/
 *.py[cod]
 # NOTE: .terraform.lock.hcl is deliberately NOT ignored — provider versions must
-# be pinned and reproducible. openbao/ and netbox/ currently ignore it locally;
-# that is backwards and should be removed from those two files.
+# be pinned and reproducible. openbao/ currently ignores it locally;
+# that is backwards and should be removed from that file.
 
 # ─── Vendored / generated ──────────────────────────────────────────────────
 node_modules/

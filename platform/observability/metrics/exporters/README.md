@@ -3,7 +3,7 @@
 2026-09-16 已增加 `process-exporter.yaml`，固定上游 0.8.7，以 DaemonSet 运行，
 只读挂载宿主机 `/proc`，每 60 秒由 VMPodScrape 抓取，不开宿主机端口。
 NetworkPolicy 仅放行同 namespace 的 vmagent。进程按名称分组，QEMU 按 guest 名，
-NetBox 和 VS Code 按路径归组；不把完整命令行或 PID 放进指标标签。
+VS Code 按路径归组；不把完整命令行或 PID 放进指标标签。
 
 当前 live 使用 `gather-smaps=true`，导出 RSS、VmSwap、PSS、SwapPss 与进程数。
 `apparmor/homelab-process-exporter` 已安装到 `/etc/apparmor.d/homelab-process-exporter`

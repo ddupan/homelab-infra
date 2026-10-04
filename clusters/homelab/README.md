@@ -55,5 +55,5 @@ sudo k3s kubectl -n flux-system get gitrepositories,kustomizations
   PostgreSQL 与独立 signing-key PVC；首次上线和 OpenBao JWT-SVID PoC 尚待合并后验证；
 - Nexus Repository CE POC 已加入 GitOps 声明，计划验证 Ansible Galaxy、Go Modules 与
   OCI/BuildKit 缓存；尚未部署或完成现场验收，现有 zot 保持不变；
-- NetBox 已固定现有 chart `8.3.38` 并完成分阶段 Flux HelmRelease 接管；
+- NetBox 已于 2026-10-04 下线，地址分配改由 `infrastructure/dns/records.yml` 承担；
 - root Kustomization 与所有 brownfield 子 Kustomization 继续保持 `prune: false`。

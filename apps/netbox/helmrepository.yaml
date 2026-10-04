@@ -1,8 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: netbox
-  namespace: netbox
-spec:
-  interval: 1h
-  url: https://netbox-community.github.io/netbox-chart/
