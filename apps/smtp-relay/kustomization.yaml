@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# secret.yaml / secret.example.yaml 刻意不列入：凭据由 external-secret.yaml 从 Bao 同步，
+# secret.yaml 只是 Bao 不可用时的 break-glass。scripts/ 与 terraform/ 不是集群资源。
+resources:
+  - namespace.yaml
+  - external-secret.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - service-lan.yaml

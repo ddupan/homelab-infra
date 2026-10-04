@@ -47,11 +47,11 @@ terraform output -raw tenant_id
 
 ## Step 2 — Deploy the relay
 
+由 Flux 管理（`clusters/homelab/apps/smtp-relay.yaml` → 本目录 `kustomization.yaml`），提交 Git 即部署。
+凭据由 ESO 从 Bao `kv/k8s/smtp-relay` 同步；Bao 不可用时才 `kubectl apply -f secret.yaml` 作 break-glass。
+
 ```bash
-cd ..
-kubectl apply -f namespace.yaml
-kubectl apply -f external-secret.yaml -f pvc.yaml   # 值来自 Bao kv/k8s/smtp-relay；Bao 不可用时改用 secret.yaml
-kubectl apply -f deployment.yaml -f service.yaml
+flux reconcile kustomization smtp-relay --with-source
 kubectl -n smtp-relay rollout status deploy/smtp-relay
 ```
 
