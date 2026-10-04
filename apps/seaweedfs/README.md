@@ -7,17 +7,24 @@
 **Files**
 | File | Description |
 | --- | --- |
-| `values.yaml` | Helm values for the official SeaweedFS chart. |
-| `helm.sh` | Installs or upgrades the SeaweedFS release. |
+| `values.yaml` | Helm values for the official SeaweedFS chart（经 ConfigMap `seaweedfs-values` 注入 HelmRelease）。 |
+| `helmrelease.yaml` / `helmrepository.yaml` | Flux HelmRelease，固定 chart 版本；chart 版本同时决定镜像版本。 |
+| `httproute-s3.yaml` | `s3.ad.ddupan.top` 入口。 |
+| `helm.sh` | 仅 break-glass：Flux 不可用时手工 upgrade，版本须与 HelmRelease 一致。 |
 
 **Install**
 1. 在 OpenBao `kv/k8s/seaweedfs-s3` 维护基础 S3 配置；zot 凭据单独以
    `kv/k8s/zot-s3` 为唯一来源。ESO 合成为 `seaweedfs-s3-config`，详见下文。
    不要把真实 AK/SK 放进 `values.yaml`。
-2. Apply the manifests:
-   ```bash
-   bash ~/services/apps/seaweedfs/helm.sh
-   ```
+2. 由 Flux（`clusters/homelab/apps/seaweedfs.yaml`）部署；改 `values.yaml` 或 chart
+   版本后合并到 `main` 即可。
+
+**Flux 接管**
+- 2026-10-04 在原 release（chart `4.22.0`，revision 4）上接管，values 与线上一致，
+  接管本身不改 chart 版本；升级走后续独立 PR。`prune: false`。
+- filer 的 pod template 带有 2026-07-28 `rollout restart` 留下的 `restartedAt`；
+  HelmRelease 走 Helm 三方合并通常保留它，若接管时 filer 滚动一次属预期。
+- 升级前回滚点：`data/ceph/<pvc>@pre-4.48` ZFS 快照（三个 PVC 同一原子快照）。
 
 **Access**
 - Inside the cluster, the S3 endpoint is `http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333`.
