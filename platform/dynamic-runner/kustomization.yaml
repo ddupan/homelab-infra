@@ -7,3 +7,4 @@ resources:
   - clusterspiffeid.yaml
   - deployment.yaml
   - service.yaml
+  - cache-server.yaml
