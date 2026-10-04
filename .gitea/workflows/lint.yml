@@ -61,3 +61,4 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           uv run infrastructure/dns/generate.py --check
+          uv run infrastructure/dns/test_ipam.py

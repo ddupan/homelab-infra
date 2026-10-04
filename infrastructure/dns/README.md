@@ -32,6 +32,25 @@ uv run infrastructure/dns/generate.py --check
 `backends` 和 `terraform.managed` 是分阶段接管开关，而不是第二份记录数据：只有已经完成
 零变更接管的后端才会生成。把记录加入新的后端前，应先完成相应的 live/state 对账。
 
+## 地址分配（IPAM）
+
+`records.yml` 同时是地址分配表，取代 NetBox。A 记录本身就是一次分配；
+`homelab_ipam` 只补它表达不了的部分：网段、DHCP 池与预留段（`ranges`），以及没有静态
+A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册 DNS 的域成员、AP、laptop）。
+
+`generate.py` 每次运行都会校验：地址必须落在某个网段内、不得落在 `ranges` 内、
+`addresses` 不得重复；同一 IP 被多条 A 记录引用时（ingress、路由器），必须在
+`addresses` 中声明它属于哪台主机，否则视为误用。`test_ipam.py` 覆盖这些拒绝路径。
+
+分配新静态地址：
+
+```bash
+uv run infrastructure/dns/generate.py --next-free 192.168.10.0/24
+```
+
+它只知道登记过的地址。2026-10-04 对 `.1–.127` 做过 ping/ARP 扫描，在线地址与清单
+完全一致；之后接入未登记的设备会让它给出错误答案，所以静态地址先登记再使用。
+
 ## 安全边界
 
 - Samba module 只管理 `homelab_dns.samba.records` 明确列出的 RRset，不遍历或清理 zone。
