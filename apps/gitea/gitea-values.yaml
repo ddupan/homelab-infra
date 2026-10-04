@@ -116,11 +116,14 @@ gitea:
       scopes: openid profile email groups
       groupClaimName: groups
       adminGroup: gitea-admins
-    # Name kept from the Hydra era: Gitea links accounts by (login source, sub), and the
-    # name is part of the callback URL. iam-login preserves the old `sub` through its
-    # subject bindings, so existing links survive the issuer change. Same fetch-at-pod-start
-    # fragility as above; sso.ddupan.top is split-horizon to Envoy for that reason.
-    - name: hydra
+    # iam-login (AD password + passkey). This is login source ID 3, formerly `hydra`:
+    # Gitea links accounts by (source ID, sub), and the chart's init container matches
+    # sources by NAME, adding a new one (new ID, links lost) when none matches. So the
+    # source was renamed in place first (`gitea admin auth update-oauth --id 3 --name sso`)
+    # and only then did this entry change. iam-login keeps the old `sub` through its
+    # subject bindings. Same fetch-at-pod-start fragility as above; sso.ddupan.top is
+    # split-horizon to Envoy for that reason.
+    - name: sso
       provider: openidConnect
       existingSecret: gitea-sso-oidc
       autoDiscoverUrl: https://sso.ddupan.top/.well-known/openid-configuration

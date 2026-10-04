@@ -45,19 +45,21 @@ API、OIDC、Git/Flux 和 runner 均已验证。第二跳按明确决定跳过�
 suspend、详细日志审计和扩展验收。出现启动失败或 migration error 时也立即升级为完整
 故障流程。
 
-## IAM 登录源（`hydra`，指向 sso.ddupan.top）
+## IAM 登录源 `sso`
 
-登录源 `hydra` 现指向 iam-login 内置授权服务器 `https://sso.ddupan.top`（AD 密码 + Passkey），
-旧 `authelia` 入口保留。名称沿用 Hydra 时期：Gitea 按（登录源，`sub`）关联账号，名称也在回调
-地址中；iam-login 通过 subject 绑定沿用旧 `sub`，已有关联不变。入口
-`https://git.ddupan.top/user/oauth2/hydra`，公网可达。
+登录源 `sso` 指向 iam-login 内置授权服务器 `https://sso.ddupan.top`（AD 密码 + Passkey），
+旧 `authelia` 入口保留。入口 `https://git.ddupan.top/user/oauth2/sso`，公网可达。
 
+- 它是登录源 **ID 3**，原名 `hydra`。Gitea 按（登录源 ID，`sub`）关联账号，而 chart 的 init
+  container 按**名称**匹配登录源，找不到就新建（新 ID，关联全部失效）。因此改名必须先在 Gitea
+  里原地改（`gitea admin auth update-oauth --id 3 --name sso`），再改 values。以后再改名同理。
+- iam-login 通过 subject 绑定沿用 Hydra 时期的 `sub`，已有关联不变。
 - 客户端 `gitea` 经 iam-login 客户端管理 API（`/console`）登记：回调
-  `https://git.ddupan.top/user/oauth2/hydra/callback`，scope `openid profile email groups`，
+  `https://git.ddupan.top/user/oauth2/sso/callback`，scope `openid profile email groups`，
   **关闭 PKCE**（Gitea 1.27 不发 PKCE 与 nonce）。
 - secret 在 `kv/k8s/gitea-sso:client_secret`，经 `ExternalSecret/gitea-sso-oidc` 投射；轮换用
   API 的 `POST /api/iam/clients/gitea/secret` 后更新该 kv，再重启 Gitea。
 - 继续映射 `gitea-admins`；`groups` 在 ID token 中。
 - discovery 在 Pod 启动时由 init container 获取，`sso.ddupan.top` 因此走 split horizon（Envoy）。
 
-回退：revert 切换 PR，登录源回到 Hydra（`kv/k8s/hydra:gitea_client_secret` 与 Hydra 部署保留至下线）。
+回退：先把 ID 3 改回 `hydra`，再 revert 切换 PR，登录源回到 Hydra（`kv/k8s/hydra:gitea_client_secret` 与 Hydra 部署保留至下线）。
