@@ -40,3 +40,49 @@ Grafana 新增 `Homelab 内存与 Swap`（UID `homelab-memory`），由 sidecar 
 所有新增 manifest 已纳入对应 Kustomization，并已单独应用到 live；尚未提交到远端，
 Flux source 尚未包含这些新增资源。修改 exporter ConfigMap 后需滚动重启 DaemonSet，
 程序不会自动重载进程匹配配置。
+
+## node-exporter 的 AppArmor profile（systemd collector）
+
+#215 给 node-exporter 开了 `--collector.systemd`，但在笔记本上**一直失败**：
+`couldn't get dbus connection: An AppArmor policy prevents this sender from sending this message`。
+Pod 跑在 containerd 默认 profile `cri-containerd.apparmor.d` 下，它没有任何 dbus 规则，而宿主
+dbus-daemon 会做 AppArmor 仲裁，所以连 `Hello` 都被拒。现象只有
+`node_scrape_collector_success{collector="systemd"} == 0`，其余 collector 不受影响，
+`HostSystemdUnitFailed` 对笔记本静默失效（bao1 用的是 Debian 包的 node-exporter，不受影响）。
+
+`apparmor/homelab-node-exporter` = 默认模板照抄 + 只读查询 systemd 的 dbus 规则（ListUnits*、
+GetUnit、Properties.Get/GetAll），不放开任何改变 unit 状态的 member。不用 `Unconfined`：
+node-exporter 挂了宿主 `/`、开着 hostPID，去掉 AppArmor 的代价不对等。
+
+**顺序很重要**——Pod 引用一个未加载的 profile 会起不来，DaemonSet 一坏就丢掉全部主机指标。
+所以分两步：
+
+1. 在笔记本上安装并加载 profile（新 profile，不影响任何运行中的进程）：
+
+   ```bash
+   sudo install -m 0644 apparmor/homelab-node-exporter /etc/apparmor.d/homelab-node-exporter
+   sudo apparmor_parser -r /etc/apparmor.d/homelab-node-exporter
+   sudo aa-status | grep homelab-node-exporter     # 应在 enforce 列表里
+   ```
+
+2. 再提 PR 让 DaemonSet 引用它（容器 `securityContext`）：
+
+   ```yaml
+   appArmorProfile:
+     type: Localhost
+     localhostProfile: homelab-node-exporter
+   ```
+
+   合并后验证（端口在宿主网络上）：
+
+   ```bash
+   curl -s localhost:9100/metrics | grep 'node_scrape_collector_success{collector="systemd"}'   # 期望 1
+   curl -s localhost:9100/metrics | grep -c '^node_systemd_unit_state'                          # 期望 >0
+   sudo journalctl -k --since -10min | grep 'apparmor="DENIED".*homelab-node-exporter'           # 期望为空
+   ```
+
+   有 DENIED 就按审计日志里的 path/member 补规则，`apparmor_parser -r` 原位重载即可，无需重启 Pod。
+
+⚠ 一旦 systemd 指标进来，笔记本上现存的 failed unit 会各报一条 `HostSystemdUnitFailed`
+（2026-10-04 有 6 个：nvidia-cdi-refresh ×2、nvidia-fabricmanager、rpc-svcgssd、
+systemd-ask-password-console.path、systemd-networkd-wait-online，详见 #215）。先清理再切 profile。

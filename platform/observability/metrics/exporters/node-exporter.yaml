@@ -31,6 +31,7 @@ spec:
             - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
             # systemd 默认关闭；HostSystemdUnitFailed 依赖它。经宿主 D-Bus 只读查询 unit 状态，
             # 默认已排除 mount/scope/slice 等单元，k3s 的大量 Pod scope 不会进来。
+            # ⚠ 需要 AppArmor profile homelab-node-exporter，默认 profile 拒绝 D-Bus（见 README.md）。
             - --collector.systemd
           ports:
             - name: metrics
