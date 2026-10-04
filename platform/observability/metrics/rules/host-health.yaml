@@ -64,3 +64,67 @@ spec:
         summary: 主机 {{ $labels.instance }} ZFS 池 {{ $labels.zpool }} 状态 {{ $labels.state }}
         description: 检查 zpool status、磁盘和冗余；零值状态不触发。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 笔记本是整个 lab 的单点（k3s/NFS/libvirt/ingress），而它在用电池兜底：AC 掉了
+    # 只剩电池续航的时间，必须立刻知道。只看 AC，USB-C 口的 online=0 是常态。
+    - alert: HostOnBattery
+      expr: node_power_supply_online{job="node-exporter",power_supply="AC"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: 主机 {{ $labels.instance }} 已断开交流电，正在用电池运行
+        description: 检查电源适配器和插座；电池耗尽时整个 lab（k3s、NFS、libvirt 上的 DC/bao）一起掉线。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostBatteryLow
+      expr: node_power_supply_capacity{job="node-exporter",power_supply=~"BAT.*"} < 30
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: 主机 {{ $labels.instance }} 电池电量 {{ $value }}%
+        description: 恢复供电，或在电量耗尽前有序关停 guest，避免 ZFS/数据库非正常断电。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # unit 状态由 DaemonSet 的 systemd collector 经宿主 D-Bus 读取。注意它抓不到
+    # "active 但实际已坏"的情况（例如 openvpn-client@naist 的 tun0 黑洞），那类要靠探测。
+    - alert: HostSystemdUnitFailed
+      expr: node_systemd_unit_state{job="node-exporter",state="failed"} == 1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} systemd unit {{ $labels.name }} 处于 failed
+        description: systemctl status / journalctl -u 查看原因；确认无用的 unit 用 systemctl reset-failed 清除。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 这台笔记本的 CPU 常年贴着 TjMax 跑（7 天 p90=97°C，阈值 100°C），所以用"达到传感器
+    # 自报的 crit 并持续 10 分钟"作为阈值：低于此值会一直在响，等于没有告警。
+    - alert: HostTemperatureCritical
+      expr: node_hwmon_temp_celsius{job="node-exporter"}
+        >= on(job,instance,chip,sensor) node_hwmon_temp_crit_celsius{job="node-exporter"}
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} {{ $labels.chip }}/{{ $labels.sensor }} 持续达到临界温度 {{ $value }}°C
+        description: 检查散热（风扇、积灰、通风）和当前负载；持续过热会降频并拖慢所有服务。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 用 PSI 而不是 load/swap：load 混入 D 状态进程，swap 平时就用掉一半以上（7 天中位数
+    # 66%），都不能区分"忙"和"卡住"。阈值按 7 天回放选定：0.3/10m 只命中 2 次，包括
+    # 2026-10-04 CI 构建把 VMSingle 拖到查询超时那次（当时只有副作用 AlertingRulesError 响了）。
+    - alert: HostIoPressureHigh
+      expr: rate(node_pressure_io_waiting_seconds_total{job="node-exporter"}[5m]) > 0.3
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} IO 压力过高（{{ $value | humanizePercentage }} 时间有任务在等 IO）
+        description: 找出写盘大户（iotop、CI 构建 Pod、VM 磁盘）；同主机上的 VMSingle 查询会随之超时。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostMemoryPressureHigh
+      expr: rate(node_pressure_memory_stalled_seconds_total{job="node-exporter"}[5m]) > 0.05
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} 内存压力过高（{{ $value | humanizePercentage }} 时间全部任务卡在内存回收上）
+        description: 内存与 swap 都快耗尽，OOM 随时可能发生；查看进程 PSS 看板，优先停掉 CI 构建等可推迟负载。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
