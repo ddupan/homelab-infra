@@ -62,12 +62,12 @@ OIDC/STS；SPIRE 认证发生在 zot 的客户端入口。
 
 ## TechDocs 文档存储
 
-`techdocs` bucket 存放各仓库发布的 Backstage TechDocs 静态站点。两个静态身份：
-`techdocs-publisher`（Read/Write/List，供 CI 经 OpenBao role `ci-techdocs-publisher`
-取用）与 `techdocs-reader`（Read/List，供 Backstage）。凭据唯一来源为
-`kv/k8s/techdocs-s3-publisher` 与 `kv/k8s/techdocs-s3-reader`，由同一个
-ExternalSecret 模板追加到服务端配置。bucket 需一次性创建：
-`weed shell` 中执行 `s3.bucket.create -name techdocs`。
+`techdocs` bucket 存放各仓库发布的 Backstage TechDocs 静态站点，由
+`terraform/techdocs.tf` 管理：IAM 用户 `techdocs-publisher`（Get/Put/Delete/List，供 CI
+经 OpenBao role `ci-techdocs-publisher` 取用）与 `techdocs-reader`（Get/List，供
+Backstage），access key 由 Terraform 生成并写入 `kv/k8s/techdocs-s3-publisher`、
+`kv/k8s/techdocs-s3-reader`（字段 `access_key` / `secret_key`）。不要手工改这两条 KV，
+下次 apply 会覆盖；轮换凭据用 `terraform apply -replace` 对应的 access key。
 
 ## Terraform（bucket / IAM）
 
