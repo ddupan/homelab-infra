@@ -27,6 +27,7 @@ env:
     infrastructure/etcd/terraform
     infrastructure/shared-postgresql/terraform
     infrastructure/cloudflared/terraform
+    infrastructure/dns/terraform
     infrastructure/incus/terraform
     apps/nexus/terraform
     apps/seaweedfs/terraform

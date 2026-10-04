@@ -40,5 +40,9 @@ rejects(a_record("pool", "192.168.10.200"), "non-static range")         # 落在
 rejects(a_record("stray", "172.16.0.5"), "outside every homelab_ipam")  # 不在任何网段
 rejects(lambda d: d["homelab_ipam"]["addresses"].append(
     {"address": "192.168.10.1", "name": "again"}), "allocated twice")
+rejects(lambda d: d["homelab_dns"]["powerdns"]["records"].append(
+    {"name": "dup", "type": "A", "values": ["192.168.10.4"]}), "declare its host")  # lab 区同样查
+# 同一主机同时出现在 ad. 与 lab.（迁移期）不是撞地址；BASE 里 pve1 就是如此。
+assert any(r["name"] == "pve1" for r in BASE["homelab_dns"]["powerdns"]["records"])
 assert str(generate.next_free(BASE, "10.61.0.0/24")) == "10.61.0.2"
 print("ipam ok")

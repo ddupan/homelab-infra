@@ -6,7 +6,8 @@
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
 | 公网 `ddupan.top` | Cloudflare | 由生成器输出 Terraform；尚待完整导入已有记录 |
-| AD `ad.ddupan.top` | Samba internal DNS | `samba_dns_record` Ansible module |
+| 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | 生成器输出 `terraform/dns.generated.tf`，CI apply；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
+| AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `samba_dns_record` Ansible module |
 | LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
 | Kubernetes Pod split horizon | CoreDNS | 由生成器维护 `.server` 标记块 |
 
@@ -19,11 +20,13 @@ uv run infrastructure/dns/generate.py
 uv run infrastructure/dns/generate.py --check
 ```
 
-脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染三个目标：
+脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染四个目标：
 
 - `apps/blocky/config.yml` 中带 marker 的 LAN split-horizon mapping；
 - `platform/k3s/coredns-custom.yaml` 中带 marker 的 Pod split-horizon server blocks；
 - `infrastructure/cloudflared/terraform/dns.generated.tf` 中已经完成 Terraform 接管的公网记录。
+- `infrastructure/dns/terraform/dns.generated.tf` 中 `lab.ddupan.top` 的固定主机（`homelab_dns.powerdns`）。
+  zone、SOA、NS 在同目录手写的 `main.tf`。CI 的 `tf.py` 从 bao `kv/k8s/powerdns` 取 API key。
 
 生成文件需要提交进 Git，以便 PR 直接审阅最终配置。CI 执行 `--check`，任何手工修改生成块、
 漏跑生成器或非确定性输出都会失败。Jinja 使用 `[[ ... ]]` 作为变量定界符，避免与 CoreDNS
