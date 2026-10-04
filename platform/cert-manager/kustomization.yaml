@@ -12,6 +12,7 @@ configMapGenerator:
 resources:
   - helmrepository.yaml
   - helmrelease.yaml
+  - external-secret.yaml
   - clusterissuer-letsencrypt.yaml
   - clusterissuer-bao-acme.yaml
   - certificate-wildcard-ad.yaml

@@ -4,6 +4,9 @@ metadata:
   name: cert-manager
   namespace: flux-system
 spec:
+  # ExternalSecret 需要 ESO 的 CRD；重建时先等 external-secrets 就绪。
+  dependsOn:
+    - name: external-secrets
   interval: 10m
   path: ./platform/cert-manager
   prune: false

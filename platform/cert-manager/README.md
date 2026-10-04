@@ -61,6 +61,9 @@ Issuer 与 Certificate 清单随本目录的 Kustomization 由 Flux 管理；现
 token Secret 只被引用，本次接管不改变其所有权。删除保护期间保持 `prune: false`，且
 CRD 同时启用 chart 的 `crds.keep` 与 Flux Helm action 的 `CreateReplace`。
 
+Cloudflare token 平时由 ESO 从 Bao `kv/k8s/cert-manager-cloudflare` 同步（`external-secret.yaml`），
+下面的 `secret.yaml` 只在 Bao 不可用时使用。
+
 以下命令保留为 break-glass 手工恢复流程；正常变更应提交 Git：
 
 ```bash
