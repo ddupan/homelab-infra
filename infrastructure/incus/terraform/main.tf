@@ -87,10 +87,12 @@ resource "incus_instance" "ayatori" {
   config = {
     "boot.autostart"      = "true"
     "security.privileged" = "false"
-    "security.nesting"    = "false"
-    "limits.cpu"          = "2"
-    "limits.memory"       = "2GiB"
-    "limits.memory.swap"  = "false"
+    # Ayatori 控制面以 podman quadlet 运行 ESO、Flux 与 manager；非特权容器内创建容器
+    # 需要嵌套。该键不经 cloud-init，修改后重启实例即生效，无需重建。
+    "security.nesting"   = "true"
+    "limits.cpu"         = "2"
+    "limits.memory"      = "2GiB"
+    "limits.memory.swap" = "false"
     # ⚠ 镜像模板只在 create/copy 时渲染 cloud-init seed（when: [create, copy]），
     # 对已有实例修改此键不会生效，重启或 cloud-init clean 也不会；改地址须重建实例。
     # 网关与 resolver 沿用 LAN DHCP 下发值：.1 网关；Blocky .127 优先、路由器 .1 兜底。

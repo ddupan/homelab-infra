@@ -1,0 +1,5 @@
+- name: 部署 Ayatori 控制面
+  hosts: all
+  become: true
+  roles:
+    - panxiao81.ayatori.control_plane
