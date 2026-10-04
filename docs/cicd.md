@@ -41,6 +41,18 @@ No cluster, no credentials, no mutation. YAML、Ansible 和 Terraform 各自按�
 found a real defect: `infrastructure/proxmox/ansible/` had no `requirements.yml` at all, so a
 fresh checkout could not reproduce its collections.
 
+**Terraform plan/apply — built, needs bootstrap.** `.gitea/workflows/terraform.yml`
+对 PR 改动的 root 运行 plan 并维护一条 PR 评论；合并到 `main` 后对改动的 root apply
+（重新 plan，不是执行评论里那份）。接入的 root 列在 workflow 的 `TF_ROOTS`。凭据链：
+job 的 JWT-SVID → bao role `ci-terraform`（admin policy，原因见 `auth-spire.tf`）→
+`kv/k8s/seaweedfs-s3` 取 tfstate 身份，`kv/infra/terraform/<root 名>` 的每个 key 作为
+`TF_VAR_<key>`。首次启用：
+
+1. 本地 `bao login -method=oidc` 后 apply `infrastructure/openbao/terraform`，创建 `ci-terraform`；
+2. 写入 `kv/infra/terraform/cloudflared`（`cloudflare_api_token`、`zone_id`）与
+   `kv/infra/terraform/netbox`（`netbox_token`）；
+3. 把 `terraform-plan` 设为 `main` 分支保护的必需状态检查，否则评论只是参考。
+
 **Stage 2 — server-side dry-run.**
 `kubectl apply --dry-run=server`. This is the one that is usually skipped and
 matters most here: the cluster runs Gateway API, cert-manager, the
