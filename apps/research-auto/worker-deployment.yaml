@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-auto-worker
+  namespace: research-auto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-auto-worker
+  template:
+    metadata:
+      labels:
+        app: research-auto-worker
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: migrate-db
+          image: ghcr.io/panxiao81/research-auto:sha-6852101
+          imagePullPolicy: IfNotPresent
+          command: ["uv", "run", "--no-sync", "research-auto", "setup", "bootstrap-db"]
+          envFrom:
+            - configMapRef:
+                name: research-auto-config
+            - secretRef:
+                name: research-auto-bootstrap-secret
+      containers:
+        - name: worker
+          image: ghcr.io/panxiao81/research-auto:sha-6852101
+          imagePullPolicy: IfNotPresent
+          command: ["uv", "run", "--no-sync", "research-auto", "serve", "worker"]
+          envFrom:
+            - configMapRef:
+                name: research-auto-config
+            - secretRef:
+                name: research-auto-secret
+          volumeMounts:
+            - name: github-copilot-auth
+              mountPath: /home/appuser/.config/litellm/github_copilot
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+      volumes:
+        - name: github-copilot-auth
+          persistentVolumeClaim:
+            claimName: research-auto-github-copilot-auth
