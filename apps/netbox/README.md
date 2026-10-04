@@ -159,6 +159,17 @@ must exist instead:
 - the `ext-authz` endpoint + access-control rule in `authelia/values.yaml`, and the
   `ReferenceGrant` in `authelia/referencegrant-extauth.yaml`
 
+## Flux 接管
+
+正在分阶段接管（与 `platform/openebs` 相同的流程）。阶段一：`helmrelease.yaml` 固定线上
+chart `8.3.38` 与 `values.yaml`（登记时与 `helm get values` 结构一致，revision 4），
+`suspend: true`，Flux 只管理 HelmRepository、HelmRelease 声明、values ConfigMap、
+NetworkPolicy 与 SecurityPolicy，不运行 Helm upgrade。合并后确认 Helm revision 仍为 4、
+Pod UID 未变，再用独立 PR 解除暂停；激活那次不得同时改 chart 或 values。
+
+`netbox-secrets` 不归 Flux 管：仍是手工 apply 的 `secret.yaml`（break-glass），迁到
+OpenBao/ESO 之前 HelmRelease 只引用它。接管完成后，下面的手工步骤仅作 break-glass。
+
 ## Deploy
 
 ```bash
