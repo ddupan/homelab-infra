@@ -147,7 +147,9 @@ main 即期望状态，手工改动会被回滚。CI 经 `https://192.168.10.127
 服务器证书的公钥，CI 以它固定校验服务器（2036-09 到期，重新生成后须更新）。laptop 本地仍可经
 Unix socket 运行上面的命令。
 实例和池启用 `prevent_destroy`；删除需显式审阅，不能通过移走整个资源块绕过保护。
-当前为空系统，丢失后可重建；承载持久数据前须补离机备份与恢复验收。
+Ayatori 控制面状态（k0s etcd 与 PKI）由部署 role 每日 `k0s backup` 写入各自的 custom volume
+`ayatori-<env>-backup`（容器内 `/var/backups/ayatori`），重建实例不丢失；实例另有每日快照、保留 7 天。
+二者都与实例同在 `ayatori` 池，不是离机备份，离机副本待 homelab 统一方案。
 
 首次从同一远端并行创建实例时，Incus 7.5.1 曾出现 simplestreams 缓存目录
 `mkdir ... file exists` 竞争；按上面的串行 apply 执行。失败后先重新 plan，

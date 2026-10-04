@@ -48,6 +48,18 @@ resource "incus_storage_pool" "ayatori" {
   }
 }
 
+resource "incus_storage_volume" "ayatori_backup" {
+  for_each = toset(["dev", "prod"])
+  name     = "ayatori-${each.key}-backup"
+  pool     = incus_storage_pool.ayatori.name
+  config = {
+    size = "2GiB"
+  }
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # 地址只在 records.yml 声明一次，AD DNS（ansible/dns.yml）与此处同源读取；
 # 须位于 NEC IX DHCP 池（.128–.250）之外，池由路由器手工维护，无法声明 reservation。
 locals {
@@ -107,6 +119,9 @@ resource "incus_instance" "ayatori" {
     "limits.cpu"         = "2"
     "limits.memory"      = "2GiB"
     "limits.memory.swap" = "false"
+    # 整机快照只防误操作并支持快速回滚，与实例同池，不能代替 k0s backup。
+    "snapshots.schedule" = "@daily"
+    "snapshots.expiry"   = "7d"
     # ⚠ 镜像模板只在 create/copy 时渲染 cloud-init seed（when: [create, copy]），
     # 对已有实例修改此键不会生效，重启或 cloud-init clean 也不会；改地址须重建实例。
     # 网关与 resolver 沿用 LAN DHCP 下发值：.1 网关；Blocky .127 优先、路由器 .1 兜底。
@@ -131,6 +146,16 @@ resource "incus_instance" "ayatori" {
       path = "/"
       pool = incus_storage_pool.ayatori.name
       size = "20GiB"
+    }
+  }
+  # k0s backup 写入独立 custom volume：离开容器 rootfs，重建实例不丢失；与实例同池，不是离机备份。
+  device {
+    name = "backup"
+    type = "disk"
+    properties = {
+      path   = "/var/backups/ayatori"
+      pool   = incus_storage_pool.ayatori.name
+      source = incus_storage_volume.ayatori_backup[each.key].name
     }
   }
   device {
