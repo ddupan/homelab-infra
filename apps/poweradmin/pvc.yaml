@@ -1,0 +1,13 @@
+# Poweradmin's own SQLite: local users (LDAP stubs + break-glass admin) and
+# zone permissions. No DNS data — that lives in PowerDNS, reached over its API.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: poweradmin-db
+  namespace: poweradmin
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

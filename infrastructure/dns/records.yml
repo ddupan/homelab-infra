@@ -32,6 +32,8 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: zot-push, type: A, values: [192.168.10.127] }
 
       - { zone: ad.ddupan.top, name: backstage, type: A, values: [192.168.10.127] }
+      # Poweradmin UI for PowerDNS; moves to dns.lab.ddupan.top with the other services.
+      - { zone: ad.ddupan.top, name: dns, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: pg-prod, type: A, values: [192.168.10.2] }
       - { zone: ad.ddupan.top, name: pg-dev, type: A, values: [192.168.10.127] }
 

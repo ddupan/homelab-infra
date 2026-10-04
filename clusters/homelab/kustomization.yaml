@@ -22,3 +22,4 @@ resources:
   - apps/research-auto.yaml
   - apps/seaweedfs.yaml
   - apps/iam-login.yaml
+  - apps/poweradmin.yaml

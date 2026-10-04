@@ -79,7 +79,9 @@ touches this directory or the laptop. Nothing here changes per record.
 - **DNS port is not published.** Only Blocky reaches pdns, at `172.28.0.53` on the
   compose network, so nobody bypasses ad-blocking or caching. Debug from the host
   with `dig @172.28.0.53 <name>.lab.ddupan.top`.
-- **API on `192.168.10.127:8053`**, key in Bao `kv/infra/powerdns` (`api_key`).
+- **API on `192.168.10.127:8053`**, key in Bao `kv/k8s/powerdns` (`api_key`) —
+  under `k8s/` because ESO, which can read only that subtree, syncs it to
+  external-dns and Poweradmin.
   The image's startup script opens the API to `0.0.0.0/0`; `pdns.d/zz-local.conf`
   narrows it to the laptop and k3s pods (`10.42.0.0/16`). Everything else on the
   LAN gets its connection reset before the key is even checked.
@@ -95,7 +97,7 @@ First deploy, or after a fresh clone (`.env` is gitignored):
 
 ```bash
 umask 077
-printf 'PDNS_AUTH_API_KEY=%s\n' "$(bao kv get -field=api_key kv/infra/powerdns)" > .env
+printf 'PDNS_AUTH_API_KEY=%s\n' "$(bao kv get -field=api_key kv/k8s/powerdns)" > .env
 docker compose up -d pdns
 docker compose restart blocky          # config.yml is a bind mount; compose won't notice
 curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.127:8053/api/v1/servers  # 401
