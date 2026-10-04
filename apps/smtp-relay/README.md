@@ -49,9 +49,8 @@ terraform output -raw tenant_id
 
 ```bash
 cd ..
-cp secret.example.yaml secret.yaml      # paste CLIENT_ID / CLIENT_SECRET / TENANT_ID
 kubectl apply -f namespace.yaml
-kubectl apply -f secret.yaml -f pvc.yaml
+kubectl apply -f external-secret.yaml -f pvc.yaml   # 值来自 Bao kv/k8s/smtp-relay；Bao 不可用时改用 secret.yaml
 kubectl apply -f deployment.yaml -f service.yaml
 kubectl -n smtp-relay rollout status deploy/smtp-relay
 ```
