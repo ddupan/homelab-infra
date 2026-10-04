@@ -73,13 +73,13 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: POD_EXECUTOR_IMAGE
-              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:eae0b42cff3475d5d81ec539061d48bd3e053479fdb94a5c9a3756985595e2b2
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:5386c46299c17052769f10e19809342d0996764bcc38f7402e6faf7a906829d4
             - name: POD_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
-              value: "6"
+              value: "4"
             # Shared Actions cache; see cache-server.yaml. All Pod repositories share
             # one cache trust domain because host-mode jobs can read this secret.
             - name: POD_RUNNER_CACHE_SECRET

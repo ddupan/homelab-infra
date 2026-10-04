@@ -1,0 +1,20 @@
+# Executor Pods are created by the controller without resources. Defaults here
+# cap each CI job so CI cannot starve the laptop's other services. Effective
+# only with the runner image whose dind stays inside the Pod cgroup
+# (gitea-dynamic-runner#59); before that, Docker job containers escaped it.
+# POD_CAPACITY x limit is the CI ceiling: 4 x 2 CPU / 4Gi leaves the node
+# 4 CPU for everything else.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: executor-defaults
+  namespace: dynamic-runner
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "2"
+        memory: 4Gi
+      defaultRequest:
+        cpu: 250m
+        memory: 512Mi
