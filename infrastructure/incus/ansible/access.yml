@@ -1,0 +1,49 @@
+---
+- name: 接入 Incus Web UI 与 Authelia
+  hosts: incus_hosts
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 增量协调 Authelia 的 Incus 客户端
+      become: false
+      ansible.builtin.command:
+        argv: "{{ ['python3', playbook_dir ~ '/../scripts/reconcile_authelia.py', '--desired', playbook_dir ~ '/../../../apps/authelia/clients/incus.yaml'] + (['--check'] if ansible_check_mode else []) }}"
+      register: incus_authelia
+      changed_when: "'changed=true' in incus_authelia.stdout"
+      check_mode: false
+
+    - name: 查询当前 Incus 服务配置
+      ansible.builtin.command: incus query /1.0
+      register: incus_server
+      changed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: 协调 OIDC 与 LAN HTTPS listener
+      ansible.builtin.command:
+        argv: [incus, config, set, "{{ item.key }}={{ item.value }}"]
+      loop: "{{ incus_server_config | dict2items }}"
+      when: (incus_server.stdout | from_json).config.get(item.key, '') != item.value
+      changed_when: true
+
+    - name: 读取 Incus 公共证书用于网关后端验证
+      ansible.builtin.slurp:
+        src: /var/lib/incus/server.crt
+      register: incus_backend_certificate
+
+    - name: 检查入口 namespace 是否已存在
+      become: false
+      ansible.builtin.command: kubectl get namespace incus --ignore-not-found -o name
+      register: incus_namespace
+      changed_when: false
+      check_mode: false
+
+    - name: 渲染并预览或应用专属入口资源
+      become: false
+      ansible.builtin.command:
+        argv: "{{ (['kubectl', 'apply', '--dry-run=client', '-f', '-'] if incus_namespace.stdout == '' else ['kubectl', 'diff', '-f', '-']) if ansible_check_mode else ['kubectl', 'apply', '-f', '-'] }}"
+        stdin: "{{ lookup('template', 'gateway.yaml.j2') }}"
+      register: incus_gateway
+      check_mode: false
+      changed_when: "(incus_gateway.rc == 1 or incus_namespace.stdout == '') if ansible_check_mode else ('created' in incus_gateway.stdout or 'configured' in incus_gateway.stdout)"
+      failed_when: "incus_gateway.rc not in ([0, 1] if ansible_check_mode else [0])"

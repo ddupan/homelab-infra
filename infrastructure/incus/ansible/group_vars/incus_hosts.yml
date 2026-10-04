@@ -1,0 +1,16 @@
+---
+# 显式升级版本，避免例行重跑意外升级虚拟化服务。
+incus_package_version: '1:7.5.1-ubuntu24.04-202609250207'
+incus_packages:
+  - incus
+  - incus-base
+  - incus-client
+  - incus-ui-canonical
+
+# 先完成 IdP 准入限制，再配置 OIDC，最后开放 listener。
+incus_server_config:
+  oidc.issuer: https://auth.ddupan.top
+  oidc.client.id: incus
+  oidc.audience: https://incus.ad.ddupan.top
+  oidc.scopes: openid,offline_access
+  core.https_address: 192.168.10.127:8443

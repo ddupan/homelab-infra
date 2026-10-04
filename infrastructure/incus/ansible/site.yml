@@ -1,0 +1,114 @@
+---
+- name: 安装 laptop 的 Incus 基础服务
+  hosts: incus_hosts
+  become: true
+  gather_facts: true
+  tasks:
+    - name: 限定已验证的平台
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Ubuntu'
+          - ansible_facts['distribution_release'] == 'noble'
+          - ansible_facts['architecture'] == 'x86_64'
+        fail_msg: 当前包版本只针对 Ubuntu 24.04 amd64 验证。
+
+    - name: 创建 APT 公钥目录
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: 安装已核对指纹的 Zabbly 公钥
+      ansible.builtin.copy:
+        src: zabbly.asc
+        dest: /etc/apt/keyrings/zabbly.asc
+        owner: root
+        group: root
+        mode: '0644'
+      register: incus_key
+
+    - name: 声明 Zabbly stable 软件源
+      ansible.builtin.copy:
+        content: |
+          Enabled: yes
+          Types: deb
+          URIs: https://pkgs.zabbly.com/incus/stable
+          Suites: noble
+          Components: main
+          Architectures: amd64
+          Signed-By: /etc/apt/keyrings/zabbly.asc
+        dest: /etc/apt/sources.list.d/zabbly-incus-stable.sources
+        owner: root
+        group: root
+        mode: '0644'
+      register: incus_source
+
+    # 防止系统自动更新绕开版本声明；显式改版本后重跑才升级。
+    - name: 固定 Incus 包版本
+      ansible.builtin.copy:
+        content: |
+          Package: {{ incus_packages | join(' ') }}
+          Pin: version {{ incus_package_version }}
+          Pin-Priority: 1000
+        dest: /etc/apt/preferences.d/incus
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 只刷新本组件源，避免其他服务仓库故障阻塞安装。
+    - name: 刷新 Incus 包索引
+      ansible.builtin.command:
+        argv:
+          - apt-get
+          - update
+          - -o
+          - Dir::Etc::sourcelist=sources.list.d/zabbly-incus-stable.sources
+          - -o
+          - Dir::Etc::sourceparts=-
+          - -o
+          - APT::Get::List-Cleanup=0
+          - -o
+          - APT::Update::Error-Mode=any
+      changed_when: false
+      register: incus_refresh
+      retries: 3
+      delay: 5
+      until: incus_refresh.rc == 0
+      when: not ansible_check_mode
+
+    - name: 安装固定版本且禁止移除既有包
+      ansible.builtin.apt:
+        name: "{{ incus_packages | map('regex_replace', '$', '=' ~ incus_package_version) | list }}"
+        state: present
+        install_recommends: false
+        fail_on_autoremove: true
+        lock_timeout: 120
+      environment:
+        # 不让 needrestart 顺带重启 k3s、libvirt 等无关服务。
+        NEEDRESTART_MODE: l
+      register: incus_install
+      retries: 3
+      delay: 5
+      until: incus_install is succeeded
+      # check 模式不会创建新源，APT 无法解析只在新源存在的版本。
+      when: not (ansible_check_mode and (incus_source.changed or incus_key.changed))
+
+    - name: 提示首次 check 的包验证边界
+      ansible.builtin.debug:
+        msg: 软件源或公钥尚待写入，本次仅预览仓库配置；安装后须重跑 check 和幂等验证。
+      when: ansible_check_mode and (incus_source.changed or incus_key.changed)
+
+    - name: 启用 Incus 本地 socket
+      ansible.builtin.systemd_service:
+        name: incus.socket
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+
+    - name: 启动 Incus 服务
+      ansible.builtin.systemd_service:
+        name: incus.service
+        state: started
+      when: not ansible_check_mode
