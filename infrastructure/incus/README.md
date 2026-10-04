@@ -124,11 +124,12 @@ SSH 全部由 cloud-init 完成：安装 openssh-server，创建 `panxiao81`（`
 provider 通过本地 Unix socket 操作，执行账号须有 socket 权限。
 
 ```bash
-terraform -chdir=infrastructure/incus/terraform init
-terraform -chdir=infrastructure/incus/terraform plan -out=containers.tfplan
-terraform -chdir=infrastructure/incus/terraform apply -parallelism=1 containers.tfplan
-terraform -chdir=infrastructure/incus/terraform output containers
-terraform -chdir=infrastructure/incus/terraform plan -detailed-exitcode
+bao login -method=oidc   # run.py 从 ~/.vault-token 取 tfstate 受限身份
+python3 infrastructure/incus/run.py terraform init
+python3 infrastructure/incus/run.py terraform plan -out=containers.tfplan
+python3 infrastructure/incus/run.py terraform apply -parallelism=1 containers.tfplan
+python3 infrastructure/incus/run.py terraform output containers
+python3 infrastructure/incus/run.py terraform plan -detailed-exitcode
 ```
 
 provider 固定 1.2.0 并保留 lockfile。镜像跟随 `images:ubuntu/24.04/cloud` 最新构建，
@@ -136,9 +137,9 @@ provider 固定 1.2.0 并保留 lockfile。镜像跟随 `images:ubuntu/24.04/clo
 重建时固定指纹已无法获取。
 cloud-init 用户设置主要在首次启动执行，修改声明不能替代后续用户/密钥轮换流程。
 
-当前 state 位于 `terraform/terraform.tfstate`（Git 忽略），是本地 backend；
-现有 Bao 会话无法读取远端 tfstate 凭据，因此尚未启用远端 backend。
-后续迁移须使用 `terraform init -migrate-state` 保留资源归属，不创建第二份独立 state。
+state 在 S3 `tfstate` bucket 的 `incus/terraform.tfstate`，原生 lockfile 加锁；2026-10-04 由本地
+backend 经 `init -migrate-state` 迁入。`run.py` 与 etcd 相同，凭据只在内存中传给子进程。
+CD 不接管本 root：provider 只能经 laptop 本机 Unix socket 访问 Incus，CI runner 无从连接。
 实例和池启用 `prevent_destroy`；删除需显式审阅，不能通过移走整个资源块绕过保护。
 当前为空系统，丢失后可重建；承载持久数据前须补离机备份与恢复验收。
 
