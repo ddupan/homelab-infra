@@ -54,14 +54,14 @@ PR 号**；新发现的盲区直接追加。
 
 ## 5. 笔记本本机（P1：数据已有，缺规则）
 
-- [ ] **L1** 断电告警：`node_power_supply_online == 0` / 电池电量低 —— 整个 lab 的单点在用电池跑
-- [ ] **L2** systemd unit failed 告警（`node_systemd_unit_state`）
-- [ ] **L3** 温度告警（`node_hwmon_temp_celsius`）。⚠ CPU 常年贴着 TjMax（7 天 p90 97°C、package
+- [x] **L1** 断电告警：`node_power_supply_online == 0` / 电池电量低 —— 整个 lab 的单点在用电池跑 — #215
+- [x] **L2** systemd unit failed 告警（`node_systemd_unit_state`） — #215
+- [x] **L3** 温度告警（`node_hwmon_temp_celsius`）— #215。⚠ CPU 常年贴着 TjMax（7 天 p90 97°C、package
   throttle 约 278 万次/天）——这是硬件散热问题，告警只能兜底"持续达到 crit"，治本要清灰/换硅脂
 - [ ] **L4** SMART / NVMe 健康（smartctl-exporter）
 - [ ] **L5** NFS 服务端（nfsd 指标 + 导出可挂载探测）
 - [ ] **L6** IPv6 源地址错配（`SYN-SENT` 堆积）——想清楚可观测信号再做；真正的修复是 `accept_ra=2`
-- [ ] **L8** 宿主机过载：load / swap 用量 / PSI（`node_pressure_*`）告警。2026-10-04 CI 构建（ko/go build）
+- [x] **L8** 宿主机过载：load / swap 用量 / PSI（`node_pressure_*`）告警。2026-10-04 CI 构建（ko/go build） — #215
   叠加 seaweedfs、zot 重启，load 冲到 54、swap 用满 7.8/8G、IO PSI 40%+，VMSingle 查询排队超时——
   **唯一响起来的是副作用 `AlertingRulesError`**，真正的原因没有任何告警
 - [ ] **L9** CI runner 资源边界：dynamic-runner 的 task Pod 与关键服务抢同一台笔记本，考虑 limits / 并发上限 / 优先级
