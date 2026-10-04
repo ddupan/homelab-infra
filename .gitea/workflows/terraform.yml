@@ -6,13 +6,27 @@ on:
     branches: [main]
     paths:
       - '**/*.tf'
-      - '**/.terraform.lock.hcl'
+      - '**/*.hcl'
+      - 'infrastructure/openbao/terraform/certs/**'
       - '.gitea/workflows/terraform.yml'
+      - '.gitea/scripts/tf.py'
   pull_request:
     paths:
       - '**/*.tf'
-      - '**/.terraform.lock.hcl'
+      - '**/*.hcl'
+      - 'infrastructure/openbao/terraform/certs/**'
       - '.gitea/workflows/terraform.yml'
+      - '.gitea/scripts/tf.py'
+
+env:
+  # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd 与
+  # shared-postgresql。未接入的缺前置条件：nexus 仍是本地 state，smtp-relay 没有
+  # Azure SP，oci 需要 OCI API key 与独立 backend 凭据；netbox 计划下线，不接入。
+  TF_ROOTS: >-
+    infrastructure/openbao/terraform
+    infrastructure/etcd/terraform
+    infrastructure/shared-postgresql/terraform
+    infrastructure/cloudflared/terraform
 
 jobs:
   validate:
@@ -33,3 +47,82 @@ jobs:
             echo "::endgroup::"
           done
           exit $rc
+
+  # job id 是 SPIFFE ID 的一部分：bao role ci-terraform 只接受
+  # spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-*，改名会登录失败。
+  terraform-plan:
+    if: github.event_name == 'pull_request'
+    needs: validate
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+        with:
+          role: ci-terraform
+
+      # 全量 plan：合并后 apply 是全量的，评论必须展示它将执行的全部变更，
+      # 包括与本 PR 无关的漂移——合并即批准把这些漂移收敛回 main。
+      - name: plan
+        env:
+          GITEA_TOKEN: ${{ github.token }}
+        run: |
+          md=$RUNNER_TEMP/plan.md; rc=0
+          for r in $TF_ROOTS; do
+            echo "::group::$r"
+            log=$RUNNER_TEMP/plan.log; code=0
+            # init 拉 provider 走 WAN，会随机失败。
+            for i in 1 2 3; do
+              python3 .gitea/scripts/tf.py run "$r" init -input=false -no-color >"$log" 2>&1 && break
+              [ $i = 3 ] && code=1; sleep 10
+            done
+            [ $code = 0 ] && { python3 .gitea/scripts/tf.py run "$r" plan -input=false -no-color \
+              -lock-timeout=10m -detailed-exitcode >"$log" 2>&1 || code=$?; }
+            cat "$log"
+            case $code in
+              0) status='无变更' ;;
+              2) status=$(grep -m1 '^Plan:' "$log" || echo '有变更') ;;
+              *) status='❌ 失败'; rc=1 ;;
+            esac
+            printf '### `%s` — %s\n\n<details><summary>输出</summary>\n\n```\n%s\n```\n</details>\n\n' \
+              "$r" "$status" "$(cat "$log")" >>"$md"
+            echo "::endgroup::"
+          done
+          [ -s "$md" ] && python3 .gitea/scripts/tf.py comment "$md"
+          exit $rc
+
+  # main 即期望状态：每次合并对全部 root apply，手工改动会被回滚。apply 前重新 plan，
+  # 而不是执行 PR 上那份 plan，两者之间若有其它合并或新漂移，结果会与评论不同。
+  # 按 TF_ROOTS 顺序执行，失败即停，不继续依赖它的 root。
+  terraform-apply:
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+        with:
+          role: ci-terraform
+
+      - name: apply
+        run: |
+          set -euo pipefail
+          for r in $TF_ROOTS; do
+            echo "::group::$r"
+            for i in 1 2 3; do
+              python3 .gitea/scripts/tf.py run "$r" init -input=false -no-color && break
+              [ $i = 3 ] && exit 1; sleep 10
+            done
+            # 状态锁由 S3 lockfile 提供；并发的 apply 等待而不是直接失败。
+            python3 .gitea/scripts/tf.py run "$r" apply -input=false -no-color \
+              -lock-timeout=10m -auto-approve
+            echo "::endgroup::"
+          done
