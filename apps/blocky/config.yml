@@ -41,6 +41,9 @@ conditional:
     23.172.in-addr.arpa: 192.168.10.2
     d.f.ip6.arpa: 192.168.10.2
     ad.ddupan.top: 192.168.10.5
+    # Service and host names, served by PowerDNS on the compose network. Samba
+    # keeps ad.ddupan.top for AD's own records only. See README.md.
+    lab.ddupan.top: 172.28.0.53
     # Reverse lookups for LAN hosts — the DC holds the reverse zone.
     10.168.192.in-addr.arpa: 192.168.10.5
 

@@ -65,6 +65,42 @@ curl -s http://192.168.10.127:4000/metrics | head
 
 Only once all five behave should the DHCP option change.
 
+## PowerDNS — authoritative for `lab.ddupan.top`
+
+The `pdns` service in the same compose stack is the authoritative server for
+`lab.ddupan.top`, the zone that service and host names move to so that Samba is
+left holding only AD's own records. Blocky forwards the zone to it
+(`conditional.mapping`), so clients only ever query Blocky.
+
+Records are written **only through the HTTP API** — Terraform for fixed hosts and
+the zone itself, external-dns for HTTPRoutes. Adding or removing a record never
+touches this directory or the laptop. Nothing here changes per record.
+
+- **DNS port is not published.** Only Blocky reaches pdns, at `172.28.0.53` on the
+  compose network, so nobody bypasses ad-blocking or caching. Debug from the host
+  with `dig @172.28.0.53 <name>.lab.ddupan.top`.
+- **API on `192.168.10.127:8081`**, key in Bao `kv/infra/powerdns` (`api_key`).
+  The image's startup script opens the API to `0.0.0.0/0`; `pdns.d/zz-local.conf`
+  narrows it to the laptop and k3s pods (`10.42.0.0/16`). Everything else on the
+  LAN gets its connection reset before the key is even checked.
+- **The SQLite DB is derived state.** The image ships an initialised one, copied
+  into the `pdns-data` volume on first mount. Lose it and `terraform apply` plus
+  one external-dns sync rebuild everything — so it is not backed up.
+- **Single instance, on purpose.** A replica only helps if clients have a second
+  resolver that reaches it; Blocky is on the laptop, so is the Envoy most names
+  point at. Add a second Blocky plus a pdns secondary (AXFR, not BIND) once there
+  is a second always-on machine.
+
+First deploy, or after a fresh clone (`.env` is gitignored):
+
+```bash
+umask 077
+printf 'PDNS_AUTH_API_KEY=%s\n' "$(bao kv get -field=api_key kv/infra/powerdns)" > .env
+docker compose up -d pdns
+docker compose restart blocky          # config.yml is a bind mount; compose won't notice
+curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.127:8081/api/v1/servers  # 401
+```
+
 ## Rollback
 
 Blocky holds no state that matters. Revert the DHCP DNS option and
