@@ -113,6 +113,10 @@ configFiles:
                     "read",
                     "create"
                   ]
+                },
+                {
+                  "users": ["spiffe://ddupan.top/dev/panxiao81"],
+                  "actions": ["read", "create", "update", "delete"]
                 }
               ],
               "defaultPolicy": [
