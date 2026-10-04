@@ -3,7 +3,10 @@ kind: Kustomization
 
 generatorOptions:
   disableNameSuffixHash: true
-  annotations:
+  # A LABEL, not an annotation: helm-controller only reacts to ConfigMaps labelled this way.
+  # As an annotation, a values change waited for the HelmRelease interval; on 2026-10-04 the
+  # login-source rename then ran against the old init script and created a duplicate source.
+  labels:
     reconcile.fluxcd.io/watch: Enabled
 
 configMapGenerator:
