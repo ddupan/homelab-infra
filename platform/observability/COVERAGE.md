@@ -55,9 +55,7 @@ PR 号**；新发现的盲区直接追加。
 ## 5. 笔记本本机（P1：数据已有，缺规则）
 
 - [x] **L1** 断电告警：`node_power_supply_online == 0` / 电池电量低 —— 整个 lab 的单点在用电池跑 — #215
-- [ ] **L2** systemd unit failed 告警（`node_systemd_unit_state`）——规则已上线（#215），但笔记本的 systemd
-  collector 被 AppArmor 拒绝 D-Bus，未生效；待安装 `homelab-node-exporter` profile 并让 DaemonSet 引用
-  （见 `metrics/exporters/README.md`）
+- [x] **L2** systemd unit failed 告警（`node_systemd_unit_state`）— #215（规则）、#219（AppArmor profile）
 - [x] **L3** 温度告警（`node_hwmon_temp_celsius`）— #215。⚠ CPU 常年贴着 TjMax（7 天 p90 97°C、package
   throttle 约 278 万次/天）——这是硬件散热问题，告警只能兜底"持续达到 crit"，治本要清灰/换硅脂
 - [ ] **L4** SMART / NVMe 健康（smartctl-exporter）

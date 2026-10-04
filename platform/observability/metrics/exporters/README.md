@@ -55,34 +55,23 @@ GetUnit、Properties.Get/GetAll），不放开任何改变 unit 状态的 member
 node-exporter 挂了宿主 `/`、开着 hostPID，去掉 AppArmor 的代价不对等。
 
 **顺序很重要**——Pod 引用一个未加载的 profile 会起不来，DaemonSet 一坏就丢掉全部主机指标。
-所以分两步：
+profile 由 `infrastructure/host-apparmor/laptop-apparmor.yml` 安装并加载（同时接管
+process-exporter 的 profile），2026-10-04 已在 laptop 执行，二次运行 `changed=0`。
+扩展到其他节点前先在该节点跑这个 play。
 
-1. 在笔记本上安装并加载 profile（新 profile，不影响任何运行中的进程）：
+2026-10-04 用一次性 Pod（同镜像、同挂载、只开 systemd collector）验证：
+`node_scrape_collector_success{collector="systemd"} 1`，约 1965 条 unit_state 序列 + 21 个
+timer，内核与 dbus 日志均无 `DENIED`。之后再让 DaemonSet 引用该 profile。
 
-   ```bash
-   sudo install -m 0644 apparmor/homelab-node-exporter /etc/apparmor.d/homelab-node-exporter
-   sudo apparmor_parser -r /etc/apparmor.d/homelab-node-exporter
-   sudo aa-status | grep homelab-node-exporter     # 应在 enforce 列表里
-   ```
+验证（端口在宿主网络上）：
 
-2. 再提 PR 让 DaemonSet 引用它（容器 `securityContext`）：
+```bash
+curl -s localhost:9100/metrics | grep 'node_scrape_collector_success{collector="systemd"}'   # 期望 1
+sudo journalctl -k --since -10min | grep 'apparmor="DENIED".*homelab-node-exporter'           # 期望为空
+```
 
-   ```yaml
-   appArmorProfile:
-     type: Localhost
-     localhostProfile: homelab-node-exporter
-   ```
-
-   合并后验证（端口在宿主网络上）：
-
-   ```bash
-   curl -s localhost:9100/metrics | grep 'node_scrape_collector_success{collector="systemd"}'   # 期望 1
-   curl -s localhost:9100/metrics | grep -c '^node_systemd_unit_state'                          # 期望 >0
-   sudo journalctl -k --since -10min | grep 'apparmor="DENIED".*homelab-node-exporter'           # 期望为空
-   ```
-
-   有 DENIED 就按审计日志里的 path/member 补规则，`apparmor_parser -r` 原位重载即可，无需重启 Pod。
+有 DENIED 就按审计日志里的 path/member 补规则，重跑 play 原位重载即可，无需重启 Pod。
 
 ⚠ 一旦 systemd 指标进来，笔记本上现存的 failed unit 会各报一条 `HostSystemdUnitFailed`
 （2026-10-04 有 6 个：nvidia-cdi-refresh ×2、nvidia-fabricmanager、rpc-svcgssd、
-systemd-ask-password-console.path、systemd-networkd-wait-online，详见 #215）。先清理再切 profile。
+systemd-ask-password-console.path、systemd-networkd-wait-online，详见 #215）。这些告警是真实状态，清理 unit 即可恢复。
