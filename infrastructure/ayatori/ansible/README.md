@@ -1,7 +1,8 @@
 # Ayatori 控制面部署
 
 部署逻辑是 Ayatori 仓库的 role `panxiao81.ayatori.control_plane`，按 release tag 安装；
-本目录只声明环境：主机、`ayatori_environment` 与该环境的 PostgreSQL 实例。role 的行为、
+本目录只声明环境：主机、`ayatori_environment`、该环境的 PostgreSQL 实例，以及 Flux 同步的
+GitOps 目录 `clusters/ayatori-<env>`（`ayatori_gitops`，需 role ≥ v0.1.1）。role 的行为、
 组件与已知限制见 Ayatori 仓库 `deploy/README.md`。
 
 ```sh
