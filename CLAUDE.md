@@ -50,6 +50,9 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 - Network devices (VyOS) use `ansible.netcommon.network_cli`, not ssh/python — they have no
   Python interpreter. Prefer `vyos_config` with explicit `set` lines over the collection's
   resource modules, which lag upstream syntax.
+  ⚠ `cli-shell-api showConfig --show-active-only --show-cfg1 load-balancing` 在现场并未
+  限定为 LB 子树，而是输出完整配置（含密钥）。不要把尾随节点名当作过滤条件；
+  先在路由器端严格提取所需配置段，再返回输出，不将完整配置送入工具日志。
   ⚠ A set-lines-only role **cannot change a multi-value node** — `set` appends. Changing
   e.g. `option wins-server` or `name-server` leaves the old value live *and* saved to
   `config.boot`; the diff only shows the addition, so it reads as a clean replace. Grep the
