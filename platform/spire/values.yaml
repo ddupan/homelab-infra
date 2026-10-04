@@ -48,6 +48,12 @@ spire-server:
         name: spire-external-kubeconfigs
         key: sandbox-controller
   nodeAttestor:
+    # Hosts outside any Kubernetes cluster (the iam-login build LXC on pve1) attest once
+    # with a single-use token from `spire-server token generate`, then renew their own SVID.
+    # The token is consumed on first use; the resulting agent ID is what entries parent to.
+    # See README.md "集群外 Agent".
+    joinToken:
+      enabled: true
     externalK8sPSAT:
       enabled: true
       clusters:

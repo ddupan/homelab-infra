@@ -124,6 +124,27 @@ configFiles:
                 "read"
               ]
             },
+            "iam/iam-login": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/iam-login/publish"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update"
+                  ]
+                },
+                {
+                  "users": ["spiffe://ddupan.top/dev/panxiao81"],
+                  "actions": ["read", "create", "update", "delete"]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
             "panxiao81/gitea-dynamic-runner-controller": {
               "policies": [
                 {

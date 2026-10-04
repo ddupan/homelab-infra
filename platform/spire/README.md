@@ -25,6 +25,9 @@ API 或 Broker API。Trust domain 是 `ddupan.top`，Kubernetes cluster name 是
 controller-manager 与 bundle publisher 使用由 sandbox Ansible bootstrap 的独立、受限
 kubeconfig。Sandbox 不运行第二套 Server 或 OIDC Provider。
 
+集群外主机（当前只有 iam-login 构建 runner）以 `join_token` 证明，见
+[external-agent/README.md](external-agent/README.md)。
+
 内部 fork 仅在上游 `spire-0.30.2` 基础上暴露
 `use_pod_uid_for_agent_id`。现有 `sandbox` profile 保持 node UID 模式，供 DaemonSet
 Agent 使用；独立的 `sandbox-kata` profile 复用同一 kubeconfig，但启用 Pod UID 模式，

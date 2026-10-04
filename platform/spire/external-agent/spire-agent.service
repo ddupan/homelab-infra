@@ -1,0 +1,13 @@
+[Unit]
+Description=SPIRE Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/spire-agent run -config /etc/spire-agent/agent.conf
+RuntimeDirectory=spire-agent
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
