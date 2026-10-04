@@ -19,7 +19,34 @@
       check_mode: false
       no_log: true
 
-    - name: 协调 OIDC 与 LAN HTTPS listener
+    # CI 的 Terraform 每个 job 向 Bao pki-incus 签一张 30 分钟客户端证书；Incus 信任
+    # server.ca 签发、未过期的证书（core.trust_ca_certificates），不入信任列表。
+    # CA 只有公钥，Bao 的 /ca/pem 无需认证；服务器证书本身不受影响，网关校验照旧。
+    - name: 获取 Incus 客户端 CA
+      ansible.builtin.uri:
+        url: https://bao.ad.ddupan.top:8200/v1/pki-incus/ca/pem
+        return_content: true
+      register: incus_client_ca
+      check_mode: false
+      retries: 3
+      delay: 5
+      until: incus_client_ca.status == 200
+
+    # server.ca 只在守护进程启动时读取。incus.service 是 KillMode=process，
+    # 重启只换 incusd，实例不停（实例在关机时由 incus-startup 停）。
+    - name: 下发 Incus 客户端 CA
+      ansible.builtin.copy:
+        content: "{{ incus_client_ca.content }}"
+        dest: /var/lib/incus/server.ca
+        owner: root
+        group: root
+        mode: "0644"
+      notify: 重启 Incus 以加载客户端 CA
+
+    - name: 加载客户端 CA 后再开启 CA 信任
+      ansible.builtin.meta: flush_handlers
+
+    - name: 协调 OIDC、LAN HTTPS listener 与客户端 CA 信任
       ansible.builtin.command:
         argv: [incus, config, set, "{{ item.key }}={{ item.value }}"]
       loop: "{{ incus_server_config | dict2items }}"
@@ -47,3 +74,9 @@
       check_mode: false
       changed_when: "(incus_gateway.rc == 1 or incus_namespace.stdout == '') if ansible_check_mode else ('created' in incus_gateway.stdout or 'configured' in incus_gateway.stdout)"
       failed_when: "incus_gateway.rc not in ([0, 1] if ansible_check_mode else [0])"
+
+  handlers:
+    - name: 重启 Incus 以加载客户端 CA
+      ansible.builtin.systemd_service:
+        name: incus.service
+        state: restarted
