@@ -135,3 +135,33 @@ tests:
         description: 检查网络、bot token 和频道权限。若 Telegram 完全不可达，本告警也无法经同一渠道送达；需在 Alertmanager/Grafana
           排查，集群外心跳另行建设。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 低频重启在 24 小时内累计超过 3 次触发
+  interval: 1h
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="netbox",pod="netbox-valkey-primary-0",container="valkey"}
+    values: 0 0 0 0 1 1 1 1 2 2 2 2 3 3 3 3 4 4 4 4 4 4 4 4
+  alert_rule_test:
+  - eval_time: 15h
+    alertname: KubePodRestartsAccumulating
+    exp_alerts: *id001
+  - eval_time: 18h
+    alertname: KubePodRestartsAccumulating
+    exp_alerts:
+    - exp_labels:
+        namespace: netbox
+        pod: netbox-valkey-primary-0
+        container: valkey
+        severity: warning
+      exp_annotations:
+        summary: 容器 netbox/netbox-valkey-primary-0/valkey 24 小时内反复重启
+        description: 24 小时内重启超过 3 次但未达到 CrashLoop 频率；检查 kubectl describe 中的探针失败、退出码与节点 IO/内存压力。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 偶发重启不触发累计告警
+  interval: 1h
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web"}
+    values: 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2
+  alert_rule_test:
+  - eval_time: 23h
+    alertname: KubePodRestartsAccumulating
+    exp_alerts: *id001
