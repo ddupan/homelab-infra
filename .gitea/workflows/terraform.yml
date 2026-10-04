@@ -66,7 +66,7 @@ jobs:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
           terraform_version: 1.15.8
           terraform_wrapper: false
-      - uses: panxiao81/ci-actions/spiffe-openbao-login@v1
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-terraform
 
@@ -117,7 +117,7 @@ jobs:
         with:
           terraform_version: 1.15.8
           terraform_wrapper: false
-      - uses: panxiao81/ci-actions/spiffe-openbao-login@v1
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-terraform
 
