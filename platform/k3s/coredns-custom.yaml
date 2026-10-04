@@ -29,26 +29,33 @@ data:
             policy sequential
         }
     }
+  # lab.ddupan.top — hosts and services, authoritative on PowerDNS behind Blocky
+  # (../../apps/blocky/). Blocky is on this node, so this never touches the router.
+  #
+  # It is ALSO on the node's search list (laptop netplan), so with ndots:5 every
+  # short external lookup first tries <name>.lab.ddupan.top. That used to hang on
+  # the router (see below), which is why this zone was answered with a canned
+  # NXDOMAIN until 2026-10-04. pdns answers those locally and fast, and the cache
+  # absorbs the repeats, so the permutations stay harmless.
+  lab-ddupan-top.server: |
+    lab.ddupan.top:53 {
+        errors
+        cache 30
+        forward . 192.168.10.127
+    }
   # ── stop search-domain permutations from hanging on the router ──────────
-  # Pods get `options ndots:5` plus the NODE's search list, which still carries
-  # `lab.ddupan.top` (the RETIRED domain) and tailscale's MagicDNS suffix. A name
+  # Pods get `options ndots:5` plus the NODE's search list, which carries
+  # tailscale's MagicDNS suffix (and lab.ddupan.top, handled above). A name
   # like dc1.ad.ddupan.top has only 3 dots, so glibc tries EVERY suffix first:
   #   dc1.ad.ddupan.top.tail7e769.ts.net
-  #   dc1.ad.ddupan.top.lab.ddupan.top
-  # Both are forwarded upstream to the flaky router and time out, so the client
-  # gives up before the bare name is ever tried. That is what put Authelia in
+  # Forwarded upstream to the flaky router it times out, so the client gives up
+  # before the bare name is ever tried. That is what put Authelia in
   # CrashLoopBackOff -- and it hit the cluster-internal smtp-relay name too
   # (4 dots < ndots:5).
   #
-  # Answer these locally with an instant NXDOMAIN. Neither zone should ever
-  # resolve from inside the cluster.
+  # Answer it locally with an instant NXDOMAIN. It should never resolve from
+  # inside the cluster.
   dead-search-domains.server: |
-    lab.ddupan.top:53 {
-        errors
-        template ANY ANY {
-            rcode NXDOMAIN
-        }
-    }
     tail7e769.ts.net:53 {
         errors
         template ANY ANY {

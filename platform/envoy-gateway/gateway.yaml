@@ -68,6 +68,26 @@ spec:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
 
+    # HTTPS :443 for lab.ddupan.top — the zone services migrate to (PowerDNS,
+    # ../../infrastructure/dns/). Its own listener because a listener carries one
+    # hostname. An HTTPRoute attached here (sectionName: https-lab) gets its DNS
+    # record from external-dns (../external-dns), so it needs no DNS work either.
+    - name: https-lab
+      protocol: HTTPS
+      port: 443
+      hostname: "*.lab.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-lab-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+
     # HTTPS :443 for auth.ddupan.top specifically.
     #
     # WHY a second listener rather than another hostname on the one above: a

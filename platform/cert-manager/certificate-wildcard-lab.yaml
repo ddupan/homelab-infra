@@ -1,0 +1,27 @@
+# Wildcard for lab.ddupan.top, the zone services move to from ad.ddupan.top
+# (PowerDNS; see ../../infrastructure/dns/). Same reasoning as
+# certificate-wildcard-ad.yaml — one CT log entry, no per-service cert work.
+# Its own listener on the Gateway because a listener carries one hostname.
+#
+# No bare apex: nothing serves lab.ddupan.top itself.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-lab-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: wildcard-lab-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "*.lab.ddupan.top"
+  dnsNames:
+    - "*.lab.ddupan.top"
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d; the WAN is unreliable
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
