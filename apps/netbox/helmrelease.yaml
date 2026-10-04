@@ -4,9 +4,6 @@ metadata:
   name: netbox
   namespace: netbox
 spec:
-  # 阶段一只登记：固定线上 chart 与 values，不运行 Helm upgrade。解除暂停用独立 PR，
-  # 且那次激活不得同时改 chart 或 values。
-  suspend: true
   chart:
     spec:
       chart: netbox

@@ -161,11 +161,14 @@ must exist instead:
 
 ## Flux 接管
 
-正在分阶段接管（与 `platform/openebs` 相同的流程）。阶段一：`helmrelease.yaml` 固定线上
-chart `8.3.38` 与 `values.yaml`（登记时与 `helm get values` 结构一致，revision 4），
-`suspend: true`，Flux 只管理 HelmRepository、HelmRelease 声明、values ConfigMap、
-NetworkPolicy 与 SecurityPolicy，不运行 Helm upgrade。合并后确认 Helm revision 仍为 4、
-Pod UID 未变，再用独立 PR 解除暂停；激活那次不得同时改 chart 或 values。
+已完成分阶段接管（与 `platform/openebs` 相同流程）。阶段一登记时 Helm revision 4、三个
+Pod UID 未变；激活前 `helm upgrade --dry-run=server` 与线上 manifest 只差 worker 的
+`checksum/secret`。
+
+⚠ chart 把 `superuser.apiToken` 默认为 `uuidv4`，**每次 Helm 升级都会重写
+`netbox-superuser` 的 `api_token` 并滚动重启 worker**。这个 token 只在首次启动创建超级
+用户时使用，已入库的 token（包括 Terraform 用的 v2 token）不受影响，所以无害；不要为了
+"消除 diff" 把它写进 values。
 
 `netbox-secrets` 不归 Flux 管：仍是手工 apply 的 `secret.yaml`（break-glass），迁到
 OpenBao/ESO 之前 HelmRelease 只引用它。接管完成后，下面的手工步骤仅作 break-glass。

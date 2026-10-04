@@ -13,6 +13,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  timeout: 3m
-  # HelmRelease 暂停期间不等待其 Ready。
-  wait: false
+  # 与 HelmRelease 的 10m 超时对齐：wait 时 Kustomization 要等 Helm 升级完成。
+  timeout: 10m
+  wait: true
