@@ -26,9 +26,12 @@ OpenSandbox chart 所有权边界。
   facade Ready 后才终止旧实例。scheduler 必须通过 Kubernetes Lease 保持单 leader，
   不能依赖 Recreate 避免重复领取。
 - scheduler 使用一个 runner registration，并按总容量启动并发 `FetchTask` goroutine；
-  `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制两个 durable consumer 和 backend
-  admission pool。池满时 assignment 保持 JetStream pending，任一 backend 不占用
-  另一方的执行槽位，也不会创建超出容量的 workload。
+  `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制本实例两个 backend admission pool。
+  worker 只在池有空位时从共享 durable consumer 拉取 assignment，池满时 assignment
+  保持 JetStream pending、留给其他 worker；任一 backend 不占用另一方的执行槽位，
+  也不会创建超出容量的 workload。
+- executor 身份的 SPIRE parent 由 `SPIRE_CLUSTER` 与 Pod 所在节点 UID 推导，
+  controller 因此需要 `nodes get`。
 - rollout 重叠期间只有持有 `Lease/dynamic-runner-scheduler` 的 controller 执行
   `FetchTask`；所有 Ready 实例都可通过 backend metadata 恢复 claim 并服务 facade。
 - executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
