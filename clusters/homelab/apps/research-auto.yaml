@@ -1,0 +1,25 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: research-auto
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: external-secrets
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: research-auto-api
+      namespace: research-auto
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: research-auto-worker
+      namespace: research-auto
+  interval: 10m
+  path: ./apps/research-auto
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  wait: true

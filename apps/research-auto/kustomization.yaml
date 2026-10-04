@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# secrets.example.yaml 只是模板，不列入；真实凭据由 external-secret.yaml 从 Bao 同步。
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - external-secret.yaml
+  - pvc.yaml
+  - service.yaml
+  - api-deployment.yaml
+  - worker-deployment.yaml

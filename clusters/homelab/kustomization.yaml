@@ -19,3 +19,4 @@ resources:
   - apps/nexus.yaml
   - apps/hydra.yaml
   - apps/smtp-relay.yaml
+  - apps/research-auto.yaml
