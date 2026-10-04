@@ -4,7 +4,9 @@
 # secret key 会进入 tfstate（tfstate bucket 仅 terraform 身份可访问）。
 locals {
   techdocs_users = {
-    publisher = ["s3:Get*", "s3:Put*", "s3:Delete*", "s3:List*"]
+    # SeaweedFS 4.48 rejects "s3:Delete*" (MalformedPolicyDocument); Get*/Put*/List*
+    # wildcards are accepted.
+    publisher = ["s3:Get*", "s3:Put*", "s3:DeleteObject", "s3:List*"]
     reader    = ["s3:Get*", "s3:List*"]
   }
 }
