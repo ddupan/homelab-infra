@@ -37,6 +37,26 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: pg-prod, type: A, values: [192.168.10.2] }
       - { zone: ad.ddupan.top, name: pg-dev, type: A, values: [192.168.10.127] }
 
+  powerdns:
+    # lab.ddupan.top on PowerDNS, applied by CI via infrastructure/dns/terraform.
+    # Only FIXED hosts live here: HTTPRoute names come from external-dns, ad-hoc
+    # ones from Poweradmin. Names are relative to lab.ddupan.top.
+    # While services migrate off ad.ddupan.top, a host may appear in both zones.
+    records:
+      - { name: laptop, type: A, values: [192.168.10.127] }
+      - { name: incus, type: A, values: [192.168.10.127] }
+      - { name: pg-prod, type: A, values: [192.168.10.2] }
+      - { name: pve1, type: A, values: [192.168.10.4] }
+      - { name: pve2, type: A, values: [192.168.10.7] }
+      - { name: pve3, type: A, values: [192.168.10.9] }
+      - { name: bao, type: A, values: [192.168.10.8] }
+      - { name: ayatori-dev, type: A, values: [192.168.10.11] }
+      - { name: ayatori-prod, type: A, values: [192.168.10.12] }
+      - { name: retrolab, type: A, values: [10.60.0.10] }
+      - { name: sandbox1, type: A, values: [10.60.0.11] }
+      - { name: sandbox2, type: A, values: [10.60.0.12] }
+      - { name: sandbox-k8s, type: A, values: [10.60.0.13] }
+
   split_horizon:
     # backends records the current adoption boundary. obj is deliberately not
     # emitted to CoreDNS yet, preserving the current pod resolver behaviour.

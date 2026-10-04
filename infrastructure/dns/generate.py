@@ -29,6 +29,7 @@ def load_inventory() -> dict:
         inventory = data["homelab_dns"]
         split_records = inventory["split_horizon"]["records"]
         public_records = inventory["public"]["records"]
+        powerdns_records = inventory["powerdns"]["records"]
     except (KeyError, TypeError) as exc:
         raise ValueError(f"invalid DNS inventory: missing {exc}") from exc
 
@@ -47,6 +48,16 @@ def load_inventory() -> dict:
             raise ValueError(f"managed Terraform record needs resource_name: {record['name']}")
         if len(record["values"]) != 1:
             raise ValueError(f"Cloudflare Terraform supports one value per record: {record['name']}")
+    seen = set()
+    for record in powerdns_records:
+        require_fields(record, "name", "type", "values")
+        # Relative to lab.ddupan.top; the template appends the zone.
+        if "." in record["name"]:
+            raise ValueError(f"powerdns record name must be relative to lab.ddupan.top: {record['name']}")
+        key = (record["name"], record["type"])
+        if key in seen:
+            raise ValueError(f"duplicate powerdns RRset {key}; list every value in one entry")
+        seen.add(key)
     allocations(data)
     return inventory
 
@@ -66,11 +77,16 @@ def allocations(data: dict) -> dict:
     # An A record is itself an allocation. Several names on one address are only
     # legitimate when that address is declared as a shared host (ingress, router);
     # otherwise two records on one IP is the copy-paste mistake this exists to catch.
+    # A host listed in both zones (ad. and lab., during the migration) is still one
+    # host, so names are collected as a set.
     named: dict = {}
-    for record in data["homelab_dns"]["samba"]["records"]:
+    records = data["homelab_dns"]["samba"]["records"] + data["homelab_dns"]["powerdns"]["records"]
+    for record in records:
         if record["type"] == "A":
             for value in record["values"]:
-                named.setdefault(ipaddress.ip_address(value), []).append(record["name"])
+                names = named.setdefault(ipaddress.ip_address(value), [])
+                if record["name"] not in names:
+                    names.append(record["name"])
     for ip, names in named.items():
         if len(names) > 1 and ip not in owners:
             raise ValueError(f"{ip} is used by {', '.join(names)}; declare its host in homelab_ipam.addresses")
@@ -154,6 +170,11 @@ def outputs(inventory: dict) -> dict[Path, str]:
         records=[record for record in public_records if record["terraform"]["managed"]]
     )
     result[terraform_path] = terraform
+
+    powerdns_path = ROOT / "infrastructure/dns/terraform/dns.generated.tf"
+    result[powerdns_path] = env.get_template("powerdns.tf.j2").render(
+        records=inventory["powerdns"]["records"]
+    )
     return result
 
 
