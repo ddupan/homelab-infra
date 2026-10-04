@@ -3,4 +3,5 @@
 # Tenant 即释放其 Database（默认 Retain，不删数据）。用法见 wiki services/ayatori.md。
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+  - iam-login.yaml
