@@ -89,3 +89,42 @@ resource "vault_kubernetes_auth_backend_role" "sandbox_external_secrets" {
   token_policies = [vault_policy.sandbox_external_secrets.name]
   token_ttl      = 3600
 }
+
+# Ayatori Dev API-only 控制面（ayatori-dev LXC 上的 k0s）。没有 Pod，登录身份是只用于
+# TokenRequest 的 ServiceAccount；与 sandbox 相同不持有 reviewer JWT，两个 SA 绑定
+# system:auth-delegator，由登录 JWT 自身调用 TokenReview。CA 随 k0s PKI 重建时更新。
+resource "vault_auth_backend" "ayatori_dev_kubernetes" {
+  type = "kubernetes"
+  path = "kubernetes-ayatori-dev"
+}
+
+resource "vault_kubernetes_auth_backend_config" "ayatori_dev" {
+  backend              = vault_auth_backend.ayatori_dev_kubernetes.path
+  kubernetes_host      = "https://192.168.10.11:6443"
+  kubernetes_ca_cert   = file("${path.module}/certs/ayatori-dev-kubernetes-ca.crt")
+  disable_local_ca_jwt = true
+}
+
+resource "vault_kubernetes_auth_backend_role" "ayatori_dev_controller" {
+  backend   = vault_auth_backend.ayatori_dev_kubernetes.path
+  role_name = "ayatori-dev-controller"
+
+  bound_service_account_names      = ["database-openbao-login"]
+  bound_service_account_namespaces = ["ayatori-system"]
+  audience                         = "openbao"
+
+  token_policies = [vault_policy.ayatori_dev_controller.name]
+  token_ttl      = 3600
+}
+
+resource "vault_kubernetes_auth_backend_role" "ayatori_dev_external_secrets" {
+  backend   = vault_auth_backend.ayatori_dev_kubernetes.path
+  role_name = "ayatori-dev-external-secrets"
+
+  bound_service_account_names      = ["external-secrets-openbao-login"]
+  bound_service_account_namespaces = ["ayatori-system"]
+  audience                         = "openbao"
+
+  token_policies = [vault_policy.ayatori_dev_external_secrets.name]
+  token_ttl      = 3600
+}
