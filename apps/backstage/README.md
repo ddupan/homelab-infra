@@ -25,7 +25,9 @@ Kustomization 保持 NotReady，而不会回退到明文 Secret。
 
 `panxiao81/backstage` 的 CI 在 main push 后只推送 `:latest`。
 `platform/flux-image-automation` 跟踪 `latest` 背后的 digest，由 `flux-bot`
-直接提交到本仓库 main，不经过 PR。`deployment.yaml` 中 image 行的
+直接提交到本仓库 main，不经过 PR。main 的分支保护（Gitea 设置，不在 IaC 中）必须保留
+`flux-bot` 在推送白名单里，否则推送被 pre-receive hook 拒绝，自动部署静默停止
+（2026-10-04 加保护时发生过，ImageUpdateAutomation 显示 `pre-receive hook declined`）。`deployment.yaml` 中 image 行的
 `$imagepolicy` 注释是 setter 标记，删除后自动更新会静默停止。
 
 旧 digest 失去 tag 后会被 zot GC 回收（24h），因此不要把 Deployment 手工固定到
