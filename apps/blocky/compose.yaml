@@ -65,7 +65,7 @@ services:
     environment:
       # The image's startup script writes pdns.d/_api.conf from this — and opens
       # the API to 0.0.0.0/0. pdns.d/zz-local.conf sorts after it and narrows that.
-      PDNS_AUTH_API_KEY: ${PDNS_AUTH_API_KEY:?copy from bao kv/infra/powerdns into .env, see README}
+      PDNS_AUTH_API_KEY: ${PDNS_AUTH_API_KEY:?copy from bao kv/k8s/powerdns into .env, see README}
     ports:
       # API only. DNS (53) is deliberately NOT published: only Blocky queries pdns,
       # over the compose network, so clients cannot bypass ad-blocking or caching.
