@@ -25,8 +25,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: iam-login
-          # iam-login 5fe7131 (PR #16), pushed by hand with the dev identity.
-          image: zot.ad.ddupan.top/iam/iam-login@sha256:16abde8136706f515cc31ad85643a7a1dfb3c37ff58b158c10efc06021e6f2a5
+          # iam-login 1abf5ff (main), published by its CI after the native browser test.
+          image: zot.ad.ddupan.top/iam/iam-login@sha256:b2702bd90a3c56ba2de9cd76fbdcea2bc34d8cb4891bf41cd7a6754006c893ed
           args:
             # The DC's LDAPS cert is signed by the internal CA, not a public one.
             - -Djavax.net.ssl.trustStore=/run/secrets/iam/truststore.p12
