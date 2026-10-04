@@ -25,12 +25,12 @@ durable consumer，各自只在本地容量池有空位时拉取 assignment，�
   Docker 存储、cache PVC（local-path）共用。`POD_CAPACITY=2`，executor 默认 limit
   2 CPU / 3Gi，cache 总量上限 6GB。扩大 LXC 后再相应调高。
 
-## 上线顺序
+## 上线
 
-1. `infrastructure/openbao/terraform`：`terraform plan` 确认只改
-   `sandbox-external-secrets` policy，然后 apply。
-2. 合并本目录与 `clusters/sandbox/apps/dynamic-runner.yaml`，等待
-   `flux-system/dynamic-runner` Ready。
+policy、本目录与 `clusters/sandbox/apps/dynamic-runner.yaml` 在同一次合并中上线：
+Terraform CI 在 main 上 apply `sandbox-external-secrets` policy，Flux 同时部署
+本目录。policy 生效前 ExternalSecret 会同步失败并由 ESO 重试，worker 在 secret
+就绪后启动。等待 `flux-system/dynamic-runner` Ready。
 
 ## 验收
 
