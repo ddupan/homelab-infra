@@ -200,6 +200,20 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   `127.0.0.1:85`, so no password ever lands in a process argv), which means **PAM and AD-over-LDAPS
   both work with no PAM or LDAP code in the app** — plus a `Sys.Modify` on `/` check, because
   authenticating only proves who you are and this app points VMs at host files.
+- `infrastructure/incus/` — Incus on the laptop, for LXC and new Linux VMs (libvirt and bare-metal
+  k3s stay). **CI owns it**: the root is in `TF_ROOTS`, so main is the desired state and manual
+  changes to Terraform-managed resources are reverted on the next merge. CI reaches
+  `https://192.168.10.127:8443` with a 30-minute client cert that `tf.py` mints per call from Bao
+  `pki-incus` — a standalone root, **never chain it under `pki/`**: Incus has
+  `core.trust_ca_certificates=true`, so any unexpired cert from that CA is full admin, i.e. laptop
+  root. `server.ca` is the trust anchor and Ansible's (`access.yml`); CI cannot grant itself access.
+  Locally use `python3 infrastructure/incus/run.py terraform …` (unix socket, S3 state).
+  ⚠ **cloud-init config only takes effect at instance creation** — the image templates render the
+  seed with `when: [create, copy]`, so editing `cloud-init.*` on an existing instance does nothing,
+  even after reboot or `cloud-init clean`. Changing an address or initial setup means rebuilding.
+  ⚠ Don't set `ssh_pwauth` in user-data: it writes a partial `sshd_config` before openssh-server is
+  installed, dropping `UsePAM yes`, and locked-password accounts are then refused. Restarting
+  `incus.service` is safe for running instances (`KillMode=process`).
 - `platform/envoy-gateway/` — **the LAN ingress**. Gateway API; Envoy holds 192.168.10.127 and
   routes `*.ad.ddupan.top` by Host header. Adding a service = an `HTTPRoute` + a DNS A
   record in `samba-ad`; no cert work (see `platform/cert-manager/`). Authelia forward-auth is
