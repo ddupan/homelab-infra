@@ -119,3 +119,24 @@ spec:
         kinds:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
+
+    # HTTPS :443 for sso.ddupan.top, the iam-login issuer. Same reason as the
+    # auth/git listeners: one hostname per listener, outside the *.ad.ddupan.top
+    # wildcard. Without it, Gitea's token exchange and its pod-start discovery
+    # fetch would hairpin through Cloudflare. Cert:
+    # ../cert-manager/certificate-sso-ddupan.yaml; route: ../../apps/iam-login/httproute.yaml.
+    - name: https-sso
+      protocol: HTTPS
+      port: 443
+      hostname: "sso.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: sso-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute

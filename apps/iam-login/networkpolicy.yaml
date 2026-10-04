@@ -1,0 +1,24 @@
+# Only the two TLS-terminating proxies may reach the pod. This is also what makes
+# trusting X-Forwarded-Proto safe (server.forward-headers-strategy in application.yaml).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: iam-login
+  namespace: iam-login
+spec:
+  podSelector:
+    matchLabels:
+      app: iam-login
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflared
+      ports:
+        - port: 8080
+          protocol: TCP
