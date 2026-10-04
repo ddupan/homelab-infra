@@ -45,14 +45,19 @@ API、OIDC、Git/Flux 和 runner 均已验证。第二跳按明确决定跳过�
 suspend、详细日志审计和扩展验收。出现启动失败或 migration error 时也立即升级为完整
 故障流程。
 
-## Hydra 人类登录 PoC
+## IAM 登录源（`hydra`，指向 sso.ddupan.top）
 
-新增 `hydra` OIDC 登录源，旧 `authelia` 入口保留。Hydra 通过通用 OIDC Login/Consent
-适配器转到现有 Authelia 完成人类认证；不是 Gitea 直接验证 LDAP 或 SPIFFE。
-入口为 `https://git.ddupan.top/user/oauth2/hydra`，需 LAN/Tailscale 可达 Hydra 内网域名。
+登录源 `hydra` 现指向 iam-login 内置授权服务器 `https://sso.ddupan.top`（AD 密码 + Passkey），
+旧 `authelia` 入口保留。名称沿用 Hydra 时期：Gitea 按（登录源，`sub`）关联账号，名称也在回调
+地址中；iam-login 通过 subject 绑定沿用旧 `sub`，已有关联不变。入口
+`https://git.ddupan.top/user/oauth2/hydra`，公网可达。
 
-新 client secret 通过 `ExternalSecret/gitea-hydra-oidc` 从 OpenBao 投射。沿用
-preferred_username、已验证邮箱与 groups；当前仍映射 gitea-admins，不在本轮切换组模型。
-先部署并验证 Hydra discovery 后再接入本配置，避免 Gitea init 因上游不可达而失败。
+- 客户端 `gitea` 经 iam-login 客户端管理 API（`/console`）登记：回调
+  `https://git.ddupan.top/user/oauth2/hydra/callback`，scope `openid profile email groups`，
+  **关闭 PKCE**（Gitea 1.27 不发 PKCE 与 nonce）。
+- secret 在 `kv/k8s/gitea-sso:client_secret`，经 `ExternalSecret/gitea-sso-oidc` 投射；轮换用
+  API 的 `POST /api/iam/clients/gitea/secret` 后更新该 kv，再重启 Gitea。
+- 继续映射 `gitea-admins`；`groups` 在 ID token 中。
+- discovery 在 Pod 启动时由 init container 获取，`sso.ddupan.top` 因此走 split horizon（Envoy）。
 
-实际登录验收与部署状态见 wiki；依赖和回退见 [Hydra README](../hydra/README.md)。
+回退：revert 切换 PR，登录源回到 Hydra（`kv/k8s/hydra:gitea_client_secret` 与 Hydra 部署保留至下线）。
