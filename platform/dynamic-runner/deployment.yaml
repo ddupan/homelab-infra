@@ -38,7 +38,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:d7994ef3a1f7e8d35d85bb17edc213a755286e8868158f60d201c4ff2b30b44f
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:b2f305735550ff864d5d53850ec4735c88a0d37196cab33d063a094d85ac8860
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -73,13 +73,17 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: POD_EXECUTOR_IMAGE
-              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:83e96c3959af663a75a7229cb04cbbb97a642d4ef3704ac5cdceb1d502a72ed3
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:eae0b42cff3475d5d81ec539061d48bd3e053479fdb94a5c9a3756985595e2b2
             - name: POD_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
               value: "6"
+            # Shared Actions cache; see cache-server.yaml. All Pod repositories share
+            # one cache trust domain because host-mode jobs can read this secret.
+            - name: POD_RUNNER_CACHE_SECRET
+              value: gitea-runner-cache
             - name: OPENSANDBOX_API
               value: http://10.60.0.13:8080
             - name: OPENSANDBOX_API_KEY_FILE
