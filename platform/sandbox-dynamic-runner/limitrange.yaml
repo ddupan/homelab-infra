@@ -1,0 +1,16 @@
+# Sandbox nodes are small LXCs (4 CPU; 6Gi and 4Gi). POD_CAPACITY x limit
+# must leave room for OpenSandbox and the control plane.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: executor-defaults
+  namespace: dynamic-runner
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "2"
+        memory: 3Gi
+      defaultRequest:
+        cpu: 250m
+        memory: 1Gi

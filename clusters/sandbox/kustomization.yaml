@@ -11,3 +11,4 @@ resources:
   - apps/external-secrets.yaml
   - apps/opensandbox.yaml
   - apps/ci-runners.yaml
+  - apps/dynamic-runner.yaml
