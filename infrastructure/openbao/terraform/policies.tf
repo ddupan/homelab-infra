@@ -47,3 +47,13 @@ resource "vault_policy" "ci_techdocs_publisher" {
   name   = "ci-techdocs-publisher"
   policy = file("${path.module}/policies/ci-techdocs-publisher.hcl")
 }
+
+resource "vault_policy" "ayatori_dev_controller" {
+  name   = "ayatori-dev-controller"
+  policy = file("${path.module}/policies/ayatori-dev-controller.hcl")
+}
+
+resource "vault_policy" "ayatori_dev_external_secrets" {
+  name   = "ayatori-dev-external-secrets"
+  policy = file("${path.module}/policies/ayatori-dev-external-secrets.hcl")
+}
