@@ -50,14 +50,19 @@ DNS 期望状态已加入 `infrastructure/dns/records.yml`，需从 Samba AD Ans
 
 初始管理员密码生成在 PVC 的 `/nexus-data/admin.password`。只在交互式终端中读取并立即
 完成首次密码轮换；不得把密码复制进 shell tracing、工单、Git 或命令参数。随后将
-Terraform 管理账号的凭据存入 OpenBao，由 CI 通过 Terraform input variable 注入以下
-环境变量：
+Terraform 管理账号的密码存入 OpenBao **`kv/infra/terraform/nexus` 的 `nexus_password`**
+（唯一一份；轮换密码只改这里）。Terraform CD（`.gitea/workflows/terraform.yml`）把该路径
+的每个 key 注入为 `TF_VAR_<key>`；`nexus_url`、`nexus_username` 在 `versions.tf` 有默认值。
+本地运行或执行 `reconcile-oci.sh` 时自行导出：
 
 ```text
 TF_VAR_nexus_url=https://nexus.ad.ddupan.top
 TF_VAR_nexus_username=admin
-TF_VAR_nexus_password=<OpenBao kv/infra/nexus 的 admin_password 字段>
+TF_VAR_nexus_password=<kv/infra/terraform/nexus 的 nexus_password>
 ```
+
+⚠ CD 只运行 Terraform，**不运行 `reconcile-oci.sh`**：OCI repository 的漂移不会出现在 PR
+评论里，修改 `oci/` 后仍需手工 `--check` / `--apply`。
 
 `terraform/` 使用 `sonatype-nexus-community/sonatyperepo` 1.17.0，当前声明：
 
