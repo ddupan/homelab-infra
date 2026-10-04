@@ -52,6 +52,11 @@ filer:
     # followed by "Key", not a colon. See CLAUDE.md on scanning by content.
     # The leaked anvAdmin key is in git history and still needs ROTATING.
     existingConfigSecret: seaweedfs-s3-config
+  # Embedded IAM API writes (users/keys/policies via the AWS IAM API on :8333), used by
+  # ./terraform. Default is read-only. Dynamic identities live in filer /etc/iam/, merged with
+  # the static file above; IAM writes against a STATIC identity are silent no-ops, so
+  # Terraform-managed user names must never collide with static ones.
+  extraArgs: ["-s3.iam.readOnly=false"]
 
 s3:
   enableAuth: true
