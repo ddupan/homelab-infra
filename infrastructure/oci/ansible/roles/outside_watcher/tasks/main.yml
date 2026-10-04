@@ -11,14 +11,6 @@
   ansible.builtin.set_fact:
     watcher_listen_ip: "{{ ansible_facts.tailscale0.ipv4.address }}"
 
-- name: 从 Bao 读取 Telegram bot token（控制机上执行，需要 VAULT_TOKEN）
-  ansible.builtin.set_fact:
-    watcher_telegram_bot_token: >-
-      {{ lookup('community.hashi_vault.vault_kv2_get', watcher_bao_path,
-                engine_mount_point=watcher_bao_mount, url=watcher_bao_url,
-                auth_method='token').secret.telegram_bot_token }}
-  no_log: true
-
 # 不装 Recommends：prometheus 会拉 node-exporter，这台机器不需要。
 - name: 安装 Prometheus、Alertmanager、blackbox_exporter
   ansible.builtin.apt:

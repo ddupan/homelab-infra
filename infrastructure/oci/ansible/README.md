@@ -256,14 +256,16 @@ Alertmanager 把它丢进 blackhole），同时经 Tailscale 推给 `100.99.94.4
 gossip 端口（默认 `0.0.0.0:9094`）显式关闭。开机时 tailscale0 还没地址会绑定失败，
 drop-in 让它排在 tailscaled 之后并无限重试，不退回到 `0.0.0.0`。
 
-**执行**（需要 `hvac`，见 CLAUDE.md 的 uv 安装命令）：Telegram token 从 Bao
-`kv/k8s/alertmanager` 读取，控制机上要有 `VAULT_TOKEN`（SPIFFE `local-development` 角色可读）。
+**执行**：Telegram token 在 `host_vars/oci_arm/vault.yml`（ansible-vault，密码即仓库根的
+`.vault_pass`，由 YubiKey 解 `.vault_pass.gpg` 得到）。**刻意不在部署时读 Bao**：bao1 跑在
+laptop 上，laptop 挂了正是需要重建看守的时候——和 `infrastructure/openbao/` 不读自己的 Bao 是
+同一条规则。值与 Bao `kv/k8s/alertmanager` 相同，几乎不轮换；真轮换时两处都要改。
 
 ```bash
 cd infrastructure/oci/ansible
 export SSH_AUTH_SOCK="$(gpgconf --list-dirs agent-ssh-socket)"
-VAULT_TOKEN=... ansible-playbook watcher.yml --check --diff
-VAULT_TOKEN=... ansible-playbook watcher.yml
+ansible-playbook watcher.yml --check --diff
+ansible-playbook watcher.yml
 ```
 
 ⚠ **顺序**：先合并 laptop 侧（Watchdog 规则 + vmalert 第二个 notifier），再部署 oci-arm；

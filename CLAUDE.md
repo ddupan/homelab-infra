@@ -46,9 +46,8 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
   `ansible.windows.*` task dies with "No module named 'winrm'". It was missing from the
   installed env on 2026-07-26 because this line used to omit it. (`requests-ntlm`, needed
   for the inventory's `ntlm` transport, comes in transitively with pywinrm.)
-  ⚠ `hvac` likewise: `community.hashi_vault` lookups (Bao secrets in plays, e.g.
-  `infrastructure/oci/ansible/watcher.yml`) fail with a `no_log`-censored error without it.
-  Added 2026-10-04.
+  ⚠ `hvac` likewise: `community.hashi_vault` lookups (Bao secrets in plays) fail with a
+  `no_log`-censored error without it. Added 2026-10-04.
 - `deb822_repository` is **`ansible.builtin`**, not `community.general`.
 - Network devices (VyOS) use `ansible.netcommon.network_cli`, not ssh/python — they have no
   Python interpreter. Prefer `vyos_config` with explicit `set` lines over the collection's
