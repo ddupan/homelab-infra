@@ -1,0 +1,12 @@
+# iam-login (sso.ddupan.top) 的数据库：passkey、OAuth2 客户端与授权记录。
+# 表由应用的 Flyway 迁移创建；凭据由 homelab k3s 中 iam-login 自己的身份从 OpenBao 读取。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iam-login
+---
+apiVersion: database.ayatori.ddupan.top/v1alpha1
+kind: PostgreSQLTenant
+metadata: {name: iam-login, namespace: iam-login}
+spec:
+  provision: {instanceRef: {name: homelab-prod}, database: iam_login, loginRole: iam_login}
