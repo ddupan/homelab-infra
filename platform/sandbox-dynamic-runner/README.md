@@ -1,10 +1,11 @@
 # Sandbox dynamic-runner worker
 
 CI 负载一高，laptop 上的服务就跟着挂。这里在 sandbox 集群部署一个只运行
-`kubernetes-worker` 的 dynamic-runner 实例，把 Pod job 分流到 sandbox。scheduler
-仍只在 homelab（`platform/dynamic-runner/`）运行；两个 worker 共享同一个 NATS
-durable consumer，各自只在本地容量池有空位时拉取 assignment，因此不需要额外的
-调度配置，哪边有空位 job 就落到哪边。
+`kubernetes-worker` 的 dynamic-runner 实例，把 Pod job 分流到 sandbox。它是 pod 池
+的成员 `pod-sandbox`：以自己的 Gitea runner registration（`TASK_SOURCE=gitea`）声明与
+池内其他成员相同的 label，只在本地容量池有空位时 `FetchTask`。哪个成员有空位，
+Gitea 就把 job 交给谁，不需要额外的调度配置（见 gitea-dynamic-runner
+`docs/runner-registration-migration.md`）。
 
 ## 与 homelab worker 的差异
 
@@ -14,9 +15,10 @@ durable consumer，各自只在本地容量池有空位时拉取 assignment，�
   不能加 replica；扩容是另起一个 worker。
 - **capability key 独立生成**：它只把 executor 绑定到创建它的 worker，由 ESO
   Password generator 在本集群生成，不与 homelab 共享。
-- **共享 secret 来自 OpenBao**：NATS worker 密码（`kv/k8s/nats`）与 scheduler 的 Gitea
-  runner 凭据（`kv/k8s/dynamic-runner`）。sandbox ESO 的 policy 因此能读这两个对象的
-  全部字段（包括 producer 密码、webhook secret），这是有意接受的取舍。
+- **自己的 runner 凭据**：`kv/k8s/dynamic-runner-pod-sandbox`（`uuid`、`token`），由
+  gitea-dynamic-runner `scripts/register-runner pod-sandbox self-hosted,pod,container,kubernetes`
+  一次注册生成。sandbox ESO policy 只读这一个路径，不读 NATS 或 homelab scheduler
+  的 secret；sandbox 被攻破时可在 Gitea 单独停用 `pod-sandbox`。
 - **executor 身份**：parent 由 `SPIRE_CLUSTER=sandbox` 与 Pod 所在节点 UID 推导，
   ClusterStaticEntry 由 central SPIRE controller-manager 的 sandbox 集群配置处理。
 - **独立 cache-server**：runner 镜像内 `config-pod-cache.yaml` 指向本 namespace 的
