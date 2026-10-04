@@ -92,7 +92,8 @@ resource "vault_kubernetes_auth_backend_role" "sandbox_external_secrets" {
 
 # Ayatori Dev API-only 控制面（ayatori-dev LXC 上的 k0s）。没有 Pod，登录身份是只用于
 # TokenRequest 的 ServiceAccount；与 sandbox 相同不持有 reviewer JWT，两个 SA 绑定
-# system:auth-delegator，由登录 JWT 自身调用 TokenReview。CA 随 k0s PKI 重建时更新。
+# system:auth-delegator，由登录 JWT 自身调用 TokenReview，因此 audience 必须是 API audience。
+# CA 随 k0s PKI 重建时更新。
 resource "vault_auth_backend" "ayatori_dev_kubernetes" {
   type = "kubernetes"
   path = "kubernetes-ayatori-dev"
@@ -111,7 +112,7 @@ resource "vault_kubernetes_auth_backend_role" "ayatori_dev_controller" {
 
   bound_service_account_names      = ["database-openbao-login"]
   bound_service_account_namespaces = ["ayatori-system"]
-  audience                         = "openbao"
+  audience                         = "https://kubernetes.default.svc"
 
   token_policies = [vault_policy.ayatori_dev_controller.name]
   token_ttl      = 3600
@@ -123,7 +124,7 @@ resource "vault_kubernetes_auth_backend_role" "ayatori_dev_external_secrets" {
 
   bound_service_account_names      = ["external-secrets-openbao-login"]
   bound_service_account_namespaces = ["ayatori-system"]
-  audience                         = "openbao"
+  audience                         = "https://kubernetes.default.svc"
 
   token_policies = [vault_policy.ayatori_dev_external_secrets.name]
   token_ttl      = 3600
