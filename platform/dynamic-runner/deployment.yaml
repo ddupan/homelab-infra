@@ -43,22 +43,22 @@ spec:
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
+            # Members of the pod pool (with pod-sandbox) and the vm pool, each
+            # fetching from Gitea with its own registration; no scheduler or NATS.
             - name: COMPONENTS
-              value: scheduler,kubernetes-worker,opensandbox-worker
+              value: kubernetes-worker,opensandbox-worker
+            - name: TASK_SOURCE
+              value: gitea
             - name: GITEA_INSTANCE_URL
               value: https://git.ddupan.top
-            - name: GITEA_RUNNER_UUID_FILE
-              value: /run/dynamic-runner-secrets/scheduler-uuid
-            - name: GITEA_RUNNER_TOKEN_FILE
-              value: /run/dynamic-runner-secrets/scheduler-token
-            - name: NATS_URL
-              value: tls://nats.ad.ddupan.top:4222
-            - name: NATS_CA_FILE
-              value: /run/trust/ca.pem
-            - name: NATS_PRODUCER_PASSWORD_FILE
-              value: /run/dynamic-runner-secrets/nats-password
-            - name: NATS_WORKER_PASSWORD_FILE
-              value: /run/dynamic-runner-secrets/nats-worker-password
+            - name: POD_GITEA_RUNNER_UUID_FILE
+              value: /run/dynamic-runner-secrets/pod-runner-uuid
+            - name: POD_GITEA_RUNNER_TOKEN_FILE
+              value: /run/dynamic-runner-secrets/pod-runner-token
+            - name: VM_GITEA_RUNNER_UUID_FILE
+              value: /run/dynamic-runner-secrets/vm-runner-uuid
+            - name: VM_GITEA_RUNNER_TOKEN_FILE
+              value: /run/dynamic-runner-secrets/vm-runner-token
             - name: RUNNER_FACADE_CAPABILITY_KEY_FILE
               value: /run/dynamic-runner-secrets/facade-capability-key
             - name: RUNNER_FACADE_LISTEN
