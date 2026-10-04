@@ -1,0 +1,38 @@
+# Publishes HTTPRoute hostnames under lab.ddupan.top into PowerDNS, so a new
+# service needs only an HTTPRoute (sectionName: https-lab) — no DNS step.
+# Record target = the Gateway's status address (192.168.10.127).
+
+provider:
+  name: pdns
+extraArgs:
+  # API on the host port, not 8081 (spire-server's LB owns .127:8081). pdns's
+  # allow-from admits the k3s pod CIDR. See ../../apps/blocky/README.md.
+  - --pdns-server=http://192.168.10.127:8053
+  - --pdns-server-id=localhost
+env:
+  - name: EXTERNAL_DNS_PDNS_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: external-dns
+        key: api_key
+
+sources:
+  - gateway-httproute
+# Only this zone. ad.ddupan.top is Samba's and the public names are Cloudflare's;
+# neither must ever be written from here.
+domainFilters:
+  - lab.ddupan.top
+
+# sync = also delete records whose HTTPRoute is gone. Safe in a zone shared with
+# Terraform and Poweradmin: external-dns only ever deletes names it holds a TXT
+# ownership record for, so their records are never touched.
+policy: sync
+registry: txt
+txtOwnerId: k3s-homelab
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
