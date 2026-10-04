@@ -43,6 +43,7 @@ homelab_dns:
     records:
       - { name: git.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: auth.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
+      - { name: sso.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: obj.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky] }
 
   public:
@@ -56,6 +57,14 @@ homelab_dns:
         terraform:
           managed: true
           resource_name: auth
+      # iam-login issuer: public for browsers, split-horizon for in-cluster RPs.
+      - name: sso.ddupan.top
+        type: CNAME
+        values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]
+        proxied: true
+        terraform:
+          managed: true
+          resource_name: sso
       - name: git.ddupan.top
         type: CNAME
         values: [ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com]

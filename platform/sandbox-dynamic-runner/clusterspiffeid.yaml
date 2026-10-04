@@ -1,0 +1,18 @@
+# A distinct ID from the homelab controller: executors pin the facade they
+# talk to by SPIFFE ID, so the two workers must not be interchangeable.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: dynamic-runner-controller
+spec:
+  className: spire-mgmt-spire
+  spiffeIDTemplate: spiffe://{{ .TrustDomain }}/sandbox/ns/dynamic-runner/sa/dynamic-runner-controller
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: dynamic-runner
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dynamic-runner-controller
+  workloadSelectorTemplates:
+    - k8s:ns:dynamic-runner
+    - k8s:sa:dynamic-runner-controller

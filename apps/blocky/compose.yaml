@@ -69,7 +69,13 @@ services:
     ports:
       # API only. DNS (53) is deliberately NOT published: only Blocky queries pdns,
       # over the compose network, so clients cannot bypass ad-blocking or caching.
-      - "192.168.10.127:8081:8081/tcp"
+      #
+      # Host side is 8053, NOT 8081: spire-server's LoadBalancer already owns
+      # 192.168.10.127:8081, and kube-proxy's DNAT runs before Docker's, so a
+      # 8081 mapping here silently sends API clients to SPIRE's gRPC port. That
+      # port is invisible to a non-root `ss` — check `sudo iptables -t nat -S`
+      # and `kubectl get svc -A` before picking a port on this host.
+      - "192.168.10.127:8053:8081/tcp"
     volumes:
       - ./pdns.d/zz-local.conf:/etc/powerdns/pdns.d/zz-local.conf:ro
       # The image ships an initialised pdns.sqlite3, which Docker copies into an

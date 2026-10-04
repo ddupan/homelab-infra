@@ -1,0 +1,13 @@
+# Executors run in this cluster, so the facade only needs a ClusterIP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynamic-runner-worker
+  namespace: dynamic-runner
+spec:
+  selector:
+    app.kubernetes.io/name: dynamic-runner-controller
+  ports:
+    - name: facade
+      port: 8443
+      targetPort: facade

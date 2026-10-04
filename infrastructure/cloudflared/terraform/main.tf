@@ -16,6 +16,12 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "main" {
         service = "http://authelia.authelia.svc.cluster.local:80"
       },
       {
+        # iam-login issuer. Straight to the Service like Authelia; Cloudflare's
+        # X-Forwarded-Proto is what tells the app the request was HTTPS.
+        hostname = "sso.ddupan.top"
+        service  = "http://iam-login.iam-login.svc.cluster.local:8080"
+      },
+      {
         hostname = "git.ddupan.top"
         service  = "http://gitea-http.gitea.svc.cluster.local:3000"
       },

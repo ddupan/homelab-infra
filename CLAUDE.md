@@ -40,12 +40,14 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 ## Tooling
 
 - Python CLIs via **uv**. Ansible specifically:
-  `uv tool install ansible-core --with ansible --with paramiko --with pywinrm`
+  `uv tool install ansible-core --with ansible --with paramiko --with pywinrm --with hvac`
   ⚠️ `uv tool install ansible` alone exposes only `ansible-community`, **not** `ansible-playbook`.
   ⚠️ `pywinrm` is not optional if you touch `windows_admin` hosts — without it every
   `ansible.windows.*` task dies with "No module named 'winrm'". It was missing from the
   installed env on 2026-07-26 because this line used to omit it. (`requests-ntlm`, needed
   for the inventory's `ntlm` transport, comes in transitively with pywinrm.)
+  ⚠ `hvac` likewise: `community.hashi_vault` lookups (Bao secrets in plays) fail with a
+  `no_log`-censored error without it. Added 2026-10-04.
 - `deb822_repository` is **`ansible.builtin`**, not `community.general`.
 - Network devices (VyOS) use `ansible.netcommon.network_cli`, not ssh/python — they have no
   Python interpreter. Prefer `vyos_config` with explicit `set` lines over the collection's
@@ -169,6 +171,12 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   the same line. Bracket a character (`atmodem[.]py --conn[e]ct`) — but note that only
   works if the literal bracketed form is what is on your own command line, so put the kill
   in a **separate invocation** from the start.
+- **A free-looking port on 192.168.10.127 may not be free.** Non-root `ss` hides
+  `docker-proxy`, and k3s `LoadBalancer` services (svclb hostPorts, e.g. spire-server on
+  `:8081`) own `.127:<port>` purely through iptables — nothing to see in `ss` at all.
+  kube-proxy's DNAT runs before Docker's, so a clashing compose mapping fails *silently*:
+  clients reach the k8s service instead. Check `sudo ss -tlnp`, `sudo iptables -t nat -S |
+  grep 'dport <port>'` and `kubectl get svc -A` before picking one. Bit pdns on 2026-10-04.
 - **Guard destructive commands.** Before `sgdisk`/`wipefs`/`vgremove`/`dd`, assert the target is
   what you think it is (`lsblk -dno TYPE` == `disk`). A wrong device once destroyed the LVM
   metadata on two live nodes. Derive parent disks from **sysfs**, never `lsblk -no PKNAME`

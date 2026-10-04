@@ -1,0 +1,24 @@
+---
+- name: 重载 Prometheus
+  ansible.builtin.systemd_service:
+    name: prometheus
+    state: reloaded
+  when: not ansible_check_mode
+- name: 重启 Alertmanager
+  ansible.builtin.systemd_service:
+    name: prometheus-alertmanager
+    state: restarted
+    daemon_reload: true
+  when: not ansible_check_mode
+- name: 重启 blackbox_exporter
+  ansible.builtin.systemd_service:
+    name: prometheus-blackbox-exporter
+    state: restarted
+  when: not ansible_check_mode
+- name: 重启全部看守服务
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop: [prometheus, prometheus-alertmanager, prometheus-blackbox-exporter]
+  when: not ansible_check_mode

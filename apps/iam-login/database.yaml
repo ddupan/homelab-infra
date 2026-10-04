@@ -1,0 +1,57 @@
+# The database is requested from Ayatori (../../clusters/ayatori-prod/iam-login.yaml), which
+# delivers the credential to OpenBao only. This namespace reads it with its OWN identity:
+# the iam-login-database bao role (../../infrastructure/openbao/terraform/auth.tf) can read
+# exactly this one credential path, so the shared ClusterSecretStore never needs access to
+# every tenant's credentials.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: iam-login-database
+  namespace: iam-login
+# Used only by ESO to log in to bao; nothing mounts its token.
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: ayatori-prod
+  namespace: iam-login
+spec:
+  provider:
+    vault:
+      server: 'https://bao.ad.ddupan.top:8200'
+      path: 'kv'
+      version: 'v2'
+      auth:
+        kubernetes:
+          mountPath: 'kubernetes'
+          role: 'iam-login-database'
+          serviceAccountRef:
+            name: 'iam-login-database'
+---
+# Pinned to the confirmed credentialVersion from the Tenant status, as Ayatori recommends:
+# a re-issued credential is a deliberate bump here, not a silent change under a running pod.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: iam-login-db
+  namespace: iam-login
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: ayatori-prod
+  target:
+    name: iam-login-db
+    creationPolicy: Owner
+    template:
+      data:
+        # sslmode is verify-full; the server cert is issued by the internal CA (internal-ca.pem,
+        # public). pgjdbc has no hostaddr, so the host name resolves through the DC.
+        SPRING_DATASOURCE_URL: 'jdbc:postgresql://{{ .host }}:{{ .port }}/{{ .database }}?sslmode={{ .sslmode }}&sslrootcert=/config/internal-ca.pem'
+        SPRING_DATASOURCE_USERNAME: '{{ .username }}'
+        SPRING_DATASOURCE_PASSWORD: '{{ .password }}'
+  dataFrom:
+    - extract:
+        key: ayatori/prod/applications/2665d345-adbe-4f44-9fc7-ef8dd701468e
+        version: '1'

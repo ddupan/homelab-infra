@@ -13,9 +13,9 @@ PR 号**；新发现的盲区直接追加。
 
 整套 VM 栈和它要监控的东西同在笔记本上；没有心跳时"没告警"与"一切正常"无法区分。
 
-- [ ] **M1** `Watchdog` 常驻告警 + 外部 dead-man（healthchecks.io 或 OCI 主机上的接收端），心跳断即报警
-- [ ] **M2** Telegram 投递本身失败的兜底路径（现有 `AlertmanagerTelegramDeliveryFailed` 也是走 Telegram 发的）
-- [ ] **M3** 评估：把 dead-man / 关键探测放到 lab 外（OCI），避免和笔记本同生共死
+- [x] **M1** `Watchdog` 常驻告警 + 外部 dead-man（healthchecks.io 或 OCI 主机上的接收端），心跳断即报警 — oci-arm `watcher.yml`（Watchdog 抑制 LabWatchdogMissing）
+- [x] **M2** Telegram 投递本身失败的兜底路径（现有 `AlertmanagerTelegramDeliveryFailed` 也是走 Telegram 发的） — oci-arm 代发 laptop 的 Telegram 投递失败告警
+- [x] **M3** 评估：把 dead-man / 关键探测放到 lab 外（OCI），避免和笔记本同生共死 — 放在 oci-arm
 
 ## 2. 黑盒探测（P0）
 
@@ -23,7 +23,7 @@ PR 号**；新发现的盲区直接追加。
 
 - [ ] **B1** 部署 blackbox-exporter + VMProbe 基础设施（HTTP / DNS / ICMP / TCP 模块）
 - [ ] **B2** Envoy Gateway：逐个 `*.ad.ddupan.top` Host 做 HTTPS 探测（顺带覆盖证书到期）
-- [ ] **B3** 公网入口经 cloudflared：`auth` / `git` / `obj` / `e5renew.ddupan.top`
+- [x] **B3** 公网入口经 cloudflared：`auth` / `git` / `obj` / `e5renew.ddupan.top` — 从 oci-arm 经 Cloudflare 探测
 - [ ] **B4** DNS：dc1 解析 `ad.ddupan.top`、CoreDNS 解析集群内外名、Blocky 解析 split-horizon 名
 - [ ] **B5** VPN 黑洞：经 `tun0` ping `163.221.48.1` + 探测一个被 split-tunnel 捕获的 Cloudflare IP（unit 显示 running 也会坏，见 CLAUDE.md）
 - [ ] **B6** WAN 连通性：探测若干外部地址，让"WAN 抖了"和"服务挂了"能区分开（只看不修，见 `flaky-wan-isp`）

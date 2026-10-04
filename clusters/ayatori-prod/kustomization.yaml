@@ -1,0 +1,7 @@
+# Ayatori prod 控制面的期望状态，由 ayatori-prod LXC 上的 Flux 从 main 同步。
+# 只允许 Namespace、PostgreSQLTenant、PostgreSQLDatabase，其他对象会被拒绝；从这里移除
+# Tenant 即释放其 Database（默认 Retain，不删数据）。用法见 wiki services/ayatori.md。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - iam-login.yaml
