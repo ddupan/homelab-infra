@@ -139,7 +139,13 @@ cloud-init 用户设置主要在首次启动执行，修改声明不能替代后
 
 state 在 S3 `tfstate` bucket 的 `incus/terraform.tfstate`，原生 lockfile 加锁；2026-10-04 由本地
 backend 经 `init -migrate-state` 迁入。`run.py` 与 etcd 相同，凭据只在内存中传给子进程。
-CD 不接管本 root：provider 只能经 laptop 本机 Unix socket 访问 Incus，CI runner 无从连接。
+本 root 由 CD 接管（`.gitea/workflows/terraform.yml`）：PR 上 plan 并评论，合并到 main 后 apply；
+main 即期望状态，手工改动会被回滚。CI 经 `https://192.168.10.127:8443` 访问，每次调用由
+`.gitea/scripts/tf.py` 向 Bao `pki-incus/issue/ci-terraform` 现签 30 分钟客户端证书；Incus 凭
+`server.ca`（`ansible/access.yml` 从 Bao 下发）与 `core.trust_ca_certificates` 信任它，不入信任列表，
+过期即失效。这张证书等同 Incus 完整管理权限，即 laptop root。`terraform/server.crt` 是 Incus 自签
+服务器证书的公钥，CI 以它固定校验服务器（2036-09 到期，重新生成后须更新）。laptop 本地仍可经
+Unix socket 运行上面的命令。
 实例和池启用 `prevent_destroy`；删除需显式审阅，不能通过移走整个资源块绕过保护。
 当前为空系统，丢失后可重建；承载持久数据前须补离机备份与恢复验收。
 

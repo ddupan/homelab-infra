@@ -14,3 +14,5 @@ incus_server_config:
   oidc.audience: https://incus.ad.ddupan.top
   oidc.scopes: openid,offline_access
   core.https_address: 192.168.10.127:8443
+  # 须在 server.ca 就位后开启（access.yml 保证顺序）；凭此 CI 的短期证书获得完整权限。
+  core.trust_ca_certificates: "true"

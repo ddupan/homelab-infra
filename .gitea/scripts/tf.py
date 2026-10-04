@@ -8,6 +8,7 @@
 """
 import json
 import os
+import tempfile
 from pathlib import Path
 import subprocess
 import sys
@@ -58,7 +59,27 @@ def run(root, args):
     for key, value in (bao_kv(f'infra/terraform/{name}') or {}).items():
         env[f'TF_VAR_{key}'] = value
 
-    return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
+    if name != 'incus':
+        return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
+
+    # incus：Incus 信任 Bao pki-incus 签发、未过期的客户端证书（core.trust_ca_certificates）。
+    # 每次调用现签 30 分钟证书，用完即弃；provider 只从 config_dir 读证书，私钥只能落盘，
+    # 故放在 tmpfs 的 0700 临时目录，terraform 结束即删。
+    issued = request(f"{env['BAO_ADDR'].rstrip('/')}/v1/pki-incus/issue/ci-terraform", 'POST',
+                     {'common_name': 'ci-terraform'}, {'X-Vault-Token': env['BAO_TOKEN']})['data']
+    shm = '/dev/shm' if os.path.isdir('/dev/shm') else None
+    with tempfile.TemporaryDirectory(dir=shm) as config_dir:
+        os.makedirs(f'{config_dir}/servercerts')
+        Path(f'{config_dir}/servercerts/local.crt').write_text(Path(root, 'server.crt').read_text())
+        Path(f'{config_dir}/client.crt').write_text(issued['certificate'] + '\n')
+        key = os.open(f'{config_dir}/client.key', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(key, 'w') as f:
+            f.write(issued['private_key'] + '\n')
+        env['TF_VAR_incus_address'] = 'https://192.168.10.127:8443'
+        env['TF_VAR_incus_config_dir'] = config_dir
+        # 同一镜像并行建多个实例会撞上 Incus simplestreams 缓存的 mkdir 竞争（见 incus README）。
+        env['TF_CLI_ARGS_apply'] = '-parallelism=1'
+        return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
 
 
 def comment(markdown_file):
