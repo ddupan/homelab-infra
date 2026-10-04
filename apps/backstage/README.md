@@ -39,3 +39,11 @@ Kustomization 保持 NotReady，而不会回退到明文 Secret。
 `panxiao81/ci-actions/publish-techdocs`，生成后上传到 SeaweedFS bucket `techdocs`；
 Backstage 以 `builder: external` 只读该 bucket。发布身份由 OpenBao role
 `ci-techdocs-publisher` 统一授予，凭据在 `kv/k8s/techdocs-s3-publisher`。
+
+## Flux 可见性
+
+`backstage-read-only` 额外允许读取 Kustomization、Git/Helm/OCI Repository、
+ImageRepository 与 ImagePolicy（get/list/watch，无写权限），供 Backstage 实体的
+Kubernetes 标签页按 `backstage.io/kubernetes-id` label 展示 Flux 对象。要让某个 Flux
+对象出现在实体下，给它加上与实体注解相同的 label。HelmRelease 未授权：`spec.values`
+可能内联敏感配置。共享的 `flux-system` GitRepository 不打 label。
