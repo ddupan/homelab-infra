@@ -6,6 +6,8 @@ kind: ImageRepository
 metadata:
   name: backstage
   namespace: flux-system
+  labels:
+    backstage.io/kubernetes-id: homelab-backstage
 spec:
   image: zot.ad.ddupan.top/panxiao81/backstage
   interval: 1m
@@ -15,6 +17,8 @@ kind: ImagePolicy
 metadata:
   name: backstage
   namespace: flux-system
+  labels:
+    backstage.io/kubernetes-id: homelab-backstage
 spec:
   imageRepositoryRef:
     name: backstage

@@ -36,6 +36,25 @@ rules:
     resources:
       - pods
     verbs: [get, list]
+  # Flux objects for the entity Kubernetes tab (kubernetes.customResources in the
+  # Backstage config). HelmReleases are left out on purpose: spec.values can
+  # inline sensitive settings, and cluster-wide list would expose them to every
+  # Backstage user with kubernetes.resources.read.
+  - apiGroups: [kustomize.toolkit.fluxcd.io]
+    resources:
+      - kustomizations
+    verbs: [get, list, watch]
+  - apiGroups: [source.toolkit.fluxcd.io]
+    resources:
+      - gitrepositories
+      - helmrepositories
+      - ocirepositories
+    verbs: [get, list, watch]
+  - apiGroups: [image.toolkit.fluxcd.io]
+    resources:
+      - imagepolicies
+      - imagerepositories
+    verbs: [get, list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
