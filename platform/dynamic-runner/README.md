@@ -1,19 +1,22 @@
 # Gitea dynamic runner
 
-本目录部署单副本 Go controller，在同一进程运行 RunnerService scheduler、原生
-Kubernetes worker、OpenSandbox worker 和 SPIFFE mTLS facade：
+本目录部署单副本 Go controller，在同一进程运行原生 Kubernetes worker、OpenSandbox
+worker 和 SPIFFE mTLS facade。两个 worker 各自是一个 Gitea runner 池的成员
+（`TASK_SOURCE=gitea`）：`pod-laptop` 与 sandbox 的 `pod-sandbox` 声明相同 label，
+组成 pod 池；`vm` 组成 vm 池。每个成员只在本地容量池有空位时用自己的 registration
+`FetchTask`，Gitea 在池内分发：
 
 ```text
-Gitea RunnerService -> scheduler -> JetStream ci.runner.container.kubernetes
-                                      |
-                                      v
-                              homelab Kubernetes Pod
-                                      |
-                         SPIFFE mTLS RunnerService facade
-                                      |
-                                      v
-                                     Gitea
+Gitea ──FetchTask(pod-laptop)──▶ homelab executor Pod ─┐
+      ──FetchTask(vm)─────────▶ OpenSandbox VM ────────┤
+                                                       ▼
+                                 SPIFFE mTLS RunnerService facade ──▶ Gitea
 ```
+
+注册：gitea-dynamic-runner `scripts/register-runner`，凭据位于
+`kv/k8s/dynamic-runner-pod-laptop` 与 `kv/k8s/dynamic-runner-vm`。scheduler、NATS 与
+Lease 相关配置在迁移清理步骤前保留以便回滚（见 gitea-dynamic-runner
+`docs/runner-registration-migration.md`）。
 
 `container+kubernetes` placement 不经过 OpenSandbox；`vm+opensandbox` placement
 访问 VyOS 暴露的
@@ -22,16 +25,13 @@ OpenSandbox chart 所有权边界。
 
 ## Canary 安全边界
 
-- Deployment 为单副本并使用 `Recreate`：worker 的 claim 与容量池都在进程内，滚动
-  重叠时新实例会把旧实例尚未交接完的 executor 恢复成自己的而双双卡死
-  （2026-10-04）。worker 退出时会删除尚未交接的 executor 并把 assignment 交回队列。
-  重启间隙 facade 短暂不可用，runner 的上报会重试。scheduler 仍通过 Kubernetes
-  Lease 保持单 leader。
-- scheduler 使用一个 runner registration，并按总容量启动并发 `FetchTask` goroutine；
-  `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制本实例两个 backend admission pool。
-  worker 只在池有空位时从共享 durable consumer 拉取 assignment，池满时 assignment
-  保持 JetStream pending、留给其他 worker；任一 backend 不占用另一方的执行槽位，
-  也不会创建超出容量的 workload。
+- Deployment 为单副本并使用 `Recreate`：worker 的 claim 与容量池都在进程内，不能
+  有两个实例同时持有同一个 registration。worker 退出时删除尚未交接完的 executor，
+  并把这些 task 报为失败供 rerun（Gitea 不能收回已领取的 task）。重启间隙 facade
+  短暂不可用，runner 的上报会重试。
+- `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制两个 backend admission pool；满载时
+  worker 不领取，task 在 Gitea 显示为等待，由池内其他成员领取。任一 backend 不占用
+  另一方的执行槽位，也不会创建超出容量的 workload。
 - executor 身份的 SPIRE parent 由 `SPIRE_CLUSTER` 与 Pod 所在节点 UID 推导，
   controller 因此需要 `nodes get`。
 - controller 重启后通过 backend metadata 恢复已被认领的 executor 的 claim 并继续
