@@ -29,6 +29,7 @@ env:
     infrastructure/cloudflared/terraform
     infrastructure/incus/terraform
     apps/nexus/terraform
+    apps/seaweedfs/terraform
 
 jobs:
   validate:

@@ -10,6 +10,7 @@
 | `values.yaml` | Helm values for the official SeaweedFS chart（经 ConfigMap `seaweedfs-values` 注入 HelmRelease）。 |
 | `helmrelease.yaml` / `helmrepository.yaml` | Flux HelmRelease，固定 chart 版本；chart 版本同时决定镜像版本。 |
 | `httproute-s3.yaml` | `s3.ad.ddupan.top` 入口。 |
+| `terraform/` | bucket 与 IAM（用户 / access key / policy）经 AWS provider 直连 SeaweedFS。 |
 | `helm.sh` | 仅 break-glass：Flux 不可用时手工 upgrade，版本须与 HelmRelease 一致。 |
 
 **Install**
@@ -67,3 +68,17 @@ OIDC/STS；SPIRE 认证发生在 zot 的客户端入口。
 `kv/k8s/techdocs-s3-publisher` 与 `kv/k8s/techdocs-s3-reader`，由同一个
 ExternalSecret 模板追加到服务端配置。bucket 需一次性创建：
 `weed shell` 中执行 `s3.bucket.create -name techdocs`。
+
+## Terraform（bucket / IAM）
+
+S3 管理不进 Ayatori，由 `terraform/` 经 AWS provider 直接调用 SeaweedFS 的 S3 与内嵌
+IAM API（同一端点 `https://s3.ad.ddupan.top`）。已接入 CI（`TF_ROOTS`），合并即 apply。
+
+- provider 身份是静态 `s3-admin`（Admin），只存在 `kv/k8s/seaweedfs-s3`，TF 用 vault
+  provider 读取；backend 仍用 `terraform` 受限身份。本地运行：
+  `python3 .gitea/scripts/tf.py run apps/seaweedfs/terraform plan`（需 `BAO_TOKEN`）。
+- filer 开启 `-s3.iam.readOnly=false`。动态身份存于 filer `/etc/iam/identities/` 与
+  `/etc/iam/policies.json`，与静态文件合并生效；备份依赖 filer 元数据。
+- **TF 管理的用户名不得与静态身份重名**：对静态身份的 IAM 写操作静默成功但不生效。
+- `aws_iam_user` 需要 SeaweedFS >= 4.48（更早版本 GetUser 不返回 Arn）。
+- 现有 bucket 以 `import` 纳管并 `prevent_destroy`。新 bucket 加到 `local.buckets`。
