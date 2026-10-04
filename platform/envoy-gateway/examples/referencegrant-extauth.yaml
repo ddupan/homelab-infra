@@ -1,3 +1,6 @@
+# EXAMPLE, not applied (no kustomization lists it). Extracted from apps/netbox when
+# NetBox was retired 2026-10-04; it was the only forward-auth consumer. Copy it for the
+# next app behind Authelia, renaming namespace/route/selectors.
 # Lets SecurityPolicy objects in other namespaces send ext-authz requests to the
 # Authelia Service. Gateway API forbids cross-namespace backend references unless the
 # TARGET namespace grants them — this is that grant, and it lives here because the
@@ -14,7 +17,7 @@ spec:
   from:
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
-      namespace: netbox          # ../netbox/securitypolicy.yaml
+      namespace: <app-namespace> # the SecurityPolicy's namespace
   to:
     # Unnamed => any Service in this namespace. Only `authelia` exists here, and
     # naming it would break on a chart-driven rename.

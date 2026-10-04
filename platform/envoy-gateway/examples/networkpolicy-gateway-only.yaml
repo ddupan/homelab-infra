@@ -1,3 +1,6 @@
+# EXAMPLE, not applied (no kustomization lists it). Extracted from apps/netbox when
+# NetBox was retired 2026-10-04; it was the only forward-auth consumer. Copy it for the
+# next app behind Authelia, renaming namespace/route/selectors.
 # Half of the trust boundary for header-based auth (the other half is Envoy
 # overriding client-supplied Remote-* headers — see securitypolicy.yaml).
 #

@@ -1,8 +1,11 @@
+# EXAMPLE, not applied (no kustomization lists it). Extracted from apps/netbox when
+# NetBox was retired 2026-10-04; it was the only forward-auth consumer. Copy it for the
+# next app behind Authelia, renaming namespace/route/selectors.
 # Authelia forward-auth in front of NetBox, enforced at the gateway.
 #
 # This is what makes AD-group -> NetBox-role mapping possible at all: NetBox has no
 # SSO group mapping, but it does have header-based group sync, and this supplies the
-# headers from a source the app can trust (see netbox/values.yaml remoteAuth).
+# headers from a source the app can trust (NetBox's remoteAuth; see the git history of apps/netbox/values.yaml).
 #
 # Flow: browser -> Envoy -> (extAuth) Authelia -> 200 + Remote-* headers -> NetBox.
 # On 401/403 Authelia redirects to https://auth.ddupan.top and back.
@@ -26,7 +29,7 @@ spec:
     http:
       backendRefs:
         - name: authelia
-          namespace: authelia      # allowed by ../authelia/referencegrant-extauth.yaml
+          namespace: authelia      # allowed by referencegrant-extauth.yaml
           # The SERVICE port, not the container port. The Authelia chart publishes
           # port 80 -> targetPort http (9091); referencing 9091 here is rejected with
           # "TCP Port 9091 not found on service authelia/authelia".

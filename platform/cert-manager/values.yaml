@@ -17,7 +17,7 @@ crds:
   keep: true   # don't let an accidental uninstall garbage-collect live Certificates
 
 # Single-node k3s: one of everything, modest requests. The laptop runs the whole
-# homelab (see netbox/CONTEXT.md §6).
+# homelab (see CLAUDE.md, Environment constraints).
 replicaCount: 1
 resources:
   requests:

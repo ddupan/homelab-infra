@@ -72,31 +72,9 @@ configMap:
 
   access_control:
     default_policy: 'two_factor'   # require a second factor for every request
-    rules:
-      # ⚠ ORDER MATTERS — Authelia evaluates top-down, FIRST MATCH WINS. This bypass
-      # must precede the two_factor rule below or the API stays unreachable.
-      #
-      # WHY BYPASS: forward-auth intercepts every request, including API calls that
-      # carry a valid NetBox token — Authelia has no idea what a NetBox token is, sees
-      # no session cookie, and 302s the caller to the login portal. That breaks the
-      # entire point of a source of truth (Ansible/Terraform reading from it).
-      #
-      # This is NOT unauthenticated access: NetBox enforces its own token auth on these
-      # paths and LOGIN_REQUIRED makes an anonymous call return 403. We are choosing
-      # which authenticator guards the API — NetBox's tokens — not removing one.
-      - domain: 'netbox.ad.ddupan.top'
-        resources:
-          - '^/api/'
-          - '^/graphql/'
-        policy: 'bypass'
-
-      # Everything else on NetBox: browser traffic. default_policy would already force
-      # 2FA, but this rule additionally restricts WHO gets in — without a subject match
-      # any AD account passing 2FA would be auto-provisioned a NetBox user.
-      - domain: 'netbox.ad.ddupan.top'
-        policy: 'two_factor'
-        subject:
-          - 'group:netbox-admins'
+    # 没有按域名的规则：唯一的 forward-auth 应用 NetBox 已下线。新应用接入时在这里加
+    # 规则，模板见 platform/envoy-gateway/examples/。
+    rules: []
 
   # Second factors. Both are on by chart default; we brand them and enable passkeys.
   totp:
@@ -174,9 +152,6 @@ configMap:
             - 'email_verified'
             - 'name'
             - 'groups'
-        # NOTE: there is deliberately no `netbox` claims policy. NetBox was migrated
-        # off OIDC to forward-auth (../netbox/securitypolicy.yaml) precisely because
-        # NetBox has no SSO group->role mapping — see netbox/README.md.
         # OpenBao maps user_claim=preferred_username and groups_claim=groups onto
         # policies; inject those (Authelia returns only standard claims by default).
         openbao:

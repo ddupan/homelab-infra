@@ -10,8 +10,6 @@ data:
       - name: 'vm:{{.Matches.VM}}'
         comm: [qemu-system-x86]
         cmdline: ['-name\s+guest=(?P<VM>[^,\s]+)']
-      - name: netbox
-        cmdline: ['/opt/netbox/']
       - name: vscode
         cmdline: ['\.vscode-server/']
       - name: '{{.Comm}}'

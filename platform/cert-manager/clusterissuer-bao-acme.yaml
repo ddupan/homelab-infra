@@ -2,7 +2,7 @@
 #
 # WHEN TO PREFER THIS OVER letsencrypt:
 #   * the name must never appear in a public Certificate Transparency log
-#   * issuance/renewal must not depend on the WAN (see netbox/CONTEXT.md §6)
+#   * issuance/renewal must not depend on the WAN (see CLAUDE.md, Environment constraints)
 #   * it is a non-web service (LDAPS, Postgres, syslog) where "browser trusts it
 #     out of the box" buys nothing and the internal CA is already distributed
 #
