@@ -12,7 +12,8 @@ Server 的 `join_token` node attestor（`../values.yaml`）。token 一次性、
 `spiffe://ddupan.top/spire/agent/join_token/<token>`，token 用掉后只是标识，可以写进 Git；
 **未使用的 token 是凭据**，不打印、不提交，过期前用掉。
 
-Agent 丢失 `/var/lib/spire-agent`（重装、重建 LXC）后无法再证明：重新生成 token、启动 Agent，
+join token 的 Agent **不能重新证明**（`Can re-attest: false`）：它用当前 SVID（约 1 小时）自行续期，
+主机停机超过 SVID 有效期，或 Agent 丢失 `/var/lib/spire-agent`（重装、重建 LXC），都无法再证明：重新生成 token、启动 Agent，
 并把新的 Agent ID 更新到所有以它为 parent 的 ClusterStaticEntry。
 
 ## 安装
@@ -33,7 +34,8 @@ kubectl -n spire-server exec spire-server-0 -c spire-server -- \
   /opt/spire/bin/spire-server token generate -ttl 600   # 输出不要贴到日志或终端记录
 ```
 
-首次以 `spire-agent run -config ... -joinToken <token>` 运行直到证明成功，停止后交给 systemd：
+首次证明不要把 token 放进命令行：从 `token generate` 的输出管道传入，写进一次性配置的
+`join_token = "${JOIN_TOKEN}"` 并以 `-expandEnv` 运行，`spire-agent healthcheck` 通过后停止，删除该配置，再交给 systemd：
 `systemctl enable --now spire-agent`。之后在 Server 上确认：
 `spire-server agent list` 中出现该 Agent，记下 Agent ID。
 

@@ -17,3 +17,4 @@ resources:
   - helmrelease.yaml
   - httproute.yaml
   - local-development-identity.yaml
+  - iam-build-ci-publish.yaml
