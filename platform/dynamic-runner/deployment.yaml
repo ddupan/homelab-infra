@@ -79,7 +79,7 @@ spec:
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
-              value: "4"
+              value: "6"
             - name: OPENSANDBOX_API
               value: http://10.60.0.13:8080
             - name: OPENSANDBOX_API_KEY_FILE
