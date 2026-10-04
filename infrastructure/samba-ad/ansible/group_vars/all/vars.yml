@@ -40,6 +40,10 @@ samba_ad_service_accounts:
   - name: svc-pve
     password: "{{ vault_pve_bind_password }}"
     description: "Proxmox VE realm bind + user/group sync (read-only)"
+  # Same value as PA_LDAP_BIND_PASSWORD in bao kv/k8s/poweradmin — rotate both.
+  - name: svc-poweradmin
+    password: "{{ vault_poweradmin_bind_password }}"
+    description: "Poweradmin LDAP bind: looks up the login user, then binds as them (read-only)"
 
 # --- Groups used for RBAC by downstream apps ---
 # NOTE: PVE renames synced groups to "<name>-<realm>", so pve-admins becomes
@@ -51,6 +55,11 @@ samba_ad_groups:
   # Gitea maps this OIDC group to site administrators through oauth2.adminGroup.
   # Keep at least one human administrator independent of the local break-glass account.
   - name: gitea-admins
+    members: [panxiao81]
+
+  # Poweradmin (apps/poweradmin) only accepts LDAP logins from direct members.
+  # Its search_filter matches this group's DN — a rename breaks every login.
+  - name: dns-admins
     members: [panxiao81]
 
   # Who may log in to AD-joined workstations (SSSD simple_allow_groups).

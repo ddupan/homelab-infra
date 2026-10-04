@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: poweradmin
+  namespace: poweradmin
+  labels:
+    app.kubernetes.io/name: poweradmin
+spec:
+  replicas: 1
+  # SQLite on an RWO volume: never two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: poweradmin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: poweradmin
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The image's www-data. As non-root the entrypoint switches itself to :8080.
+        runAsUser: 82
+        runAsGroup: 82
+        fsGroup: 82
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: poweradmin
+          # >= 4.2.5/4.3.4/4.4.0 required: earlier releases have an OIDC account-takeover bug.
+          image: poweradmin/poweradmin:4.4.1
+          env:
+            - name: DB_TYPE
+              value: sqlite
+            # Creates the local "admin" on first start only — the break-glass login
+            # for when the DC is down, and the account that adds LDAP user stubs.
+            - name: PA_CREATE_ADMIN
+              value: "1"
+            # Talk to PowerDNS only through its HTTP API, like Terraform and
+            # external-dns. pdns's allow-from admits the k3s pod CIDR.
+            - name: PA_DNS_BACKEND
+              value: api
+            - name: PA_PDNS_API_URL
+              value: http://192.168.10.127:8081
+            - name: DNS_NS1
+              value: ns1.lab.ddupan.top
+            - name: DNS_HOSTMASTER
+              value: hostmaster.lab.ddupan.top
+            # LDAP login against AD. 4.4 has no auto-provisioning (4.5+): a user
+            # needs a local stub with "LDAP" ticked before they can log in; the
+            # filter then also requires direct membership of dns-admins.
+            - name: PA_LDAP_ENABLED
+              value: "true"
+            # By hostname: dc1's cert has a DNS SAN only.
+            - name: PA_LDAP_URI
+              value: ldaps://dc1.ad.ddupan.top:636
+            - name: PA_LDAP_BASE_DN
+              value: DC=ad,DC=ddupan,DC=top
+            - name: PA_LDAP_BIND_DN
+              value: CN=svc-poweradmin,CN=Users,DC=ad,DC=ddupan,DC=top
+            - name: PA_LDAP_USER_ATTRIBUTE
+              value: sAMAccountName
+            - name: PA_LDAP_SEARCH_FILTER
+              value: (memberOf=CN=dns-admins,CN=Users,DC=ad,DC=ddupan,DC=top)
+            # libldap reads this; without it LDAPS fails ("Can't contact LDAP server").
+            - name: LDAPTLS_CACERT
+              value: /etc/bao-ca/ca.pem
+            # Envoy sits in front; trust its X-Forwarded-For so lockout sees real clients.
+            - name: TRUSTED_PROXIES
+              value: 10.42.0.0/16
+          envFrom:
+            - secretRef:
+                name: poweradmin
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            # Not read-only: the entrypoint renders /app/config/settings.php and
+            # Caddy writes /var/caddy at every start.
+            readOnlyRootFilesystem: false
+          volumeMounts:
+            - name: db
+              mountPath: /db
+            - name: bao-ca
+              mountPath: /etc/bao-ca
+              readOnly: true
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: poweradmin-db
+        - name: bao-ca
+          configMap:
+            name: bao-ca
