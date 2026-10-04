@@ -1,0 +1,27 @@
+# Cert for the PUBLIC iam-login issuer hostname, so it can also be served on the LAN.
+#
+# Same reasoning as certificate-auth-ddupan.yaml: `*.ad.ddupan.top` cannot cover
+# `sso.ddupan.top`, and the issuer must be one name everywhere — the browser
+# reaches it through the Cloudflare tunnel, in-cluster RPs (Gitea) through Envoy.
+# Already public in CT via the Cloudflare edge cert, so naming it costs nothing.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: sso-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: sso-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "sso.ddupan.top"
+  dnsNames:
+    - "sso.ddupan.top"
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always

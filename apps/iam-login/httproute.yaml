@@ -1,0 +1,18 @@
+# LAN path to the issuer (in-cluster RPs, LAN browsers). The public path is the
+# Cloudflare tunnel straight to the Service; both reach the same pod and issuer.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: iam-login
+  namespace: iam-login
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-sso
+  hostnames:
+    - sso.ddupan.top
+  rules:
+    - backendRefs:
+        - name: iam-login
+          port: 8080

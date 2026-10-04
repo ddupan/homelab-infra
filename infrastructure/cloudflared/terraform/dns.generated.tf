@@ -7,3 +7,11 @@ resource "cloudflare_dns_record" "auth" {
   proxied = true
   ttl     = 1
 }
+resource "cloudflare_dns_record" "sso" {
+  zone_id = var.zone_id
+  name    = "sso.ddupan.top"
+  type    = "CNAME"
+  content = "ff392451-b0b1-45bb-964e-6d9372c3a9e3.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+}

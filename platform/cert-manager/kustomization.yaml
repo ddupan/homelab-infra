@@ -18,3 +18,4 @@ resources:
   - certificate-wildcard-ad.yaml
   - certificate-auth-ddupan.yaml
   - certificate-git-ddupan.yaml
+  - certificate-sso-ddupan.yaml

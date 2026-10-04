@@ -1,0 +1,52 @@
+# Non-secret configuration. Secrets (DB password, signing key, LDAPS truststore)
+# come from kv/k8s/iam-login via external-secret.yaml and are referenced by path/env only.
+iam:
+  ad:
+    enabled: true
+    url: ldaps://dc1.ad.ddupan.top:636
+    domain: ad.ddupan.top
+    base-dn: DC=ad,DC=ddupan,DC=top
+  webauthn:
+    enabled: true
+    # Passkeys are bound to this RP ID: changing it orphans every registered passkey.
+    rp-id: sso.ddupan.top
+    origin: https://sso.ddupan.top
+  authorization-server:
+    enabled: true
+    # The issuer is part of every RP's configuration; changing it means migrating every RP.
+    issuer: https://sso.ddupan.top
+    signing-keys:
+      - file:/run/secrets/iam/signing-key.pem
+    # Keeps the `sub` Gitea already linked through the Hydra login source, so the
+    # existing account stays linked after the cutover. Identifiers, not secrets.
+    subjects:
+      - authority: ad.ddupan.top
+        directory-id: 76525983-b44d-4264-bf16-688d0a5b8338
+        subject: human:accf99141a786663f56aa8790cd51fcc4726c9ba2e7fff460728faa344bbbb4f
+  clients:
+    admin-groups:
+      - Domain Admins
+spring:
+  datasource:
+    url: jdbc:postgresql://shared-postgresql-rw.shared-db.svc.cluster.local:5432/iam_login
+    username: iam_login
+server:
+  port: 8080
+  # TLS ends at Envoy (LAN) or Cloudflare (tunnel); both send X-Forwarded-Proto.
+  # Tomcat trusts it only from private addresses, and the NetworkPolicy admits
+  # only those two namespaces.
+  forward-headers-strategy: native
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: lax
+management:
+  # No directory service account exists to probe with; AD is checked by real logins.
+  health:
+    ldap:
+      enabled: false
+  otlp:
+    metrics:
+      export:
+        enabled: false

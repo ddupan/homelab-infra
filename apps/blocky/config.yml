@@ -65,6 +65,7 @@ customDNS:
     # BEGIN GENERATED: homelab DNS (blocky)
     git.ddupan.top: 192.168.10.127
     auth.ddupan.top: 192.168.10.127
+    sso.ddupan.top: 192.168.10.127
     obj.ddupan.top: 192.168.10.127
     # END GENERATED: homelab DNS (blocky)
 
