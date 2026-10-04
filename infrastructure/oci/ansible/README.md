@@ -230,3 +230,43 @@ preferred lifetime 14400 秒、valid lifetime 86400 秒。RIO 只包含 `fd00::/
 分别携带 `:60::/64`、`:61::/64`。三者 Router Lifetime 均为 0，PIO 为 onlink/auto，
 RIO 为 fd00::/8、180 秒，没有 DNS 或默认路由通告。`dn42-ra.yml` 复跑 changed=0。
 同一 LAN 上的临时 Linux 测试客户端自动获得地址与 RIO，无 IPv6 默认路由；测试后自动删除。
+
+## oci-arm 外部看守（`watcher.yml`）
+
+laptop 是整个 lab 的单点，同时也是监控栈所在地：它挂了，"没有告警"和"一切正常"无法区分。
+oci-arm 上跑一套独立的 Prometheus + Alertmanager + blackbox_exporter（Ubuntu 包），自己发
+Telegram，与 laptop 不共享任何组件。
+
+**dead-man**：laptop 的 vmalert 有一条永远在响的 `Watchdog`（severity none，laptop 的
+Alertmanager 把它丢进 blackhole），同时经 Tailscale 推给 `100.99.94.44:9093`。oci-arm 上
+`LabWatchdogMissing` 也永远在响，但被 Watchdog **抑制**。vmalert 给每条告警的 `endsAt` 是
+发送时间 + 4×评估间隔（约 2 分钟）；Watchdog 停止到达后抑制解除，约 2–7 分钟内发出告警。
+能发现：laptop 离线、k3s / monitoring 命名空间故障、vmalert 停止、VMSingle 查询失败
+（`vector(1)` 也要经它执行）、laptop ↔ oci-arm 的 Tailscale 中断。恢复后告警重新被抑制，
+**不会发"已恢复"**。
+
+**其余职责**：
+
+- 经 Cloudflare 从外部探测公网入口（auth / git / e5renew / obj），持续 10 分钟失败才报，
+  因为家宽本身会随机掉线。
+- 代发 laptop 告警链路自身的故障（`AlertmanagerTelegramDeliveryFailed` 等）：laptop →
+  Telegram 坏了的时候，由 laptop 自己发等于没发。laptop 推过来的其余告警一律丢弃，避免重复。
+
+**暴露面**：Prometheus、blackbox 只听 `127.0.0.1`；Alertmanager 只听 Tailscale 地址，
+gossip 端口（默认 `0.0.0.0:9094`）显式关闭。开机时 tailscale0 还没地址会绑定失败，
+drop-in 让它排在 tailscaled 之后并无限重试，不退回到 `0.0.0.0`。
+
+**执行**（需要 `hvac`，见 CLAUDE.md 的 uv 安装命令）：Telegram token 从 Bao
+`kv/k8s/alertmanager` 读取，控制机上要有 `VAULT_TOKEN`（SPIFFE `local-development` 角色可读）。
+
+```bash
+cd infrastructure/oci/ansible
+export SSH_AUTH_SOCK="$(gpgconf --list-dirs agent-ssh-socket)"
+VAULT_TOKEN=... ansible-playbook watcher.yml --check --diff
+VAULT_TOKEN=... ansible-playbook watcher.yml
+```
+
+⚠ **顺序**：先合并 laptop 侧（Watchdog 规则 + vmalert 第二个 notifier），再部署 oci-arm；
+反过来 `LabWatchdogMissing` 会立刻发到生产频道（2026-10-04 首次部署就这样发了一条）。
+维护 laptop 监控栈期间，在 oci-arm 上 `amtool --alertmanager.url=http://100.99.94.44:9093
+silence add alertname=LabWatchdogMissing` 临时静默。

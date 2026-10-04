@@ -1,0 +1,7 @@
+---
+# oci-arm 外部看守。需要控制机上有 VAULT_TOKEN（读 kv/k8s/alertmanager），见 README。
+- name: 在 oci-arm 上部署 lab 外部看守
+  hosts: oci_arm
+  become: true
+  roles:
+    - outside_watcher

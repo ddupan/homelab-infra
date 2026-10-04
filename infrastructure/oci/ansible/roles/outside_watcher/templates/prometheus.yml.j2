@@ -1,0 +1,44 @@
+# {{ ansible_managed }}
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  # 区分来源：从 laptop 推过来的告警没有这个标签，Alertmanager 路由靠它分流。
+  external_labels:
+    watcher: oci-arm
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['{{ watcher_listen_ip }}:9093']
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['{{ watcher_listen_ip }}:9093']
+  - job_name: blackbox
+    static_configs:
+      - targets: ['127.0.0.1:9115']
+{% for module in watcher_public_probes | map(attribute='module') | unique %}
+  - job_name: public-{{ module }}
+    metrics_path: /probe
+    params:
+      module: [{{ module }}]
+    static_configs:
+      - targets:
+{% for probe in watcher_public_probes if probe.module == module %}
+          - {{ probe.url }}
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+{% endfor %}

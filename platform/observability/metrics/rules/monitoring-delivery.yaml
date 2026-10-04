@@ -10,6 +10,18 @@ spec:
   - name: monitoring-delivery
     interval: 30s
     rules:
+    # dead-man 心跳：永远在响。laptop 的 Alertmanager 按 severity 路由，none 落到 blackhole；
+    # vmalert 同时推给 oci-arm 的外部 Alertmanager，在那里抑制 LabWatchdogMissing。
+    # 它停止到达就说明本栈（主机/k3s/vmalert/VMSingle/Tailscale）出了问题，见
+    # infrastructure/oci/ansible/roles/outside_watcher。vector(1) 也要经 VMSingle 执行，
+    # 所以"规则执行全部失败"同样会被发现。
+    - alert: Watchdog
+      expr: vector(1)
+      labels:
+        severity: none
+      annotations:
+        summary: 告警链路心跳，永远在响
+        description: 由 oci-arm 外部看守消费；不要静默或删除，否则会触发 LabWatchdogMissing。
     - alert: KubeStateMetricsUnavailable
       expr: up{job="kube-state-metrics"} == 0 or absent(up{job="kube-state-metrics"})
       for: 5m

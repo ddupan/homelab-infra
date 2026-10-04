@@ -40,12 +40,15 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 ## Tooling
 
 - Python CLIs via **uv**. Ansible specifically:
-  `uv tool install ansible-core --with ansible --with paramiko --with pywinrm`
+  `uv tool install ansible-core --with ansible --with paramiko --with pywinrm --with hvac`
   ⚠️ `uv tool install ansible` alone exposes only `ansible-community`, **not** `ansible-playbook`.
   ⚠️ `pywinrm` is not optional if you touch `windows_admin` hosts — without it every
   `ansible.windows.*` task dies with "No module named 'winrm'". It was missing from the
   installed env on 2026-07-26 because this line used to omit it. (`requests-ntlm`, needed
   for the inventory's `ntlm` transport, comes in transitively with pywinrm.)
+  ⚠ `hvac` likewise: `community.hashi_vault` lookups (Bao secrets in plays, e.g.
+  `infrastructure/oci/ansible/watcher.yml`) fail with a `no_log`-censored error without it.
+  Added 2026-10-04.
 - `deb822_repository` is **`ansible.builtin`**, not `community.general`.
 - Network devices (VyOS) use `ansible.netcommon.network_cli`, not ssh/python — they have no
   Python interpreter. Prefer `vyos_config` with explicit `set` lines over the collection's

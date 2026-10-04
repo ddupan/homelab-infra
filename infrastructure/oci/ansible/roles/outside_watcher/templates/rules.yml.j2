@@ -1,0 +1,35 @@
+# {{ ansible_managed }}
+groups:
+  - name: outside-watcher
+    rules:
+      # dead-man：永远在响，平时被 laptop 推来的 Watchdog 抑制（见 alertmanager.yml）。
+      # Watchdog 停止到达 = laptop / k3s / vmalert / VMSingle / Tailscale 之一出了问题。
+      - alert: LabWatchdogMissing
+        expr: vector(1)
+        labels:
+          severity: critical
+        annotations:
+          summary: 收不到 laptop 监控栈的 Watchdog，lab 的告警链路可能已经全部失效
+          description: >-
+            oci-arm 超过约 2 分钟没收到 laptop vmalert 推送的 Watchdog。依次排查：laptop 是否在线、
+            k3s 与 monitoring 命名空间、VMSingle 能否查询（vmalert 规则执行失败也会停发）、
+            laptop ↔ oci-arm 的 Tailscale。恢复后本告警会重新被抑制，不会再发"已恢复"。
+      - alert: PublicEndpointDown
+        expr: probe_success{job=~"public-.*"} == 0
+        # WAN 本身就会随机掉线（flaky-wan-isp），短断不报。
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 公网入口 {{ '{{' }} $labels.instance {{ '}}' }} 从外部不可达
+          description: >-
+            经 Cloudflare 隧道从 OCI 探测失败已持续 10 分钟。先确认 lab WAN 和 cloudflared Pod，
+            再查后端服务；lab 内部能访问不代表外部能访问。
+      - alert: WatcherProbeFailing
+        expr: up{job=~"public-.*|blackbox|alertmanager"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: oci-arm 看守自身组件 {{ '{{' }} $labels.job {{ '}}' }} 不可用
+          description: 看守自身出问题时，上面的外部告警全部不可信。登录 oci-arm 查 systemctl status。

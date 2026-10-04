@@ -1,0 +1,149 @@
+---
+# oci-arm 上的外部看守：laptop 是整个 lab 的单点，同时也是监控栈所在地，它挂了就没有
+# 任何东西会报警。这里跑一套独立的 Prometheus + Alertmanager + blackbox，自己发 Telegram。
+- name: 确认 Tailscale 地址（Alertmanager 只在 tailnet 上监听）
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.tailscale0.ipv4.address is defined
+    fail_msg: oci-arm 没有 tailscale0 地址；laptop 的 vmalert 经 Tailscale 推送告警，必须先恢复 Tailscale。
+
+- name: 记录监听地址
+  ansible.builtin.set_fact:
+    watcher_listen_ip: "{{ ansible_facts.tailscale0.ipv4.address }}"
+
+- name: 从 Bao 读取 Telegram bot token（控制机上执行，需要 VAULT_TOKEN）
+  ansible.builtin.set_fact:
+    watcher_telegram_bot_token: >-
+      {{ lookup('community.hashi_vault.vault_kv2_get', watcher_bao_path,
+                engine_mount_point=watcher_bao_mount, url=watcher_bao_url,
+                auth_method='token').secret.telegram_bot_token }}
+  no_log: true
+
+# 不装 Recommends：prometheus 会拉 node-exporter，这台机器不需要。
+- name: 安装 Prometheus、Alertmanager、blackbox_exporter
+  ansible.builtin.apt:
+    name: [prometheus, prometheus-alertmanager, prometheus-blackbox-exporter]
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+  register: watcher_packages
+  retries: 3
+  delay: 5
+  until: watcher_packages is succeeded
+
+- name: 创建规则目录
+  ansible.builtin.file:
+    path: /etc/prometheus/rules
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: 写入 Telegram bot token
+  ansible.builtin.copy:
+    dest: /etc/prometheus/alertmanager-telegram-token
+    content: "{{ watcher_telegram_bot_token }}"
+    owner: root
+    group: prometheus
+    mode: '0640'
+  no_log: true
+  notify: 重启 Alertmanager
+
+- name: 写入 blackbox 配置
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: /etc/prometheus/blackbox.yml
+    owner: root
+    group: root
+    mode: '0644'
+    validate: prometheus-blackbox-exporter --config.check --config.file=%s
+  notify: 重启 blackbox_exporter
+
+- name: 写入看守规则
+  ansible.builtin.template:
+    src: rules.yml.j2
+    dest: /etc/prometheus/rules/watcher.yml
+    owner: root
+    group: root
+    mode: '0644'
+    validate: promtool check rules %s
+  notify: 重载 Prometheus
+
+- name: 写入 Prometheus 配置
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: root
+    mode: '0644'
+    validate: promtool check config --syntax-only %s
+  notify: 重载 Prometheus
+
+- name: 写入 Alertmanager 配置
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/prometheus/alertmanager.yml
+    owner: root
+    group: root
+    mode: '0644'
+    validate: amtool check-config %s
+  notify: 重启 Alertmanager
+
+- name: 设置监听地址与保留期
+  ansible.builtin.copy:
+    dest: "/etc/default/{{ item.name }}"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Ansible managed: infrastructure/oci/ansible/roles/outside_watcher
+      ARGS="{{ item.args }}"
+  loop:
+    - name: prometheus
+      args: --web.listen-address=127.0.0.1:9090 --storage.tsdb.retention.time=30d
+    # 只听 tailnet；--cluster.listen-address 置空，否则默认在 0.0.0.0:9094 开 gossip 端口。
+    - name: prometheus-alertmanager
+      args: --web.listen-address={{ watcher_listen_ip }}:9093 --cluster.listen-address=
+    - name: prometheus-blackbox-exporter
+      args: --web.listen-address=127.0.0.1:9115 --config.file=/etc/prometheus/blackbox.yml
+  loop_control:
+    label: "{{ item.name }}"
+  notify: 重启全部看守服务
+
+# Alertmanager 绑定 Tailscale 地址；开机时 tailscale0 还没有地址就会绑定失败，
+# 所以排在 tailscaled 之后并无限重试，而不是退回到监听 0.0.0.0。
+- name: 创建 Alertmanager drop-in 目录
+  ansible.builtin.file:
+    path: /etc/systemd/system/prometheus-alertmanager.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Alertmanager 等待 Tailscale 并持续重试
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/prometheus-alertmanager.service.d/tailscale.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      After=tailscaled.service
+      Wants=tailscaled.service
+      StartLimitIntervalSec=0
+
+      [Service]
+      Restart=always
+      RestartSec=10s
+  notify: 重启 Alertmanager
+
+- name: 启动看守服务
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: [prometheus, prometheus-alertmanager, prometheus-blackbox-exporter]
+  # 首次 --check 时包并没有真的装上，unit 不存在。
+  when: not (ansible_check_mode and watcher_packages is changed)
