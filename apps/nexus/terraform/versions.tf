@@ -18,12 +18,14 @@ provider "sonatyperepo" {
 variable "nexus_url" {
   description = "Nexus Repository base URL"
   type        = string
+  default     = "https://nexus.ad.ddupan.top"
 }
 
 variable "nexus_username" {
   description = "Nexus Terraform management username"
   type        = string
   sensitive   = true
+  default     = "admin"
 }
 
 variable "nexus_password" {
