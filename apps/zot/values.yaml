@@ -103,6 +103,22 @@ configFiles:
                 "read"
               ]
             },
+            "panxiao81/ayatori-manager": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/ayatori/publish-image"
+                  ],
+                  "actions": [
+                    "read",
+                    "create"
+                  ]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
             "panxiao81/gitea-dynamic-runner-controller": {
               "policies": [
                 {

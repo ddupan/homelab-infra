@@ -1,0 +1,5 @@
+# prod 部署的 Ayatori release；promotion 只把 prod 改为 dev 已验收的 tag。
+collections:
+  - name: git+https://git.ddupan.top/panxiao81/ayatori.git#/deploy/ansible
+    type: git
+    version: v0.1.0
