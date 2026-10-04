@@ -18,3 +18,4 @@ resources:
   - apps/zot.yaml
   - apps/nexus.yaml
   - apps/hydra.yaml
+  - apps/netbox.yaml
