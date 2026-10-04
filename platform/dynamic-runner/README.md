@@ -22,9 +22,11 @@ OpenSandbox chart 所有权边界。
 
 ## Canary 安全边界
 
-- Deployment 为单副本，滚动策略固定 `maxSurge: 1`、`maxUnavailable: 0`，保证新
-  facade Ready 后才终止旧实例。scheduler 必须通过 Kubernetes Lease 保持单 leader，
-  不能依赖 Recreate 避免重复领取。
+- Deployment 为单副本并使用 `Recreate`：worker 的 claim 与容量池都在进程内，滚动
+  重叠时新实例会把旧实例尚未交接完的 executor 恢复成自己的而双双卡死
+  （2026-10-04）。worker 退出时会删除尚未交接的 executor 并把 assignment 交回队列。
+  重启间隙 facade 短暂不可用，runner 的上报会重试。scheduler 仍通过 Kubernetes
+  Lease 保持单 leader。
 - scheduler 使用一个 runner registration，并按总容量启动并发 `FetchTask` goroutine；
   `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制本实例两个 backend admission pool。
   worker 只在池有空位时从共享 durable consumer 拉取 assignment，池满时 assignment
@@ -32,8 +34,8 @@ OpenSandbox chart 所有权边界。
   也不会创建超出容量的 workload。
 - executor 身份的 SPIRE parent 由 `SPIRE_CLUSTER` 与 Pod 所在节点 UID 推导，
   controller 因此需要 `nodes get`。
-- rollout 重叠期间只有持有 `Lease/dynamic-runner-scheduler` 的 controller 执行
-  `FetchTask`；所有 Ready 实例都可通过 backend metadata 恢复 claim 并服务 facade。
+- controller 重启后通过 backend metadata 恢复已被认领的 executor 的 claim 并继续
+  服务 facade。
 - executor 镜像使用 digest；Pod 以 UID 2000 运行，SPIRE `ClusterStaticEntry` 同时绑定
   具体 Pod UID 与 `unix:uid:2000`。
 - facade 通过仅内网可路由的 `192.168.10.127:30443` NodePort 提供给 sandbox executor；
