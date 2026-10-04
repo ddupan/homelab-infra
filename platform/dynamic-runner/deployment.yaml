@@ -5,11 +5,12 @@ metadata:
   namespace: dynamic-runner
 spec:
   replicas: 1
+  # Recreate: the worker's claims and capacity live in one process. During a
+  # rolling overlap the new instance restored the old one's half-created
+  # executors as its own and both stalled (2026-10-04). On shutdown the worker
+  # deletes executors it has not handed off and returns them to the queue.
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: dynamic-runner-controller
@@ -38,7 +39,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:e5b3570c18d755d9dccb40033bda91322659f6b1dfcd16d910630aa4448593b9
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:2f36750957f9c00754d5e081aeb1ea0e48d9d86901eb106ac44fd9d21ec9a37a
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
