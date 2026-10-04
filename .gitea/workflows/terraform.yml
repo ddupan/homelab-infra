@@ -21,7 +21,8 @@ on:
 env:
   # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd 与
   # shared-postgresql。未接入的缺前置条件：nexus 仍是本地 state，smtp-relay 没有
-  # Azure SP，oci 需要 OCI API key 与独立 backend 凭据；netbox 计划下线，不接入。
+  # Azure SP，oci 需要 OCI API key 与独立 backend 凭据；netbox 计划下线，不接入；
+  # incus 只能经 laptop 本机 Unix socket 访问，runner 连不到。
   TF_ROOTS: >-
     infrastructure/openbao/terraform
     infrastructure/etcd/terraform
