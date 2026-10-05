@@ -64,7 +64,7 @@ openbao_pki_mount: "pki"
 openbao_pki_ca_cn: "ddupan.top Internal CA"
 openbao_pki_max_lease_ttl: "87600h"        # 10y
 openbao_pki_server_role: "bao-server"
-openbao_pki_allowed_domains: "ad.ddupan.top"
+openbao_pki_allowed_domains: "ad.ddupan.top,lab.ddupan.top"   # comma list; keep in step with terraform/pki.tf
 # GATED: issue bao's own listener cert from this PKI and restart. Off by default so
 # bootstrap never risks the listener. Clients must then trust the PKI CA (printed out).
 openbao_pki_replace_listener_cert: false

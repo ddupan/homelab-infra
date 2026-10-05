@@ -37,7 +37,7 @@ SPIFFE CR status/finalizer 和 leader election。它不复用只允许 TokenRevi
 reviewer。Ansible 将两份 kubeconfig 写入同一个 central Secret 的不同 key，便于 central
 chart 分别绑定 `sandbox` 与 `sandbox-controller`。
 
-Central SPIRE Server 通过内网 `spire-server.ad.ddupan.top:8081` 接收 sandbox Agent
+Central SPIRE Server 通过内网 `spire-server.lab.ddupan.top:8081` 接收 sandbox Agent
 attestation。Server 使用 external bundle publisher 持续维护 sandbox
 `spire-system/spire-bundle`，Agent 不固定或复制 trust bundle。Sandbox HelmRelease
 显式关闭 Server 与 OIDC Provider，只部署 Agent DaemonSet 和 SPIFFE CSI Driver；因此

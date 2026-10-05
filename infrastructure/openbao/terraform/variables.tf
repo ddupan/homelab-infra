@@ -24,7 +24,7 @@ variable "acme_role" {
   default     = "bao-server"
   description = <<-EOT
     Role that constrains ACME issuance. Its allowed_domains cap what any ACME
-    client can obtain — currently ad.ddupan.top with subdomains, IP SANs allowed.
+    client can obtain — currently ad.ddupan.top and lab.ddupan.top with subdomains, IP SANs allowed.
     NEVER leave the policy as sign-verbatim; that would let ACME issue any name.
   EOT
 }

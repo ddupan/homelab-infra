@@ -4,7 +4,9 @@ resource "vault_pki_secret_backend_role" "bao_server" {
   backend = vault_mount.pki.path
   name    = "bao-server"
 
-  allowed_domains    = ["ad.ddupan.top"]
+  # lab.ddupan.top: services moving off the AD zone (infrastructure/dns/README.md).
+  # ad stays: dc1's LDAPS and the PVE node certs are issued for ad names.
+  allowed_domains    = ["ad.ddupan.top", "lab.ddupan.top"]
   allow_subdomains   = true
   allow_bare_domains = false
   allow_glob_domains = false
