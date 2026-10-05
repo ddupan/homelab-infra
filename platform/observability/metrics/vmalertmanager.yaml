@@ -33,13 +33,13 @@ spec:
           - alertname="KubePodCrashLooping"
         target_matchers:
           - alertname="KubePodFrequentRestarts"
-        equal: [namespace, pod, container]
+        equal: [cluster, namespace, pod, container]
       # 快速重启已由 CrashLooping/FrequentRestarts 通知，慢速累计告警不再重复发。
       - source_matchers:
           - alertname=~"KubePodCrashLooping|KubePodFrequentRestarts"
         target_matchers:
           - alertname="KubePodRestartsAccumulating"
-        equal: [namespace, pod, container]
+        equal: [cluster, namespace, pod, container]
     receivers:
       - name: blackhole
       - name: telegram

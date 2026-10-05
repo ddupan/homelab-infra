@@ -14,3 +14,8 @@ vmagent 为所有远端样本增加 `cluster=sandbox`，并通过仅允许
 `POST /api/v1/write` 的 `metrics-write.ad.ddupan.top` 路由写入 homelab VMSingle。
 Operator 与 workload 拆成两个 Flux Kustomization，确保 VM CRD Ready 后再创建
 VMAgent、VMNodeScrape 和 VMServiceScrape。
+
+KSM 的 VMServiceScrape endpoint 必须设置 `honorLabels: true`，保留被观测对象的
+`namespace/pod/container`；否则它们会变成 `exported_*`，告警会把其他 workload
+的重启算到 KSM。中央 Kubernetes 健康规则按 `cluster` 隔离聚合与匹配，
+并排除 `exported_namespace` 非空的旧冲突样本，防止 24 小时窗口持续误报。
