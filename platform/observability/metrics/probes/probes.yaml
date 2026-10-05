@@ -1,0 +1,143 @@
+# Envoy 后每个服务域名的健康端点（COVERAGE B2）+ Bao（B7，按主机名验证 LE 证书）。
+# 从 Pod 发起：CoreDNS 解析 → 192.168.10.127 → Envoy → 后端，整条链路一起验证。
+# metrics-write 只匹配 POST /api/v1/write，GET 探不到；它由 vmagent-sandbox 的 remote write 告警覆盖。
+# 新增 HTTPRoute 时在这里加一行。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: lan-https
+  namespace: monitoring
+spec:
+  jobName: probe-lan-https
+  module: http_2xx
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: lan
+      targets:
+        - https://auth.ddupan.top/api/health
+        - https://backstage.ad.ddupan.top/.backstage/health/v1/readiness
+        - https://git.ddupan.top/api/healthz
+        - https://hydra.ad.ddupan.top/health/ready
+        - https://hydra-login.ad.ddupan.top/healthz
+        - https://incus.ad.ddupan.top/1.0
+        # iam-login 的总 /actuator/health 因 LDAP 指向 localhost:389 常年 503（应用自身配置问题），
+        # 这里探 readiness；LDAP 修好后可改回总端点。
+        - https://sso.ddupan.top/actuator/health/readiness
+        - https://grafana.ad.ddupan.top/api/health
+        - https://nexus.ad.ddupan.top/service/rest/v1/status
+        - https://dns.ad.ddupan.top/login
+        - https://s3.ad.ddupan.top/status
+        - https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration
+        - https://zot.ad.ddupan.top/v2/
+        - https://bao.ad.ddupan.top:8200/v1/sys/health
+---
+# 要求认证的端点：401 由后端返回，证明路由和后端都在。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: lan-https-auth
+  namespace: monitoring
+spec:
+  jobName: probe-lan-https-auth
+  module: http_401
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: lan
+      targets:
+        - https://zot-push.ad.ddupan.top/v2/
+---
+# COVERAGE B4：dc1 直连、CoreDNS（ad.ddupan.top 转发到 dc1）、Blocky 三条解析路径。
+# 内部解析绝不能依赖 WAN（CLAUDE.md）。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: dns-dc1
+  namespace: monitoring
+spec:
+  jobName: probe-dns-dc1
+  module: dns_dc1
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: dns
+      targets:
+        - 192.168.10.5:53
+        - 10.43.0.10:53
+        - 192.168.10.127:53
+---
+# split-horizon：git.ddupan.top 在 Blocky 和 CoreDNS 都要解析到 Envoy（infrastructure/dns/records.yml）。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: dns-split-horizon
+  namespace: monitoring
+spec:
+  jobName: probe-dns-split-horizon
+  module: dns_split_horizon
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: dns
+      targets:
+        - 192.168.10.127:53
+        - 10.43.0.10:53
+---
+# COVERAGE B6：外网出口。两个都不在 tun0 路由内，用来区分"WAN 断了"和"VPN 断了"。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: egress
+  namespace: monitoring
+spec:
+  jobName: probe-egress
+  module: http_egress
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: egress
+      targets:
+        - https://github.com/
+        - https://www.cloudflare.com/cdn-cgi/trace
+---
+# COVERAGE B5：www.naist.jp（163.221.8.230）落在 openvpn-client@naist 接受的 163.221.0.0/16 路由里。
+# 隧道死了 systemd 仍报 active、路由仍在，发往 NAIST 的流量全部黑洞；从外部（oci-arm）访问正常。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
+metadata:
+  name: naist-vpn
+  namespace: monitoring
+spec:
+  jobName: probe-naist-vpn
+  module: http_egress
+  interval: 60s
+  scrapeTimeout: 15s
+  vmProberSpec:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: vpn
+      targets:
+        - https://www.naist.jp/

@@ -1,0 +1,116 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 内网入口持续失败触发，短暂失败不触发
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-lan-https",instance="https://git.ddupan.top/api/healthz",probe_group="lan"}
+    values: 0x10
+  - series: probe_success{job="probe-lan-https",instance="https://grafana.ad.ddupan.top/api/health",probe_group="lan"}
+    values: 0 0 1x8
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: LanEndpointDown
+    exp_alerts:
+    - exp_labels:
+        job: probe-lan-https
+        instance: https://git.ddupan.top/api/healthz
+        probe_group: lan
+        severity: warning
+      exp_annotations:
+        summary: 内网入口 https://git.ddupan.top/api/healthz 探测失败
+        description: >-
+          从集群内经 CoreDNS → Envoy 访问失败。probe_http_status_code 看返回码：502/503 是后端，
+          404 多半是 HTTPRoute 丢了，0 是 DNS/连接/证书。同时有多个入口失败时先查 Envoy 和 DNS。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: DNS 失败三分钟即为 critical
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-dns-dc1",instance="192.168.10.5:53",probe_group="dns"}
+    values: 0x6
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DnsResolutionFailing
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: DnsResolutionFailing
+    exp_alerts:
+    - exp_labels:
+        job: probe-dns-dc1
+        instance: 192.168.10.5:53
+        probe_group: dns
+        severity: critical
+      exp_annotations:
+        summary: DNS 192.168.10.5:53 解析 probe-dns-dc1 失败
+        description: >-
+          192.168.10.5 = dc1（libvirt VM）、10.43.0.10 = CoreDNS、192.168.10.127 = Blocky。
+          只有 CoreDNS 失败查 coredns Pod；三个都失败先查 dc1 是否在线。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 出口正常、NAIST 不通 → VPN 告警；出口也断 → 只报 WAN
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-naist-vpn",instance="https://www.naist.jp/",probe_group="vpn"}
+    values: 0x40
+  # 前 20 分钟出口正常，之后全断
+  - series: probe_success{job="probe-egress",instance="https://github.com/",probe_group="egress"}
+    values: 1x20 0x20
+  - series: probe_success{job="probe-egress",instance="https://www.cloudflare.com/cdn-cgi/trace",probe_group="egress"}
+    values: 1x20 0x20
+  alert_rule_test:
+  - eval_time: 18m
+    alertname: NaistVpnDown
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: NAIST VPN 隧道不通（出口正常，www.naist.jp 经 tun0 不可达）
+        description: >-
+          journalctl -u openvpn-client@naist 看是否反复 "TLS key negotiation failed"。
+          163.221.0.0/16 仍指向 tun0，NAIST 网段（包括其公网站点）在隧道恢复前都不可达。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 18m
+    alertname: WanEgressDown
+    exp_alerts: []
+  - eval_time: 35m
+    alertname: NaistVpnDown
+    exp_alerts: []
+  - eval_time: 35m
+    alertname: WanEgressDown
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: 集群出口完全不通（github.com 与 Cloudflare 均失败）
+        description: >-
+          持续 10 分钟。先从第二台主机（ssh root@192.168.10.4）复测，排除只是 laptop 的问题；
+          WAN 掉线不可修，等待恢复。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 单个出口失败不算 WAN 断
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-egress",instance="https://github.com/",probe_group="egress"}
+    values: 0x20
+  - series: probe_success{job="probe-egress",instance="https://www.cloudflare.com/cdn-cgi/trace",probe_group="egress"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: WanEgressDown
+    exp_alerts: []
+- name: 探测抓取失败
+  interval: 1m
+  input_series:
+  - series: up{job="probe-dns-dc1",instance="192.168.10.5:53"}
+    values: 0x10
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: BlackboxProbeScrapeFailing
+    exp_alerts:
+    - exp_labels:
+        job: probe-dns-dc1
+        instance: 192.168.10.5:53
+        severity: warning
+      exp_annotations:
+        summary: 黑盒探测 probe-dns-dc1 无法抓取
+        description: blackbox-exporter 不可达时以上所有探测告警都不会触发；查 monitoring/blackbox-exporter Pod。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
