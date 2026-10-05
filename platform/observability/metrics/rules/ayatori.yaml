@@ -1,0 +1,184 @@
+# Ayatori Dev/Prod 控制面告警：Prod 的可用性规则为 critical，其余与 Dev 为 warning。
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ayatori
+  namespace: monitoring
+spec:
+  groups:
+    - name: ayatori
+      interval: 30s
+      rules:
+        - alert: AyatoriTargetDown
+          expr: up{job=~"ayatori-.*",cluster="ayatori-prod"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 的 {{ $labels.job }} 不可采集
+            description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriTargetAbsent
+          expr: absent(up{job="ayatori-node",cluster="ayatori-prod"})
+          for: 10m
+          labels:
+            severity: critical
+            cluster: ayatori-prod
+          annotations:
+            summary: Ayatori ayatori-prod 主机指标缺失
+            description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriServiceInactive
+          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",state="active",name!="ayatori-backup.service"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 服务 {{ $labels.name }} 未运行
+            description: journalctl -u {{ $labels.name }}；quadlet 服务查 podman 拉取与 kubeconfig。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriInstanceNotReady
+          expr: ayatori_resource_info{job="ayatori-kube-state-metrics",cluster="ayatori-prod",customresource_kind="PostgreSQLInstance",ready!="True"}
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Instance {{ $labels.name }} 未就绪（{{ $labels.reason }}）
+            description: 查 Instance Conditions、管理 Secret 同步与 PostgreSQL 连通性。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriTargetDown
+          expr: up{job=~"ayatori-.*",cluster="ayatori-dev"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 的 {{ $labels.job }} 不可采集
+            description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriTargetAbsent
+          expr: absent(up{job="ayatori-node",cluster="ayatori-dev"})
+          for: 10m
+          labels:
+            severity: warning
+            cluster: ayatori-dev
+          annotations:
+            summary: Ayatori ayatori-dev 主机指标缺失
+            description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriServiceInactive
+          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-dev",state="active",name!="ayatori-backup.service"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 服务 {{ $labels.name }} 未运行
+            description: journalctl -u {{ $labels.name }}；quadlet 服务查 podman 拉取与 kubeconfig。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriInstanceNotReady
+          expr: ayatori_resource_info{job="ayatori-kube-state-metrics",cluster="ayatori-dev",customresource_kind="PostgreSQLInstance",ready!="True"}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Instance {{ $labels.name }} 未就绪（{{ $labels.reason }}）
+            description: 查 Instance Conditions、管理 Secret 同步与 PostgreSQL 连通性。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriBackupFailed
+          expr: node_systemd_unit_state{job="ayatori-node",name="ayatori-backup.service",state="failed"} == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} k0s 备份失败
+            description: journalctl -u ayatori-backup.service；确认备份卷已挂载且有空间。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriBackupStale
+          expr: time() - ayatori_backup_last_success_timestamp_seconds{job="ayatori-node"} > 36 * 3600
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 超过 36 小时没有成功备份
+            description: 检查 ayatori-backup.timer 是否排程、最近一次运行结果。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriBackupMetricMissing
+          expr: up{job="ayatori-node"} == 1 unless on (cluster) ayatori_backup_last_success_timestamp_seconds{job="ayatori-node"}
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 没有备份成功记录
+            description: 备份从未成功或 textfile 未写入；手动 systemctl start ayatori-backup.service 后核对。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriFilesystemLow
+          expr: node_filesystem_avail_bytes{job="ayatori-node"} / node_filesystem_size_bytes{job="ayatori-node"} < 0.15
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.mountpoint }} 剩余空间不足 15%
+            description: 根分区查 podman 镜像与 k0s 数据；备份卷查保留份数。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriMemoryHigh
+          expr: 1 - node_memory_MemAvailable_bytes{job="ayatori-node"} / node_memory_MemTotal_bytes{job="ayatori-node"} > 0.9
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 内存使用超过 90%
+            description: LXC 限额 2 GiB；查各服务 MemoryMax 与 RSS。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriFluxNotReady
+          expr: gotk_resource_info{job="ayatori-kube-state-metrics",ready!="True",suspended!="true"}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Flux {{ $labels.customresource_kind }} {{ $labels.name }} 未就绪
+            description: k0s kubectl -n flux-system describe 对应对象；gitops 目录中出现不允许的对象会使整个同步失败。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriSecretSyncFailed
+          expr: ayatori_eso_resource_info{job="ayatori-kube-state-metrics",ready!="True"}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.customresource_kind }} {{ $labels.name }} 未就绪（{{ $labels.reason }}）
+            description: 查 ESO 日志与 OpenBao kubernetes-ayatori-<env> 登录；修复后可加 force-sync 注解。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriDatabaseConflict
+          expr: ayatori_resource_info{job="ayatori-kube-state-metrics",customresource_kind="PostgreSQLDatabase",resource_phase="Conflict"}
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Database {{ $labels.name }} 冲突，需要人工处理
+            description: controller 不会自动接管或扩大删除；按 Conditions 消息核对 PostgreSQL/OpenBao 中的对象。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriDatabaseUnavailable
+          expr: ayatori_resource_info{job="ayatori-kube-state-metrics",customresource_kind="PostgreSQLDatabase",resource_phase="Unavailable"}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Database {{ $labels.name }} 持续不可用
+            description: 查 Conditions 消息：后端不可达、凭据不可读或登录失败。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriTenantNotReady
+          expr: ayatori_resource_info{job="ayatori-kube-state-metrics",customresource_kind="PostgreSQLTenant",ready!="True"}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} Tenant {{ $labels.resource_namespace }}/{{ $labels.name }} 未就绪（{{ $labels.reason }}）
+            description: 查 Tenant 与其 Database 的 Conditions。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriReconcileErrors
+          expr: increase(controller_runtime_reconcile_errors_total{job="ayatori-manager"}[30m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.controller }} 持续出现 reconcile 错误
+            description: journalctl -u ayatori-manager。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
