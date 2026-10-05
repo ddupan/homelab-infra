@@ -75,3 +75,18 @@ uv run infrastructure/dns/generate.py --next-free 192.168.10.0/24
 CoreDNS split-horizon 的原因是避免集群内请求经 Cloudflare 公网绕回同一个集群。尤其 Gitea
 启动时会访问 Authelia discovery URL，公网路径故障曾令其启动失败；生成块仍返回相同 LAN A
 记录，并对 AAAA 返回 NOERROR/no-data。
+
+## 服务名迁移：`*.ad.ddupan.top` → `*.lab.ddupan.top`
+
+Samba 最终只保留 AD 自身记录。迁移期间新旧名并存：HTTPRoute 同时挂 `https` 与 `https-lab`
+两个监听器（一个监听器只有一个 hostname），lab 记录由 external-dns 自动发布；旧名的 Samba
+A 记录等所有客户端切走后再删。
+
+| 批次 | 服务 | 状态 / 还差什么 |
+|---|---|---|
+| 1 | dns、nexus、s3、metrics-write | 双名。客户端可逐个切：9 个 TF backend 的 `endpoints.s3`（需 `init -reconfigure`）、seaweedfs provider、zot `regionendpoint`、nexus TF `nexus_url`、sandbox vmagent remoteWrite（sandbox 集群须先能解析 lab） |
+| 2 | grafana、backstage | `root_url` / `BACKSTAGE_BASE_URL` 与 OIDC 回调绑定单一名字，需与 IdP 客户端注册一起切 |
+| 3 | zot、zot-push | 约 10 处镜像引用 + Flux ImageRepository + push 端 bearer realm，最后单独切 |
+| 4 | spire-oidc、bao、nats、pg-dev 等 | issuer / 证书 SAN / 非 HTTP，逐个设计 |
+
+Tailnet 客户端靠 MagicDNS split DNS `lab.ddupan.top -> 192.168.10.127`（admin console 手工配置）。
