@@ -11,8 +11,14 @@ spec:
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https
+    # lab.ddupan.top (PowerDNS); external-dns publishes the record. The ad name
+    # stays until every client has moved — see infrastructure/dns/README.md.
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
   hostnames:
     - metrics-write.ad.ddupan.top
+    - metrics-write.lab.ddupan.top
   rules:
     - matches:
         - method: POST
