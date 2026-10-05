@@ -3,7 +3,9 @@
 # source addresses embed this hostname, so it must not change.
 #
 # GET only, and every path is pinned under /terraform-registry/: other buckets (tfstate!) are not
-# reachable through this name even though the backend is the same S3 service.
+# reachable through this name even though the backend is the same S3 service. Envoy normalizes
+# dot segments and encoded slashes first (..%2f answers 307 to a path on this same host). The
+# actual boundary is the bucket policy: anonymous GetObject on this bucket only.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -27,7 +29,10 @@ spec:
           urlRewrite:
             path:
               type: ReplacePrefixMatch
-              replacePrefixMatch: /terraform-registry
+              # Trailing slash required: Envoy Gateway replaces the "/" prefix literally, so
+              # "/terraform-registry" turned /.well-known/x into /terraform-registry.well-known/x
+              # (another bucket name). Verified 2026-10-05.
+              replacePrefixMatch: /terraform-registry/
       backendRefs:
         - name: seaweedfs-s3
           port: 8333
