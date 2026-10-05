@@ -15,6 +15,15 @@ ServiceLB); routing is by `Host` header.
 2. an A record in `../../infrastructure/dns/records.yml` → `192.168.10.127`, then
    `ansible-playbook provision-dc.yml --tags dns` (`../../infrastructure/samba-ad`)
 3. **optionally** a `SecurityPolicy` for Authelia forward-auth — templates in `examples/`
+4. **a health probe**: add the service's health endpoint (one that answers `200` without a
+   redirect — not `/` if that bounces to a login page) to `lan-https` in
+   `../observability/metrics/probes/probes.yaml`. Without it, nothing notices when the route
+   or backend breaks, and `LanEndpointDown` has no target. Check it first with the in-cluster
+   blackbox:
+   `kubectl -n monitoring port-forward svc/blackbox-exporter 9115 &`
+   `curl -s 'localhost:9115/probe?module=http_2xx&target=https://<host>/<path>' | grep probe_success`.
+   **Removing** a service means deleting its probe line too, or the stale target alerts
+   (Hydra, 2026-10-05).
 
 No certificate work: the `:443` listener already serves the `*.ad.ddupan.top` wildcard
 from `../cert-manager`. The forward-auth templates in `examples/` were extracted from
