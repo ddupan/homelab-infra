@@ -101,3 +101,22 @@ tests:
         summary: Ayatori ayatori-prod 主机指标缺失
         description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: 证书 30 天内到期为 warning，7 天内为 critical
+  interval: 1m
+  input_series:
+  - series: ayatori_certificate_not_after_timestamp_seconds{job="ayatori-node",cluster="ayatori-prod",source="kubeconfig",identity="ayatori-controller"}
+    values: 1728000x200
+  - series: ayatori_certificate_not_after_timestamp_seconds{job="ayatori-node",cluster="ayatori-prod",source="k0s-pki",path="/var/lib/k0s/pki/ca.crt"}
+    values: 315360000x200
+  alert_rule_test:
+  - eval_time: 2h
+    alertname: AyatoriCertificateExpiring
+    exp_alerts:
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, source: kubeconfig, identity: ayatori-controller, severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod 证书 ayatori-controller 30 天内到期
+        description: kubeconfig 客户端证书删除 /etc/ayatori-control-plane/<identity>/kubeconfig 后重跑部署即重签；k0s PKI 服务端证书重启 k0scontroller 轮换。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+  - eval_time: 2h
+    alertname: AyatoriCertificateExpiringSoon
+    exp_alerts: []

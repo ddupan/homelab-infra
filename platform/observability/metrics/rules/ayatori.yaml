@@ -182,3 +182,30 @@ spec:
             summary: Ayatori {{ $labels.cluster }} {{ $labels.controller }} 持续出现 reconcile 错误
             description: journalctl -u ayatori-manager。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriCertificateExpiring
+          expr: ayatori_certificate_not_after_timestamp_seconds{job="ayatori-node"} - time() < 30 * 86400
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 证书 {{ $labels.identity }}{{ $labels.path }} 30 天内到期
+            description: kubeconfig 客户端证书删除 /etc/ayatori-control-plane/<identity>/kubeconfig 后重跑部署即重签；k0s PKI 服务端证书重启 k0scontroller 轮换。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriCertificateExpiringSoon
+          expr: ayatori_certificate_not_after_timestamp_seconds{job="ayatori-node"} - time() < 7 * 86400
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 证书 {{ $labels.identity }}{{ $labels.path }} 7 天内到期
+            description: 到期后对应组件无法访问 API；按 AyatoriCertificateExpiring 的方法立即轮换。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriCertificateMetricMissing
+          expr: up{job="ayatori-node"} == 1 unless on (cluster) count by (cluster) (ayatori_certificate_not_after_timestamp_seconds{job="ayatori-node"})
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} 没有证书到期指标
+            description: 检查 ayatori-cert-metrics.timer 与 node_exporter textfile 目录。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
