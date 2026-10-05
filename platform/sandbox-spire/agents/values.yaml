@@ -36,7 +36,7 @@ data:
       serviceAccount:
         name: spire-agent
       server:
-        address: spire-server.ad.ddupan.top
+        address: spire-server.lab.ddupan.top
         port: 8081
       nodeAttestor:
         k8sPSAT:

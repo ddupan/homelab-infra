@@ -8,7 +8,7 @@ data:
     agent {
       data_dir = "/run/spire/data"
       log_level = "INFO"
-      server_address = "spire-server.ad.ddupan.top"
+      server_address = "spire-server.lab.ddupan.top"
       server_port = "8081"
       socket_path = "/run/spire/agent-sockets/spire-agent.sock"
       trust_bundle_path = "/run/spire/bundle/bundle.pem"
