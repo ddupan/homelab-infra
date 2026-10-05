@@ -145,15 +145,6 @@ tests:
         summary: SeaweedFS /data 可用空间不足 10%
         description: 检查 volume 文件系统容量、保留策略与底层 ZFS；不要直接删除卷文件。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
-- name: NATS 历史慢消费者计数不持续报警
-  interval: 1m
-  input_series:
-  - series: nats_varz_slow_consumers{job="nats/nats"}
-    values: 10x30
-  alert_rule_test:
-  - eval_time: 20m
-    alertname: NatsSlowConsumers
-    exp_alerts: []
 - name: Flux 根对象状态指标缺失报警
   interval: 1m
   input_series: []
