@@ -65,8 +65,8 @@
     cmode: shell
     disk_volume:
       storage: "{{ sandbox_rootfs_storage }}"
-      size: "{{ sandbox_rootfs_gb if not sandbox_lxc_config.stat.exists else omit }}"
-    cores: "{{ sandbox_lxc_cores }}"
+      size: "{{ (sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb)) if not sandbox_lxc_config.stat.exists else omit }}"
+    cores: "{{ sandbox_lxc.cores | default(sandbox_lxc_cores) }}"
     memory: "{{ sandbox_lxc.memory_mb }}"
     swap: "{{ sandbox_lxc_swap_mb }}"
     netif:
@@ -102,7 +102,7 @@
       {{
         sandbox_lxc_current_config.status != 200 or
         sandbox_lxc_current_config.json.data.hostname | default('') != sandbox_lxc.hostname or
-        sandbox_lxc_current_config.json.data.cores | default(0) | int != sandbox_lxc_cores | int or
+        sandbox_lxc_current_config.json.data.cores | default(0) | int != sandbox_lxc.cores | default(sandbox_lxc_cores) | int or
         sandbox_lxc_current_config.json.data.memory | default(0) | int != sandbox_lxc.memory_mb | int or
         sandbox_lxc_current_config.json.data.swap | default(0) | int != sandbox_lxc_swap_mb | int or
         sandbox_lxc_current_config.json.data.nameserver | default('') != sandbox_nameserver or
@@ -127,12 +127,12 @@
     body_format: form-urlencoded
     body:
       disk: rootfs
-      size: "{{ sandbox_rootfs_gb }}G"
+      size: "{{ sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb) }}G"
     ca_path: /etc/ssl/certs/ca-certificates.crt
     status_code: 200
   when:
     - sandbox_lxc_config.stat.exists
-    - _sandbox_current_rootfs_gb | int < sandbox_rootfs_gb | int
+    - _sandbox_current_rootfs_gb | int < sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb) | int
   delegate_to: localhost
   no_log: true
   vars:
