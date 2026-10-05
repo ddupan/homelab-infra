@@ -1,10 +1,11 @@
 ---
-- name: 仅协调 Incus 与 Ayatori 容器的 AD DNS 记录
+- name: 仅协调 Incus 的 AD DNS 记录
   hosts: samba_dc
   become: true
   gather_facts: false
   vars:
-    incus_dns_names: [incus, ayatori-dev, ayatori-prod]
+    # ayatori-* moved to lab.ddupan.top (PowerDNS, Terraform); only incus stays in AD.
+    incus_dns_names: [incus]
   vars_files:
     - ../../dns/records.yml
     - ../../samba-ad/ansible/group_vars/all/vars.yml

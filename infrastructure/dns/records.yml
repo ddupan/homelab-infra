@@ -7,17 +7,10 @@ homelab_dns:
     # RRsets are reconciled; Samba-generated AD/Kerberos records are untouched.
     records:
       - { zone: ad.ddupan.top, name: incus, type: A, values: [192.168.10.127] }
-      # Static, outside the NEC IX pool (.128-.250); infrastructure/incus/terraform reads
-      # these same values into each container's cloud-init network-config.
-      - { zone: ad.ddupan.top, name: ayatori-dev, type: A, values: [192.168.10.11] }
-      - { zone: ad.ddupan.top, name: ayatori-prod, type: A, values: [192.168.10.12] }
       - { zone: ad.ddupan.top, name: bao, type: A, values: [192.168.10.8] }
       - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
       - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
       - { zone: ad.ddupan.top, name: pve3, type: A, values: [192.168.10.9] }
-      - { zone: ad.ddupan.top, name: sandbox1, type: A, values: [10.60.0.11] }
-      - { zone: ad.ddupan.top, name: sandbox2, type: A, values: [10.60.0.12] }
-      - { zone: ad.ddupan.top, name: sandbox-k8s, type: A, values: [10.60.0.13] }
       - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
       - { zone: ad.ddupan.top, name: grafana, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: metrics-write, type: A, values: [192.168.10.127] }
@@ -35,6 +28,17 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: pg-prod, type: A, values: [192.168.10.2] }
       - { zone: ad.ddupan.top, name: pg-dev, type: A, values: [192.168.10.127] }
 
+    # Deleted from AD (state: absent) by the samba_ad_dc role. Kept as tombstones so a
+    # rerun stays a no-op and the names cannot creep back. These hosts live in
+    # lab.ddupan.top (powerdns below); nothing connects to them by their ad name —
+    # kube-apiserver and Bao auth use IPs (checked 2026-10-05).
+    retired:
+      - { zone: ad.ddupan.top, name: ayatori-dev, type: A }
+      - { zone: ad.ddupan.top, name: ayatori-prod, type: A }
+      - { zone: ad.ddupan.top, name: sandbox1, type: A }
+      - { zone: ad.ddupan.top, name: sandbox2, type: A }
+      - { zone: ad.ddupan.top, name: sandbox-k8s, type: A }
+
   powerdns:
     # lab.ddupan.top on PowerDNS, applied by CI via infrastructure/dns/terraform.
     # Only FIXED hosts live here: HTTPRoute names come from external-dns, ad-hoc
@@ -48,12 +52,16 @@ homelab_dns:
       - { name: pve2, type: A, values: [192.168.10.7] }
       - { name: pve3, type: A, values: [192.168.10.9] }
       - { name: bao, type: A, values: [192.168.10.8] }
+      # Static, outside the NEC IX pool (.128-.250); infrastructure/incus/terraform reads
+      # the ayatori-* values into each container's cloud-init network-config.
       - { name: ayatori-dev, type: A, values: [192.168.10.11] }
       - { name: ayatori-prod, type: A, values: [192.168.10.12] }
       - { name: retrolab, type: A, values: [10.60.0.10] }
       - { name: sandbox1, type: A, values: [10.60.0.11] }
       - { name: sandbox2, type: A, values: [10.60.0.12] }
       - { name: sandbox-k8s, type: A, values: [10.60.0.13] }
+      # LoadBalancer on the laptop, so external-dns (HTTPRoutes only) cannot publish it.
+      - { name: spire-server, type: A, values: [192.168.10.127] }
 
   split_horizon:
     # backends records the current adoption boundary. obj is deliberately not

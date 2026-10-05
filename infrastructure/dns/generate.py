@@ -48,6 +48,8 @@ def load_inventory() -> dict:
             raise ValueError(f"managed Terraform record needs resource_name: {record['name']}")
         if len(record["values"]) != 1:
             raise ValueError(f"Cloudflare Terraform supports one value per record: {record['name']}")
+    check_retired(inventory["samba"])
+
     seen = set()
     for record in powerdns_records:
         require_fields(record, "name", "type", "values")
@@ -60,6 +62,16 @@ def load_inventory() -> dict:
         seen.add(key)
     allocations(data)
     return inventory
+
+
+def check_retired(samba: dict) -> None:
+    """A retired RRset is deleted by the role; also managing it would flap every run."""
+    for record in samba.get("retired", []):
+        require_fields(record, "zone", "name", "type")
+    key = lambda r: (r["zone"], r["name"], r["type"])
+    both = {key(r) for r in samba.get("retired", [])} & {key(r) for r in samba["records"]}
+    if both:
+        raise ValueError(f"samba RRsets both managed and retired: {sorted(both)}")
 
 
 def allocations(data: dict) -> dict:

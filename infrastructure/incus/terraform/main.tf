@@ -60,13 +60,13 @@ resource "incus_storage_volume" "ayatori_backup" {
   }
 }
 
-# 地址只在 records.yml 声明一次，AD DNS（ansible/dns.yml）与此处同源读取；
+# 地址只在 records.yml（homelab_dns.powerdns，lab.ddupan.top）声明一次，DNS 与此处同源读取；
 # 须位于 NEC IX DHCP 池（.128–.250）之外，池由路由器手工维护，无法声明 reservation。
 locals {
   ayatori_ipv4 = {
-    for r in yamldecode(file("${path.module}/../../dns/records.yml")).homelab_dns.samba.records :
+    for r in yamldecode(file("${path.module}/../../dns/records.yml")).homelab_dns.powerdns.records :
     trimprefix(r.name, "ayatori-") => r.values[0]
-    if r.zone == "ad.ddupan.top" && startswith(r.name, "ayatori-")
+    if r.type == "A" && startswith(r.name, "ayatori-")
   }
 }
 

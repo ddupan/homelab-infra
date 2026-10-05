@@ -104,3 +104,11 @@ resource "powerdns_record" "sandbox_k8s_a" {
   ttl     = 300
   records = ["10.60.0.13"]
 }
+
+resource "powerdns_record" "spire_server_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "spire-server.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.127"]
+}
