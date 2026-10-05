@@ -14,8 +14,8 @@ Gitea ──FetchTask(pod-laptop)──▶ homelab executor Pod ─┐
 ```
 
 注册：gitea-dynamic-runner `scripts/register-runner`，凭据位于
-`kv/k8s/dynamic-runner-pod-laptop` 与 `kv/k8s/dynamic-runner-vm`。scheduler、NATS 与
-Lease 相关配置在迁移清理步骤前保留以便回滚（见 gitea-dynamic-runner
+`kv/k8s/dynamic-runner-pod-laptop` 与 `kv/k8s/dynamic-runner-vm`。原先的 scheduler、
+NATS 队列与 Lease 已在 2026-10-05 移除（见 gitea-dynamic-runner
 `docs/runner-registration-migration.md`）。
 
 `container+kubernetes` placement 不经过 OpenSandbox；`vm+opensandbox` placement
@@ -43,24 +43,23 @@ OpenSandbox chart 所有权边界。
   该入口不经过公网或 Cloudflare Tunnel。
 - controller 的 SPIFFE ID 固定为
   `spiffe://ddupan.top/ns/dynamic-runner/sa/dynamic-runner-controller`。
-- NATS 保留既有最小权限分离：`ci-producer` 仅 publish，`ci-worker` 仅 pull/ACK。
 
-facade claim registry 在启动时从 Pod/OpenSandbox metadata 恢复；scheduler leadership
-由 Kubernetes Lease 持久化协调。Deployment 仍保持 `replicas: 1`，滚动更新期间允许
-一个额外 Pod 提供 facade 连续性。
+facade claim registry 在启动时从 Pod/OpenSandbox metadata 恢复。Deployment 为
+`replicas: 1` 加 `Recreate`：同一个 registration 与 facade 不能同时由两个实例持有。
 
 ## Secret 边界
 
 `ExternalSecret/dynamic-runner` 从既有 `ClusterSecretStore/openbao` 读取：
 
-- `kv/k8s/nats`：producer/worker 密码；
-- `kv/k8s/opensandbox-api:api_key`：保留给后续 VM worker；
-- `kv/k8s/gitea-runner:token`：保留的 runner registration token；
-- `kv/k8s/dynamic-runner`：scheduler UUID/token、facade HMAC key 和回滚所需 webhook secret。
+- `kv/k8s/dynamic-runner-pod-laptop`、`kv/k8s/dynamic-runner-vm`：两个池成员各自的
+  runner registration（`uuid`、`token`）；
+- `kv/k8s/dynamic-runner:facade_capability_key`：facade HMAC key；
+- `kv/k8s/opensandbox-api:api_key`：vm 成员调用 OpenSandbox Lifecycle API。
 
-scheduler credential 由官方 Gitea Runner v3.5.0 一次注册生成；它只挂载到 controller，
-不会进入 executor。facade capability key 至少 32 字节，controller 为每个 assignment
-确定性生成独立 capability。不要打印 Secret、创建静态 Bao token或把 credential 写入
+registration 由 gitea-dynamic-runner `scripts/register-runner` 以官方 Gitea Runner
+v3.5.0 一次注册生成（registration token 留在 `kv/k8s/gitea-runner`，不挂载给
+controller）；它只挂载到 controller，不会进入 executor。facade capability key 至少
+32 字节，controller 为每个 assignment 确定性生成独立 capability。不要打印 Secret、创建静态 Bao token或把 credential 写入
 Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` token。
 
 ## Workflow 身份与依赖配置
@@ -88,13 +87,13 @@ kubectl -n dynamic-runner rollout status deploy/dynamic-runner-controller --time
 kubectl -n dynamic-runner logs deploy/dynamic-runner-controller -f
 ```
 
-确认 scheduler 只领取一条 `[self-hosted,container,kubernetes]` task，然后验证：
+Gitea runner 列表中 `pod-laptop`、`vm` 应在线，然后验证：
 
-1. assignment message 进入并离开 durable `container.kubernetes` consumer；
-2. `gitea-task-<task-id>` Pod 创建，取得实际 Pod UID；
-3. 同名 `ClusterStaticEntry` 的 parent ID 包含该 UID，SPIFFE ID 使用 repository/job key；
-4. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
-5. Pod consumer 达到 capacity 时 VM consumer 仍可独立接受任务。
+1. 日志依次出现 `received`、`capacity_acquired`、`identity_bound`、`runner_claimed`；
+2. `gitea-task-<task-id>` Pod 创建，同名 `ClusterStaticEntry` 的 parent 是 Pod 所在节点
+   的 agent（`.../k8s_psat/homelab/<节点 UID>`），SPIFFE ID 使用 repository/job key；
+3. 官方 runner v3.5.0 经 facade claim 精确 task，Gitea 实时收到日志和终态；
+4. pod 池满载时 task 在 Gitea 显示为等待，vm 池仍可独立领取。
 
 Pod 与 VM 都在 Gitea 接受终态后先把 terminal marker 写入各自 backend metadata，再由
 lifecycle reconciler 删除执行器。首次 VM 测试仍须观察 BatchSandbox、Pod 与
@@ -108,7 +107,7 @@ VM backend 已通过 `vm-dev` canary 完成 Docker、kind、SPIFFE 和完整生�
 
 ## 回滚
 
-若 controller 在领取 task 前失败，回滚到前一 commit 的 Python controller/Pod worker
-manifests。若已经创建 `gitea-task-*` Pod，先保留现场并核对 Gitea task 状态，不能直接
-重启 scheduler 造成重复执行。scheduler registration 和 capability key 保留在 Bao，
-回滚不需要删除或打印它们。
+回滚到前一个 controller digest 即可；registration 与 capability key 保留在 Bao，不需要
+删除或打印。controller 重启时会把尚未交接完的 task 报为失败，已认领的 executor 由新
+实例从 backend metadata 恢复。要让某个成员停止接活，在 Gitea 停用其 runner 或把
+对应 worker 从 `COMPONENTS` 移除。
