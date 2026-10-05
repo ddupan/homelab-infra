@@ -83,8 +83,9 @@ touches this directory or the laptop. Nothing here changes per record.
   under `k8s/` because ESO, which can read only that subtree, syncs it to
   external-dns and Poweradmin.
   The image's startup script opens the API to `0.0.0.0/0`; `pdns.d/zz-local.conf`
-  narrows it to the laptop and k3s pods (`10.42.0.0/16`). Everything else on the
-  LAN gets its connection reset before the key is even checked.
+  narrows it to the internal networks (LAN, labnet/retronet, k3s pods). Terraform CI
+  can land on the sandbox cluster, whose runners egress as their node IPs on
+  labnet. Anything else gets its connection reset before the key is checked.
 - **The SQLite DB is derived state.** The image ships an initialised one, copied
   into the `pdns-data` volume on first mount. Lose it and `terraform apply` plus
   one external-dns sync rebuild everything — so it is not backed up.
