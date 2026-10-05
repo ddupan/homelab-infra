@@ -4,7 +4,7 @@
 # also the k3s node, the NFS server and the libvirt host — i.e. the single point of
 # failure. It also cannot be locked, so two concurrent applies silently corrupt it.
 #
-# WHY s3.ad.ddupan.top and NOT obj.ddupan.top: the public name resolves to
+# WHY s3.lab.ddupan.top and NOT obj.ddupan.top: the public name resolves to
 # Cloudflare and hairpins through the WAN. On 2026-07-28 that path was blackholed
 # for hours by a dead VPN tunnel. State must be reachable when the WAN is not —
 # it is what you need DURING an incident. See ../../../apps/seaweedfs/httproute-s3.yaml.
@@ -20,7 +20,7 @@ terraform {
     key    = "openbao/terraform.tfstate"
 
     endpoints = {
-      s3 = "https://s3.ad.ddupan.top"
+      s3 = "https://s3.lab.ddupan.top"
     }
 
     # SeaweedFS is not AWS: it has no regions, no IAM, no metadata service and no

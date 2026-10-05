@@ -5,7 +5,7 @@ terraform {
   backend "s3" {
     bucket                      = "tfstate"
     key                         = "nexus/terraform.tfstate"
-    endpoints                   = { s3 = "https://s3.ad.ddupan.top" }
+    endpoints                   = { s3 = "https://s3.lab.ddupan.top" }
     region                      = "us-east-1"
     use_path_style              = true
     skip_credentials_validation = true

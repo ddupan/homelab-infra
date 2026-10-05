@@ -35,7 +35,7 @@ provider "aws" {
   skip_region_validation      = true
   skip_requesting_account_id  = true
   endpoints {
-    s3  = "https://s3.ad.ddupan.top"
-    iam = "https://s3.ad.ddupan.top"
+    s3  = "https://s3.lab.ddupan.top"
+    iam = "https://s3.lab.ddupan.top"
   }
 }
