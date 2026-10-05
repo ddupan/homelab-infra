@@ -78,10 +78,10 @@ Backstage），access key 由 Terraform 生成并写入 `kv/k8s/techdocs-s3-publ
 
 - 内容：`.well-known/terraform.json`（`providers.v1`）、`v1/providers/<ns>/<type>/versions`、
   `v1/providers/<ns>/<type>/<version>/download/<os>/<arch>`，以及 zip、`SHA256SUMS` 与其 GPG 签名。
-- 写入：provider 仓库的 release job（SPIFFE `ci/panxiao81/terraform-provider-*/release`）经 OpenBao role
+- 写入分两半：provider 仓库的 release job（SPIFFE `ci/panxiao81/terraform-provider-*/release`）经 OpenBao role
   `ci-terraform-registry-publisher` 读取 `kv/k8s/terraform-registry-s3-publisher`（IAM 用户
-  `terraform-registry-publisher`，Terraform 生成）与签名私钥 `kv/k8s/terraform-registry-signing`（带外生成，
-  Terraform 不持有）。
+  `terraform-registry-publisher`，Terraform 生成），只上传 zip 与 `SHA256SUMS`；维护者本机 `scripts/publish`
+  校验后以 YubiKey 签名子钥（`8A887573EFE9762D`）签名，写 download 文档与 versions 索引。CI 不持有签名密钥。
 - 消费：`source = "terraform.lab.ddupan.top/ddupan/homelab"`，无需 `.terraformrc`。
 
 ## Terraform（bucket / IAM）
