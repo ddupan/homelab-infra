@@ -1,0 +1,76 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 跨集群同名容器各重启两次不能累加误报
+  interval: 1h
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="sandbox"}
+    values: 0 0 1 1 2 2 2 2
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="central"}
+    values: 0 0 1 1 2 2 2 2
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: KubePodRestartsAccumulating
+    exp_alerts: []
+- name: 真实累计重启保留集群标签并忽略旧冲突序列
+  interval: 1h
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="sandbox"}
+    values: 0 0 1 2 3 4 4 4
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="central"}
+    values: 0 0 1 1 2 2 2 2
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",cluster="sandbox",namespace="monitoring",pod="ksm",container="kube-state-metrics",exported_namespace="app",exported_pod="web",exported_container="web"}
+    values: 0 0 5 10 15 20 20 20
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: KubePodRestartsAccumulating
+    exp_alerts:
+    - exp_labels:
+        namespace: app
+        pod: web
+        container: web
+        cluster: sandbox
+        severity: warning
+      exp_annotations:
+        summary: 容器 app/web/web 24 小时内反复重启
+        description: 24 小时内重启超过 3 次但未达到 CrashLoop 频率；检查 kubectl describe 中的探针失败、退出码与节点
+          IO/内存压力。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: OOM 与重启不能跨集群关联
+  interval: 1m
+  input_series:
+  - series: kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="central",reason="OOMKilled"}
+    values: 1x20
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="central"}
+    values: '0x20'
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",namespace="app",pod="web",container="web",cluster="sandbox"}
+    values: 0+1x20
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubePodOOMKilled
+    exp_alerts: []
+- name: 同名 Deployment 的健康副本不能跨集群掩盖缺副本
+  interval: 1m
+  input_series:
+  - series: kube_deployment_spec_replicas{job="kube-state-metrics",cluster="sandbox",namespace="app",deployment="web"}
+    values: 2x20
+  - series: kube_deployment_status_replicas_available{job="kube-state-metrics",cluster="sandbox",namespace="app",deployment="web"}
+    values: 1x20
+  - series: kube_deployment_spec_replicas{job="kube-state-metrics",cluster="central",namespace="app",deployment="web"}
+    values: 2x20
+  - series: kube_deployment_status_replicas_available{job="kube-state-metrics",cluster="central",namespace="app",deployment="web"}
+    values: 2x20
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts:
+    - exp_labels:
+        cluster: sandbox
+        namespace: app
+        deployment: web
+        severity: warning
+      exp_annotations:
+        summary: Deployment app/web 副本不足
+        description: 可用副本持续 10 分钟低于声明值；缩容至零不会触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

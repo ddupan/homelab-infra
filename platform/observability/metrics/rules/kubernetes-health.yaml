@@ -9,9 +9,11 @@ spec:
   groups:
   - name: kubernetes-health
     interval: 30s
+    # cluster 必须参与聚合和匹配；缺少 cluster 的本地旧序列仍作为独立组。
+    # 排除 honorLabels 修复前的冲突样本，避免历史窗口继续把 workload 归给 KSM。
     rules:
     - alert: KubeNodeNotReady
-      expr: max by (node) (kube_node_status_condition{job="kube-state-metrics",condition="Ready",status="true"})
+      expr: max by (cluster,node) (kube_node_status_condition{job="kube-state-metrics",exported_namespace="",condition="Ready",status="true"})
         == 0
       for: 5m
       labels:
@@ -21,7 +23,7 @@ spec:
         description: 检查节点、kubelet 和网络；维护时按 node 精确静默。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubeNodePressure
-      expr: max by (node, condition) (kube_node_status_condition{job="kube-state-metrics",condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"})
+      expr: max by (cluster,node, condition) (kube_node_status_condition{job="kube-state-metrics",exported_namespace="",condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"})
         == 1
       for: 5m
       labels:
@@ -31,7 +33,7 @@ spec:
         description: 检查内存、磁盘/inode 或 PID 资源压力。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodCrashLooping
-      expr: max by (namespace,pod,container) (kube_pod_container_status_waiting_reason{job="kube-state-metrics",reason="CrashLoopBackOff"})
+      expr: max by (cluster,namespace,pod,container) (kube_pod_container_status_waiting_reason{job="kube-state-metrics",exported_namespace="",reason="CrashLoopBackOff"})
         == 1
       for: 10m
       labels:
@@ -41,7 +43,7 @@ spec:
         description: 检查容器退出原因和日志；持续 10 分钟后通知，避免短暂重启噪声。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodFrequentRestarts
-      expr: sum by (namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[15m]))
+      expr: sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[15m]))
         > 3
       for: 5m
       labels:
@@ -53,7 +55,7 @@ spec:
     # 补 KubePodFrequentRestarts 的盲区：它只抓 15 分钟内的 CrashLoop。netbox-valkey
     # 曾因磁盘延迟尖峰被探针每天杀 1~2 次，70 天重启 101 次而从未告警。
     - alert: KubePodRestartsAccumulating
-      expr: sum by (namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[24h]))
+      expr: sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[24h]))
         > 3
       for: 1h
       labels:
@@ -63,8 +65,8 @@ spec:
         description: 24 小时内重启超过 3 次但未达到 CrashLoop 频率；检查 kubectl describe 中的探针失败、退出码与节点 IO/内存压力。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodOOMKilled
-      expr: (max by (namespace,pod,container) (kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",reason="OOMKilled"})
-        == 1) and on(namespace,pod,container) (sum by (namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[10m]))
+      expr: (max by (cluster,namespace,pod,container) (kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",exported_namespace="",reason="OOMKilled"})
+        == 1) and on(cluster,namespace,pod,container) (sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[10m]))
         > 0)
       for: 1m
       labels:
@@ -74,7 +76,7 @@ spec:
         description: 仅在近期有重启且最近终止原因为 OOMKilled 时触发，检查内存峰值和限制。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodPending
-      expr: max by (namespace,pod) (kube_pod_status_phase{job="kube-state-metrics",phase="Pending"}) == 1
+      expr: max by (cluster,namespace,pod) (kube_pod_status_phase{job="kube-state-metrics",exported_namespace="",phase="Pending"}) == 1
       for: 15m
       labels:
         severity: warning
@@ -83,8 +85,8 @@ spec:
         description: 检查调度事件、资源、卷和镜像拉取。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubeDeploymentUnavailable
-      expr: (max by(namespace,deployment) (kube_deployment_spec_replicas{job="kube-state-metrics"}) - max by(namespace,deployment)
-        (kube_deployment_status_replicas_available{job="kube-state-metrics"})) > 0
+      expr: (max by (cluster,namespace,deployment) (kube_deployment_spec_replicas{job="kube-state-metrics",exported_namespace=""}) - max by (cluster,namespace,deployment)
+        (kube_deployment_status_replicas_available{job="kube-state-metrics",exported_namespace=""})) > 0
       for: 10m
       labels:
         severity: warning
@@ -93,8 +95,8 @@ spec:
         description: 可用副本持续 10 分钟低于声明值；缩容至零不会触发。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubeStatefulSetUnavailable
-      expr: (max by(namespace,statefulset) (kube_statefulset_replicas{job="kube-state-metrics"}) - max by(namespace,statefulset)
-        (kube_statefulset_status_replicas_ready{job="kube-state-metrics"})) > 0
+      expr: (max by (cluster,namespace,statefulset) (kube_statefulset_replicas{job="kube-state-metrics",exported_namespace=""}) - max by (cluster,namespace,statefulset)
+        (kube_statefulset_status_replicas_ready{job="kube-state-metrics",exported_namespace=""})) > 0
       for: 10m
       labels:
         severity: warning
@@ -103,8 +105,8 @@ spec:
         description: 检查 Pod 就绪、存储和依赖；已知维护按工作负载精确静默。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubeDaemonSetUnavailable
-      expr: (max by(namespace,daemonset) (kube_daemonset_status_desired_number_scheduled{job="kube-state-metrics"})
-        - max by(namespace,daemonset) (kube_daemonset_status_number_ready{job="kube-state-metrics"})) > 0
+      expr: (max by (cluster,namespace,daemonset) (kube_daemonset_status_desired_number_scheduled{job="kube-state-metrics",exported_namespace=""})
+        - max by (cluster,namespace,daemonset) (kube_daemonset_status_number_ready{job="kube-state-metrics",exported_namespace=""})) > 0
       for: 10m
       labels:
         severity: warning
@@ -113,7 +115,7 @@ spec:
         description: 检查节点和 Pod 就绪；不按整个 namespace 屏蔽。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePVCPending
-      expr: max by(namespace,persistentvolumeclaim) (kube_persistentvolumeclaim_status_phase{job="kube-state-metrics",phase="Pending"})
+      expr: max by (cluster,namespace,persistentvolumeclaim) (kube_persistentvolumeclaim_status_phase{job="kube-state-metrics",exported_namespace="",phase="Pending"})
         == 1
       for: 15m
       labels:
@@ -123,7 +125,7 @@ spec:
         description: 检查 StorageClass、调度拓扑、容量与 provisioner。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubeJobFailed
-      expr: max by(namespace,job_name) (kube_job_failed{job="kube-state-metrics",condition="true"}) == 1
+      expr: max by (cluster,namespace,job_name) (kube_job_failed{job="kube-state-metrics",exported_namespace="",condition="true"}) == 1
       for: 5m
       labels:
         severity: warning

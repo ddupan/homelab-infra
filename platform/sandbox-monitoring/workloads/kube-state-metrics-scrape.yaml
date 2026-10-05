@@ -6,7 +6,9 @@ metadata:
   namespace: monitoring
 spec:
   endpoints:
-    - interval: 30s
+    # 保留被观测对象标签，避免所有 workload 重启被归到 exporter 自身。
+    - honorLabels: true
+      interval: 30s
       port: http
   selector:
     matchLabels:
