@@ -1,0 +1,33 @@
+# Terraform provider registry: https://terraform.lab.ddupan.top serves the terraform-registry bucket
+# (static files, anonymous GetObject by bucket policy in terraform/terraform-registry.tf). Provider
+# source addresses embed this hostname, so it must not change.
+#
+# GET only, and every path is pinned under /terraform-registry/: other buckets (tfstate!) are not
+# reachable through this name even though the backend is the same S3 service.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: terraform-registry
+  namespace: seaweedfs
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - terraform.lab.ddupan.top
+  rules:
+    - matches:
+        - method: GET
+          path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /terraform-registry
+      backendRefs:
+        - name: seaweedfs-s3
+          port: 8333
