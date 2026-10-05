@@ -1,0 +1,118 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: proxmox
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  # pve-cluster 同时从 pve1、pve2 抓同一份集群视图，所有集群级表达式都先 max without(instance)
+  # 去重：被抓的节点自己挂了时，另一个节点的视图仍然有效。
+  # HA 已启用 fencing（vm:100 vyos-rtr 是 HA 资源），corosync 只有一条环：节点失去 quorum
+  # 会自重启，下面的告警是唯一的现场记录。见 infrastructure/proxmox/README-ha.md。
+  - name: proxmox
+    interval: 30s
+    rules:
+    - alert: PveNodeOffline
+      expr: max without(instance) (pve_up{job="pve-cluster",id=~"node/.+"}) == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: PVE 节点 {{ $labels.id }} 在集群视图中离线
+        description: >-
+          可能是断电、失去网络，或失去 quorum 后被 HA watchdog fence 重启。看该节点的
+          node-exporter 是否同时不可达，以及另外两个节点的 journalctl -u corosync。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveNodeNotQuorate
+      expr: pve_corosync_quorate{job="node-exporter"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: PVE 节点 {{ $labels.node }} 不在 quorate 分区中
+        description: >-
+          HA fencing 已启用：该节点上的 watchdog 约 60 秒后会让它自重启。检查 corosync 单环
+          所在的 LAN（corosync-cfgtool -s），不要在原因不明时手动改 expected votes。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveCorosyncDown
+      expr: pve_corosync_up{job="node-exporter"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: PVE 节点 {{ $labels.node }} 的 corosync 无响应
+        description: corosync-quorumtool 没有输出。systemctl status corosync pve-cluster。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveQuorumMetricsStale
+      expr: time() - node_textfile_mtime_seconds{job="node-exporter",file=~".*pve_quorum.prom"} > 180
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: PVE 节点 {{ $labels.node }} 的 quorum 指标超过 3 分钟没有刷新
+        description: pve-quorum-metrics.timer 停了，PveNodeNotQuorate 会失效。systemctl list-timers pve-quorum-metrics.timer。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveHaResourceNotStarted
+      expr: max without(instance) (pve_ha_state{job="pve-cluster",id=~"(qemu|lxc)/.+",state="started"}) == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: HA 资源 {{ $labels.id }} 不在 started 状态
+        description: >-
+          qemu/100 是 vyos-rtr：两个 SDN VNet 的网关、OSPF 邻居，它不在跑 labnet/retronet 全断。
+          ha-manager status 看当前状态（migrate/recovery/error）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveHaFenceOrError
+      expr: max without(instance) (pve_ha_state{job="pve-cluster",state=~"fence|error|recovery|unknown"}) == 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: HA 对象 {{ $labels.id }} 处于 {{ $labels.state }}
+        description: 节点被 fence 或 HA 资源进入 error/recovery。ha-manager status；journalctl -u pve-ha-crm -u pve-ha-lrm。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveOnbootGuestDown
+      expr: >-
+        max by(id) (pve_up{job="pve-cluster",id=~"(qemu|lxc)/.+"}) == 0
+        and on(id) max by(id) (pve_onboot_status{job="pve-node"}) == 1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 设置了开机自启的客户机 {{ $labels.id }} 没有在运行
+        description: onboot=1 意味着它本该一直在跑。qm status / pct status，再看该节点的任务日志。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveGuestLockedLong
+      expr: max by(id,state) (pve_lock_state{job="pve-cluster"}) == 1
+      for: 2h
+      labels:
+        severity: warning
+      annotations:
+        summary: 客户机 {{ $labels.id }} 被 {{ $labels.state }} 锁住超过 2 小时
+        description: 常见于中断的备份/迁移/快照留下的锁。确认没有任务在跑后 qm unlock / pct unlock。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveStorageAlmostFull
+      expr: >-
+        max by(id) (pve_disk_usage_bytes{job="pve-cluster",id=~"storage/.+"})
+        / max by(id) (pve_disk_size_bytes{job="pve-cluster",id=~"storage/.+"}) > 0.9
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: PVE 存储 {{ $labels.id }} 使用超过 90%
+        description: 共享存储（laptop NFS）在每个节点各出现一次，同一个告警会重复三次。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: PveExporterScrapeFailing
+      expr: up{job=~"pve-cluster|pve-node"} == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: pve-exporter 抓取 {{ $labels.instance }}（{{ $labels.job }}）失败
+        description: >-
+          两个 pve-cluster 目标都失败时以上集群级告警全部失效。查 monitoring/pve-exporter Pod 日志；
+          401 说明 token 失效（重跑 monitoring.yml 加 -e pve_exporter_rotate_token=true）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

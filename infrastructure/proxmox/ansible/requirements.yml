@@ -13,5 +13,6 @@ collections:
   - name: ansible.posix         # mount, authorized_key
   - name: community.general     # proxmox_kvm (guest lifecycle). NOTE: deb822_repository
                                 # is ansible.builtin, NOT community.general — see CLAUDE.md
+  - name: community.hashi_vault   # vault_kv2_get/write: pve-exporter token → Bao (roles/pve_monitoring)
   - name: community.proxmox
     version: 2.0.0              # typed PVE API modules for HA, SDN and guest lifecycle

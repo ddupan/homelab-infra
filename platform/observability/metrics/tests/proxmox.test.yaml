@@ -1,0 +1,137 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 两个视图都报节点离线才告警，且去掉 instance
+  interval: 1m
+  input_series:
+  - series: pve_up{job="pve-cluster",instance="pve1.ad.ddupan.top",id="node/pve2"}
+    values: '0x5'
+  - series: pve_up{job="pve-cluster",instance="pve2.ad.ddupan.top",id="node/pve2"}
+    values: '0x5'
+  - series: pve_up{job="pve-cluster",instance="pve1.ad.ddupan.top",id="node/pve3"}
+    values: '0x5'
+  - series: pve_up{job="pve-cluster",instance="pve2.ad.ddupan.top",id="node/pve3"}
+    values: 1x5
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: PveNodeOffline
+    exp_alerts:
+    - exp_labels:
+        job: pve-cluster
+        id: node/pve2
+        severity: critical
+      exp_annotations:
+        summary: PVE 节点 node/pve2 在集群视图中离线
+        description: 可能是断电、失去网络，或失去 quorum 后被 HA watchdog fence 重启。看该节点的 node-exporter 是否同时不可达，以及另外两个节点的 journalctl -u corosync。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: vm:100 处于 migrate 超过 5 分钟
+  interval: 1m
+  input_series:
+  - series: pve_ha_state{job="pve-cluster",instance="pve1.ad.ddupan.top",id="qemu/100",state="started"}
+    values: '0x8'
+  - series: pve_ha_state{job="pve-cluster",instance="pve1.ad.ddupan.top",id="qemu/100",state="migrate"}
+    values: 1x8
+  - series: pve_ha_state{job="pve-cluster",instance="pve1.ad.ddupan.top",id="node/pve1",state="online"}
+    values: 1x8
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: PveHaResourceNotStarted
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: PveHaResourceNotStarted
+    exp_alerts:
+    - exp_labels:
+        job: pve-cluster
+        id: qemu/100
+        state: started
+        severity: critical
+      exp_annotations:
+        summary: HA 资源 qemu/100 不在 started 状态
+        description: qemu/100 是 vyos-rtr：两个 SDN VNet 的网关、OSPF 邻居，它不在跑 labnet/retronet 全断。 ha-manager status 看当前状态（migrate/recovery/error）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 6m
+    alertname: PveHaFenceOrError
+    exp_alerts: []
+- name: 节点进入 fence 立即告警
+  interval: 1m
+  input_series:
+  - series: pve_ha_state{job="pve-cluster",instance="pve2.ad.ddupan.top",id="node/pve3",state="fence"}
+    values: 1x3
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: PveHaFenceOrError
+    exp_alerts:
+    - exp_labels:
+        job: pve-cluster
+        id: node/pve3
+        state: fence
+        severity: critical
+      exp_annotations:
+        summary: HA 对象 node/pve3 处于 fence
+        description: 节点被 fence 或 HA 资源进入 error/recovery。ha-manager status；journalctl -u pve-ha-crm -u pve-ha-lrm。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: onboot=1 的客户机停了才告警
+  interval: 1m
+  input_series:
+  - series: pve_up{job="pve-cluster",instance="pve1.ad.ddupan.top",id="qemu/100"}
+    values: '0x12'
+  - series: pve_up{job="pve-cluster",instance="pve1.ad.ddupan.top",id="qemu/101"}
+    values: '0x12'
+  - series: pve_onboot_status{job="pve-node",instance="pve3.ad.ddupan.top",id="qemu/100",node="pve3",type="qemu"}
+    values: 1x12
+  - series: pve_onboot_status{job="pve-node",instance="pve3.ad.ddupan.top",id="qemu/101",node="pve3",type="qemu"}
+    values: '0x12'
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PveOnbootGuestDown
+    exp_alerts:
+    - exp_labels:
+        id: qemu/100
+        severity: warning
+      exp_annotations:
+        summary: 设置了开机自启的客户机 qemu/100 没有在运行
+        description: onboot=1 意味着它本该一直在跑。qm status / pct status，再看该节点的任务日志。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 节点失去 quorum 一分钟即 critical
+  interval: 1m
+  input_series:
+  - series: pve_corosync_quorate{job="node-exporter",instance="192.168.10.7:9100",node="pve2"}
+    values: 1 0x4
+  - series: pve_corosync_quorate{job="node-exporter",instance="192.168.10.4:9100",node="pve1"}
+    values: 1x5
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: PveNodeNotQuorate
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: 192.168.10.7:9100
+        node: pve2
+        severity: critical
+      exp_annotations:
+        summary: PVE 节点 pve2 不在 quorate 分区中
+        description: HA fencing 已启用：该节点上的 watchdog 约 60 秒后会让它自重启。检查 corosync 单环 所在的 LAN（corosync-cfgtool -s），不要在原因不明时手动改 expected votes。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: quorum textfile 停止刷新
+  interval: 1m
+  input_series:
+  - series: node_textfile_mtime_seconds{job="node-exporter",instance="192.168.10.9:9100",node="pve3",file="/var/lib/prometheus/node-exporter/pve_quorum.prom"}
+    values: '0x12'
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: PveQuorumMetricsStale
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: PveQuorumMetricsStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: 192.168.10.9:9100
+        node: pve3
+        file: /var/lib/prometheus/node-exporter/pve_quorum.prom
+        severity: warning
+      exp_annotations:
+        summary: PVE 节点 pve3 的 quorum 指标超过 3 分钟没有刷新
+        description: pve-quorum-metrics.timer 停了，PveNodeNotQuorate 会失效。systemctl list-timers pve-quorum-metrics.timer。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

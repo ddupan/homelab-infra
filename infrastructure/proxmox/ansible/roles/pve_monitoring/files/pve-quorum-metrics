@@ -1,0 +1,28 @@
+#!/bin/sh
+# corosync 法定人数 → node_exporter textfile。PVE 自带的指标（pvestatd、API）都没有直接给出
+# quorate；HA 已启用 fencing，节点失去 quorum 会自重启，事后没有任何记录——所以每 30 秒落一次。
+# 原子写：先写临时文件再 rename，node_exporter 不会读到半个文件。
+set -eu
+dir=/var/lib/prometheus/node-exporter
+tmp="$dir/.pve_quorum.prom.$$"
+# 非 quorate 时 corosync-quorumtool 以非零退出，但输出仍然有效——不能按退出码丢弃输出。
+out=$(corosync-quorumtool -s 2>/dev/null || true)
+val() { printf '%s\n' "$out" | awk -F: -v k="$1" '$1 ~ "^"k"$" {gsub(/[^0-9]/,"",$2); print $2; exit}'; }
+quorate=0
+printf '%s\n' "$out" | grep -qE '^Quorate:[[:space:]]+Yes' && quorate=1
+up=1; [ -n "$out" ] || up=0
+{
+  echo "# HELP pve_corosync_up corosync-quorumtool answered (0 = corosync not running or not responding)."
+  echo "# TYPE pve_corosync_up gauge"
+  echo "pve_corosync_up $up"
+  echo "# HELP pve_corosync_quorate This node is part of a quorate partition."
+  echo "# TYPE pve_corosync_quorate gauge"
+  echo "pve_corosync_quorate $quorate"
+  for k in "Expected votes" "Total votes" "Nodes"; do
+    v=$(val "$k"); [ -n "$v" ] || continue
+    m=$(printf '%s' "$k" | tr 'A-Z ' 'a-z_')
+    echo "# TYPE pve_corosync_$m gauge"
+    echo "pve_corosync_$m $v"
+  done
+} > "$tmp"
+mv "$tmp" "$dir/pve_quorum.prom"

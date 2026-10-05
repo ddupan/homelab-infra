@@ -31,10 +31,10 @@ PR 号**；新发现的盲区直接追加。
 
 ## 3. Proxmox / 网络（P1）
 
-- [ ] **P1** pve1/2/3 装 node-exporter（Ansible role，进 `infrastructure/proxmox/` site.yml）
-- [ ] **P2** pve-exporter：guest 状态、存储、HA 状态
-- [ ] **P3** corosync / quorum 告警（fencing 已全集群启用，失去 quorum 会自重启）
-- [ ] **P4** HA 事件：`vm:100` 迁移/重启要有通知
+- [x] **P1** pve1/2/3 装 node-exporter（Ansible role，进 `infrastructure/proxmox/` site.yml） — `infrastructure/proxmox/ansible/monitoring.yml`
+- [x] **P2** pve-exporter：guest 状态、存储、HA 状态 — 选 prometheus-pve-exporter（PVEAuditor token 在 Bao），没用 PVE 9.2 自带 OTLP：后者无 HA/锁/节点在线视角，且只发 JSON
+- [x] **P3** corosync / quorum 告警（fencing 已全集群启用，失去 quorum 会自重启） — corosync-quorumtool → textfile（`pve_corosync_*`），30 秒一次
+- [x] **P4** HA 事件：`vm:100` 迁移/重启要有通知 — `pve_ha_state`：HA 资源不在 started、fence/error
 - [ ] **P5** LINSTOR / DRBD 资源与复制状态
 - [ ] **P6** VyOS：开启自带 node-exporter；OSPF 邻居数、接口状态告警
 - [ ] **P7** NEC IX：SNMP（接口、WAN 口状态）——若设备支持
@@ -108,6 +108,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 - [ ] **R2** ZFS 快照 / 复制新鲜度
 - [ ] **R3** 其余 CronJob / systemd timer 的"最后成功时间"统一告警（`node_systemd_timer_last_trigger_seconds` 已有数据）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
+  - ⚠ **PVE 上 9 个客户机全部没有备份**（`pve_not_backed_up_total` = 9，2026-10-05）。未设告警，留给备份梳理
   - ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无
     `samba-tool domain backup`、无 libvirt 快照。samba-ad README 写着"在域成为承重之前做"，现在已经是 SSO 底座
 

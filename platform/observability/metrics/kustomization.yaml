@@ -44,3 +44,6 @@ resources:
   - rules/samba-dc.yaml
   - scrapes/ayatori.yaml
   - rules/ayatori.yaml
+  - exporters/pve-exporter.yaml
+  - scrapes/proxmox.yaml
+  - rules/proxmox.yaml

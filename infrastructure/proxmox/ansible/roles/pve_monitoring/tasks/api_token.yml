@@ -1,0 +1,100 @@
+---
+# pve-exporter@pve：PVE realm 本地用户，无密码，只能用 API token 登录；PVEAuditor 只读。
+# token 的值只在创建时返回一次：创建后立即写进 Bao，Ansible 不保留。
+- name: 读取现有用户
+  ansible.builtin.command: pveum user list --output-format json
+  register: pve_exporter_users
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: 创建 pve-exporter 用户
+  ansible.builtin.command: >-
+    pveum user add {{ pve_exporter_user }}
+    --comment "Read-only metrics (prometheus-pve-exporter); managed by infrastructure/proxmox/ansible"
+  when: pve_exporter_user not in (pve_exporter_users.stdout | from_json | map(attribute='userid'))
+  run_once: true
+
+- name: 读取 ACL
+  ansible.builtin.command: pveum acl list --output-format json
+  register: pve_exporter_acl
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: 在 / 上授予 PVEAuditor
+  ansible.builtin.command: pveum acl modify / --users {{ pve_exporter_user }} --roles PVEAuditor
+  when: >-
+    pve_exporter_acl.stdout | from_json
+    | selectattr('ugid', 'equalto', pve_exporter_user)
+    | selectattr('path', 'equalto', '/')
+    | selectattr('roleid', 'equalto', 'PVEAuditor') | list | length == 0
+  run_once: true
+
+- name: 读取现有 token
+  ansible.builtin.command: pveum user token list {{ pve_exporter_user }} --output-format json
+  register: pve_exporter_tokens
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  run_once: true
+
+- name: 判断 token 是否存在
+  ansible.builtin.set_fact:
+    pve_exporter_token_exists: >-
+      {{ pve_exporter_tokens.rc == 0 and
+         pve_exporter_token_id in ((pve_exporter_tokens.stdout | default('[]', true) | from_json) | map(attribute='tokenid')) }}
+  run_once: true
+
+- name: 检查 Bao 里是否已有 token
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ pve_exporter_bao_url }}"
+    engine_mount_point: "{{ pve_exporter_bao_mount }}"
+    path: "{{ pve_exporter_bao_path }}"
+    auth_method: token
+  delegate_to: localhost
+  become: false
+  register: pve_exporter_bao_secret
+  failed_when: false
+  check_mode: false
+  no_log: true
+  run_once: true
+
+- name: 拒绝继续：token 存在但 Bao 里没有，无法找回，需显式轮换
+  ansible.builtin.fail:
+    msg: >-
+      {{ pve_exporter_user }}!{{ pve_exporter_token_id }} 已存在，但 Bao {{ pve_exporter_bao_mount }}/{{ pve_exporter_bao_path }}
+      读不到（不存在，或 VAULT_TOKEN 无权限）。token 值无法从 PVE 读回；确认后用
+      -e pve_exporter_rotate_token=true 重建。
+  when: pve_exporter_token_exists | bool and not (pve_exporter_bao_secret.secret is defined) and not (pve_exporter_rotate_token | bool)
+  run_once: true
+
+- name: 轮换时删除旧 token
+  ansible.builtin.command: pveum user token remove {{ pve_exporter_user }} {{ pve_exporter_token_id }}
+  when: pve_exporter_token_exists | bool and pve_exporter_rotate_token | bool
+  run_once: true
+
+- name: 创建 token（privsep=0：继承用户的 PVEAuditor，不单独授权）
+  ansible.builtin.command: >-
+    pveum user token add {{ pve_exporter_user }} {{ pve_exporter_token_id }}
+    --privsep 0 --comment "pve-exporter in k3s" --output-format json
+  register: pve_exporter_new_token
+  when: not (pve_exporter_token_exists | bool) or pve_exporter_rotate_token | bool
+  no_log: true
+  run_once: true
+
+- name: 把新 token 写进 Bao（ESO 同步到 monitoring/pve-exporter）
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ pve_exporter_bao_url }}"
+    engine_mount_point: "{{ pve_exporter_bao_mount }}"
+    path: "{{ pve_exporter_bao_path }}"
+    auth_method: token
+    data:
+      user: "{{ pve_exporter_user }}"
+      token_name: "{{ pve_exporter_token_id }}"
+      token_value: "{{ (pve_exporter_new_token.stdout | from_json).value }}"
+  delegate_to: localhost
+  become: false
+  when: pve_exporter_new_token is changed and not ansible_check_mode
+  no_log: true
+  run_once: true
