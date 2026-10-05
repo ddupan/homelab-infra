@@ -42,3 +42,5 @@ resources:
   - scrapes/samba-dc.yaml
   - probes/bao-ca.yaml
   - rules/samba-dc.yaml
+  - scrapes/ayatori.yaml
+  - rules/ayatori.yaml

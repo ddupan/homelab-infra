@@ -1,0 +1,103 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: Prod 目标不可采集为 critical，Dev 为 warning
+  interval: 1m
+  input_series:
+  - series: up{job="ayatori-manager",cluster="ayatori-prod",environment="prod"}
+    values: 0x10
+  - series: up{job="ayatori-manager",cluster="ayatori-dev",environment="dev"}
+    values: 0x10
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: AyatoriTargetDown
+    exp_alerts:
+    - exp_labels: {job: ayatori-manager, cluster: ayatori-prod, environment: prod, severity: critical}
+      exp_annotations:
+        summary: Ayatori ayatori-prod 的 ayatori-manager 不可采集
+        description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+    - exp_labels: {job: ayatori-manager, cluster: ayatori-dev, environment: dev, severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-dev 的 ayatori-manager 不可采集
+        description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: Ayatori 的 Flux 对象不命中集群内 Flux 规则，只命中 Ayatori 规则
+  interval: 1m
+  input_series:
+  - series: gotk_resource_info{job="ayatori-kube-state-metrics",cluster="ayatori-prod",ready="False",customresource_kind="Kustomization",resource_namespace="flux-system",name="gitops"}
+    values: 1x30
+  - series: gotk_resource_info{job="kube-state-metrics",customresource_kind="Kustomization",resource_namespace="flux-system",name="flux-system",ready="True"}
+    values: 1x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: FluxResourceNotReady
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: AyatoriFluxNotReady
+    exp_alerts:
+    - exp_labels: {job: ayatori-kube-state-metrics, cluster: ayatori-prod, ready: 'False', customresource_kind: Kustomization, resource_namespace: flux-system, name: gitops, severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod Flux Kustomization gitops 未就绪
+        description: k0s kubectl -n flux-system describe 对应对象；gitops 目录中出现不允许的对象会使整个同步失败。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: 备份服务的 inactive 不算服务未运行，失败与过期单独告警
+  interval: 1m
+  input_series:
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",name="ayatori-backup.service",state="active",type="oneshot"}
+    values: 0x2500
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",name="ayatori-backup.service",state="failed",type="oneshot"}
+    values: 0x2500
+  - series: up{job="ayatori-node",cluster="ayatori-prod"}
+    values: 1x2500
+  - series: ayatori_backup_last_success_timestamp_seconds{job="ayatori-node",cluster="ayatori-prod"}
+    values: 0x2500
+  alert_rule_test:
+  - eval_time: 40h
+    alertname: AyatoriServiceInactive
+    exp_alerts: []
+  - eval_time: 30h
+    alertname: AyatoriBackupStale
+    exp_alerts: []
+  - eval_time: 40h
+    alertname: AyatoriBackupStale
+    exp_alerts:
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod 超过 36 小时没有成功备份
+        description: 检查 ayatori-backup.timer 是否排程、最近一次运行结果。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: Database 冲突立即告警，不可用持续 30 分钟才告警
+  interval: 1m
+  input_series:
+  - series: ayatori_resource_info{job="ayatori-kube-state-metrics",cluster="ayatori-prod",customresource_kind="PostgreSQLDatabase",name="a",resource_phase="Conflict",ready="False"}
+    values: 1x40
+  - series: ayatori_resource_info{job="ayatori-kube-state-metrics",cluster="ayatori-prod",customresource_kind="PostgreSQLDatabase",name="b",resource_phase="Unavailable",ready="False"}
+    values: 1x40
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: AyatoriDatabaseConflict
+    exp_alerts:
+    - exp_labels: {job: ayatori-kube-state-metrics, cluster: ayatori-prod, customresource_kind: PostgreSQLDatabase, name: a, resource_phase: Conflict, ready: 'False', severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod Database a 冲突，需要人工处理
+        description: controller 不会自动接管或扩大删除；按 Conditions 消息核对 PostgreSQL/OpenBao 中的对象。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+  - eval_time: 20m
+    alertname: AyatoriDatabaseUnavailable
+    exp_alerts: []
+- name: 主机指标消失按环境告警
+  interval: 1m
+  input_series:
+  - series: up{job="ayatori-node",cluster="ayatori-dev"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: AyatoriTargetAbsent
+    exp_alerts:
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, severity: critical}
+      exp_annotations:
+        summary: Ayatori ayatori-prod 主机指标缺失
+        description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
