@@ -68,6 +68,14 @@ set load-balancing haproxy backend sandbox-k3s-api server {{ server.name }} chec
 
 {# --- management --- #}
 set service ssh port 22
+{# --- monitoring: built-in exporters. node-exporter's textfile collector carries the
+     unit states written by vyos-unit-metrics (vyos-monitoring.yml); VyOS's node_exporter
+     runs only the default collectors, which have no systemd. --- #}
+set service monitoring prometheus node-exporter listen-address {{ vyos_monitoring_listen_address }}
+set service monitoring prometheus node-exporter port {{ vyos_node_exporter_port }}
+set service monitoring prometheus node-exporter collectors textfile
+set service monitoring prometheus frr-exporter listen-address {{ vyos_monitoring_listen_address }}
+set service monitoring prometheus frr-exporter port {{ vyos_frr_exporter_port }}
 
 {# --- DHCP for the SDN VNets --- #}
 {% for i in vyos_sdn_interfaces if i.dhcp is defined %}

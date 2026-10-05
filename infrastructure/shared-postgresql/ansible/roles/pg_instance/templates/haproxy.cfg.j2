@@ -17,3 +17,14 @@ listen pg-prod
 {% for member in pg_proxy_members %}
     server {{ member.name }} {{ member.address }}:{{ member.port }} check port {{ member.api_port }}
 {% endfor %}
+{% if pg_proxy_metrics_bind is defined %}
+# HAProxy 自带的 Prometheus exporter：haproxy_server_status 显示 pg-prod 当前把流量送给哪个
+# Patroni 成员（/primary 健康检查只对 primary 返回 200）。只读、不经认证，只绑 LAN 地址。
+frontend metrics
+    mode http
+    bind {{ pg_proxy_metrics_bind }}
+    timeout client 10s
+    http-request use-service prometheus-exporter if { path /metrics }
+    http-request return status 404
+{% endif %}
+

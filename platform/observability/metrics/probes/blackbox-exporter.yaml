@@ -105,3 +105,13 @@ spec:
             tls_config:
               ca_file: /etc/bao-ca/ca.pem
               server_name: dc1.ad.ddupan.top
+        dns_dn42:
+          prober: dns
+          timeout: 10s
+          dns:
+            preferred_ip_protocol: ip4
+            transport_protocol: udp
+            query_name: dn42
+            query_type: SOA
+            validate_answer_rrs:
+              fail_if_not_matches_regexp: ['.*\tSOA\t.*']

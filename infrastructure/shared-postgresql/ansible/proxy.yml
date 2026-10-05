@@ -6,6 +6,8 @@
   gather_facts: false
   vars:
     pg_proxy_bind: 192.168.10.2:5432
+    # COVERAGE P6：pg-prod 路由到哪个成员；platform/observability/metrics/scrapes/vyos.yaml 抓取。
+    pg_proxy_metrics_bind: 192.168.10.2:8405
     pg_proxy_members:
       - {name: laptop, address: '192.168.10.127', port: 5432, api_port: 8008}
       - {name: pve1, address: '10.60.0.20', port: 5432, api_port: 8008}

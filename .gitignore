@@ -120,3 +120,7 @@ apps/netboot/config/log/
 # day, and every DNS query the LAN makes ends up in them.
 apps/blocky/logs/
 .venv/
+
+# vyos_router 的 vyos_config backup 会把运行中的完整配置（含 WireGuard 私钥、login 密码 hash）
+# 拉回这里。只作本地回滚用，绝不提交。2026-10-05 前曾被跟踪，历史里有 login hash。
+infrastructure/proxmox/vyos/backups/
