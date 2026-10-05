@@ -1,18 +1,16 @@
-# Non-secret configuration. The signing key and LDAPS truststore come from kv/k8s/iam-login
-# (external-secret.yaml); the datasource comes from Ayatori (database.yaml).
+# Environment VALUES only. Which features exist (iam.*.enabled) is fixed when the native image is
+# built (iam-login's application-prod.yaml, activated by SPRING_PROFILES_ACTIVE=prod in
+# deployment.yaml); setting them here would be ignored, and iam-login refuses to start on a mismatch.
+# The signing key and LDAPS truststore come from kv/k8s/iam-login (external-secret.yaml); the
+# datasource comes from Ayatori (database.yaml).
 iam:
   ad:
-    enabled: true
-    url: ldaps://dc1.ad.ddupan.top:636
     domain: ad.ddupan.top
-    base-dn: DC=ad,DC=ddupan,DC=top
   webauthn:
-    enabled: true
     # Passkeys are bound to this RP ID: changing it orphans every registered passkey.
     rp-id: sso.ddupan.top
     origin: https://sso.ddupan.top
   authorization-server:
-    enabled: true
     # The issuer is part of every RP's configuration; changing it means migrating every RP.
     issuer: https://sso.ddupan.top
     signing-keys:
@@ -26,6 +24,20 @@ iam:
   clients:
     admin-groups:
       - Domain Admins
+    # Machine callers (Terraform via terraform-provider-homelab) present a JWT-SVID with
+    # audience iam-login. Exact SPIFFE IDs only: Terraform CD's plan (PRs) and apply (main) jobs.
+    spiffe:
+      issuer: https://spire-oidc.ad.ddupan.top
+      jwk-set-uri: https://spire-oidc.ad.ddupan.top/keys
+      admin-ids:
+        - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-plan
+        - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-apply
+spring:
+  # AD over LDAPS through Boot's ContextSource; connection defaults ship in the app's own
+  # application.yaml. Overall /actuator/health includes this connection.
+  ldap:
+    urls: ldaps://dc1.ad.ddupan.top:636
+    base: DC=ad,DC=ddupan,DC=top
 server:
   port: 8080
   # TLS ends at Envoy (LAN) or Cloudflare (tunnel); both send X-Forwarded-Proto.
@@ -38,10 +50,6 @@ server:
         secure: true
         same-site: lax
 management:
-  # No directory service account exists to probe with; AD is checked by real logins.
-  health:
-    ldap:
-      enabled: false
   otlp:
     metrics:
       export:
