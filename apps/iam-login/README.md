@@ -15,7 +15,7 @@
 - LAN 与 Pod：split horizon 解析到 Envoy `https-sso` listener，证书
   `platform/cert-manager/certificate-sso-ddupan.yaml`。Gitea 换 token 与启动时取 discovery 都不经 WAN。
 - TLS 在 Envoy 或 Cloudflare 终止，应用信任两者的 `X-Forwarded-Proto`；NetworkPolicy 只放行这两个 namespace。
-- 单副本：登录进度与 MFA 因素保存在内存 session，重启后正在登录的人需重试。
+- 会话存数据库（Spring Session JDBC，表由应用 Flyway 创建），重启不登出；WebAuthn challenge 存 `webauthn_challenge` 表。
 
 ## 配置分层
 
