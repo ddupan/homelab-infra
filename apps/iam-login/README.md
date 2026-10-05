@@ -60,6 +60,17 @@ SPIFFE 身份推到 `zot-push.ad.ddupan.top/iam/iam-login:<commit>`（见 `platf
   只放行 `application.yaml` 中 `iam.clients.spiffe.admin-ids` 精确列出的 SPIFFE ID（Terraform CD 的 plan/apply job）。
   验签时 Pod 访问 `https://spire-oidc.ad.ddupan.top/keys`。
 
+## OIDC 客户端（Terraform）
+
+客户端在 `terraform/clients.tf` 声明，由 Terraform CD（`TF_ROOTS`）经自研 provider
+`terraform.lab.ddupan.top/ddupan/homelab` 管理。provider 不持有凭据：调用方的 JWT-SVID（audience
+`iam-login`）须在 `iam.clients.spiffe.admin-ids` 中（CD 的 plan/apply job 与笔记本开发身份）。`/console`
+只用于查看与应急，在那里的改动会表现为 drift。
+
+- 新增客户端：在 `clients.tf` 加资源，合并后 apply；secret 只在创建与轮换时可得，写入 OpenBao 供应用读取。
+- `gitea` 以 import 纳管（2026-10-05），secret 不可读回、state 中为 null，`kv/k8s/gitea-sso` 仍是人工写入的值；
+  轮换（设置 `secret_rotation`）会让旧 secret 立即失效，需同时写入 kv 并重启 Gitea。
+
 ## 检查
 
 ```bash
