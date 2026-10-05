@@ -25,13 +25,17 @@ spec:
           type: RuntimeDefault
       containers:
         - name: iam-login
-          # iam-login 1abf5ff (main), published by its CI after the native browser test.
-          image: zot.ad.ddupan.top/iam/iam-login@sha256:b2702bd90a3c56ba2de9cd76fbdcea2bc34d8cb4891bf41cd7a6754006c893ed
+          # iam-login 71633e8 (main), published by its CI after the native browser test.
+          image: zot.ad.ddupan.top/iam/iam-login@sha256:d7986f744b22322e8792bff5f32454ed5d419d44b24e67d0b0c6e53f65a64456
           args:
             # The DC's LDAPS cert is signed by the internal CA, not a public one.
             - -Djavax.net.ssl.trustStore=/run/secrets/iam/truststore.p12
             - -Djavax.net.ssl.trustStorePassword=changeit
             - --spring.config.additional-location=file:/config/
+          env:
+            # The feature set the binary was built with (iam-login application-prod.yaml).
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
           # SPRING_DATASOURCE_URL/USERNAME/PASSWORD, rendered from the Ayatori credential.
           envFrom:
             - secretRef: { name: iam-login-db }

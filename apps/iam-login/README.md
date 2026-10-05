@@ -17,12 +17,18 @@
 - TLS 在 Envoy 或 Cloudflare 终止，应用信任两者的 `X-Forwarded-Proto`；NetworkPolicy 只放行这两个 namespace。
 - 单副本：登录进度与 MFA 因素保存在内存 session，重启后正在登录的人需重试。
 
+## 配置分层
+
+`application.yaml`（ConfigMap）只放环境值。功能开关（`iam.*.enabled`）在 Native 构建时固定于 iam-login 的
+`application-prod.yaml`，Deployment 以 `SPRING_PROFILES_ACTIVE=prod` 激活；在 ConfigMap 里写开关会被忽略，
+与构建不一致时 iam-login 拒绝启动。AD 连接使用 Boot 标准键 `spring.ldap.*`，整体 `/actuator/health` 含 LDAPS 连接检查。
+
 ## 秘密：`kv/k8s/iam-login`
 
 | 属性 | 内容 | 生成 |
 |---|---|---|
 | `signing_key` | PKCS#8 PEM RSA 签名私钥 | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
-| `truststore` | base64 PKCS#12，只含公开的 `ddupan.top Internal CA` | `keytool -importcert`，口令 `changeit`（只含公钥证书，口令无保护意义） |
+| `truststore` | base64 PKCS#12：JDK 标准 cacerts **加**内部 `ddupan.top Internal CA`（JVM 全局生效，只放内部 CA 会让 Let's Encrypt 站点如 spire-oidc 握手失败） | `keytool -importkeystore` 自 cacerts，再 `-importcert` 内部 CA，口令 `changeit` |
 
 签名密钥丢失会使已签发 token 失效，所有 RP 需重新登录，但不影响账号关联；不要随部署重新生成。
 轮换：新密钥放在 `signing-keys` 首位并保留旧密钥，旧 token 全部过期后再移除（见 iam-login
@@ -50,6 +56,9 @@ SPIFFE 身份推到 `zot-push.ad.ddupan.top/iam/iam-login:<commit>`（见 `platf
 - 首次注册只要求近期 AD 密码（见 iam-login `docs/webauthn.md`）。入口在公网，**上线后应尽快为
   每个账号完成注册**，未注册的账号在此期间只受 AD 密码保护。
 - 客户端管理：`https://sso.ddupan.top/console`，要求直接属于 `Domain Admins`。
+- 机器调用方（Terraform，`terraform-provider-homelab`）以 JWT-SVID（aud `iam-login`）调用管理 API，
+  只放行 `application.yaml` 中 `iam.clients.spiffe.admin-ids` 精确列出的 SPIFFE ID（Terraform CD 的 plan/apply job）。
+  验签时 Pod 访问 `https://spire-oidc.ad.ddupan.top/keys`。
 
 ## 检查
 
