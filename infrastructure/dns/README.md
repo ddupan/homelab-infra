@@ -84,7 +84,7 @@ A 记录等所有客户端切走后再删。
 
 | 批次 | 服务 | 状态 / 还差什么 |
 |---|---|---|
-| 1 | dns、nexus、s3、metrics-write | 双名。已切：9 个 TF backend、seaweedfs provider、nexus TF `nexus_url`（本地已有 `.terraform` 的需 `terraform init -reconfigure`）。待切：zot `regionendpoint`、sandbox vmagent remoteWrite（sandbox 集群须先能解析 lab） |
+| 1 | dns、nexus、s3、metrics-write | 双名。已切：9 个 TF backend、seaweedfs provider、nexus TF `nexus_url`（本地已有 `.terraform` 的需 `terraform init -reconfigure`）、zot `regionendpoint`、sandbox vmagent remoteWrite（sandbox 节点用 DC 解析，DC forwarder 已是 Blocky）。批次 1 客户端全部切完 |
 | 2 | grafana、backstage | `root_url` / `BACKSTAGE_BASE_URL` 与 OIDC 回调绑定单一名字，需与 IdP 客户端注册一起切 |
 | 3 | zot、zot-push | 约 10 处镜像引用 + Flux ImageRepository + push 端 bearer realm，最后单独切 |
 | 4 | spire-oidc、bao、nats、pg-dev 等 | issuer / 证书 SAN / 非 HTTP，逐个设计 |

@@ -11,7 +11,7 @@
 视图，会产生重复且语义混合的指标。PVE 宿主监控不属于本目录。
 
 vmagent 为所有远端样本增加 `cluster=sandbox`，并通过仅允许
-`POST /api/v1/write` 的 `metrics-write.ad.ddupan.top` 路由写入 homelab VMSingle。
+`POST /api/v1/write` 的 `metrics-write.lab.ddupan.top` 路由写入 homelab VMSingle。
 Operator 与 workload 拆成两个 Flux Kustomization，确保 VM CRD Ready 后再创建
 VMAgent、VMNodeScrape 和 VMServiceScrape。
 
