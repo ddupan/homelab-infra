@@ -17,7 +17,6 @@ resources:
   - apps/observability.yaml
   - apps/zot.yaml
   - apps/nexus.yaml
-  - apps/hydra.yaml
   - apps/smtp-relay.yaml
   - apps/research-auto.yaml
   - apps/seaweedfs.yaml

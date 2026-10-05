@@ -24,8 +24,6 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: nats, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: nexus, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: hydra, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: hydra-login, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: spire-oidc, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: spire-server, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: zot, type: A, values: [192.168.10.127] }
