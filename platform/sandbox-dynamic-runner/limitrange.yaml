@@ -1,5 +1,7 @@
-# Sandbox nodes are small LXCs (4 CPU; 6Gi and 4Gi). POD_CAPACITY x limit
-# must leave room for OpenSandbox and the control plane.
+# Executors request their full CPU limit so the scheduler places them by real
+# CPU: sandbox1 (4 CPU, its PVE host shared with iam-spike-build) fits one,
+# sandbox2 (8 CPU) fits three. POD_CAPACITY must not exceed what fits, or the
+# extra Pod stays Pending and its task fails after the handoff deadline.
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -12,5 +14,5 @@ spec:
         cpu: "2"
         memory: 3Gi
       defaultRequest:
-        cpu: 250m
+        cpu: "2"
         memory: 1Gi
