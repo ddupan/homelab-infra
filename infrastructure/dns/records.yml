@@ -18,7 +18,6 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: nexus, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: spire-oidc, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: spire-server, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: zot, type: A, values: [192.168.10.127] }
       - { zone: ad.ddupan.top, name: zot-push, type: A, values: [192.168.10.127] }
 
@@ -38,6 +37,8 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: sandbox1, type: A }
       - { zone: ad.ddupan.top, name: sandbox2, type: A }
       - { zone: ad.ddupan.top, name: sandbox-k8s, type: A }
+      # Every agent moved to spire-server.lab (sandbox, Kata runners, LXC 104), 2026-10-05.
+      - { zone: ad.ddupan.top, name: spire-server, type: A }
 
   powerdns:
     # lab.ddupan.top on PowerDNS, applied by CI via infrastructure/dns/terraform.
