@@ -1,7 +1,7 @@
 # Envoy 后每个服务域名的健康端点（COVERAGE B2）+ Bao（B7，按主机名验证 LE 证书）。
 # 从 Pod 发起：CoreDNS 解析 → 192.168.10.127 → Envoy → 后端，整条链路一起验证。
 # metrics-write 只匹配 POST /api/v1/write，GET 探不到；它由 vmagent-sandbox 的 remote write 告警覆盖。
-# 新增 HTTPRoute 时在这里加一行。
+# 新增 HTTPRoute 时在这里加一行，下线服务时删掉对应行；步骤见 platform/envoy-gateway/README.md「Adding a service」。
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMProbe
 metadata:

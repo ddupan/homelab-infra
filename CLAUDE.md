@@ -228,7 +228,8 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   `incus.service` is safe for running instances (`KillMode=process`).
 - `platform/envoy-gateway/` — **the LAN ingress**. Gateway API; Envoy holds 192.168.10.127 and
   routes `*.ad.ddupan.top` by Host header. Adding a service = an `HTTPRoute` + a DNS A
-  record in `samba-ad`; no cert work (see `platform/cert-manager/`). Authelia forward-auth is
+  record in `samba-ad` + a health probe in `platform/observability/metrics/probes/probes.yaml`
+  (and removing one = deleting its probe); no cert work (see `platform/cert-manager/`). Authelia forward-auth is
   available per-route via a `SecurityPolicy` — `platform/envoy-gateway/examples/` holds the worked
   example, and it is what makes AD-group→role mapping possible for apps whose own SSO
   cannot do it.
