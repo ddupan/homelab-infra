@@ -23,9 +23,11 @@ Gitea 就把 job 交给谁，不需要额外的调度配置（见 gitea-dynamic-
   ClusterStaticEntry 由 central SPIRE controller-manager 的 sandbox 集群配置处理。
 - **独立 cache-server**：runner 镜像内 `config-pod-cache.yaml` 指向本 namespace 的
   `gitea-runner-cache` Service，所以与 homelab 同名部署一份，secret 本地生成。
-- **容量更保守**：节点是 4 CPU 的 LXC（6Gi / 4Gi 内存），根盘是 32G HDD 且与 job 的
-  Docker 存储、cache PVC（local-path）共用。`POD_CAPACITY=2`，executor 默认 limit
-  2 CPU / 3Gi，cache 总量上限 6GB。扩大 LXC 后再相应调高。
+- **容量按 CPU 调度**：sandbox1 为 4 CPU / 8G（宿主 pve1 的 i3 与 iam-spike-build 共用），
+  sandbox2 为 8 CPU / 6G / 64G rootfs。executor 的 CPU request 等于 limit（2），调度器
+  据此在 sandbox1 放 1 个、sandbox2 放 3 个，`POD_CAPACITY=4` 与之一致；超出可调度数量
+  的 Pod 会 Pending 并在交接期限后失败，所以改节点规格时两者要一起调。cache 总量上限
+  6GB。
 
 ## 上线
 
