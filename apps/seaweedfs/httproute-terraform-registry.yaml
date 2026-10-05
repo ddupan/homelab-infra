@@ -25,14 +25,28 @@ spec:
             type: PathPrefix
             value: /
       filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              # Trailing slash required: Envoy Gateway replaces the "/" prefix literally, so
-              # "/terraform-registry" turned /.well-known/x into /terraform-registry.well-known/x
-              # (another bucket name). Verified 2026-10-05.
-              replacePrefixMatch: /terraform-registry/
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: terraform-registry-prefix
       backendRefs:
         - name: seaweedfs-s3
           port: 8333
+---
+# Pins every path under the bucket. A regex rewrite rather than the standard ReplacePrefixMatch:
+# Envoy Gateway joined "/" + "/terraform-registry/" as "/terraform-registry" + ".well-known/..."
+# (trailing slash dropped, so S3 saw bucket "terraform-registry.well-known"), with or without the
+# slash in the replacement. Verified 2026-10-05.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: terraform-registry-prefix
+  namespace: seaweedfs
+spec:
+  urlRewrite:
+    path:
+      type: ReplaceRegexMatch
+      replaceRegexMatch:
+        pattern: '^/(.*)$'
+        substitution: '/terraform-registry/\1'
