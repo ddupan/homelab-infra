@@ -36,3 +36,6 @@ resources:
   - rules/openbao.yaml
   - scrapes/shared-data-maintenance.yaml
   - rules/shared-data-maintenance.yaml
+  - probes/blackbox-exporter.yaml
+  - probes/probes.yaml
+  - rules/probes.yaml

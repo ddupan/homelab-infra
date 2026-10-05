@@ -99,15 +99,19 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 - **The WAN fails at random.** Bad ISP, cannot be changed. Anything that fetches from the
   internet needs `retries`/`until`. **Do not go debugging the router for this** — it has been
   checked thoroughly (see `flaky-wan-isp` memory).
-- ⚠ **But check the VPN before blaming the WAN.** `openvpn-client@naist` (tun0) installs **58
-  split-tunnel routes** capturing Cloudflare (`104.21/16`, `172.67/16`), Fastly (`151.101/16`),
-  Microsoft `13.107.x`, AWS CloudFront and Akamai. When the tunnel dies, systemd still reports
-  `active running` and **those routes stay installed**, blackholing everything that matches
-  while `github.com` — not in the route set — keeps working, so it looks like selective CDN
-  blocking or a bad ISP. **Pods inherit this**, since they use the host routing table. It
-  crash-looped Gitea and broke `pypi.org` on 2026-07-28. Diagnose with
-  `ip route get <failing-ip>` (`dev tun0` = the VPN ate it) and
-  `ping -c2 -I tun0 163.221.48.1`; fix with `systemctl restart openvpn-client@naist`.
+- ⚠ **But check the VPN before blaming the WAN** — though its blast radius shrank.
+  `openvpn-client@naist` (tun0) used to accept **58 pushed split-tunnel routes** (Cloudflare
+  `104.21/16`, `172.67/16`, Fastly `151.101/16`, Microsoft, CloudFront, Akamai); a dead tunnel
+  blackholed all of them, crash-looping Gitea and breaking `pypi.org` on 2026-07-28. **Since
+  2026-09-11** `naist.conf` has `pull-filter`s that accept only NAIST's own routes
+  (`163.221.0.0/16`, `192.218.128.0/23`, `2001:df3:540::/48`), so CDNs no longer go via tun0.
+  The failure mode is unchanged inside that scope: when the tunnel dies, systemd still reports
+  `active running`, the routes stay, and NAIST addresses — including its public site
+  `www.naist.jp` (163.221.8.230) — blackhole from the laptop and from **pods** (host routing
+  table) while working fine from outside. `NaistVpnDown` (blackbox probe) now alerts on this.
+  Diagnose with `ip route get <failing-ip>` (`dev tun0` = the VPN ate it) and
+  `journalctl -u openvpn-client@naist` (repeated `TLS key negotiation failed` = no answer on
+  UDP 1194). openvpn already retries every 5 min, so `systemctl restart` rarely helps then.
   `~/scripts/netrestart/main.py` bounces the WAN uplink and **cannot** fix this.
 - ⚠ **IPv6 is broken on the laptop, and it looks like a VPN problem but is not.** `br0` has
   **no global IPv6 address** — `net.ipv6.conf.all.forwarding=1` (libvirt/k3s) makes the kernel

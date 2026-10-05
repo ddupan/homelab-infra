@@ -21,13 +21,13 @@ PR 号**；新发现的盲区直接追加。
 
 `probe_success` 当前为空；集群里没有 VMProbe / blackbox-exporter。
 
-- [ ] **B1** 部署 blackbox-exporter + VMProbe 基础设施（HTTP / DNS / ICMP / TCP 模块）
-- [ ] **B2** Envoy Gateway：逐个 `*.ad.ddupan.top` Host 做 HTTPS 探测（顺带覆盖证书到期）
+- [x] **B1** 部署 blackbox-exporter + VMProbe 基础设施 — `metrics/probes/`；HTTP / DNS 模块，ICMP 未启用（需要 NET_RAW，目前不需要）
+- [x] **B2** Envoy Gateway：逐个 Host 的健康端点 — `probes.yaml` 的 lan-https；`metrics-write` 只接受 POST，未纳入。新增 HTTPRoute 时要同步加一行
 - [x] **B3** 公网入口经 cloudflared：`auth` / `git` / `obj` / `e5renew.ddupan.top` — 从 oci-arm 经 Cloudflare 探测
-- [ ] **B4** DNS：dc1 解析 `ad.ddupan.top`、CoreDNS 解析集群内外名、Blocky 解析 split-horizon 名
-- [ ] **B5** VPN 黑洞：经 `tun0` ping `163.221.48.1` + 探测一个被 split-tunnel 捕获的 Cloudflare IP（unit 显示 running 也会坏，见 CLAUDE.md）
-- [ ] **B6** WAN 连通性：探测若干外部地址，让"WAN 抖了"和"服务挂了"能区分开（只看不修，见 `flaky-wan-isp`）
-- [ ] **B7** OpenBao `/v1/sys/health` 按主机名探测（验证 TLS 链路，不只是进程活着）
+- [x] **B4** DNS：dc1 / CoreDNS / Blocky 解析 `dc1.ad.ddupan.top`，Blocky / CoreDNS 的 split-horizon（`git.ddupan.top` → Envoy）
+- [x] **B5** VPN 黑洞：探测经 tun0 的 `www.naist.jp`，出口正常时失败即 `NaistVpnDown`。2026-09-11 起 pull-filter 只接受 NAIST 路由，CDN 不再走 tun0（CLAUDE.md 已更新）
+- [x] **B6** WAN 连通性：github.com + Cloudflare 都失败 10 分钟才报 `WanEgressDown`
+- [x] **B7** OpenBao `/v1/sys/health` 按主机名探测（在 lan-https 里）
 
 ## 3. Proxmox / 网络（P1）
 

@@ -1,0 +1,69 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: probes
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  - name: probes
+    interval: 30s
+    rules:
+    - alert: LanEndpointDown
+      expr: probe_success{probe_group="lan"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: 内网入口 {{ $labels.instance }} 探测失败
+        description: >-
+          从集群内经 CoreDNS → Envoy 访问失败。probe_http_status_code 看返回码：502/503 是后端，
+          404 多半是 HTTPRoute 丢了，0 是 DNS/连接/证书。同时有多个入口失败时先查 Envoy 和 DNS。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 内部名字解析是一切的前提，且绝不能依赖 WAN；坏了基本等于全 lab 不可用。
+    - alert: DnsResolutionFailing
+      expr: probe_success{probe_group="dns"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: DNS {{ $labels.instance }} 解析 {{ $labels.job }} 失败
+        description: >-
+          192.168.10.5 = dc1（libvirt VM）、10.43.0.10 = CoreDNS、192.168.10.127 = Blocky。
+          只有 CoreDNS 失败查 coredns Pod；三个都失败先查 dc1 是否在线。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # WAN 本来就会随机掉线（flaky-wan-isp），短断不报；不要为此去查路由器。
+    - alert: WanEgressDown
+      expr: max(probe_success{probe_group="egress"}) == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: 集群出口完全不通（github.com 与 Cloudflare 均失败）
+        description: >-
+          持续 10 分钟。先从第二台主机（ssh root@192.168.10.4）复测，排除只是 laptop 的问题；
+          WAN 掉线不可修，等待恢复。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 出口正常但 NAIST 不通 = 隧道死了。systemd 仍报 active、163.221.0.0/16 路由仍在，
+    # 发往 NAIST 的流量被黑洞；openvpn 自己每 5 分钟重连，systemctl restart 往往无济于事。
+    - alert: NaistVpnDown
+      expr: max(probe_success{probe_group="vpn"}) == 0 and on() max(probe_success{probe_group="egress"}) == 1
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: NAIST VPN 隧道不通（出口正常，www.naist.jp 经 tun0 不可达）
+        description: >-
+          journalctl -u openvpn-client@naist 看是否反复 "TLS key negotiation failed"。
+          163.221.0.0/16 仍指向 tun0，NAIST 网段（包括其公网站点）在隧道恢复前都不可达。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: BlackboxProbeScrapeFailing
+      expr: up{job=~"probe-.+"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: 黑盒探测 {{ $labels.job }} 无法抓取
+        description: blackbox-exporter 不可达时以上所有探测告警都不会触发；查 monitoring/blackbox-exporter Pod。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
