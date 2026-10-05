@@ -40,15 +40,6 @@ spec:
         summary: node-exporter 采集不可用
         description: 检查节点与 exporter，主机健康规则依赖此采集。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    - alert: NatsMetricsUnavailable
-      expr: up{job="nats/nats"} == 0 or absent(up{job="nats/nats"})
-      for: 5m
-      labels:
-        severity: warning
-      annotations:
-        summary: NATS 指标采集不可用
-        description: 依次检查 PodMonitor、转换后的 VMPodScrape、:7777 exporter 及 targets。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: AlertmanagerTelegramDeliveryFailed
       expr: sum by(job,instance,integration) (increase(alertmanager_notifications_failed_total{job="vmalertmanager-main",integration="telegram"}[5m]))
         > 0

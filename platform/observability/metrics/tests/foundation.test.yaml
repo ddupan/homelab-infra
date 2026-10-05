@@ -89,20 +89,6 @@ tests:
         summary: Deployment app/web 副本不足
         description: 可用副本持续 10 分钟低于声明值；缩容至零不会触发。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-- name: NATS 发现集合完全消失也报警
-  interval: 1m
-  input_series: []
-  alert_rule_test:
-  - eval_time: 6m
-    alertname: NatsMetricsUnavailable
-    exp_alerts:
-    - exp_labels:
-        job: nats/nats
-        severity: warning
-      exp_annotations:
-        summary: NATS 指标采集不可用
-        description: 依次检查 PodMonitor、转换后的 VMPodScrape、:7777 exporter 及 targets。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
 - name: 历史 OOM 没有新重启不反复报警
   interval: 1m
   input_series:
