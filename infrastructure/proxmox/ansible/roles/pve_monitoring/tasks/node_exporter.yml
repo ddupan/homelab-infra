@@ -15,7 +15,7 @@
   delay: 5
   until: pve_node_exporter_pkg is succeeded
 
-- name: textfile 目录
+- name: 创建 textfile 目录
   ansible.builtin.file:
     path: "{{ pve_node_exporter_textfile_dir }}"
     state: directory
@@ -32,7 +32,7 @@
     content: |
       # Ansible managed: infrastructure/proxmox/ansible/roles/pve_monitoring
       ARGS="--web.listen-address={{ pve_node_exporter_listen }} --collector.textfile.directory={{ pve_node_exporter_textfile_dir }}"
-  notify: restart pve node exporter
+  notify: Restart pve node exporter
 
 - name: 安装 quorum 指标脚本
   ansible.builtin.copy:
@@ -42,7 +42,7 @@
     group: root
     mode: "0755"
 
-- name: quorum 指标的 service 与 timer
+- name: 安装 quorum 指标的 service 与 timer
   ansible.builtin.copy:
     dest: "/etc/systemd/system/{{ item.name }}"
     owner: root

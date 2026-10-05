@@ -60,7 +60,7 @@
   no_log: true
   run_once: true
 
-- name: token 存在但 Bao 里没有：无法找回，需显式轮换
+- name: 拒绝继续：token 存在但 Bao 里没有，无法找回，需显式轮换
   ansible.builtin.fail:
     msg: >-
       {{ pve_exporter_user }}!{{ pve_exporter_token_id }} 已存在，但 Bao {{ pve_exporter_bao_mount }}/{{ pve_exporter_bao_path }}
