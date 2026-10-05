@@ -76,8 +76,8 @@ resource "vault_jwt_auth_backend_role" "ci_techdocs_publisher" {
   token_max_ttl           = 900
 }
 
-# Provider releases (terraform-provider-*/.gitea/workflows/release.yml, job key `release`) publish to
-# the static Terraform registry: S3 upload credentials and the registry's GPG signing key.
+# Provider releases (terraform-provider-*/.gitea/workflows/release.yml, job key `release`) upload builds
+# to the static Terraform registry. Signing stays with the maintainer's YubiKey, not CI.
 resource "vault_jwt_auth_backend_role" "ci_terraform_registry_publisher" {
   backend   = vault_jwt_auth_backend.spire.path
   role_name = "ci-terraform-registry-publisher"
