@@ -1,0 +1,8 @@
+---
+# PVE 监控：每个节点的 node_exporter + corosync quorum textfile，以及 pve-exporter 的只读
+# API 身份（token 写进 Bao）。可安全重跑。需要控制机上有 VAULT_TOKEN（kv/k8s/pve-exporter 读写）。
+- name: Proxmox 节点监控
+  hosts: pve
+  gather_facts: true
+  roles:
+    - pve_monitoring

@@ -1,0 +1,7 @@
+---
+- name: 节点指标（node_exporter + quorum textfile）
+  ansible.builtin.import_tasks: node_exporter.yml
+
+# 用户、ACL、token 是集群级配置（pmxcfs），只在一个节点上做一次。
+- name: pve-exporter 的只读 API 身份
+  ansible.builtin.import_tasks: api_token.yml

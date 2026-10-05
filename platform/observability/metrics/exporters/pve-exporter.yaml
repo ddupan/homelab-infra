@@ -1,0 +1,115 @@
+# prometheus-pve-exporter：PVE 集群的资源与状态（节点在线、HA、锁、onboot、备份覆盖）。
+# 选它而不是 PVE 9.2 自带的 OTLP metric server：后者只推资源用量、没有 HA/锁/节点在线视角，
+# 且只发 OTLP JSON（VMSingle 只收 protobuf）。主机层面由各节点的 node_exporter 负责。
+#
+# 身份：pve-exporter@pve，PVEAuditor（只读），token 由 infrastructure/proxmox/ansible/monitoring.yml
+# 创建并写进 Bao kv/k8s/pve-exporter。抓取方式见 ../scrapes/proxmox.yaml。
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pve-exporter
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: pve-exporter
+    creationPolicy: Owner
+  data:
+    - secretKey: PVE_USER
+      remoteRef:
+        key: k8s/pve-exporter
+        property: user
+    - secretKey: PVE_TOKEN_NAME
+      remoteRef:
+        key: k8s/pve-exporter
+        property: token_name
+    - secretKey: PVE_TOKEN_VALUE
+      remoteRef:
+        key: k8s/pve-exporter
+        property: token_value
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pve-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: pve-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pve-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pve-exporter
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pve-exporter
+          image: prompve/prometheus-pve-exporter:3.10.1
+          args:
+            - --web.listen-address=0.0.0.0:9221
+          envFrom:
+            - secretRef:
+                name: pve-exporter
+          env:
+            # 节点 8006 的证书由 bao 内部 CA 签发；按主机名校验，不关 TLS 校验。
+            - name: PVE_VERIFY_SSL
+              value: "true"
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/bao-ca/ca.pem
+          ports:
+            - name: http
+              containerPort: 9221
+          readinessProbe:
+            tcpSocket:
+              port: http
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: bao-ca
+              mountPath: /etc/bao-ca
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: bao-ca
+          configMap:
+            name: bao-ca
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pve-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: pve-exporter
+spec:
+  selector:
+    app.kubernetes.io/name: pve-exporter
+  ports:
+    - name: http
+      port: 9221
+      targetPort: http

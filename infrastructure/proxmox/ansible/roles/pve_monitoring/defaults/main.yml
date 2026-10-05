@@ -1,0 +1,14 @@
+---
+# node_exporter 只听本机 LAN 地址；集群 vmagent 经 LAN 抓取（scrapes/proxmox.yaml）。
+pve_node_exporter_listen: "{{ ansible_host }}:9100"
+pve_node_exporter_textfile_dir: /var/lib/prometheus/node-exporter
+
+# pve-exporter 的只读身份。PVEAuditor 在 / 上：读集群/节点/客户机/存储/HA 状态，不能改任何东西。
+pve_exporter_user: pve-exporter@pve
+pve_exporter_token_id: exporter
+# token 只在创建时可见；写进 Bao 后由 ESO 同步到 monitoring/pve-exporter。
+pve_exporter_bao_url: https://bao.ad.ddupan.top:8200
+pve_exporter_bao_mount: kv
+pve_exporter_bao_path: k8s/pve-exporter
+# Bao 里的 token 丢了（或要轮换）时用 -e pve_exporter_rotate_token=true 重建。
+pve_exporter_rotate_token: false

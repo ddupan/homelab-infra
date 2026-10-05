@@ -76,6 +76,11 @@ ha-manager status
 If a step fails, leave `vm:100` in `ignored` and fix it — the VM keeps running and
 nothing gets fenced. `ignored` means HA does not touch the guest, not that it stops.
 
+## Monitoring
+
+Node offline, quorum loss, HA state and fencing are alerted on — see
+[README-monitoring.md](README-monitoring.md). That is the only record a self-fenced node leaves.
+
 ## Verify
 
 ```bash

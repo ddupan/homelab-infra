@@ -1,0 +1,87 @@
+---
+# 主机层面（磁盘、ZFS、PSI、systemd：corosync / pve-cluster / pve-ha-lrm / pve-ha-crm /
+# watchdog-mux）。pve-exporter 和 PVE 自带的 metric server 都不覆盖这些。
+- name: 安装 node_exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    install_recommends: false
+    # 先写好监听地址再启动，避免 postinst 以 0.0.0.0:9100 起一次。
+    policy_rc_d: 101
+  register: pve_node_exporter_pkg
+  retries: 3
+  delay: 5
+  until: pve_node_exporter_pkg is succeeded
+
+- name: textfile 目录
+  ansible.builtin.file:
+    path: "{{ pve_node_exporter_textfile_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 绑定 LAN 地址并启用 textfile collector
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Ansible managed: infrastructure/proxmox/ansible/roles/pve_monitoring
+      ARGS="--web.listen-address={{ pve_node_exporter_listen }} --collector.textfile.directory={{ pve_node_exporter_textfile_dir }}"
+  notify: restart pve node exporter
+
+- name: 安装 quorum 指标脚本
+  ansible.builtin.copy:
+    src: pve-quorum-metrics
+    dest: /usr/local/sbin/pve-quorum-metrics
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: quorum 指标的 service 与 timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: pve-quorum-metrics.service
+      content: |
+        # Ansible managed: infrastructure/proxmox/ansible/roles/pve_monitoring
+        [Unit]
+        Description=Write corosync quorum metrics for node_exporter
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/pve-quorum-metrics
+    - name: pve-quorum-metrics.timer
+      content: |
+        # Ansible managed: infrastructure/proxmox/ansible/roles/pve_monitoring
+        [Unit]
+        Description=Refresh corosync quorum metrics every 30s
+
+        [Timer]
+        OnBootSec=30s
+        OnUnitActiveSec=30s
+        AccuracySec=5s
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: pve_quorum_units
+
+- name: 启用 node_exporter 与 quorum timer
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: "{{ pve_quorum_units is changed }}"
+  loop: [prometheus-node-exporter, pve-quorum-metrics.timer]
+  # 首次 --check 时包并没有真的装上，unit 不存在。
+  when: not (ansible_check_mode and (pve_node_exporter_pkg is changed or pve_quorum_units is changed))
