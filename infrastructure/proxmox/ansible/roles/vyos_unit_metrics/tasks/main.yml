@@ -1,0 +1,82 @@
+---
+# 与 shared-postgresql/proxy.yml 同一套做法：文件放 /config（跨镜像升级保留），unit 以符号链接
+# 装进 /etc/systemd/system，再由 postconfig hook 在升级后恢复链接。
+- name: 创建跨升级保留的目录
+  ansible.builtin.file:
+    path: "{{ vyos_unit_metrics_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 安装 unit 状态脚本
+  ansible.builtin.copy:
+    src: vyos-unit-metrics
+    dest: "{{ vyos_unit_metrics_dir }}/vyos-unit-metrics"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 写入 service 与 timer
+  ansible.builtin.copy:
+    dest: "{{ vyos_unit_metrics_dir }}/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: vyos-unit-metrics.service
+      content: |
+        # Ansible managed: infrastructure/proxmox/ansible/roles/vyos_unit_metrics
+        [Unit]
+        Description=Write VyOS service unit states for node_exporter
+
+        [Service]
+        Type=oneshot
+        Environment=TEXTFILE_DIR={{ vyos_unit_metrics_textfile_dir }}
+        ExecStart={{ vyos_unit_metrics_dir }}/vyos-unit-metrics {{ vyos_unit_metrics_units | join(' ') }}
+    - name: vyos-unit-metrics.timer
+      content: |
+        # Ansible managed: infrastructure/proxmox/ansible/roles/vyos_unit_metrics
+        [Unit]
+        Description=Refresh VyOS service unit states every 30s
+
+        [Timer]
+        OnBootSec=60s
+        OnUnitActiveSec=30s
+        AccuracySec=5s
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: vyos_unit_metrics_units_written
+
+- name: 链接 unit 到 systemd
+  ansible.builtin.file:
+    src: "{{ vyos_unit_metrics_dir }}/{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    state: link
+    # 首次 --check 时源文件尚未写入；force 允许先建指向它的链接，否则检查模式直接失败。
+    force: true
+  loop: [vyos-unit-metrics.service, vyos-unit-metrics.timer]
+  register: vyos_unit_metrics_links
+
+- name: 通过既有 postconfig hook 在系统升级后恢复链接
+  ansible.builtin.blockinfile:
+    path: /config/scripts/vyos-postconfig-bootup.script
+    marker: "# {mark} ANSIBLE HOMELAB UNIT METRICS"
+    insertbefore: '^exit 0'
+    block: |
+      ln -sfn {{ vyos_unit_metrics_dir }}/vyos-unit-metrics.service /etc/systemd/system/vyos-unit-metrics.service
+      ln -sfn {{ vyos_unit_metrics_dir }}/vyos-unit-metrics.timer /etc/systemd/system/vyos-unit-metrics.timer
+      systemctl daemon-reload
+      systemctl enable --now vyos-unit-metrics.timer
+
+- name: 启用 timer
+  ansible.builtin.systemd_service:
+    name: vyos-unit-metrics.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ vyos_unit_metrics_units_written is changed or vyos_unit_metrics_links is changed }}"
+  when: not (ansible_check_mode and vyos_unit_metrics_links is changed)

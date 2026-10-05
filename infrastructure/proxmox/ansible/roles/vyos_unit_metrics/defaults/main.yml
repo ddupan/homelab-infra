@@ -1,0 +1,17 @@
+---
+# 写进 node_exporter textfile 的 unit。VyOS 的 node_exporter 只跑默认 collector（没有 systemd），
+# 这些服务又分散在三个 playbook 里配置——停了不会有任何其他信号。
+vyos_unit_metrics_units:
+  - frr.service                     # OSPF（全部 SDN 可达性）+ DN42 BGP
+  - haproxy.service                 # VyOS CLI 的 HAProxy：sandbox k3s API / opensandbox / sandbox PG
+  - homelab-pg-proxy.service        # 生产 PostgreSQL 入口 pg-prod（shared-postgresql/proxy.yml）
+  - isc-kea-dhcp4-server.service    # labnet / retronet DHCP
+  - pdns-recursor.service           # DN42 DNS forwarding
+  - radvd.service                   # ULA 前缀的 IPv6 RA
+  - chrony.service                  # 给私网客户端的 NTP 服务
+  - node_exporter.service
+  - frr_exporter.service
+# 跨 VyOS 镜像升级保留：/config 之外（包括 /etc/systemd/system）升级时都会被重置。
+vyos_unit_metrics_dir: /config/homelab-monitoring
+# VyOS 启用 textfile collector 时由其 conf 脚本创建（/run 是 tmpfs，开机随配置重建）。
+vyos_unit_metrics_textfile_dir: /run/node_exporter/collector

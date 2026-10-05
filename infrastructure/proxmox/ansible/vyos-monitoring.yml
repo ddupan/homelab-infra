@@ -1,0 +1,10 @@
+---
+# VyOS 上 VyOS CLI 管不到的部分：unit 状态 textfile。exporter 本身由 vyos.yml（vyos_router）开启，
+# 先跑 vyos.yml。这里走 ssh + python（VyOS 自带 python3），同 shared-postgresql/proxy.yml。
+#   ansible-playbook vyos-monitoring.yml --check --diff
+- name: VyOS 服务状态指标
+  hosts: vyos_shell
+  become: true
+  gather_facts: false
+  roles:
+    - vyos_unit_metrics

@@ -93,3 +93,10 @@ vyos_sandbox_k3s_servers:
     address: "10.60.0.11"
   - name: sandbox2
     address: "10.60.0.12"
+
+# 内置 Prometheus exporter（COVERAGE P6）。只听 LAN 地址：VyOS 没有配置 firewall，
+# 绑 0.0.0.0 会把指标也暴露到 SDN 网段和 wg42。集群 vmagent 经 LAN 抓取
+# （platform/observability/metrics/scrapes/vyos.yaml）。端口显式写出，不依赖发行版默认值。
+vyos_monitoring_listen_address: "192.168.10.2"
+vyos_node_exporter_port: 9100
+vyos_frr_exporter_port: 9342

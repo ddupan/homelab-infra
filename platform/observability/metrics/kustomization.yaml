@@ -47,3 +47,5 @@ resources:
   - exporters/pve-exporter.yaml
   - scrapes/proxmox.yaml
   - rules/proxmox.yaml
+  - scrapes/vyos.yaml
+  - rules/vyos.yaml

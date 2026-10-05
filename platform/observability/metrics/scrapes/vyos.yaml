@@ -1,0 +1,50 @@
+# vyos-rtr（192.168.10.2）。VyOS 远不止路由：生产 PostgreSQL 入口 pg-prod、sandbox 集群 API、
+# SDN 的 DHCP/RA/NTP、DN42 都在它上面。exporter 由 infrastructure/proxmox/ansible/vyos.yml
+# （内置 node/frr exporter）、vyos-monitoring.yml（unit 状态 textfile）、
+# infrastructure/shared-postgresql/ansible/proxy.yml（pg-prod HAProxy 的 metrics frontend）开启。
+#
+# node-exporter：job 用 node-exporter，host-health 规则自动覆盖（VyOS 根是 overlay/squashfs，已被排除）。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: vyos-node-exporter
+  namespace: monitoring
+spec:
+  jobName: node-exporter
+  targetEndpoints:
+  - targets:
+    - 192.168.10.2:9100
+    labels:
+      node: vyos-rtr
+    interval: 30s
+---
+# FRR：OSPF 邻接（SDN 网段能否被 LAN 路由到）与 DN42 iBGP。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: vyos-frr
+  namespace: monitoring
+spec:
+  jobName: frr
+  targetEndpoints:
+  - targets:
+    - 192.168.10.2:9342
+    labels:
+      node: vyos-rtr
+    interval: 30s
+---
+# pg-prod 的 HAProxy：haproxy_server_status 显示它把写流量送给哪个 Patroni 成员。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: pg-proxy-haproxy
+  namespace: monitoring
+spec:
+  jobName: pg-proxy-haproxy
+  targetEndpoints:
+  - targets:
+    - 192.168.10.2:8405
+    path: /metrics
+    labels:
+      node: vyos-rtr
+    interval: 30s

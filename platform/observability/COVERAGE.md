@@ -36,7 +36,12 @@ PR 号**；新发现的盲区直接追加。
 - [x] **P3** corosync / quorum 告警（fencing 已全集群启用，失去 quorum 会自重启） — corosync-quorumtool → textfile（`pve_corosync_*`），30 秒一次
 - [x] **P4** HA 事件：`vm:100` 迁移/重启要有通知 — `pve_ha_state`：HA 资源不在 started、fence/error
 - [ ] **P5** LINSTOR / DRBD 资源与复制状态
-- [ ] **P6** VyOS：开启自带 node-exporter；OSPF 邻居数、接口状态告警
+- [x] **P6** VyOS：内置 node/frr exporter（`vyos.yml`）、服务状态 textfile（`vyos-monitoring.yml`）、pg-prod HAProxy
+  metrics（`shared-postgresql/proxy.yml`）、四个 TCP 入口与 DN42 DNS 探测。VyOS 远不止路由：pg-prod 生产库入口、
+  sandbox k3s API、SDN 的 DHCP/RA/NTP、DN42 都在它上面
+  - ⚠ VyOS **没有配置 firewall**；NTP 服务端与 syslog 配置不在任何 playbook 里（2026-10-05 发现，未处理）
+  - ⚠ `infrastructure/proxmox/vyos/backups/config.boot` 曾被提交（含 `vyos` 用户的密码 hash），已改为 gitignore，
+    历史未改写——建议轮换 `vyos` 密码
 - [ ] **P7** NEC IX：SNMP（接口、WAN 口状态）——若设备支持
 - [ ] **P8** 无线 AP：至少 ICMP 存活
 

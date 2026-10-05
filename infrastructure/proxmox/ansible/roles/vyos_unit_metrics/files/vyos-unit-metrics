@@ -1,0 +1,21 @@
+#!/bin/sh
+# systemd unit 状态 → node_exporter textfile。由 vyos-unit-metrics.timer 每 30 秒运行。
+# 原子写：先写临时文件再 rename，node_exporter 不会读到半个文件。
+set -eu
+dir="${TEXTFILE_DIR:-/run/node_exporter/collector}"
+mkdir -p "$dir"
+tmp="$dir/.vyos_units.prom.$$"
+{
+  echo "# HELP vyos_unit_active systemd unit is active (1) or not (0)."
+  echo "# TYPE vyos_unit_active gauge"
+  echo "# HELP vyos_unit_failed systemd unit is in the failed state."
+  echo "# TYPE vyos_unit_failed gauge"
+  for u in "$@"; do
+    a=0; systemctl is-active --quiet "$u" && a=1
+    f=0; systemctl is-failed --quiet "$u" && f=1
+    echo "vyos_unit_active{unit=\"$u\"} $a"
+    echo "vyos_unit_failed{unit=\"$u\"} $f"
+  done
+} > "$tmp"
+chmod 0644 "$tmp"
+mv "$tmp" "$dir/vyos_units.prom"
