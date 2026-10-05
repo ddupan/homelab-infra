@@ -128,3 +128,23 @@ spec:
         summary: 主机 {{ $labels.instance }} 内存压力过高（{{ $value | humanizePercentage }} 时间全部任务卡在内存回收上）
         description: 内存与 swap 都快耗尽，OOM 随时可能发生；查看进程 PSS 看板，优先停掉 CI 构建等可推迟负载。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # Kerberos 容忍 5 分钟时钟偏差，dc1 失步会让全域认证失败；其他主机失步会让 TLS、
+    # TOTP、日志关联出错。只看 job=node-exporter，避免 docker-hosts 重复采集。
+    - alert: HostClockNotSynchronising
+      expr: node_timex_sync_status{job="node-exporter"} == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} 时钟未同步
+        description: 检查 chrony / systemd-timesyncd（chronyc tracking、timedatectl）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: HostClockSkew
+      expr: abs(node_timex_offset_seconds{job="node-exporter"}) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: 主机 {{ $labels.instance }} 时钟偏差 {{ $value | humanizeDuration }}
+        description: 偏差接近 5 分钟时 Kerberos 认证开始失败；先查 NTP 源是否可达。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

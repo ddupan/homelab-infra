@@ -42,7 +42,7 @@ PR 号**；新发现的盲区直接追加。
 
 ## 4. 其他主机与 VM（P1–P2）
 
-- [ ] **H1** dc1（Samba AD）：node-exporter + samba/DNS/Kerberos/复制健康 —— P1，坏了全域受影响
+- [x] **H1** dc1（Samba AD）：node-exporter（`monitoring-dc.yml`）+ samba-ad-dc 服务、Kerberos/LDAP/LDAPS 端口、LDAPS 证书到期、samba-acme 续期 timer、时钟同步。DNS 见 B4。只有一台 DC，没有复制可监控
 - [ ] **H2** libvirt-exporter：dc1 / bao1 / winadmin / win2k25 的 VM 状态
 - [ ] **H3** 10.60.0.20/21（共享 PG/etcd 节点）主机层面 node-exporter（现在只有 PG/etcd 指标）
 - [ ] **H4** ayatori-dev/prod（Incus .11/.12）node-exporter —— 只装 exporter，**不碰 Ayatori 本身**
@@ -108,6 +108,8 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 - [ ] **R2** ZFS 快照 / 复制新鲜度
 - [ ] **R3** 其余 CronJob / systemd timer 的"最后成功时间"统一告警（`node_systemd_timer_last_trigger_seconds` 已有数据）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
+  - ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无
+    `samba-tool domain backup`、无 libvirt 快照。samba-ad README 写着"在域成为承重之前做"，现在已经是 SSO 底座
 
 ## 10. 收尾（P3）
 

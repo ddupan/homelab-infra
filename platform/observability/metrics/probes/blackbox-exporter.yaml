@@ -35,6 +35,13 @@ spec:
       limits:
         cpu: 200m
         memory: 128Mi
+    # dc1 的 LDAPS 证书由 bao 内部 CA 签发，系统 CA 里没有它。
+    extraConfigmapMounts:
+      - name: bao-ca
+        mountPath: /etc/bao-ca
+        configMap: bao-ca
+        readOnly: true
+        defaultMode: 420
     config:
       modules:
         # 健康检查端点：不跟随跳转，跳转到登录页意味着探到的不是后端本身。
@@ -82,3 +89,19 @@ spec:
             query_type: A
             validate_answer_rrs:
               fail_if_not_matches_regexp: ['.*\t192\.168\.10\.127$']
+        tcp_connect:
+          prober: tcp
+          timeout: 5s
+          tcp:
+            preferred_ip_protocol: ip4
+        # 按 IP 连、按主机名校验：dc1 的 ACME 证书只有 DNS SAN（见 samba-ad-dc 记忆/README），
+        # 用 IP 校验必然 IP mismatch。顺带产出 probe_ssl_earliest_cert_expiry。
+        tcp_ldaps_dc1:
+          prober: tcp
+          timeout: 5s
+          tcp:
+            preferred_ip_protocol: ip4
+            tls: true
+            tls_config:
+              ca_file: /etc/bao-ca/ca.pem
+              server_name: dc1.ad.ddupan.top

@@ -39,3 +39,6 @@ resources:
   - probes/blackbox-exporter.yaml
   - probes/probes.yaml
   - rules/probes.yaml
+  - scrapes/samba-dc.yaml
+  - probes/bao-ca.yaml
+  - rules/samba-dc.yaml
