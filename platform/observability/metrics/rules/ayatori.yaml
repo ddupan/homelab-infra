@@ -24,6 +24,7 @@ spec:
           labels:
             severity: critical
             cluster: ayatori-prod
+            env: prod
           annotations:
             summary: Ayatori ayatori-prod 主机指标缺失
             description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
@@ -61,6 +62,7 @@ spec:
           labels:
             severity: warning
             cluster: ayatori-dev
+            env: dev
           annotations:
             summary: Ayatori ayatori-dev 主机指标缺失
             description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。

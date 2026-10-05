@@ -11,9 +11,9 @@ spec:
   jobName: ayatori-node
   targetEndpoints:
     - targets: ['192.168.10.11:9100']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:9100']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
@@ -24,9 +24,9 @@ spec:
   jobName: ayatori-kube-state-metrics
   targetEndpoints:
     - targets: ['192.168.10.11:8085']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8085']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
@@ -37,9 +37,9 @@ spec:
   jobName: ayatori-manager
   targetEndpoints:
     - targets: ['192.168.10.11:8080']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8080']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
@@ -50,9 +50,9 @@ spec:
   jobName: ayatori-external-secrets
   targetEndpoints:
     - targets: ['192.168.10.11:8180']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8180']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
@@ -63,9 +63,9 @@ spec:
   jobName: ayatori-flux-source-controller
   targetEndpoints:
     - targets: ['192.168.10.11:8280']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8280']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
@@ -76,6 +76,6 @@ spec:
   jobName: ayatori-flux-kustomize-controller
   targetEndpoints:
     - targets: ['192.168.10.11:8281']
-      labels: {cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8281']
-      labels: {cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, env: prod}

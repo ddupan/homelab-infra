@@ -5,20 +5,20 @@ tests:
 - name: Prod 目标不可采集为 critical，Dev 为 warning
   interval: 1m
   input_series:
-  - series: up{job="ayatori-manager",cluster="ayatori-prod",environment="prod"}
+  - series: up{job="ayatori-manager",cluster="ayatori-prod",env="prod"}
     values: 0x10
-  - series: up{job="ayatori-manager",cluster="ayatori-dev",environment="dev"}
+  - series: up{job="ayatori-manager",cluster="ayatori-dev",env="dev"}
     values: 0x10
   alert_rule_test:
   - eval_time: 6m
     alertname: AyatoriTargetDown
     exp_alerts:
-    - exp_labels: {job: ayatori-manager, cluster: ayatori-prod, environment: prod, severity: critical}
+    - exp_labels: {job: ayatori-manager, cluster: ayatori-prod, env: prod, severity: critical}
       exp_annotations:
         summary: Ayatori ayatori-prod 的 ayatori-manager 不可采集
         description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
-    - exp_labels: {job: ayatori-manager, cluster: ayatori-dev, environment: dev, severity: warning}
+    - exp_labels: {job: ayatori-manager, cluster: ayatori-dev, env: dev, severity: warning}
       exp_annotations:
         summary: Ayatori ayatori-dev 的 ayatori-manager 不可采集
         description: 检查对应 LXC 与 systemd/quadlet 服务；KSM 不可采集时 Instance/Tenant 状态告警同时失效。
@@ -96,7 +96,7 @@ tests:
   - eval_time: 15m
     alertname: AyatoriTargetAbsent
     exp_alerts:
-    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, severity: critical}
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, env: prod, severity: critical}
       exp_annotations:
         summary: Ayatori ayatori-prod 主机指标缺失
         description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
