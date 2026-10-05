@@ -18,7 +18,7 @@ provider "sonatyperepo" {
 variable "nexus_url" {
   description = "Nexus Repository base URL"
   type        = string
-  default     = "https://nexus.ad.ddupan.top"
+  default     = "https://nexus.lab.ddupan.top"
 }
 
 variable "nexus_username" {
