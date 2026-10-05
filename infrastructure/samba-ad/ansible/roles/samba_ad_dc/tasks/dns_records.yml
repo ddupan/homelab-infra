@@ -12,3 +12,15 @@
   loop_control:
     label: "{{ item['name'] }}.{{ item['zone'] }} {{ item['type'] }}"
   tags: [dns]
+
+- name: Delete retired AD DNS RRsets
+  ddupan.homelab.samba_dns_record:
+    server: "{{ samba_ad_dc_ip }}"
+    zone: "{{ item['zone'] }}"
+    name: "{{ item['name'] }}"
+    type: "{{ item['type'] }}"
+    state: absent
+  loop: "{{ homelab_dns.samba.retired | default([]) }}"
+  loop_control:
+    label: "{{ item['name'] }}.{{ item['zone'] }} {{ item['type'] }}"
+  tags: [dns]

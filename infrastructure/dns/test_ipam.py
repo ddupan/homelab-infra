@@ -42,6 +42,16 @@ rejects(lambda d: d["homelab_ipam"]["addresses"].append(
     {"address": "192.168.10.1", "name": "again"}), "allocated twice")
 rejects(lambda d: d["homelab_dns"]["powerdns"]["records"].append(
     {"name": "dup", "type": "A", "values": ["192.168.10.4"]}), "declare its host")  # lab 区同样查
+# 同一 RRset 不能既受管又退役：两个任务会来回删建。
+samba = copy.deepcopy(BASE["homelab_dns"]["samba"])
+samba["retired"].append({"zone": "ad.ddupan.top", "name": "pve1", "type": "A"})
+try:
+    generate.check_retired(samba)
+except ValueError as exc:
+    assert "both managed and retired" in str(exc), exc
+else:
+    raise AssertionError("expected managed+retired rejection")
+generate.check_retired(BASE["homelab_dns"]["samba"])
 # 同一主机同时出现在 ad. 与 lab.（迁移期）不是撞地址；BASE 里 pve1 就是如此。
 assert any(r["name"] == "pve1" for r in BASE["homelab_dns"]["powerdns"]["records"])
 assert str(generate.next_free(BASE, "10.61.0.0/24")) == "10.61.0.2"
