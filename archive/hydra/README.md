@@ -1,3 +1,7 @@
+> **已下线（2026-10-05）。** Gitea 已切换到 [iam-login](../../apps/iam-login/README.md)
+> （`sso.ddupan.top`，登录源 ID 3 `sso`）。本目录只作历史记录，不再由 Flux 部署；Go 适配器的 CI
+> 已删除。数据库、`kv/k8s/hydra` 与 Authelia 中的 `hydra-login` 客户端另行清理。
+
 # Hydra 与独立 IAM 登录接入
 
 本目录提供独立 Hydra 签发服务。当前分支将实验性 Hydra 登录入口接至 Spring `iam-login`

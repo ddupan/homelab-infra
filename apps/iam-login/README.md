@@ -2,7 +2,7 @@
 
 [iam-login](https://git.ddupan.top/panxiao81/iam-login) 的 Native 部署：AD 密码 + Passkey 登录，
 进程内 OAuth2/OIDC 授权服务器。issuer 为 `https://sso.ddupan.top`，作为长期 issuer，不是开发域名；
-`auth.ddupan.top`（Authelia）与 Hydra 在各 RP 迁走前继续运行。
+`auth.ddupan.top`（Authelia）在各 RP 迁走前继续运行；Hydra 已下线（`archive/hydra`）。
 
 ```text
 浏览器 ─ Cloudflare ─ tunnel ─┐

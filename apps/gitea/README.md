@@ -62,4 +62,4 @@ suspend、详细日志审计和扩展验收。出现启动失败或 migration er
 - 继续映射 `gitea-admins`；`groups` 在 ID token 中。
 - discovery 在 Pod 启动时由 init container 获取，`sso.ddupan.top` 因此走 split horizon（Envoy）。
 
-回退：先把 ID 3 改回 `hydra`，再 revert 切换 PR，登录源回到 Hydra（`kv/k8s/hydra:gitea_client_secret` 与 Hydra 部署保留至下线）。
+Hydra 已于 2026-10-05 下线（清单在 `archive/hydra`），不再有回退到 Hydra 的路径。
