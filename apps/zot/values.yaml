@@ -45,7 +45,7 @@ configFiles:
         "storageDriver": {
           "name": "s3",
           "region": "us-east-1",
-          "regionendpoint": "https://s3.ad.ddupan.top",
+          "regionendpoint": "https://s3.lab.ddupan.top",
           "bucket": "zot",
           "rootdirectory": "/registry",
           "secure": true,
