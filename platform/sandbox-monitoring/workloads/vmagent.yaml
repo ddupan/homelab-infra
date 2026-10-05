@@ -8,7 +8,7 @@ spec:
   externalLabels:
     cluster: sandbox
   remoteWrite:
-    - url: https://metrics-write.ad.ddupan.top/api/v1/write
+    - url: https://metrics-write.lab.ddupan.top/api/v1/write
   replicaCount: 1
   resources:
     requests:
