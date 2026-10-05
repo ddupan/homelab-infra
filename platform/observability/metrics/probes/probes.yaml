@@ -22,8 +22,6 @@ spec:
         - https://auth.ddupan.top/api/health
         - https://backstage.ad.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
-        - https://hydra.ad.ddupan.top/health/ready
-        - https://hydra-login.ad.ddupan.top/healthz
         - https://incus.ad.ddupan.top/1.0
         # iam-login 的总 /actuator/health 因 LDAP 指向 localhost:389 常年 503（应用自身配置问题），
         # 这里探 readiness；LDAP 修好后可改回总端点。
@@ -35,6 +33,11 @@ spec:
         - https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration
         - https://zot.ad.ddupan.top/v2/
         - https://bao.ad.ddupan.top:8200/v1/sys/health
+        # lab.ddupan.top：同一批服务的新域名，经 PowerDNS + external-dns 解析，与 *.ad 走 dc1 是两条
+        # 不同的 DNS 路径，所以各探一次。
+        - https://dns.lab.ddupan.top/login
+        - https://nexus.lab.ddupan.top/service/rest/v1/status
+        - https://s3.lab.ddupan.top/status
 ---
 # 要求认证的端点：401 由后端返回，证明路由和后端都在。
 apiVersion: operator.victoriametrics.com/v1beta1
