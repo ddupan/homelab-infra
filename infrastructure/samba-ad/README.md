@@ -305,6 +305,21 @@ samba-tool domain backup offline --targetdir=/var/backups/samba
 
 Schedule it (cron/systemd timer) and ship the tarball off-box.
 
+### Monitoring — `monitoring-dc.yml`
+
+```bash
+ansible-playbook monitoring-dc.yml --check --diff
+ansible-playbook monitoring-dc.yml          # rerun → changed=0
+```
+
+Installs Ubuntu's `prometheus-node-exporter` bound to `192.168.10.5:9100`; the cluster scrapes
+it as `job=node-exporter, node=dc1` (`platform/observability/metrics/scrapes/samba-dc.yaml`), so
+the generic host-health rules (disk, memory, failed units, PSI, clock sync) cover dc1 too.
+AD-specific alerts live in `platform/observability/metrics/rules/samba-dc.yaml`:
+`samba-ad-dc` unit state, Kerberos/LDAP/LDAPS reachability (blackbox, LDAPS verified by
+hostname against the bao CA), LDAPS cert expiry, and the `samba-acme.timer` heartbeat.
+DNS is probed separately (`dns-dc1`). No AD credentials are involved anywhere.
+
 ### Second DC (resilience) — easy now, painful to retrofit after an outage
 
 On a second freshly-provisioned member (DNS pointed at `dc1`):

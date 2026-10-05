@@ -1,0 +1,67 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: samba-dc
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  # dc1 是唯一的 DC：AD 登录、LDAPS（Authelia / iam-login / PVE realm）、内网 DNS 都靠它。
+  # dc1 整机不可达由 NodeExporterUnavailable（job=node-exporter）覆盖。
+  - name: samba-dc
+    interval: 30s
+    rules:
+    - alert: SambaDcServiceDown
+      expr: node_systemd_unit_state{job="node-exporter",node="dc1",name="samba-ad-dc.service",state="active"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: dc1 的 samba-ad-dc 服务未运行
+        description: >-
+          全域登录、LDAPS 和 ad.ddupan.top 解析都会失败。在 dc1 上 systemctl status samba-ad-dc、
+          journalctl -u samba-ad-dc；不要在未确认原因前 reprovision。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: SambaDcPortDown
+      expr: probe_success{probe_group="ad"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: dc1 {{ $labels.instance }} 不可达
+        description: >-
+          88 = Kerberos、389 = LDAP、636 = LDAPS（按主机名 dc1.ad.ddupan.top 校验 bao 内部 CA）。
+          只有 636 失败而 389 正常，多半是证书问题：看 probe_ssl_earliest_cert_expiry 与 samba-acme。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # bao ACME 证书约 32 天，samba-acme.timer 每天跑、剩 10 天时续期。剩 7 天说明已连续
+    # 3 天续期失败；Samba 每个连接重读证书，到期即 LDAPS 全断。
+    - alert: SambaDcLdapsCertExpiring
+      expr: (probe_ssl_earliest_cert_expiry{job="probe-samba-dc-ldaps"} - time()) / 86400 < 7
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: dc1 LDAPS 证书 {{ $value | humanize }} 天后到期，续期没有生效
+        description: >-
+          dc1 上 journalctl -u samba-acme；常见原因是 bao ACME 不可达或 http-01 失败。
+          部署 hook 只在服务中的证书与安装的不一致时才重启 samba-ad-dc。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: SambaDcLdapsCertExpiryCritical
+      expr: (probe_ssl_earliest_cert_expiry{job="probe-samba-dc-ldaps"} - time()) / 86400 < 2
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: dc1 LDAPS 证书 {{ $value | humanize }} 天内到期
+        description: 到期后所有 LDAPS 客户端（Authelia、iam-login、PVE realm）登录失败。立即手动跑 samba-acme.service。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: SambaAcmeTimerStale
+      expr: time() - node_systemd_timer_last_trigger_seconds{job="node-exporter",node="dc1",name="samba-acme.timer"} > 2 * 86400
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: dc1 的 samba-acme.timer 超过 2 天没有触发
+        description: 每日续期 timer 停了，证书会在约 3 周后静默到期。systemctl list-timers samba-acme.timer。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

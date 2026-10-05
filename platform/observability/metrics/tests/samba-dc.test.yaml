@@ -1,0 +1,134 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: samba-ad-dc 停止两分钟即 critical
+  interval: 1m
+  input_series:
+  - series: node_systemd_unit_state{job="node-exporter",node="dc1",instance="192.168.10.5:9100",name="samba-ad-dc.service",state="active",type="notify"}
+    values: 1 0x5
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: SambaDcServiceDown
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: SambaDcServiceDown
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: dc1
+        instance: 192.168.10.5:9100
+        name: samba-ad-dc.service
+        state: active
+        type: notify
+        severity: critical
+      exp_annotations:
+        summary: dc1 的 samba-ad-dc 服务未运行
+        description: 全域登录、LDAPS 和 ad.ddupan.top 解析都会失败。在 dc1 上 systemctl status samba-ad-dc、 journalctl -u samba-ad-dc；不要在未确认原因前 reprovision。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: AD 端口不可达三分钟即 critical
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-samba-dc-tcp",instance="192.168.10.5:88",probe_group="ad"}
+    values: '0x5'
+  - series: probe_success{job="probe-samba-dc-tcp",instance="192.168.10.5:389",probe_group="ad"}
+    values: 1x5
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: SambaDcPortDown
+    exp_alerts:
+    - exp_labels:
+        job: probe-samba-dc-tcp
+        instance: 192.168.10.5:88
+        probe_group: ad
+        severity: critical
+      exp_annotations:
+        summary: dc1 192.168.10.5:88 不可达
+        description: 88 = Kerberos、389 = LDAP、636 = LDAPS（按主机名 dc1.ad.ddupan.top 校验 bao 内部 CA）。 只有 636 失败而 389 正常，多半是证书问题：看 probe_ssl_earliest_cert_expiry 与 samba-acme。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: LDAPS 证书剩不到 7 天告警，未到 2 天不升级
+  interval: 1m
+  input_series:
+  - series: probe_ssl_earliest_cert_expiry{job="probe-samba-dc-ldaps",instance="192.168.10.5:636",probe_group="ad"}
+    values: 432000x200
+  alert_rule_test:
+  - eval_time: 2h
+    alertname: SambaDcLdapsCertExpiring
+    exp_alerts:
+    - exp_labels:
+        job: probe-samba-dc-ldaps
+        instance: 192.168.10.5:636
+        probe_group: ad
+        severity: warning
+      exp_annotations:
+        summary: dc1 LDAPS 证书 4.917 天后到期，续期没有生效
+        description: dc1 上 journalctl -u samba-acme；常见原因是 bao ACME 不可达或 http-01 失败。 部署 hook 只在服务中的证书与安装的不一致时才重启 samba-ad-dc。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 2h
+    alertname: SambaDcLdapsCertExpiryCritical
+    exp_alerts: []
+- name: 证书还有 20 天不告警
+  interval: 1m
+  input_series:
+  - series: probe_ssl_earliest_cert_expiry{job="probe-samba-dc-ldaps",instance="192.168.10.5:636",probe_group="ad"}
+    values: 1728000x200
+  alert_rule_test:
+  - eval_time: 2h
+    alertname: SambaDcLdapsCertExpiring
+    exp_alerts: []
+- name: 续期 timer 超过两天没触发告警，昨天触发过不告警
+  interval: 1m
+  input_series:
+  - series: node_systemd_timer_last_trigger_seconds{job="node-exporter",node="dc1",instance="192.168.10.5:9100",name="samba-acme.timer"}
+    values: -180000x80
+  - series: node_systemd_timer_last_trigger_seconds{job="node-exporter",node="dc1",instance="192.168.10.5:9100",name="other.timer"}
+    values: -86400x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: SambaAcmeTimerStale
+    exp_alerts: []
+  - eval_time: 70m
+    alertname: SambaAcmeTimerStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: dc1
+        instance: 192.168.10.5:9100
+        name: samba-acme.timer
+        severity: warning
+      exp_annotations:
+        summary: dc1 的 samba-acme.timer 超过 2 天没有触发
+        description: 每日续期 timer 停了，证书会在约 3 周后静默到期。systemctl list-timers samba-acme.timer。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 时钟未同步与偏差
+  interval: 1m
+  input_series:
+  - series: node_timex_sync_status{job="node-exporter",instance="192.168.10.5:9100"}
+    values: '0x20'
+  - series: node_timex_offset_seconds{job="node-exporter",instance="192.168.10.5:9100"}
+    values: -2x20
+  - series: node_timex_sync_status{job="docker-hosts",instance="192.168.10.127:9100"}
+    values: '0x20'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: HostClockNotSynchronising
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: 192.168.10.5:9100
+        severity: warning
+      exp_annotations:
+        summary: 主机 192.168.10.5:9100 时钟未同步
+        description: 检查 chrony / systemd-timesyncd（chronyc tracking、timedatectl）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 6m
+    alertname: HostClockSkew
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: 192.168.10.5:9100
+        severity: warning
+      exp_annotations:
+        summary: 主机 192.168.10.5:9100 时钟偏差 2s
+        description: 偏差接近 5 分钟时 Kerberos 认证开始失败；先查 NTP 源是否可达。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
