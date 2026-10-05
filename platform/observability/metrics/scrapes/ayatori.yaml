@@ -1,34 +1,81 @@
 # Ayatori Dev/Prod 控制面（Incus LXC，见 infrastructure/ayatori）。各组件 metrics 由部署 role 监听在
-# LXC 地址；job 一律以 ayatori- 开头并带 cluster 标签，避免命中集群内 kube-state-metrics/Flux 的规则。
+# LXC 地址；每个组件一个 VMStaticScrape，job 取自 jobName（endpoint labels 中的 job 会被 jobName
+# 覆盖），一律以 ayatori- 开头并带 cluster 标签，避免命中集群内 kube-state-metrics/Flux 的规则。
+---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
 metadata:
-  name: ayatori
+  name: ayatori-node
   namespace: monitoring
 spec:
-  jobName: ayatori
+  jobName: ayatori-node
   targetEndpoints:
     - targets: ['192.168.10.11:9100']
-      labels: {job: ayatori-node, cluster: ayatori-dev, environment: dev}
-    - targets: ['192.168.10.11:8085']
-      labels: {job: ayatori-kube-state-metrics, cluster: ayatori-dev, environment: dev}
-    - targets: ['192.168.10.11:8080']
-      labels: {job: ayatori-manager, cluster: ayatori-dev, environment: dev}
-    - targets: ['192.168.10.11:8180']
-      labels: {job: ayatori-external-secrets, cluster: ayatori-dev, environment: dev}
-    - targets: ['192.168.10.11:8280']
-      labels: {job: ayatori-flux-source-controller, cluster: ayatori-dev, environment: dev}
-    - targets: ['192.168.10.11:8281']
-      labels: {job: ayatori-flux-kustomize-controller, cluster: ayatori-dev, environment: dev}
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:9100']
-      labels: {job: ayatori-node, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-kube-state-metrics
+  namespace: monitoring
+spec:
+  jobName: ayatori-kube-state-metrics
+  targetEndpoints:
+    - targets: ['192.168.10.11:8085']
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:8085']
-      labels: {job: ayatori-kube-state-metrics, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-manager
+  namespace: monitoring
+spec:
+  jobName: ayatori-manager
+  targetEndpoints:
+    - targets: ['192.168.10.11:8080']
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:8080']
-      labels: {job: ayatori-manager, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-external-secrets
+  namespace: monitoring
+spec:
+  jobName: ayatori-external-secrets
+  targetEndpoints:
+    - targets: ['192.168.10.11:8180']
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:8180']
-      labels: {job: ayatori-external-secrets, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-flux-source-controller
+  namespace: monitoring
+spec:
+  jobName: ayatori-flux-source-controller
+  targetEndpoints:
+    - targets: ['192.168.10.11:8280']
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:8280']
-      labels: {job: ayatori-flux-source-controller, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-flux-kustomize-controller
+  namespace: monitoring
+spec:
+  jobName: ayatori-flux-kustomize-controller
+  targetEndpoints:
+    - targets: ['192.168.10.11:8281']
+      labels: {cluster: ayatori-dev, environment: dev}
     - targets: ['192.168.10.12:8281']
-      labels: {job: ayatori-flux-kustomize-controller, cluster: ayatori-prod, environment: prod}
+      labels: {cluster: ayatori-prod, environment: prod}
