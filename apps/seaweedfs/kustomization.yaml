@@ -5,6 +5,7 @@ resources:
   - helmrepository.yaml
   - helmrelease.yaml
   - httproute-s3.yaml
+  - httproute-terraform-registry.yaml
 generatorOptions:
   disableNameSuffixHash: true
   labels:

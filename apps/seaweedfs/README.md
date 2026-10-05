@@ -69,6 +69,21 @@ Backstage），access key 由 Terraform 生成并写入 `kv/k8s/techdocs-s3-publ
 `kv/k8s/techdocs-s3-reader`（字段 `access_key` / `secret_key`）。不要手工改这两条 KV，
 下次 apply 会覆盖；轮换凭据用 `terraform apply -replace` 对应的 access key。
 
+## Terraform provider registry
+
+`terraform-registry` bucket 以静态文件实现 Terraform provider registry 协议，入口
+`https://terraform.lab.ddupan.top`（`httproute-terraform-registry.yaml`：只放行 GET，路径固定在
+`/terraform-registry/` 之下，其他 bucket 不可经此名访问）。bucket policy 只允许匿名 `GetObject`
+（无列举、无写入），因此**只能放公开发布物**。
+
+- 内容：`.well-known/terraform.json`（`providers.v1`）、`v1/providers/<ns>/<type>/versions`、
+  `v1/providers/<ns>/<type>/<version>/download/<os>/<arch>`，以及 zip、`SHA256SUMS` 与其 GPG 签名。
+- 写入：provider 仓库的 release job（SPIFFE `ci/panxiao81/terraform-provider-*/release`）经 OpenBao role
+  `ci-terraform-registry-publisher` 读取 `kv/k8s/terraform-registry-s3-publisher`（IAM 用户
+  `terraform-registry-publisher`，Terraform 生成）与签名私钥 `kv/k8s/terraform-registry-signing`（带外生成，
+  Terraform 不持有）。
+- 消费：`source = "terraform.lab.ddupan.top/ddupan/homelab"`，无需 `.terraformrc`。
+
 ## Terraform（bucket / IAM）
 
 S3 管理不进 Ayatori，由 `terraform/` 经 AWS provider 直接调用 SeaweedFS 的 S3 与内嵌

@@ -72,3 +72,8 @@ resource "vault_policy" "iam_login_database" {
   name   = "iam-login-database"
   policy = file("${path.module}/policies/iam-login-database.hcl")
 }
+
+resource "vault_policy" "ci_terraform_registry_publisher" {
+  name   = "ci-terraform-registry-publisher"
+  policy = file("${path.module}/policies/ci-terraform-registry-publisher.hcl")
+}
