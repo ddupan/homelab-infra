@@ -55,7 +55,10 @@ spec:
         description: pve-quorum-metrics.timer 停了，PveNodeNotQuorate 会失效。systemctl list-timers pve-quorum-metrics.timer。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: PveHaResourceNotStarted
-      expr: max without(instance) (pve_ha_state{job="pve-cluster",id=~"(qemu|lxc)/.+",state="started"}) == 0
+      # exporter 为未纳管客户机也输出全零状态；至少一个状态为 1 才属于 HA。
+      expr: >-
+        (max without(instance) (pve_ha_state{job="pve-cluster",id=~"(qemu|lxc)/.+",state="started"}) == 0)
+        and on(id) (max by(id) (pve_ha_state{job="pve-cluster",id=~"(qemu|lxc)/.+"}) == 1)
       for: 5m
       labels:
         severity: critical

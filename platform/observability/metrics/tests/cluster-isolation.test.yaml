@@ -74,3 +74,24 @@ tests:
         summary: Deployment app/web 副本不足
         description: 可用副本持续 10 分钟低于声明值；缩容至零不会触发。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+
+- name: 新标签序列带历史初值只计算后续两次重启
+  interval: 1m
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",cluster="sandbox",namespace="monitoring",pod="operator",container="operator"}
+    values: 2x10 3x10 4x100
+  alert_rule_test:
+  - eval_time: 100m
+    alertname: KubePodRestartsAccumulating
+    exp_alerts: []
+- name: 新序列的历史 OOM 初值不触发近期 OOM
+  interval: 1m
+  input_series:
+  - series: kube_pod_container_status_restarts_total{job="kube-state-metrics",cluster="sandbox",namespace="app",pod="web",container="web"}
+    values: 2x10
+  - series: kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",cluster="sandbox",namespace="app",pod="web",container="web",reason="OOMKilled"}
+    values: 1x10
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: KubePodOOMKilled
+    exp_alerts: []

@@ -120,3 +120,15 @@ tests:
   - eval_time: 2h
     alertname: AyatoriCertificateExpiringSoon
     exp_alerts: []
+
+- name: 定时 oneshot 正常退出不按常驻服务告警
+  interval: 1m
+  input_series:
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",name="ayatori-cert-metrics.service",type="oneshot",state="active"}
+    values: 0x10
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-dev",name="ayatori-cert-metrics.service",type="oneshot",state="active"}
+    values: 0x10
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: AyatoriServiceInactive
+    exp_alerts: []

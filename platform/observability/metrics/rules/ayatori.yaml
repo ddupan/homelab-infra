@@ -30,7 +30,7 @@ spec:
             description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriServiceInactive
-          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",state="active",name!="ayatori-backup.service"} == 0
+          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",state="active",type!="oneshot",name!="ayatori-backup.service"} == 0
           for: 5m
           labels:
             severity: critical
@@ -68,7 +68,7 @@ spec:
             description: VMStaticScrape 中该目标消失或 vmagent 未加载；检查 platform/observability 的 ayatori 采集声明。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriServiceInactive
-          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-dev",state="active",name!="ayatori-backup.service"} == 0
+          expr: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-dev",state="active",type!="oneshot",name!="ayatori-backup.service"} == 0
           for: 5m
           labels:
             severity: warning

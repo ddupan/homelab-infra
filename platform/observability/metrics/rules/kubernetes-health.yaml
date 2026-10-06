@@ -11,6 +11,7 @@ spec:
     interval: 30s
     # cluster 必须参与聚合和匹配；缺少 cluster 的本地旧序列仍作为独立组。
     # 排除 honorLabels 修复前的冲突样本，避免历史窗口继续把 workload 归给 KSM。
+    # MetricsQL increase 会把小初值当作新增；显式忽略初值，避免标签迁移计入历史重启。
     rules:
     - alert: KubeNodeNotReady
       expr: max by (cluster,node) (kube_node_status_condition{job="kube-state-metrics",exported_namespace="",condition="Ready",status="true"})
@@ -43,7 +44,7 @@ spec:
         description: 检查容器退出原因和日志；持续 10 分钟后通知，避免短暂重启噪声。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodFrequentRestarts
-      expr: sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[15m]))
+      expr: sum by (cluster,namespace,pod,container) (increase_prometheus(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[15m]))
         > 3
       for: 5m
       labels:
@@ -55,7 +56,7 @@ spec:
     # 补 KubePodFrequentRestarts 的盲区：它只抓 15 分钟内的 CrashLoop。netbox-valkey
     # 曾因磁盘延迟尖峰被探针每天杀 1~2 次，70 天重启 101 次而从未告警。
     - alert: KubePodRestartsAccumulating
-      expr: sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[24h]))
+      expr: sum by (cluster,namespace,pod,container) (increase_prometheus(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[24h]))
         > 3
       for: 1h
       labels:
@@ -66,7 +67,7 @@ spec:
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: KubePodOOMKilled
       expr: (max by (cluster,namespace,pod,container) (kube_pod_container_status_last_terminated_reason{job="kube-state-metrics",exported_namespace="",reason="OOMKilled"})
-        == 1) and on(cluster,namespace,pod,container) (sum by (cluster,namespace,pod,container) (increase(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[10m]))
+        == 1) and on(cluster,namespace,pod,container) (sum by (cluster,namespace,pod,container) (increase_prometheus(kube_pod_container_status_restarts_total{job="kube-state-metrics",exported_namespace=""}[10m]))
         > 0)
       for: 1m
       labels:

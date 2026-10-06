@@ -135,3 +135,15 @@ tests:
         summary: PVE 节点 pve3 的 quorum 指标超过 3 分钟没有刷新
         description: pve-quorum-metrics.timer 停了，PveNodeNotQuorate 会失效。systemctl list-timers pve-quorum-metrics.timer。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+
+- name: 未纳管 HA 的客户机全零状态不报警
+  interval: 1m
+  input_series:
+  - series: pve_ha_state{job="pve-cluster",instance="pve1",id="lxc/148",state="started"}
+    values: 0x10
+  - series: pve_ha_state{job="pve-cluster",instance="pve1",id="lxc/148",state="stopped"}
+    values: 0x10
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: PveHaResourceNotStarted
+    exp_alerts: []
