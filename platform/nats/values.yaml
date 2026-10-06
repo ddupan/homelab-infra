@@ -68,7 +68,8 @@ natsBox:
 promExporter:
   enabled: true
   podMonitor:
-    enabled: true
+    # 服务已缩容到零，同步停用抓取，避免产生空 target 告警。
+    enabled: false
 
 service:
   merge:

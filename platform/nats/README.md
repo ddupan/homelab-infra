@@ -7,8 +7,8 @@
 **当前状态：已缩容到 0（2026-10-05）。** 唯一的使用方 gitea-dynamic-runner 已改为每个
 worker 用自己的 Gitea runner registration 直接领取 task，不再使用 JetStream 队列，CI
 Account 没有任何客户端。`values.yaml` 用 `statefulSet.merge.spec.replicas: 0` 停掉服务，
-配置、PVC 与 Service 保留以便回滚；NATS 告警规则与单测已删除。重新启用时把 replicas
-改回 1，并从 git 历史恢复 `NatsMetricsUnavailable`、`NatsJetStream*`、
+配置、PVC 与 Service 保留以便回滚；NATS 告警规则与单测已删除，PodMonitor 抓取已停用。重新启用时把 replicas
+改回 1、启用 `promExporter.podMonitor.enabled`，并从 git 历史恢复 `NatsMetricsUnavailable`、`NatsJetStream*`、
 `NatsSlowConsumers` 及其测试。若确认不再需要，再单独移除整个目录与 PVC。
 
 ## 当前拓扑
