@@ -124,3 +124,67 @@
       delegate_to: localhost
       become: false
       when: not ansible_check_mode
+
+    # 创建者自己注册 DNS：lab zone 才是已用地址的完整集合，IPAM 的 --next-free 从这里读。
+    # 漏了这一步，地址对 IPAM 不可见，会被再分配出去（10.60.0.20/21 曾经如此）。
+    - name: 读取 PowerDNS API key
+      ansible.builtin.uri:
+        url: "{{ etcd_bao_url }}/v1/{{ etcd_bao_kv_mount }}/data/k8s/powerdns"
+        headers:
+          X-Vault-Token: "{{ etcd_bao_token }}"
+      delegate_to: localhost
+      become: false
+      register: etcd_pdns_secret
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    - name: 读取 lab zone
+      ansible.builtin.uri:
+        url: "{{ etcd_pdns_zone_url }}"
+        headers:
+          X-API-Key: "{{ etcd_pdns_secret.json.data.data.api_key }}"
+      delegate_to: localhost
+      become: false
+      register: etcd_pdns_zone
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    - name: 计算本成员的 A 记录差异
+      ansible.builtin.set_fact:
+        etcd_dns_name: "{{ etcd_lxc_hostname }}.{{ etcd_pdns_zone.json.name }}"
+        etcd_dns_current: >-
+          {{ etcd_pdns_zone.json.rrsets
+             | selectattr('name', 'equalto', etcd_lxc_hostname ~ '.' ~ etcd_pdns_zone.json.name)
+             | selectattr('type', 'equalto', 'A')
+             | map(attribute='records') | flatten | map(attribute='content') | list }}
+
+    - name: 注册 A 记录
+      ansible.builtin.uri:
+        url: "{{ etcd_pdns_zone_url }}"
+        method: PATCH
+        headers:
+          X-API-Key: "{{ etcd_pdns_secret.json.data.data.api_key }}"
+        body_format: json
+        body:
+          rrsets:
+            - name: "{{ etcd_dns_name }}"
+              type: A
+              ttl: 300
+              changetype: REPLACE
+              records: [{content: "{{ etcd_lxc_address.split('/')[0] }}", disabled: false}]
+              # 标出写入者：zone 有多个写入方（Terraform、external-dns、Poweradmin）。
+              comments: [{content: "owner: infrastructure/etcd/ansible/lxc.yml", account: ansible}]
+        status_code: 204
+      delegate_to: localhost
+      become: false
+      no_log: true
+      changed_when: true
+      when: etcd_dns_current != [etcd_lxc_address.split('/')[0]] and not ansible_check_mode
+
+    - name: Check 模式下报告将注册的记录
+      ansible.builtin.debug:
+        msg: "将注册 {{ etcd_dns_name }} A {{ etcd_lxc_address.split('/')[0] }}（当前 {{ etcd_dns_current }}）"
+      changed_when: true
+      when: etcd_dns_current != [etcd_lxc_address.split('/')[0]] and ansible_check_mode

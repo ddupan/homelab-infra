@@ -14,6 +14,7 @@ etcd_lxc_bridge: labnet
 etcd_lxc_gateway: 10.60.0.1
 etcd_lxc_memory: 512
 etcd_lxc_disk_gb: 8
+etcd_pdns_zone_url: http://192.168.10.127:8053/api/v1/servers/localhost/zones/lab.ddupan.top.
 etcd_lxc_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
 
 # 与现有 LAN exporter 相同的内网采集边界；禁止映射到公网。
