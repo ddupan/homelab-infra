@@ -54,5 +54,15 @@ else:
 generate.check_retired(BASE["homelab_dns"]["samba"])
 # 同一主机同时出现在 ad. 与 lab.（迁移期）不是撞地址；BASE 里 pve1 就是如此。
 assert any(r["name"] == "pve1" for r in BASE["homelab_dns"]["powerdns"]["records"])
-assert str(generate.next_free(BASE, "10.61.0.0/24")) == "10.61.0.2"
+assert str(generate.next_free(BASE, "10.61.0.0/24", [])) == "10.61.0.2"
+# 只在 zone 里注册、文件里没有的地址同样算占用（etcd-pve1 的教训）。
+taken = [{"name": "x", "type": "A", "values": ["10.61.0.2"]}]
+assert str(generate.next_free(BASE, "10.61.0.0/24", taken)) == "10.61.0.3"
+try:
+    generate.next_free(BASE, "10.61.0.0/24",
+                       [{"name": "pool", "type": "A", "values": ["192.168.10.200"]}])
+except ValueError as exc:
+    assert "non-static range" in str(exc), exc
+else:
+    raise AssertionError("expected live record in DHCP pool to be rejected")
 print("ipam ok")

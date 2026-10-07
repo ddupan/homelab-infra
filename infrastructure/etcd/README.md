@@ -62,6 +62,8 @@ Terraform 使用现有 S3 tfstate bucket，独立 key `etcd/terraform.tfstate`�
 从仓库根目录运行 `python3 infrastructure/etcd/run.py terraform <子命令>` 或
 `python3 infrastructure/etcd/run.py ansible <playbook.yml>`，复用当前 Bao 会话并在内存中取得所需凭据。
 `lxc.yml` 是创建入口，不接管已有未知 VMID，也不自动调整运行中容器的网络与容量；配置漂移会报错。
+`lxc.yml` 同时把成员注册为 `etcd-pve{1,2}.lab.ddupan.top`（PowerDNS API，带 owner 注释）；
+这是 IPAM 看到这两个地址的唯一途径，见 `infrastructure/dns/README.md`。
 部署前核对模板与 `pve-rg` 存储可用性、IP 冲突、SSH host key、laptop sudo 和网络访问控制。
 数据库角色不会创建/删除这些 LXC 或 etcd 成员。
 

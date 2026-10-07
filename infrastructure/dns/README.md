@@ -37,22 +37,27 @@ uv run infrastructure/dns/generate.py --check
 
 ## 地址分配（IPAM）
 
-`records.yml` 同时是地址分配表，取代 NetBox。A 记录本身就是一次分配；
-`homelab_ipam` 只补它表达不了的部分：网段、DHCP 池与预留段（`ranges`），以及没有静态
-A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册 DNS 的域成员、AP、laptop）。
+IPAM 只维护**地址池**；"哪个地址被谁占用"以 DNS 为准。
 
-`generate.py` 每次运行都会校验：地址必须落在某个网段内、不得落在 `ranges` 内、
-`addresses` 不得重复；同一 IP 被多条 A 记录引用时（ingress、路由器），必须在
-`addresses` 中声明它属于哪台主机，否则视为误用。`test_ipam.py` 覆盖这些拒绝路径。
+- `homelab_ipam`（本文件）：网段、DHCP 池与预留段（`ranges`，单个租约不归 IPAM 管），
+  以及没有 A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册的域成员、AP、laptop）。
+- 已占用集合 = 上述 `addresses` + 本文件声明的 A 记录 + **`lab.ddupan.top` 里实际存在的
+  A 记录**。资源由创建者自己注册 DNS（`etcd/ansible/lxc.yml`、external-dns、Poweradmin），
+  不必回写本文件；`--next-free` 运行时从 PowerDNS API 读取 zone。
+
+校验对两类记录相同：地址必须落在某个网段内、不得落在 `ranges` 内、`addresses` 不得重复；
+同一 IP 被多个名字引用时（ingress、路由器），必须在 `addresses` 声明归属。`test_ipam.py`
+覆盖这些拒绝路径。`--check`（CI）只校验文件，不访问 PowerDNS。
 
 分配新静态地址：
 
 ```bash
-uv run infrastructure/dns/generate.py --next-free 192.168.10.0/24
+PDNS_API_KEY=$(bao kv get -field=api_key kv/k8s/powerdns) \
+  uv run infrastructure/dns/generate.py --next-free 10.60.0.0/24
 ```
 
-它只知道登记过的地址。2026-10-04 对 `.1–.127` 做过 ping/ARP 扫描，在线地址与清单
-完全一致；之后接入未登记的设备会让它给出错误答案，所以静态地址先登记再使用。
+没有 key 时直接失败，不退回只读文件——只看文件正是 etcd-pve1/2（10.60.0.20/21）部署后对
+IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预留，单人操作下可接受。
 
 ## 安全边界
 

@@ -8,10 +8,14 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import difflib
 import ipaddress
+import json
+import os
 from pathlib import Path
 import sys
+import urllib.request
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -19,6 +23,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[2]
 DNS_DIR = ROOT / "infrastructure/dns"
+POWERDNS_ZONE_URL = "http://192.168.10.127:8053/api/v1/servers/localhost/zones/lab.ddupan.top."
 BEGIN = "# BEGIN GENERATED: homelab DNS ([[ target ]])"
 END = "# END GENERATED: homelab DNS ([[ target ]])"
 
@@ -112,7 +117,32 @@ def allocations(data: dict) -> dict:
     return owners
 
 
-def next_free(data: dict, prefix: str) -> ipaddress.IPv4Address:
+def live_records() -> list[dict]:
+    """A RRsets actually in lab.ddupan.top, in records.yml shape.
+
+    Creators register their own names (lxc.yml, external-dns, Poweradmin), so the
+    zone, not this file, is the complete set of used addresses. Without the key we
+    fail rather than fall back to the file: a file-only answer is exactly how
+    etcd-pve1/2 (10.60.0.20/21) went unseen and would have been handed out again.
+    """
+    key = os.environ.get("PDNS_API_KEY")
+    if not key:
+        raise ValueError("PDNS_API_KEY unset; run with "
+                         "PDNS_API_KEY=$(bao kv get -field=api_key kv/k8s/powerdns)")
+    request = urllib.request.Request(POWERDNS_ZONE_URL, headers={"X-API-Key": key})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        zone = json.load(response)
+    suffix = "." + zone["name"]
+    return [{"name": rrset["name"].removesuffix(suffix), "type": "A",
+             "values": [record["content"] for record in rrset["records"]]}
+            for rrset in zone["rrsets"] if rrset["type"] == "A"]
+
+
+def next_free(data: dict, prefix: str, live: list[dict]) -> ipaddress.IPv4Address:
+    # Live records go through the same checks as declared ones, so a registered
+    # address inside the DHCP pool or colliding with another host fails here too.
+    data = copy.deepcopy(data)
+    data["homelab_dns"]["powerdns"]["records"] += live
     owners = allocations(data)
     ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]))
               for r in data["homelab_ipam"]["ranges"]]
@@ -197,7 +227,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.next_free:
         try:
-            print(next_free(yaml.safe_load((DNS_DIR / "records.yml").read_text()), args.next_free))
+            data = yaml.safe_load((DNS_DIR / "records.yml").read_text())
+            print(next_free(data, args.next_free, live_records()))
         except (OSError, ValueError, KeyError) as exc:
             print(f"ipam lookup failed: {exc}", file=sys.stderr)
             return 2

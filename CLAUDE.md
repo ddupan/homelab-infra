@@ -236,7 +236,9 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 - `platform/cert-manager/` — two ClusterIssuers: `letsencrypt` (DNS-01 via Cloudflare) and
   `bao-acme` (OpenBao internal PKI). One `*.ad.ddupan.top` wildcard serves every LAN
   service, deliberately, so per-host names stay out of Certificate Transparency logs.
-- **IPAM is `infrastructure/dns/records.yml`** (`homelab_ipam` + the A records), checked by
-  `generate.py`; `--next-free <prefix>` allocates. NetBox was evaluated and retired 2026-10-04:
+- **IPAM keeps only address pools** (`homelab_ipam` in `infrastructure/dns/records.yml`); the
+  used set is **DNS** — creators register their own names in `lab.ddupan.top`, and
+  `generate.py --next-free <prefix>` reads the live zone (needs `PDNS_API_KEY`).
+  NetBox was evaluated and retired 2026-10-04:
   a derived mirror nobody read, and too heavy for the single node. Do not reintroduce a UI SoT.
 - `archive/keycloak/` and `archive/casdoor/` are retired IdP experiments; Authelia is the only identity stack.
