@@ -13,6 +13,13 @@
 # `links` feed the entity Links card: Web UIs use the `dashboard` icon, API
 # endpoints have no icon and say "(API)" in the title.
 #
+# Grouping: every entity belongs to one System (declared at the end of this
+# file). dependsOn records application-level runtime dependencies only (database,
+# authentication, directory, object storage, registry, mail), each backed by a
+# reference in the service's config. Platform plumbing that nearly everything
+# uses (envoy-gateway routing, external-secrets, cert-manager, openebs, flux) is
+# left out so the Catalog Graph stays readable.
+#
 # Adding a service: append a document with its namespace, source path and links.
 ---
 apiVersion: backstage.io/v1alpha1
@@ -22,7 +29,7 @@ metadata:
   description: OIDC broker and single sign-on
   annotations:
     backstage.io/kubernetes-namespace: authelia
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/authelia/
   links:
     - url: https://auth.ddupan.top
@@ -32,6 +39,11 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: identity
+  dependsOn:
+    - resource:shared-postgresql
+    - component:samba-ad
+    - component:smtp-relay
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -40,12 +52,13 @@ metadata:
   description: Deployed by Flux from platform/cert-manager
   annotations:
     backstage.io/kubernetes-namespace: cert-manager
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/cert-manager/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: networking
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -54,12 +67,17 @@ metadata:
   description: Deployed by Flux from platform/dynamic-runner
   annotations:
     backstage.io/kubernetes-namespace: dynamic-runner
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/dynamic-runner/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: delivery
+  dependsOn:
+    - component:gitea
+    - component:zot
+    - component:spire
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -68,12 +86,15 @@ metadata:
   description: Deployed by Flux from platform/envoy-gateway
   annotations:
     backstage.io/kubernetes-namespace: envoy-gateway-system
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/envoy-gateway/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: networking
+  dependsOn:
+    - component:authelia
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -82,12 +103,13 @@ metadata:
   description: Deployed by Flux from platform/external-dns
   annotations:
     backstage.io/kubernetes-namespace: external-dns
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/external-dns/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: networking
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -96,12 +118,15 @@ metadata:
   description: Deployed by Flux from platform/external-secrets
   annotations:
     backstage.io/kubernetes-namespace: external-secrets
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/external-secrets/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: platform
+  dependsOn:
+    - component:openbao
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -110,12 +135,13 @@ metadata:
   description: Deployed by Flux from clusters/homelab
   annotations:
     backstage.io/kubernetes-namespace: flux-system
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/clusters/homelab/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: delivery
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -124,7 +150,7 @@ metadata:
   description: Deployed by Flux from apps/gitea
   annotations:
     backstage.io/kubernetes-namespace: gitea
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/gitea/
   links:
     - url: https://git.ddupan.top
@@ -134,6 +160,12 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: delivery
+  dependsOn:
+    - resource:shared-postgresql
+    - component:smtp-relay
+    - component:iam-login
+    - component:authelia
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -142,12 +174,13 @@ metadata:
   description: Deployed by Flux from apps/http-echo
   annotations:
     backstage.io/kubernetes-namespace: gitops-canary
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/http-echo/
 spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -156,12 +189,13 @@ metadata:
   description: Deployed by Flux from apps/hydra
   annotations:
     backstage.io/kubernetes-namespace: hydra
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/hydra/
 spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: identity
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -170,7 +204,7 @@ metadata:
   description: Deployed by Flux from apps/iam-login
   annotations:
     backstage.io/kubernetes-namespace: iam-login
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/iam-login/
   links:
     - url: https://sso.ddupan.top
@@ -185,6 +219,10 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: identity
+  dependsOn:
+    - component:samba-ad
+    - component:spire
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -201,6 +239,7 @@ spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -209,12 +248,13 @@ metadata:
   description: Deployed by Flux from platform/nats
   annotations:
     backstage.io/kubernetes-namespace: nats
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/nats/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -223,7 +263,7 @@ metadata:
   description: Deployed by Flux from apps/nexus
   annotations:
     backstage.io/kubernetes-namespace: nexus
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/nexus/
   links:
     - url: https://nexus.ad.ddupan.top
@@ -233,6 +273,7 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: delivery
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -241,7 +282,7 @@ metadata:
   description: Deployed by Flux from platform/observability
   annotations:
     backstage.io/kubernetes-namespace: monitoring
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/
   links:
     - url: https://grafana.ad.ddupan.top
@@ -253,6 +294,9 @@ spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: observability
+  dependsOn:
+    - component:authelia
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -271,6 +315,7 @@ spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: identity
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -279,12 +324,13 @@ metadata:
   description: Deployed by Flux from platform/openebs
   annotations:
     backstage.io/kubernetes-namespace: openebs
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/openebs/
 spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: storage
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -293,7 +339,7 @@ metadata:
   description: Deployed by Flux from apps/poweradmin
   annotations:
     backstage.io/kubernetes-namespace: poweradmin
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/poweradmin/
   links:
     - url: https://dns.ad.ddupan.top
@@ -303,6 +349,9 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: networking
+  dependsOn:
+    - component:samba-ad
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -319,6 +368,7 @@ spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -327,12 +377,15 @@ metadata:
   description: Deployed by Flux from apps/research-auto
   annotations:
     backstage.io/kubernetes-namespace: research-auto
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/research-auto/
 spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: applications
+  dependsOn:
+    - resource:shared-postgresql
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -341,7 +394,7 @@ metadata:
   description: Deployed by Flux from apps/seaweedfs
   annotations:
     backstage.io/kubernetes-namespace: seaweedfs
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/seaweedfs/
   links:
     - url: https://s3.ad.ddupan.top
@@ -352,6 +405,7 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: storage
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -360,12 +414,13 @@ metadata:
   description: Deployed by Flux from apps/smtp-relay
   annotations:
     backstage.io/kubernetes-namespace: smtp-relay
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/smtp-relay/
 spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: networking
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -374,7 +429,7 @@ metadata:
   description: Deployed by Flux from platform/spire
   annotations:
     backstage.io/kubernetes-namespace: spire-mgmt
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/spire/
   links:
     - url: https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration
@@ -383,6 +438,9 @@ spec:
   type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
+  system: identity
+  dependsOn:
+    - resource:shared-postgresql
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -391,7 +449,7 @@ metadata:
   description: Deployed by Flux from apps/zot
   annotations:
     backstage.io/kubernetes-namespace: zot
-    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/zot/
   links:
     - url: https://zot.ad.ddupan.top/v2/
@@ -402,3 +460,98 @@ spec:
   type: service
   owner: user:default/panxiao81
   lifecycle: production
+  system: delivery
+  dependsOn:
+    - component:seaweedfs
+    - component:spire
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: samba-ad
+  description: Samba AD domain controller with directory, LDAPS and domain DNS (off-cluster)
+  annotations:
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/samba-ad/
+spec:
+  type: infrastructure
+  owner: user:default/panxiao81
+  lifecycle: production
+  system: identity
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: shared-postgresql
+  description: Shared PostgreSQL (CNPG in shared-db; new pg-prod/pg-dev off-cluster)
+  annotations:
+    backstage.io/kubernetes-namespace: shared-db
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/shared-postgresql/
+spec:
+  type: database
+  owner: user:default/panxiao81
+  system: storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: identity
+  description: Identity, authentication, secrets and machine identity
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: delivery
+  description: Source hosting, CI runners, artifact registries and GitOps
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: storage
+  description: Object, block and database storage
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: networking
+  description: Ingress, certificates, DNS and mail relay
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: observability
+  description: Metrics, logs, traces and dashboards
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: platform
+  description: Compute, secrets delivery, messaging and canaries
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: developer-portal
+  description: Backstage and the homelab wiki (entities live in their own repositories)
+spec:
+  owner: user:default/panxiao81
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: applications
+  description: Personal applications running on the homelab
+spec:
+  owner: user:default/panxiao81
