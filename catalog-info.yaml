@@ -9,7 +9,29 @@
 # selector, so `!backstage.io/none` (a label nothing has) selects every object in
 # the namespace. Each service here owns its namespace.
 #
-# Adding a service: append a document with its namespace and source path.
+# Off-cluster services (OpenBao, Proxmox, Incus) carry no Kubernetes annotations.
+# `links` feed the entity Links card: Web UIs use the `dashboard` icon, API
+# endpoints have no icon and say "(API)" in the title.
+#
+# Adding a service: append a document with its namespace, source path and links.
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: authelia
+  description: OIDC broker and single sign-on
+  annotations:
+    backstage.io/kubernetes-namespace: authelia
+    backstage.io/kubernetes-label-selector: '!backstage.io/none'
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/authelia/
+  links:
+    - url: https://auth.ddupan.top
+      title: Authelia
+      icon: dashboard
+spec:
+  type: service
+  owner: user:default/panxiao81
+  lifecycle: production
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -104,6 +126,10 @@ metadata:
     backstage.io/kubernetes-namespace: gitea
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/gitea/
+  links:
+    - url: https://git.ddupan.top
+      title: Gitea
+      icon: dashboard
 spec:
   type: service
   owner: user:default/panxiao81
@@ -146,8 +172,33 @@ metadata:
     backstage.io/kubernetes-namespace: iam-login
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/iam-login/
+  links:
+    - url: https://sso.ddupan.top
+      title: SSO
+      icon: dashboard
+    - url: https://sso.ddupan.top/console
+      title: SSO console
+      icon: dashboard
+    - url: https://sso.ddupan.top/.well-known/openid-configuration
+      title: OIDC discovery (API)
 spec:
   type: service
+  owner: user:default/panxiao81
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: incus
+  description: System containers and VMs on laptop (off-cluster)
+  annotations:
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/incus/
+  links:
+    - url: https://incus.ad.ddupan.top
+      title: Incus UI
+      icon: dashboard
+spec:
+  type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
 ---
@@ -174,6 +225,10 @@ metadata:
     backstage.io/kubernetes-namespace: nexus
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/nexus/
+  links:
+    - url: https://nexus.ad.ddupan.top
+      title: Nexus
+      icon: dashboard
 spec:
   type: service
   owner: user:default/panxiao81
@@ -188,6 +243,30 @@ metadata:
     backstage.io/kubernetes-namespace: monitoring
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/
+  links:
+    - url: https://grafana.ad.ddupan.top
+      title: Grafana
+      icon: dashboard
+    - url: https://metrics-write.ad.ddupan.top/api/v1/write
+      title: Prometheus remote write (API)
+spec:
+  type: infrastructure
+  owner: user:default/panxiao81
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: openbao
+  description: Secrets management and internal CA (off-cluster)
+  annotations:
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/openbao/
+  links:
+    - url: https://bao.ad.ddupan.top:8200/ui/
+      title: OpenBao UI
+      icon: dashboard
+    - url: https://bao.ad.ddupan.top:8200/v1/
+      title: OpenBao API
 spec:
   type: infrastructure
   owner: user:default/panxiao81
@@ -216,8 +295,28 @@ metadata:
     backstage.io/kubernetes-namespace: poweradmin
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/poweradmin/
+  links:
+    - url: https://dns.ad.ddupan.top
+      title: Poweradmin (DNS)
+      icon: dashboard
 spec:
   type: service
+  owner: user:default/panxiao81
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: proxmox
+  description: Proxmox VE cluster (off-cluster)
+  annotations:
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/proxmox/
+  links:
+    - url: https://pve1.ad.ddupan.top:8006/
+      title: Proxmox VE
+      icon: dashboard
+spec:
+  type: infrastructure
   owner: user:default/panxiao81
   lifecycle: production
 ---
@@ -244,6 +343,11 @@ metadata:
     backstage.io/kubernetes-namespace: seaweedfs
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/seaweedfs/
+  links:
+    - url: https://s3.ad.ddupan.top
+      title: S3 endpoint (API)
+    - url: https://terraform.lab.ddupan.top
+      title: Terraform registry (API)
 spec:
   type: service
   owner: user:default/panxiao81
@@ -272,6 +376,9 @@ metadata:
     backstage.io/kubernetes-namespace: spire-mgmt
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/spire/
+  links:
+    - url: https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration
+      title: SPIRE OIDC discovery (API)
 spec:
   type: infrastructure
   owner: user:default/panxiao81
@@ -286,6 +393,11 @@ metadata:
     backstage.io/kubernetes-namespace: zot
     backstage.io/kubernetes-label-selector: '!backstage.io/none'
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/zot/
+  links:
+    - url: https://zot.ad.ddupan.top/v2/
+      title: Registry pull (API)
+    - url: https://zot-push.ad.ddupan.top/v2/
+      title: Registry push (API)
 spec:
   type: service
   owner: user:default/panxiao81
