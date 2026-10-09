@@ -48,7 +48,7 @@ pve_mail_from: noreply@ddupan.top
 # ── internal PKI ────────────────────────────────────────────────────────
 # OpenBao (192.168.10.8) is the homelab root-of-trust. This endpoint is
 # unauthenticated by design, so nodes can (re)fetch the CA without a token.
-pve_internal_ca_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+pve_internal_ca_url: https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
 
 # ── DNS ─────────────────────────────────────────────────────────────────
 # See roles/pve_dns for WHY the DC must come first.

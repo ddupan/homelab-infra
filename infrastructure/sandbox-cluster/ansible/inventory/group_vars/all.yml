@@ -17,7 +17,7 @@ sandbox_rootfs_gb: 32
 sandbox_lxc_cores: 4
 sandbox_lxc_swap_mb: 2048
 sandbox_lxc_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
-sandbox_internal_ca_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+sandbox_internal_ca_url: https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
 sandbox_base_packages:
   - ca-certificates
   - curl

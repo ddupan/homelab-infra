@@ -13,7 +13,7 @@
 
 # Unauthenticated by design -- the CA is public information, so no token is needed
 # and a CA rotation is picked up simply by re-running this role.
-win_ca_trust_url: https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+win_ca_trust_url: https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
 
 # Where the PEM is staged on disk. Kept on disk (rather than imported and deleted)
 # so the installed anchor is auditable and the next run can diff against it.

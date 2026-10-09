@@ -13,7 +13,7 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ('terraform', 'ansible'):
         raise SystemExit('用法：python3 run.py terraform <args> | ansible <playbook> [args]')
     env = dict(os.environ)
-    env.setdefault('BAO_ADDR', 'https://bao.ad.ddupan.top:8200')
+    env.setdefault('BAO_ADDR', 'https://bao.lab.ddupan.top:8200')
     token = env.get('BAO_TOKEN') or env.get('VAULT_TOKEN')
     if not token:
         token = Path('~/.vault-token').expanduser().read_text().strip()

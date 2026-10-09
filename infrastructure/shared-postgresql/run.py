@@ -47,7 +47,7 @@ def main():
     if len(args) < 2 or args[0] not in ('terraform', 'ansible'):
         raise SystemExit('用法：python3 run.py [--spiffe] terraform <args> | ansible <playbook> [args]')
     env = dict(os.environ)
-    env.setdefault('BAO_ADDR', 'https://bao.ad.ddupan.top:8200')
+    env.setdefault('BAO_ADDR', 'https://bao.lab.ddupan.top:8200')
     token = spiffe_token(env['BAO_ADDR']) if use_spiffe else (
         env.get('BAO_TOKEN') or env.get('VAULT_TOKEN')
         or Path('~/.vault-token').expanduser().read_text().strip())

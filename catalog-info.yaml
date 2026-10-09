@@ -306,10 +306,10 @@ metadata:
   annotations:
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/openbao/
   links:
-    - url: https://bao.ad.ddupan.top:8200/ui/
+    - url: https://bao.lab.ddupan.top:8200/ui/
       title: OpenBao UI
       icon: dashboard
-    - url: https://bao.ad.ddupan.top:8200/v1/
+    - url: https://bao.lab.ddupan.top:8200/v1/
       title: OpenBao API
 spec:
   type: infrastructure

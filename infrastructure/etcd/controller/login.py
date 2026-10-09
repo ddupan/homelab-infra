@@ -10,7 +10,7 @@ def main():
     context = ssl.create_default_context()
     context.load_cert_chain('/etc/homelab-etcd/peer.crt', '/etc/homelab-etcd/peer.key')
     request = urllib.request.Request(
-        'https://bao.ad.ddupan.top:8200/v1/auth/homelab-etcd-renewal/login',
+        'https://bao.lab.ddupan.top:8200/v1/auth/homelab-etcd-renewal/login',
         data=json.dumps({'name': 'etcd-laptop'}).encode(),
         headers={'Content-Type': 'application/json'}, method='POST',
     )
