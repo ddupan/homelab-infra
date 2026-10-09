@@ -41,10 +41,6 @@
   ansible.builtin.import_tasks: ssh_ca.yml
   tags: [ssh_ca]
 
-- name: OIDC auth (Authelia)
-  ansible.builtin.import_tasks: auth_oidc.yml
-  tags: [oidc]
-
 - name: Kubernetes auth
   ansible.builtin.import_tasks: auth_kubernetes.yml
   tags: [k8s]

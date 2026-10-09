@@ -51,7 +51,7 @@ few things Terraform must not own.**
 | secrets engine mounts (`kv`, `pki`, `ssh-client-signer`) | the daemon, Raft, TLS files, systemd |
 | PKI role, issuing/CRL URLs, cluster paths, **ACME** | `bao operator init` / unseal (manual, PGP-wrapped) |
 | SSH signing role (`ai-agent`) | **PKI root CA + SSH CA signing key** |
-| OIDC/Kubernetes auth mount、config 与 role | OIDC **client secret** (`auth/oidc/config`) |
+| Kubernetes auth mount 与 role（人员登录 `auth/oidc-sso` 在 `apps/iam-login/terraform`） | |
 | all policies | snapshot token + script + systemd timer |
 |  | host-level CA trust distribution (`openbao_ssh_ca_trust`) |
 
@@ -175,9 +175,10 @@ ansible-playbook bootstrap-openbao.yml --tags verify
 ```
 
 It enables **KV v2**, the **SSH CA** (`ssh-client-signer` + `ai-agent` role), **PKI**,
-**OIDC auth** (the Authelia `openbao` client → `admin` policy for the
-`vault-admins` AD group), the **ai-agent-ssh** policy, and a **Raft snapshot** timer.
-Idempotent — safe to re-run. Selective runs via tags: `kv,ssh_ca,oidc,pki,k8s,policies,snapshots`.
+the **ai-agent-ssh** policy, and a **Raft snapshot** timer. Human OIDC login (`auth/oidc-sso`, iam-login →
+`admin` policy for the `platform-admins` AD group) is configured by `apps/iam-login/terraform`, which creates its
+client secret; after a rebuild, use the root token until that root has applied.
+Idempotent — safe to re-run. Selective runs via tags: `kv,ssh_ca,pki,k8s,policies,snapshots`.
 Debug a step with `-e openbao_no_log=false`.
 
 Off by default (need extra inputs, enable when ready):
@@ -224,8 +225,8 @@ manifest、exchange 脚本、安全要求和排障方法见
 [`../../platform/spire/RUNBOOK.md`](../../platform/spire/RUNBOOK.md)。
 
 ```bash
-# human: log in via Authelia (2FA)
-bao login -method=oidc            # browser → auth.ddupan.top
+# human: log in via iam-login (password + passkey)
+bao login -method=oidc -path=oidc-sso   # browser → sso.ddupan.top
 
 # agent: mint a 5-min SSH cert for a target, then connect
 ssh-keygen -t ed25519 -f /run/agent/id -N ''
