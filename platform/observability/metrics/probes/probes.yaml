@@ -1,9 +1,10 @@
+# 上游 Probe（blackbox 探测），见 ../../README.md「CRD 约定」。converter 保留 Probe.jobName。
 # Envoy 后每个服务域名的健康端点（COVERAGE B2）+ Bao（B7，按主机名验证 LE 证书）。
 # 从 Pod 发起：CoreDNS 解析 → 192.168.10.127 → Envoy → 后端，整条链路一起验证。
 # metrics-write 只匹配 POST /api/v1/write，GET 探不到；它由 vmagent-sandbox 的 remote write 告警覆盖。
 # 新增 HTTPRoute 时在这里加一行，下线服务时删掉对应行；步骤见 platform/envoy-gateway/README.md「Adding a service」。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: lan-https
   namespace: monitoring
@@ -12,13 +13,13 @@ spec:
   module: http_2xx
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: lan
-      targets:
+      static:
         - https://auth.ddupan.top/api/health
         - https://backstage.ad.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
@@ -39,8 +40,8 @@ spec:
         - https://s3.lab.ddupan.top/status
 ---
 # 要求认证的端点：401 由后端返回，证明路由和后端都在。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: lan-https-auth
   namespace: monitoring
@@ -49,19 +50,19 @@ spec:
   module: http_401
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: lan
-      targets:
+      static:
         - https://zot-push.ad.ddupan.top/v2/
 ---
 # COVERAGE B4：dc1 直连、CoreDNS（ad.ddupan.top 转发到 dc1）、Blocky 三条解析路径。
 # 内部解析绝不能依赖 WAN（CLAUDE.md）。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: dns-dc1
   namespace: monitoring
@@ -70,20 +71,20 @@ spec:
   module: dns_dc1
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: dns
-      targets:
+      static:
         - 192.168.10.5:53
         - 10.43.0.10:53
         - 192.168.10.127:53
 ---
 # split-horizon：git.ddupan.top 在 Blocky 和 CoreDNS 都要解析到 Envoy（infrastructure/dns/records.yml）。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: dns-split-horizon
   namespace: monitoring
@@ -92,19 +93,19 @@ spec:
   module: dns_split_horizon
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: dns
-      targets:
+      static:
         - 192.168.10.127:53
         - 10.43.0.10:53
 ---
 # COVERAGE B6：外网出口。两个都不在 tun0 路由内，用来区分"WAN 断了"和"VPN 断了"。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: egress
   namespace: monitoring
@@ -113,20 +114,20 @@ spec:
   module: http_egress
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: egress
-      targets:
+      static:
         - https://github.com/
         - https://www.cloudflare.com/cdn-cgi/trace
 ---
 # COVERAGE B5：www.naist.jp（163.221.8.230）落在 openvpn-client@naist 接受的 163.221.0.0/16 路由里。
 # 隧道死了 systemd 仍报 active、路由仍在，发往 NAIST 的流量全部黑洞；从外部（oci-arm）访问正常。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: naist-vpn
   namespace: monitoring
@@ -135,18 +136,18 @@ spec:
   module: http_egress
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: vpn
-      targets:
+      static:
         - https://www.naist.jp/
 ---
 # COVERAGE H1：dc1 的 AD 服务端口。DNS 已由 dns-dc1 覆盖；这里是 Kerberos 与 LDAP。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: samba-dc-tcp
   namespace: monitoring
@@ -155,20 +156,20 @@ spec:
   module: tcp_connect
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: ad
-      targets:
+      static:
         - 192.168.10.5:88
         - 192.168.10.5:389
 ---
 # LDAPS：Authelia、PVE AD realm 等都靠它；同时监控证书到期（bao ACME 证书约 32 天，
 # samba-acme.timer 在剩 10 天时续期）。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: samba-dc-ldaps
   namespace: monitoring
@@ -177,18 +178,18 @@ spec:
   module: tcp_ldaps_dc1
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: ad
-      targets:
+      static:
         - 192.168.10.5:636
 ---
 # COVERAGE P6：VyOS 上对外提供的 TCP 入口。HAProxy 进程活着不代表在监听正确的地址。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: vyos-entrypoints
   namespace: monitoring
@@ -197,13 +198,13 @@ spec:
   module: tcp_connect
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: vyos
-      targets:
+      static:
         - 192.168.10.2:5432    # pg-prod（生产 PostgreSQL，homelab-pg-proxy）
         - 10.60.0.13:6443      # sandbox k3s API
         - 10.60.0.13:8080      # opensandbox API
@@ -211,8 +212,8 @@ spec:
 ---
 # DN42 解析：经 VyOS pdns-recursor → wg42 隧道 → DN42 delegation server。
 # 同时验证了 pdns-recursor、wg42 与经 oci-amd 的路由。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMProbe
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
 metadata:
   name: dns-dn42
   namespace: monitoring
@@ -221,11 +222,11 @@ spec:
   module: dns_dn42
   interval: 60s
   scrapeTimeout: 15s
-  vmProberSpec:
+  prober:
     url: blackbox-exporter.monitoring.svc:9115
   targets:
     staticConfig:
       labels:
         probe_group: dn42
-      targets:
+      static:
         - 192.168.10.2:53

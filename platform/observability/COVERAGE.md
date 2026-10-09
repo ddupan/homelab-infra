@@ -19,9 +19,9 @@ PR 号**；新发现的盲区直接追加。
 
 ## 2. 黑盒探测（P0）
 
-`probe_success` 当前为空；集群里没有 VMProbe / blackbox-exporter。
+2026-10-04 盘点时 `probe_success` 为空、集群里没有 blackbox-exporter。
 
-- [x] **B1** 部署 blackbox-exporter + VMProbe 基础设施 — `metrics/probes/`；HTTP / DNS 模块，ICMP 未启用（需要 NET_RAW，目前不需要）
+- [x] **B1** 部署 blackbox-exporter + `Probe`（上游 CRD） — `metrics/probes/`；HTTP / DNS 模块，ICMP 未启用（需要 NET_RAW，目前不需要）
 - [x] **B2** Envoy Gateway：逐个 Host 的健康端点 — `probes.yaml` 的 lan-https；`metrics-write` 只接受 POST，未纳入。新增 HTTPRoute 时要同步加一行
 - [x] **B3** 公网入口经 cloudflared：`auth` / `git` / `obj` / `e5renew.ddupan.top` — 从 oci-arm 经 Cloudflare 探测
 - [x] **B4** DNS：dc1 / CoreDNS / Blocky 解析 `dc1.ad.ddupan.top`，Blocky / CoreDNS 的 split-horizon（`git.ddupan.top` → Envoy）
