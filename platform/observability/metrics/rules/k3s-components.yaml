@@ -1,0 +1,130 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k3s-components
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  - name: k3s-components
+    interval: 30s
+    rules:
+    # ── k3s 控制面：指标来自 kubelet 抓取（同一进程）。sandbox 集群的 apiserver 也经
+    # vmagent-sandbox 写进来，带 cluster="sandbox"，这里只看本集群。
+    - alert: KubeApiserverErrorRateHigh
+      expr: >-
+        sum(rate(apiserver_request_total{job="kubelet",cluster!="sandbox",code=~"5.."}[5m]))
+        / sum(rate(apiserver_request_total{job="kubelet",cluster!="sandbox"}[5m])) > 0.05
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: k3s apiserver 5xx 比例 {{ $value | humanizePercentage }}
+        description: >-
+          基线约 0.002%。看 code/resource 分布：大量 504 on leases 通常是数据存储写入延迟
+          （laptop IO 压力，见 HostIoPressureHigh）。journalctl -u k3s。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # ── CoreDNS：集群内全部名字解析。内部域名直连 dc1；其余转发到路由器，后者本身不稳定。
+    - alert: CorednsDown
+      expr: up{job="coredns"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: CoreDNS 指标不可达（{{ $labels.instance }}）
+        description: 集群内 DNS 可能全挂，任何服务都会表现为超时。同时看 DnsResolutionFailing。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: CorednsServfailHigh
+      expr: >-
+        sum(rate(coredns_dns_responses_total{job="coredns",rcode="SERVFAIL"}[5m]))
+        / sum(rate(coredns_dns_responses_total{job="coredns"}[5m])) > 0.01
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: CoreDNS SERVFAIL 比例 {{ $value | humanizePercentage }}
+        description: 30 天基线只有 5 个 SERVFAIL。看是哪个 zone：内部域名查 dc1，外部查上游转发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 上游全部不健康的事件每 1–2 小时就有一次（路由器解析器抖动，2026-10 基线 543 次/30 天），
+    # 单次不报；10 分钟内反复出现才说明上游真的挂了。
+    - alert: CorednsUpstreamUnhealthy
+      expr: increase(coredns_forward_healthcheck_broken_total{job="coredns"}[10m]) > 5
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: CoreDNS 上游转发持续不健康
+        description: >-
+          外部名字解析受影响，ad.ddupan.top 不受影响（直连 dc1）。先看 WanEgressDown；
+          不要为此去调路由器（flaky-wan-isp）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # ── Envoy Gateway（LAN ingress）。各域名的端到端可达性由 LanEndpointDown 探测；这里覆盖
+    # 没有探测的路由，以及"能连上但后端在报错"。
+    - alert: EnvoyProxyDown
+      expr: up{job="envoy-proxy"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: Envoy 数据面指标不可达（{{ $labels.pod }}）
+        description: 192.168.10.127 上的全部 *.ad / *.lab 入口都经过它。kubectl -n envoy-gateway-system get pod。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: EnvoyGatewayControllerDown
+      expr: up{job="envoy-gateway"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Envoy Gateway 控制面不可达
+        description: 已下发的路由继续工作，但新增/修改 HTTPRoute 不会生效。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: EnvoyClusterNoHealthyMembers
+      expr: envoy_cluster_membership_healthy{job="envoy-proxy"} == 0 and envoy_cluster_membership_total{job="envoy-proxy"} > 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Envoy 后端 {{ $labels.envoy_cluster_name }} 没有健康成员
+        description: 对应路由会返回 503。kubectl get endpoints；后端 Pod 是否 Ready。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: EnvoyUpstream5xxHigh
+      expr: >-
+        (sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_rq_xx{job="envoy-proxy",envoy_response_code_class="5"}[5m]))
+         / sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_rq_total{job="envoy-proxy"}[5m])) > 0.2)
+        and sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_rq_total{job="envoy-proxy"}[5m])) > 0.05
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Envoy 后端 {{ $labels.envoy_cluster_name }} 5xx 比例 {{ $value | humanizePercentage }}
+        description: 有流量（>0.05 req/s）且超过 20% 是 5xx。看后端日志；503 多半是后端不健康，502/504 是连接或超时。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # ── cloudflared（公网入口 auth/git/obj/e5renew）。外部可达性由 oci-arm 的 PublicEndpointDown 探测。
+    - alert: CloudflaredDown
+      expr: up{job="cloudflared"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: cloudflared 指标不可达
+        description: 公网入口可能已断，oci-arm 的 PublicEndpointDown 会从外部确认。kubectl -n cloudflared logs deploy/cloudflared。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: CloudflaredNoConnections
+      expr: cloudflared_tunnel_ha_connections{job="cloudflared"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: cloudflared 与 Cloudflare 边缘没有任何隧道连接
+        description: 所有公网入口不可达。先看 WAN（WanEgressDown），再看隧道 token。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: CloudflaredTunnelDegraded
+      expr: cloudflared_tunnel_ha_connections{job="cloudflared"} > 0 and cloudflared_tunnel_ha_connections{job="cloudflared"} < 2
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: cloudflared 只剩 {{ $value }} 条隧道连接（正常 4 条）
+        description: 再断一条就全断。通常是 WAN 抖动或 QUIC 被阻断，会自行恢复；持续则重启 Pod。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

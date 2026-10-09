@@ -1,0 +1,138 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: sandbox 集群的 apiserver 5xx 不计入
+  interval: 1m
+  input_series:
+  - series: apiserver_request_total{job="kubelet",instance="laptop",node="laptop",code="200",resource="pods",verb="GET"}
+    values: 0+600x20
+  - series: apiserver_request_total{job="kubelet",instance="laptop",node="laptop",code="500",resource="pods",verb="GET"}
+    values: 0+0x20
+  - series: apiserver_request_total{job="kubelet",instance="sandbox1",node="sandbox1",cluster="sandbox",code="200",resource="pods",verb="GET"}
+    values: 0+10x20
+  - series: apiserver_request_total{job="kubelet",instance="sandbox1",node="sandbox1",cluster="sandbox",code="500",resource="pods",verb="GET"}
+    values: 0+600x20
+  alert_rule_test:
+  - eval_time: 18m
+    alertname: KubeApiserverErrorRateHigh
+    exp_alerts: []
+- name: 本集群 apiserver 5xx 超过 5%
+  interval: 1m
+  input_series:
+  - series: apiserver_request_total{job="kubelet",instance="laptop",node="laptop",code="200",resource="pods",verb="GET"}
+    values: 0+90x20
+  - series: apiserver_request_total{job="kubelet",instance="laptop",node="laptop",code="500",resource="pods",verb="GET"}
+    values: 0+10x20
+  alert_rule_test:
+  - eval_time: 18m
+    alertname: KubeApiserverErrorRateHigh
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: k3s apiserver 5xx 比例 10%
+        description: 基线约 0.002%。看 code/resource 分布：大量 504 on leases 通常是数据存储写入延迟 （laptop IO 压力，见 HostIoPressureHigh）。journalctl -u k3s。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 上游偶发不健康不报，10 分钟内持续出现才报
+  interval: 1m
+  input_series:
+  - series: coredns_forward_healthcheck_broken_total{job="coredns",instance="10.42.0.76:9153"}
+    values: 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+  alert_rule_test:
+  - eval_time: 28m
+    alertname: CorednsUpstreamUnhealthy
+    exp_alerts: []
+- name: 上游持续不健康
+  interval: 1m
+  input_series:
+  - series: coredns_forward_healthcheck_broken_total{job="coredns",instance="10.42.0.76:9153"}
+    values: 0+2x30
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: CorednsUpstreamUnhealthy
+    exp_alerts:
+    - exp_labels:
+        job: coredns
+        instance: 10.42.0.76:9153
+        severity: warning
+      exp_annotations:
+        summary: CoreDNS 上游转发持续不健康
+        description: 外部名字解析受影响，ad.ddupan.top 不受影响（直连 dc1）。先看 WanEgressDown； 不要为此去调路由器（flaky-wan-isp）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 后端 5xx 高且有流量才报；低流量不报
+  interval: 1m
+  input_series:
+  - series: envoy_cluster_upstream_rq_total{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/gitea/gitea/rule/0"}
+    values: 0+60x20
+  - series: envoy_cluster_upstream_rq_xx{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/gitea/gitea/rule/0",envoy_response_code_class="5"}
+    values: 0+30x20
+  - series: envoy_cluster_upstream_rq_total{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/zot/zot/rule/0"}
+    values: 0+1x20
+  - series: envoy_cluster_upstream_rq_xx{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/zot/zot/rule/0",envoy_response_code_class="5"}
+    values: 0+1x20
+  alert_rule_test:
+  - eval_time: 18m
+    alertname: EnvoyUpstream5xxHigh
+    exp_alerts:
+    - exp_labels:
+        envoy_cluster_name: httproute/gitea/gitea/rule/0
+        severity: warning
+      exp_annotations:
+        summary: Envoy 后端 httproute/gitea/gitea/rule/0 5xx 比例 50%
+        description: 有流量（>0.05 req/s）且超过 20% 是 5xx。看后端日志；503 多半是后端不健康，502/504 是连接或超时。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 后端没有健康成员
+  interval: 1m
+  input_series:
+  - series: envoy_cluster_membership_healthy{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/nexus/nexus/rule/0"}
+    values: '0x8'
+  - series: envoy_cluster_membership_total{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="httproute/nexus/nexus/rule/0"}
+    values: 1x8
+  - series: envoy_cluster_membership_healthy{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="empty_cluster"}
+    values: '0x8'
+  - series: envoy_cluster_membership_total{job="envoy-proxy",pod="envoy-1",envoy_cluster_name="empty_cluster"}
+    values: '0x8'
+  alert_rule_test:
+  - eval_time: 7m
+    alertname: EnvoyClusterNoHealthyMembers
+    exp_alerts:
+    - exp_labels:
+        job: envoy-proxy
+        pod: envoy-1
+        envoy_cluster_name: httproute/nexus/nexus/rule/0
+        severity: warning
+      exp_annotations:
+        summary: Envoy 后端 httproute/nexus/nexus/rule/0 没有健康成员
+        description: 对应路由会返回 503。kubectl get endpoints；后端 Pod 是否 Ready。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: cloudflared 连接数
+  interval: 1m
+  input_series:
+  - series: cloudflared_tunnel_ha_connections{job="cloudflared",pod="cf-a"}
+    values: 4 1x20
+  - series: cloudflared_tunnel_ha_connections{job="cloudflared",pod="cf-b"}
+    values: 4 0x5
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: CloudflaredNoConnections
+    exp_alerts:
+    - exp_labels:
+        job: cloudflared
+        pod: cf-b
+        severity: critical
+      exp_annotations:
+        summary: cloudflared 与 Cloudflare 边缘没有任何隧道连接
+        description: 所有公网入口不可达。先看 WAN（WanEgressDown），再看隧道 token。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 18m
+    alertname: CloudflaredTunnelDegraded
+    exp_alerts:
+    - exp_labels:
+        job: cloudflared
+        pod: cf-a
+        severity: warning
+      exp_annotations:
+        summary: cloudflared 只剩 1 条隧道连接（正常 4 条）
+        description: 再断一条就全断。通常是 WAN 抖动或 QUIC 被阻断，会自行恢复；持续则重启 Pod。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
