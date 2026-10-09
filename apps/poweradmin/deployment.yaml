@@ -50,7 +50,8 @@ spec:
               value: hostmaster.lab.ddupan.top
             # LDAP login against AD. 4.4 has no auto-provisioning (4.5+): a user
             # needs a local stub with "LDAP" ticked before they can log in; the
-            # filter then also requires direct membership of dns-admins.
+            # filter then also requires direct membership of platform-admins (the platform's
+            # administrator group, infrastructure/samba-ad).
             - name: PA_LDAP_ENABLED
               value: "true"
             # By hostname: dc1's cert has a DNS SAN only.
@@ -63,7 +64,7 @@ spec:
             - name: PA_LDAP_USER_ATTRIBUTE
               value: sAMAccountName
             - name: PA_LDAP_SEARCH_FILTER
-              value: (memberOf=CN=dns-admins,CN=Users,DC=ad,DC=ddupan,DC=top)
+              value: (memberOf=CN=platform-admins,CN=Users,DC=ad,DC=ddupan,DC=top)
             # libldap reads this; without it LDAPS fails ("Can't contact LDAP server").
             - name: LDAPTLS_CACERT
               value: /etc/bao-ca/ca.pem
