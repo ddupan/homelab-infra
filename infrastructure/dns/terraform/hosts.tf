@@ -110,3 +110,13 @@ resource "powerdns_record" "spire_server_a" {
   ttl     = 300
   records = ["192.168.10.127"]
 }
+
+# Also a LoadBalancer on the laptop. NATS is scaled to zero, not retired; the
+# record and the cert's lab SAN are ready for re-enabling (platform/nats).
+resource "powerdns_record" "nats_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "nats.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.127"]
+}

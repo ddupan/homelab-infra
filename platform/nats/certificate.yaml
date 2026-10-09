@@ -10,8 +10,11 @@ spec:
     kind: ClusterIssuer
     group: cert-manager.io
   commonName: nats.ad.ddupan.top
+  # lab is the target name (infrastructure/dns/README.md). ad stays while a
+  # rollback could bring back a client configured for it.
   dnsNames:
     - nats.ad.ddupan.top
+    - nats.lab.ddupan.top
   duration: 720h
   renewBefore: 168h
   privateKey:
