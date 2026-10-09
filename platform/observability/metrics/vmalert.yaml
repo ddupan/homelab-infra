@@ -13,7 +13,7 @@ spec:
   # 告警 Source 复用已认证的 Grafana 入口，携带表达式和触发时间。
   # 整个 Explore JSON 一次性 URL 编码，避免表达式中的引号、&、+ 损坏链接。
   extraArgs:
-    external.url: https://grafana.ad.ddupan.top
+    external.url: https://grafana.lab.ddupan.top
     external.alert.source: 'explore?left={{ printf "{\"datasource\":\"VictoriaMetrics\",\"queries\":[{\"expr\":%s,\"refId\":\"A\"}],\"range\":{\"from\":\"%d\",\"to\":\"now\"}}" (.Expr | jsonEscape) .ActiveAt.UnixMilli | queryEscape }}'
   datasource:
     url: http://vmsingle-main.monitoring.svc:8428

@@ -1,6 +1,6 @@
 # Grafana — single pane over metrics (VictoriaMetrics), logs (VictoriaLogs) and
-# traces (VictoriaTraces via Jaeger API). LAN: grafana.ad.ddupan.top,
-# authenticated via Authelia OIDC. Local admin is
+# traces (VictoriaTraces via Jaeger API). LAN: grafana.lab.ddupan.top,
+# authenticated via iam-login OIDC (sso.ddupan.top). Local admin is
 # break-glass only.
 #
 # Chart: grafana/grafana   (repo: https://grafana.github.io/helm-charts)
@@ -67,30 +67,32 @@ deploymentStrategy:
 ingress:
   enabled: false
 
-# --- OIDC via Authelia (AD groups -> Grafana roles) ---
-# client_secret is injected from the grafana-oidc Secret (see oidc-secret.yaml),
-# which overrides any value in grafana.ini.
+# --- OIDC via iam-login (sso.ddupan.top; AD groups -> Grafana roles) ---
+# client_secret comes from the grafana-sso Secret (sso-external-secret.yaml), which Terraform fills in bao
+# (apps/iam-login/terraform/clients.tf). The env var overrides any value in grafana.ini.
 envValueFrom:
   GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
     secretKeyRef:
-      name: grafana-oidc
+      name: grafana-sso
       key: client_secret
 
 grafana.ini:
   server:
-    root_url: "https://grafana.ad.ddupan.top"   # 与 Authelia redirect_uri 一致
+    root_url: "https://grafana.lab.ddupan.top"   # 与 iam-login 客户端的 redirect_uri 一致
   auth:
     # Keep the local admin login available as break-glass; don't force OIDC-only.
     disable_login_form: false
     oauth_auto_login: false
   auth.generic_oauth:
     enabled: true
-    name: Authelia
+    name: SSO
     client_id: grafana
     scopes: "openid profile email groups"
-    auth_url: "https://auth.ddupan.top/api/oidc/authorization"
-    token_url: "https://auth.ddupan.top/api/oidc/token"
-    api_url: "https://auth.ddupan.top/api/oidc/userinfo"
+    auth_url: "https://sso.ddupan.top/oauth2/authorize"
+    token_url: "https://sso.ddupan.top/oauth2/token"
+    api_url: "https://sso.ddupan.top/userinfo"
+    # The client is registered for client_secret_basic; don't let Go's oauth2 auto-detect try POST params.
+    auth_style: InHeader
     login_attribute_path: preferred_username
     name_attribute_path: name
     email_attribute_path: email

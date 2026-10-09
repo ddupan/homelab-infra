@@ -285,7 +285,7 @@ metadata:
     backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/
   links:
-    - url: https://grafana.ad.ddupan.top
+    - url: https://grafana.lab.ddupan.top
       title: Grafana
       icon: dashboard
     - url: https://metrics-write.ad.ddupan.top/api/v1/write

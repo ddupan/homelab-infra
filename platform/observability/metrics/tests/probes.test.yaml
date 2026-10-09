@@ -7,7 +7,7 @@ tests:
   input_series:
   - series: probe_success{job="probe-lan-https",instance="https://git.ddupan.top/api/healthz",probe_group="lan"}
     values: 0x10
-  - series: probe_success{job="probe-lan-https",instance="https://grafana.ad.ddupan.top/api/health",probe_group="lan"}
+  - series: probe_success{job="probe-lan-https",instance="https://grafana.lab.ddupan.top/api/health",probe_group="lan"}
     values: 0 0 1x8
   alert_rule_test:
   - eval_time: 8m

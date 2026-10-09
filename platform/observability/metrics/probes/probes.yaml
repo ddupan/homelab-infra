@@ -23,10 +23,9 @@ spec:
         - https://backstage.ad.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
         - https://incus.ad.ddupan.top/1.0
-        # iam-login 的总 /actuator/health 因 LDAP 指向 localhost:389 常年 503（应用自身配置问题），
-        # 这里探 readiness；LDAP 修好后可改回总端点。
-        - https://sso.ddupan.top/actuator/health/readiness
-        - https://grafana.ad.ddupan.top/api/health
+        # 总 health 含 LDAP（Boot 的 ContextSource 连 dc1 LDAPS），目录不可用时也会告警。
+        - https://sso.ddupan.top/actuator/health
+        - https://grafana.lab.ddupan.top/api/health
         - https://nexus.ad.ddupan.top/service/rest/v1/status
         - https://dns.ad.ddupan.top/login
         - https://s3.ad.ddupan.top/status
