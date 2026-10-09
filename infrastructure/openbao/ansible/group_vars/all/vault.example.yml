@@ -7,9 +7,6 @@
 # scope it to just encrypt/decrypt on that key.
 vault_openbao_transit_token: "CHANGE-ME-transit-unseal-token"
 
-# Plaintext of the Authelia 'openbao' OIDC client secret (Authelia stores the pbkdf2
-# hash; OpenBao holds this plaintext). Used by the bootstrap play's auth/oidc config.
-vault_openbao_oidc_client_secret: "CHANGE-ME-authelia-openbao-client-secret"
 
 # Reviewer SA JWT for Kubernetes auth (only when openbao_enable_k8s_auth: true).
 # kubectl -n agents create token bao-reviewer --duration=87600h

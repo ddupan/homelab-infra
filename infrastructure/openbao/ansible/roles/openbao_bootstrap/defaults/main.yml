@@ -33,15 +33,9 @@ openbao_ssh_cert_ttl: "5m"
 openbao_ssh_cert_max_ttl: "15m"
 openbao_ssh_ca_pub_path: "/etc/openbao/ssh-ca.pub"
 
-# --- OIDC human login via Authelia ---
-openbao_oidc_discovery_url: "https://auth.ddupan.top"
-openbao_oidc_client_id: "openbao"
-openbao_oidc_client_secret: "{{ vault_openbao_oidc_client_secret | default('') }}"
-openbao_oidc_default_role: "admin"
-openbao_oidc_admin_group: "vault-admins"   # AD group whose members get the admin policy
-openbao_oidc_redirect_uris:
-  - "https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc/oidc/callback"
-  - "http://localhost:8250/oidc/callback"
+# Human OIDC login (auth/oidc-sso, iam-login) is not bootstrapped here: its client secret is created by
+# apps/iam-login/terraform, which also configures the mount. Until that root has applied after a rebuild, the
+# PGP-wrapped root token is the way in.
 
 # --- Kubernetes auth (in-cluster agents, e.g. hermes) — OFF until inputs are ready ---
 # Was opt-in (false) and had therefore never run — the backend did not exist at all

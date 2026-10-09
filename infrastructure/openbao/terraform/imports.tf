@@ -36,20 +36,6 @@ import {
 }
 
 import {
-  # NOTE: vault_auth_backend imports by the BARE path ("oidc"), not the
-  # API-prefixed "auth/oidc" — the latter gives "Cannot import non-existent
-  # remote object". The ROLE below does use the full path, which is the
-  # inconsistency that makes this easy to get wrong.
-  to = vault_auth_backend.oidc
-  id = "oidc"
-}
-
-import {
-  to = vault_jwt_auth_backend_role.admin
-  id = "auth/oidc/role/admin"
-}
-
-import {
   to = vault_policy.admin
   id = "admin"
 }

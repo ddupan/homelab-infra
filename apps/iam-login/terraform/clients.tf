@@ -83,6 +83,11 @@ resource "vault_jwt_auth_backend" "sso" {
   oidc_client_secret = homelab_oidc_client.openbao.secret
   # A literal, not a reference: the role needs the mount to exist first.
   default_role = "admin"
+
+  # Listed on the UI's sign-in page, so nobody has to type the mount path.
+  tune {
+    listing_visibility = "unauth"
+  }
 }
 
 # auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf), granted to platform-admins rather than the
