@@ -90,12 +90,17 @@ Why both: the controller only reports each node's **local** disk state. If the r
 link between two replicas breaks, both still say `UpToDate` — the volume is down to one live
 copy and the controller shows nothing. Only DRBD's own connection state reveals it.
 
-- drbd-reactor runs **only** the Prometheus plugin. No promoter: PVE's `ha-manager` already
-  owns failover, and two failover systems on one resource fight each other.
+- drbd-reactor here runs **only** the Prometheus plugin. The rule is narrower than "no promoter":
+  **guest volumes** must never be handed to the promoter — PVE's `ha-manager` owns their
+  failover, and two failover systems on one resource fight each other. The controller's own
+  `linstor_db` resource is exactly what the promoter is for; that is planned in #295.
 - Do not add a `node` target label to the controller scrape: LINSTOR's metrics already carry
   `node` (the satellite), and a target label would overwrite it with `pve1` for every series.
 - `Diskless` devices are intentional DRBD clients (14 of them on 2026-10-09), not degraded disks.
 - ⚠ `linstor-controller` is also **running, empty**, on pve2 and pve3: `pve_linstor` enables it
   on pve1 only but never disables it elsewhere, and the Debian package enables it on install.
   Nothing points at them today (storage.cfg and linstor-client.conf name `192.168.10.4`).
+  **Do not add them to any controller list** before #295 (controller HA on a shared
+  `linstor_db`) lands — clients would see an empty cluster. #295 also changes the scrape to all
+  three nodes with an "exactly one active controller" alert.
 
