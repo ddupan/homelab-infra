@@ -211,3 +211,66 @@ spec:
             summary: Ayatori {{ $labels.cluster }} 没有证书到期指标
             description: 检查 ayatori-cert-metrics.timer 与 node_exporter textfile 目录。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriControllerNotLeader
+          expr: max by (cluster, env) (leader_election_master_status{job="ayatori-manager",cluster="ayatori-prod"}) < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} manager 没有持有选主 Lease
+            description: 所有 controller 停止协调；查 journalctl -u ayatori-manager 中的 leader election 与 API 超时（宿主磁盘争用时常见）。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriControllerNotLeader
+          expr: max by (cluster, env) (leader_election_master_status{job="ayatori-manager",cluster="ayatori-dev"}) < 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} manager 没有持有选主 Lease
+            description: 所有 controller 停止协调；查 journalctl -u ayatori-manager 中的 leader election 与 API 超时（宿主磁盘争用时常见）。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriControllerPanic
+          expr: increase(controller_runtime_reconcile_panics_total{job="ayatori-manager"}[15m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.controller }} reconcile panic
+            description: controller-runtime 已恢复并重试，但这是代码缺陷；从 journalctl -u ayatori-manager 取 stack trace 提 issue。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriWorkqueueBacklog
+          expr: workqueue_depth{job="ayatori-manager"} > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.name }} 工作队列积压
+            description: 对象数很少时队列不应积压；查 reconcile 耗时与外部后端（PostgreSQL、OpenBao、API）是否变慢。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriReconcileStuck
+          expr: workqueue_longest_running_processor_seconds{job="ayatori-manager"} > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.name }} 有 reconcile 运行超过 5 分钟
+            description: 外部调用可能卡住；查 manager 日志与后端连通性，必要时重启 ayatori-manager。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriReconcileSlow
+          expr: histogram_quantile(0.99, sum by (cluster, env, controller, le) (rate(controller_runtime_reconcile_time_seconds_bucket{job="ayatori-manager"}[15m]))) > 30
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.controller }} reconcile p99 超过 30 秒
+            description: 外部后端变慢；查 PostgreSQL/OpenBao 延迟与宿主负载。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriProcessRestarting
+          expr: changes(process_start_time_seconds{job=~"ayatori-(manager|external-secrets|flux-source-controller|flux-kustomize-controller)"}[1h]) >= 3
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ayatori {{ $labels.cluster }} {{ $labels.job }} 1 小时内重启 3 次以上
+            description: 反复退出后被 systemd 重启；查 journalctl 退出原因（选主丢失、OOM、配置错误）。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
