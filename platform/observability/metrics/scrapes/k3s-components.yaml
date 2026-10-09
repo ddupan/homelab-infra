@@ -1,13 +1,14 @@
 # COVERAGE K：集群内基础组件。都是只读抓取，不改被抓的工作负载。
-# job 用 relabel 显式设定：VMServiceScrape/VMPodScrape 没有 jobName，默认值是 Service 名或
+# 用上游 prometheus-operator CRD（ServiceMonitor / PodMonitor），由 VM operator 的 converter 转换，
+# 见 ../../README.md「CRD 约定」。job 用 relabelings 显式设定：默认值是 Service 名或
 # "<namespace>/<name>"，规则里不好写死。
 #
 # k3s 控制面（apiserver/scheduler/controller-manager）不在这里：k3s 把它们跑在 kubelet
 # 同一进程里，kubelet 的 /metrics 已经带上（job=kubelet），见 rules/k3s-components.yaml。
 #
 # CoreDNS（k3s 自带插件，kube-system/kube-dns 已声明 metrics 端口）。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMServiceScrape
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
   name: coredns
   namespace: monitoring
@@ -20,13 +21,13 @@ spec:
   endpoints:
   - port: metrics
     interval: 30s
-    relabelConfigs:
+    relabelings:
     - targetLabel: job
       replacement: coredns
 ---
 # Envoy Gateway 控制面：xDS 下发、Gateway API 资源处理。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMServiceScrape
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
   name: envoy-gateway
   namespace: monitoring
@@ -39,13 +40,13 @@ spec:
   endpoints:
   - port: metrics
     interval: 30s
-    relabelConfigs:
+    relabelings:
     - targetLabel: job
       replacement: envoy-gateway
 ---
 # Envoy 数据面（192.168.10.127 上的 LAN ingress）：每个后端 cluster 的成员健康与上游 5xx。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMPodScrape
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
 metadata:
   name: envoy-proxy
   namespace: monitoring
@@ -60,14 +61,14 @@ spec:
   - port: metrics
     path: /stats/prometheus
     interval: 30s
-    relabelConfigs:
+    relabelings:
     - targetLabel: job
       replacement: envoy-proxy
 ---
 # cloudflared（公网入口）。Deployment 已带 --metrics 0.0.0.0:2000（infrastructure/cloudflared），
 # 只是容器没声明端口，所以用 portNumber。
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMPodScrape
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
 metadata:
   name: cloudflared
   namespace: monitoring
@@ -81,6 +82,6 @@ spec:
   - portNumber: 2000
     path: /metrics
     interval: 30s
-    relabelConfigs:
+    relabelings:
     - targetLabel: job
       replacement: cloudflared

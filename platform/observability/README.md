@@ -80,6 +80,35 @@ VictoriaMetrics Operator 的 Prometheus converter 已启用；官方
 声明 `ServiceMonitor`、`PodMonitor` 或 `PrometheusRule`，再由 converter 转换为对应
 VM 资源，不需要每个应用额外维护一份 `VM*Scrape`。
 
+## CRD 约定
+
+**新增抓取与告警一律用上游 prometheus-operator CRD**：`ServiceMonitor`、`PodMonitor`、`Probe`、
+`ScrapeConfig`、`PrometheusRule`。VM operator 的 converter 把它们转换成对应的 `VM*` 对象
+（v0.73.1 起五种都支持，2026-10-09 实测）。不要直接写 `VMServiceScrape` / `VMPodScrape` /
+`VMStaticScrape` / `VMProbe` / `VMRule`——那样配置就绑死在 VM 上，也和应用 chart 自带的 Monitor 两套写法。
+
+| 需求 | 用 |
+|---|---|
+| 集群内 Service 后面的端点 | `ServiceMonitor` |
+| 集群内 Pod（没有 Service 或端口未声明） | `PodMonitor`（`portNumber`） |
+| 集群外固定地址 | `ScrapeConfig`（`staticConfigs`） |
+| blackbox 探测 | `Probe` |
+| 规则 | `PrometheusRule` |
+
+已知的坑（都是实测出来的）：
+
+- **converter 会丢掉 `ScrapeConfig.jobName`**（转换后为 null，job 变成默认值）。用 `relabelings` 的
+  `targetLabel: job` 设定。`Probe.jobName` 正常保留。
+- **converter 不删除转换出来的对象**（`VM_ENABLEDPROMETHEUSCONVERTEROWNERREFERENCES=false`），而本
+  Kustomization 又是 `prune: false`。把一个 `VM*` 对象换成上游 CRD 时：同名同类（`VMProbe` →
+  `Probe`、`VMServiceScrape` → `ServiceMonitor`）会被 converter 原地接管；**换了类型的**
+  （`VMStaticScrape` → `ScrapeConfig` 变成 `VMScrapeConfig`）旧对象会留在集群里重复抓取，合并后要
+  手工 `kubectl delete`。
+- 目标标签不要和指标自带的标签同名（如 LINSTOR 指标自带 `node`），否则会被覆盖、原值改名为 `exported_*`。
+
+2026-10 之前留下的 `VMNodeScrape`（kubelet / cadvisor / node-exporter）与若干 `VMStaticScrape`
+（docker-hosts、shared-*）尚未迁移。
+
 ## Architecture
 
 ```
