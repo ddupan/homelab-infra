@@ -23,9 +23,7 @@ iam:
     # and the laptop's development identity (uid 1000 on the k3s node; local Terraform runs and
     # break-glass when CD is down). Anything running as that user can manage OIDC clients.
     spiffe:
-      # Issuer move in progress (platform/spire/README.md): keys already come from the
-      # lab name; the issuer string switches in the cutover step.
-      issuer: https://spire-oidc.ad.ddupan.top
+      issuer: https://spire-oidc.lab.ddupan.top
       jwk-set-uri: https://spire-oidc.lab.ddupan.top/keys
       admin-ids:
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-plan

@@ -4,9 +4,11 @@ global:
   spire:
     clusterName: homelab
     trustDomain: ddupan.top
-    # This is a stable external identity even before its Gateway route is added.
-    # Changing the issuer after consumers trust it would invalidate their config.
-    jwtIssuer: https://spire-oidc.ad.ddupan.top
+    # The `iss` of every JWT-SVID. Consumers that check it: Bao jwt-spire
+    # (bound_issuer), zot (bearer.oidc[].issuer) and iam-login (spiffe.issuer).
+    # Changing it is a cutover for all three — see README "Issuer migration".
+    # Moved from spire-oidc.ad to spire-oidc.lab on 2026-10-09.
+    jwtIssuer: https://spire-oidc.lab.ddupan.top
     caSubject:
       country: CN
       organization: ddupan homelab
@@ -152,11 +154,11 @@ spiffe-csi-driver:
 spiffe-oidc-discovery-provider:
   enabled: true
   config:
-    # Also answer as the lab name ahead of the issuer move (README: issuer migration).
-    # The provider only serves Hosts in its domains list; the jwtIssuer host is added
-    # automatically, this list adds more.
+    # The provider only serves Hosts in its domains list; the jwtIssuer host (lab) is
+    # added automatically. Keep answering the old ad name until the issuer move's
+    # final step, so anything still fetching keys there keeps working meanwhile.
     additionalDomains:
-      - spire-oidc.lab.ddupan.top
+      - spire-oidc.ad.ddupan.top
   # TLS will terminate at the existing Envoy Gateway when the stable issuer is
   # exposed. The service remains ClusterIP-only during the first deployment.
   tls:
