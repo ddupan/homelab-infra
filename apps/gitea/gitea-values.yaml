@@ -122,16 +122,17 @@ gitea:
     # Gitea links accounts by (source ID, sub), and the chart's init container matches
     # sources by NAME, adding a new one (new ID, links lost) when none matches. So the
     # source was renamed in place first (`gitea admin auth update-oauth --id 3 --name sso`)
-    # and only then did this entry change. iam-login keeps the old `sub` through its
-    # subject bindings. Same fetch-at-pod-start fragility as above; sso.ddupan.top is
-    # split-horizon to Envoy for that reason.
+    # and only then did this entry change. iam-login issues its own subjects (2026-10-09);
+    # the existing account was relinked by ACCOUNT_LINKING=auto. Same fetch-at-pod-start
+    # fragility as above; sso.ddupan.top is split-horizon to Envoy for that reason.
     - name: sso
       provider: openidConnect
       existingSecret: gitea-sso-oidc
       autoDiscoverUrl: https://sso.ddupan.top/.well-known/openid-configuration
       scopes: openid profile email groups
       groupClaimName: groups
-      adminGroup: gitea-admins
+      # The platform's administrator group (infrastructure/samba-ad), not a Gitea-only one.
+      adminGroup: platform-admins
 
 persistence:
   size: 20Gi
