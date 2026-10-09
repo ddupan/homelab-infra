@@ -1,0 +1,127 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: linstor
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: victoria-metrics
+spec:
+  groups:
+  # place-count 2：每个卷两份副本。下面的告警本质上都在问"是不是只剩一份了/IO 是不是卡住了"。
+  # vm:100（vyos-rtr）的盘也在 pve-rg 上。
+  - name: linstor
+    interval: 30s
+    rules:
+    - alert: DrbdConnectionDown
+      expr: drbd_connection_state{job="drbd",drbd_connection_state="Connected"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }} 在 {{ $labels.node }} 与 {{ $labels.conn_name }} 的连接断开
+        description: >-
+          复制链路不通，该卷可能只剩一份数据仍在更新。drbdadm status {{ $labels.name }}；
+          StandAlone 通常是 split-brain，需要人工决定丢弃哪一侧，不要盲目 connect --discard-my-data。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: DrbdNoQuorum
+      expr: drbd_device_quorum{job="drbd"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }} 在 {{ $labels.node }} 失去 quorum
+        description: 失去 quorum 的一侧会按 on-no-quorum 策略挂起或报 IO 错误，跑在上面的客户机会卡住。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: DrbdResourceSuspended
+      expr: drbd_resource_suspended{job="drbd"} == 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }} 在 {{ $labels.node }} IO 被挂起
+        description: 该资源上的客户机 IO 全部卡住。drbdadm status；通常与 quorum 丢失同时出现。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: DrbdDiskFailed
+      expr: >-
+        drbd_device_state{job="drbd",drbd_device_state="Failed"} == 1
+        or drbd_device_unintentionaldiskless{job="drbd"} == 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }} 在 {{ $labels.node }} 的后端磁盘故障或被意外分离
+        description: 本地盘出错后 DRBD 转为 diskless 继续经网络读写对端，副本数已降为 1。查 dmesg 与 LVM（vg_ssd / vg_hdd）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 重同步期间 Inconsistent/Outdated 是正常的过渡态，所以给足时间。
+    - alert: DrbdDiskDegraded
+      expr: drbd_device_state{job="drbd",drbd_device_state=~"Inconsistent|Outdated|DUnknown"} == 1
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }} 在 {{ $labels.node }} 处于 {{ $labels.drbd_device_state }} 超过 30 分钟
+        description: 重同步卡住或没有开始。drbdadm status 看 replication 与 done%。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: DrbdOutOfSync
+      expr: drbd_peerdevice_outofsync_bytes{job="drbd"} > 0
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: DRBD 资源 {{ $labels.name }}：{{ $labels.node }} → {{ $labels.conn_name }} 有 {{ $value | humanize1024 }}B 未同步超过 30 分钟
+        description: 位图里有脏块一直没同步完，通常伴随连接断开或带宽被占满。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: LinstorSatelliteNotOnline
+      expr: linstor_node_state{job="linstor"} != 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: LINSTOR 节点 {{ $labels.node }} 状态不是 ONLINE（{{ $value }}）
+        description: 0=OFFLINE 3=VERSION_MISMATCH 8=OTHER_CONTROLLER 10=NO_STLT_CONN 11=MISSING_EXT_TOOLS。linstor node list。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # LVM 厚置备：池满后新建/扩容卷失败，已有卷不受影响。
+    - alert: LinstorStoragePoolLow
+      expr: >-
+        linstor_storage_pool_capacity_free_bytes{job="linstor"}
+        / linstor_storage_pool_capacity_total_bytes{job="linstor"} < 0.15
+        and linstor_storage_pool_capacity_total_bytes{job="linstor"} > 0
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: LINSTOR 存储池 {{ $labels.storage_pool }}@{{ $labels.node }} 剩余不足 15%
+        description: 新建或扩容落在该节点的卷会失败。linstor storage-pool list；考虑把大卷挪到 pve-rg-hdd。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: LinstorStoragePoolCritical
+      expr: >-
+        linstor_storage_pool_capacity_free_bytes{job="linstor"}
+        / linstor_storage_pool_capacity_total_bytes{job="linstor"} < 0.05
+        and linstor_storage_pool_capacity_total_bytes{job="linstor"} > 0
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: LINSTOR 存储池 {{ $labels.storage_pool }}@{{ $labels.node }} 剩余不足 5%
+        description: 立即清理或迁移，否则 DRBD 后端扩容与快照都会失败。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: LinstorErrorReports
+      expr: increase(linstor_error_reports_count{job="linstor"}[1h]) > 0
+      for: 0m
+      labels:
+        severity: warning
+      annotations:
+        summary: LINSTOR 产生了新的 error report
+        description: linstor error-reports list；常见于卷创建/删除失败。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: LinstorScrapeFailing
+      expr: up{job=~"linstor|drbd"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: LINSTOR/DRBD 指标抓取 {{ $labels.job }}（{{ $labels.instance }}）失败
+        description: >-
+          linstor = pve1 上唯一的 controller（挂了已有卷照常读写，但无法新建/迁移卷）；
+          drbd = 该节点的 drbd-reactor，失败则该节点的 DRBD 告警全部失效。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

@@ -1,0 +1,32 @@
+---
+- name: 安装 drbd-reactor（LINBIT 仓库，pve_linstor 已配置）
+  ansible.builtin.apt:
+    name: drbd-reactor
+    state: present
+    install_recommends: false
+  register: pve_drbd_reactor_pkg
+  retries: 3
+  delay: 5
+  until: pve_drbd_reactor_pkg is succeeded
+
+# 只启用 prometheus 插件。不配置 promoter：本集群的 HA 由 PVE 自己的 ha-manager 负责，
+# 两套故障转移同时管同一个资源会互相打架。
+- name: 配置 Prometheus 插件
+  ansible.builtin.copy:
+    dest: /etc/drbd-reactor.d/prometheus.toml
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Ansible managed: infrastructure/proxmox/ansible/roles/pve_monitoring
+      [[prometheus]]
+      enums = true
+      address = "{{ pve_drbd_reactor_listen }}"
+  notify: Restart drbd-reactor
+
+- name: 启用 drbd-reactor
+  ansible.builtin.systemd_service:
+    name: drbd-reactor
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and pve_drbd_reactor_pkg is changed)

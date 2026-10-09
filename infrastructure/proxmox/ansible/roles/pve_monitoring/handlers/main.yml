@@ -4,3 +4,8 @@
     name: prometheus-node-exporter
     state: restarted
   when: not ansible_check_mode
+- name: Restart drbd-reactor
+  ansible.builtin.systemd_service:
+    name: drbd-reactor
+    state: restarted
+  when: not ansible_check_mode
