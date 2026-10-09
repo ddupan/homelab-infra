@@ -58,7 +58,7 @@ SPIFFE 身份推到 `zot-push.ad.ddupan.top/iam/iam-login:<commit>`（见 `platf
 - 客户端管理：`https://sso.ddupan.top/console`，要求直接属于 `Domain Admins`。
 - 机器调用方（Terraform，`terraform-provider-homelab`）以 JWT-SVID（aud `iam-login`）调用管理 API，
   只放行 `application.yaml` 中 `iam.clients.spiffe.admin-ids` 精确列出的 SPIFFE ID（Terraform CD 的 plan/apply job）。
-  验签时 Pod 访问 `https://spire-oidc.ad.ddupan.top/keys`。
+  验签时 Pod 访问 `https://spire-oidc.lab.ddupan.top/keys`。
 
 ## OIDC 客户端（Terraform）
 

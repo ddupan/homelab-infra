@@ -5,15 +5,11 @@ metadata:
   namespace: spire-server
 spec:
   parentRefs:
-    - name: eg
-      namespace: envoy-gateway-system
-      sectionName: https
-    # lab name for the issuer move; external-dns publishes it.
+    # The issuer host; external-dns publishes it.
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https-lab
   hostnames:
-    - spire-oidc.ad.ddupan.top
     - spire-oidc.lab.ddupan.top
   rules:
     - backendRefs:

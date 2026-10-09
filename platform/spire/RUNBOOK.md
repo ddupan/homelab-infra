@@ -20,7 +20,7 @@ SPIRE Server（trust domain: ddupan.top）
   └─ JWT public keys    → OIDC Discovery Provider
                             │
                             ▼
-                 https://spire-oidc.ad.ddupan.top
+                 https://spire-oidc.lab.ddupan.top
                             │ discovery + JWKS
                             ▼
                  OpenBao auth/jwt-spire/login
@@ -47,7 +47,7 @@ SPIRE Server（trust domain: ddupan.top）
 | trust domain | `ddupan.top` |
 | Kubernetes cluster name | `homelab` |
 | Controller Manager class | `spire-mgmt-spire` |
-| JWT issuer | `https://spire-oidc.ad.ddupan.top` |
+| JWT issuer | `https://spire-oidc.lab.ddupan.top` |
 | OpenBao auth mount | `jwt-spire` |
 | OpenBao login endpoint | `auth/jwt-spire/login` |
 | SPIRE Server namespace | `spire-server` |
@@ -318,15 +318,15 @@ Agent 应显示 `Attestation type: k8s_psat` 与 `Can re-attest: true`。
 ### OIDC discovery 与 JWKS
 
 ```bash
-dig @192.168.10.5 spire-oidc.ad.ddupan.top A +short
-dig @192.168.10.127 spire-oidc.ad.ddupan.top A +short
+dig @192.168.10.5 spire-oidc.lab.ddupan.top A +short
+dig @192.168.10.127 spire-oidc.lab.ddupan.top A +short
 curl --fail --silent \
-  https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration | jq
-curl --fail --silent https://spire-oidc.ad.ddupan.top/keys | jq '.keys | length'
+  https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration | jq
+curl --fail --silent https://spire-oidc.lab.ddupan.top/keys | jq '.keys | length'
 ```
 
 discovery 的 `issuer` 必须严格等于
-`https://spire-oidc.ad.ddupan.top`。路径、scheme、hostname 或尾部 `/` 的差异都会
+`https://spire-oidc.lab.ddupan.top`。路径、scheme、hostname 或尾部 `/` 的差异都会
 导致 JWT 验证失败。JWKS 是公开验证材料，不是 secret。
 
 ### OpenBao
@@ -365,7 +365,7 @@ Workload API，而不是假设 Pod 一启动身份就已可用。
 - JWT audience 不是 role 的 `bound_audiences`；
 - JWT `sub` 与 role 的 `bound_claims.sub` 不完全一致；
 - issuer 与 `bound_issuer` 不一致；
-- Bao 无法解析或验证 `spire-oidc.ad.ddupan.top`；
+- Bao 无法解析或验证 `spire-oidc.lab.ddupan.top`；
 - issuer/JWKS route 被 Authelia forward-auth 拦截；
 - SVID 已过期，或者节点与 Bao 时钟偏差过大；
 - 脚本错误解析 CLI JSON，向 Bao 发送了空 JWT。
@@ -373,8 +373,8 @@ Workload API，而不是假设 Pod 一启动身份就已可用。
 排查时只解码 JWT header/claims，禁止记录原始 token。公开 endpoint 可单独验证：
 
 ```bash
-curl --fail https://spire-oidc.ad.ddupan.top/.well-known/openid-configuration
-curl --fail https://spire-oidc.ad.ddupan.top/keys
+curl --fail https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
+curl --fail https://spire-oidc.lab.ddupan.top/keys
 ```
 
 ### CSI mount 失败
