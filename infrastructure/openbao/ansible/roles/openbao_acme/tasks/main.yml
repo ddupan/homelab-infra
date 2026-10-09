@@ -76,6 +76,7 @@
   loop:
     - openbao-acme.sh
     - openbao-acme-deploy.sh
+  register: openbao_acme_scripts
 
 - name: Install the ACME systemd service + timer
   ansible.builtin.template:
@@ -96,6 +97,17 @@
   args:
     creates: "{{ openbao_acme_dir }}/certificates/{{ openbao_acme_domain }}.crt"
   no_log: true
+
+# The command above only runs on the first deploy. When the lego script changes later
+# (e.g. a SAN added), run the renewal service once now instead of waiting for the
+# timer: --force-cert-domains makes lego reissue if the domain list differs, and the
+# deploy hook installs the cert and reloads bao (SIGHUP, no restart). Not changed -> no-op.
+- name: Apply a changed lego script now
+  ansible.builtin.systemd:
+    name: openbao-acme.service
+    state: started
+    daemon_reload: true
+  when: openbao_acme_scripts.results[0] is changed
 
 - name: Enable and start the renewal timer
   ansible.builtin.systemd:
