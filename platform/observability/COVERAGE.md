@@ -79,12 +79,12 @@ PR 号**；新发现的盲区直接追加。
 
 kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"功能坏了"。
 
-- [ ] **K1** apiserver / scheduler / controller-manager 指标（k3s 内嵌，需开启 metrics 绑定）
-- [ ] **K2** CoreDNS 指标 + 错误率告警
-- [ ] **K3** Envoy Gateway：控制面 + 数据面（`envoy_*`）、5xx 率
-- [ ] **K4** cloudflared 隧道指标（连接数、错误）
-- [ ] **K5** Tailscale 子网路由器健康
-- [ ] **K6** SPIRE server 指标
+- [x] **K1** apiserver / scheduler / controller-manager 指标（k3s 内嵌，需开启 metrics 绑定） — k3s 把 apiserver 等跑在 kubelet 同一进程，指标已由 job=kubelet 采集；告警 KubeApiserverErrorRateHigh（排除 cluster=sandbox）
+- [x] **K2** CoreDNS 指标 + 错误率告警 — VMServiceScrape coredns；CorednsDown / ServfailHigh / UpstreamUnhealthy（上游抖动基线约 18 次/天，单次不报）
+- [x] **K3** Envoy Gateway：控制面 + 数据面（`envoy_*`）、5xx 率 — 控制面 + 数据面 /stats/prometheus；后端无健康成员、上游 5xx（有流量才算）
+- [x] **K4** cloudflared 隧道指标（连接数、错误） — --metrics 0.0.0.0:2000 早已开启，只缺抓取；ha_connections 0 → critical，<2 → warning
+- [ ] **K5** Tailscale 子网路由器健康（下一个 PR：laptop 宿主 tailscaled，`tailscale metrics write` → textfile）
+- [ ] **K6** SPIRE server 指标（下一个 PR：server.conf 目前 telemetry 为空，需改 chart values 并重启 spire-server）
 - [ ] **K7** OpenEBS ZFS（zpool 健康已有，补 CSI 侧）
 
 ## 7. 应用（P2）
