@@ -66,7 +66,10 @@ spec:
       replacement: envoy-proxy
 ---
 # cloudflared（公网入口）。Deployment 已带 --metrics 0.0.0.0:2000（infrastructure/cloudflared），
-# 只是容器没声明端口，所以用 portNumber。
+# 但容器没声明端口。不能用 portNumber：operator 生成的是
+# "keep __meta_kubernetes_pod_container_port_number=2000"，未声明端口的容器永远被过滤掉（#298 上线
+# 后实测没有 target）。改为不指定端口——未声明端口的容器会得到一个不带端口的 target——再把
+# __address__ 补成 <podIP>:2000。
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -79,9 +82,11 @@ spec:
     matchLabels:
       app: cloudflared
   podMetricsEndpoints:
-  - portNumber: 2000
-    path: /metrics
+  - path: /metrics
     interval: 30s
     relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_ip]
+      targetLabel: __address__
+      replacement: $1:2000
     - targetLabel: job
       replacement: cloudflared
