@@ -18,3 +18,4 @@ resources:
   - httproute.yaml
   - local-development-identity.yaml
   - iam-build-ci-publish.yaml
+  - spire-node-aliases.yaml

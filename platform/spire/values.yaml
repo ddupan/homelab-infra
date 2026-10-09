@@ -54,6 +54,30 @@ spire-server:
     # See README.md "集群外 Agent".
     joinToken:
       enabled: true
+    # Hosts managed by Cinc (homelab_base spire_agent): x509pop with a node
+    # certificate each host obtains and renews itself over ACME from Bao's dedicated
+    # pki-spire-nodes CA (EAB only at first enrollment, infrastructure/chef/). Unlike
+    # join_token it re-attests, so downtime or a lost data_dir needs no human.
+    # The agent ID embeds the leaf fingerprint and changes on every renewal, so
+    # entries parent to a stable node alias (spire-node-aliases.yaml), never to it.
+    # Public CA only: anything chaining to it IS a node identity, hence its own root.
+    x509POP:
+      enabled: true
+      mode: externalPKI
+      caBundle:
+        bundle: |
+          -----BEGIN CERTIFICATE-----
+          MIIBszCCAVmgAwIBAgIUTl+uDchLiMaQOI2QOLlVJ7pnO5wwCgYIKoZIzj0EAwIw
+          JzElMCMGA1UEAxMcZGR1cGFuIGhvbWVsYWIgU1BJUkUgbm9kZSBDQTAeFw0yNjEw
+          MDkwOTE3MzlaFw0zNjEwMDYwOTE4MDlaMCcxJTAjBgNVBAMTHGRkdXBhbiBob21l
+          bGFiIFNQSVJFIG5vZGUgQ0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATQ/R/U
+          C3HvJ3XpLGT5WBFPw3VpgtPvhquj0aXdPBLaVvyUilGmnkgm38X1IWivA1Yk9AUZ
+          SQTXWG/Svfke3/ZCo2MwYTAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB
+          /zAdBgNVHQ4EFgQUzrK6CV0+gOsQTqH4IzDte1b6ThswHwYDVR0jBBgwFoAUzrK6
+          CV0+gOsQTqH4IzDte1b6ThswCgYIKoZIzj0EAwIDSAAwRQIgVGhL5eAZ/TeHMr/V
+          hxAcE1tl3fUm/RMjAdYxRSLtplMCIQDtKv1pF8AwirHsqjFBJwq6p39HTzb+ZhFy
+          84CUUinGCg==
+          -----END CERTIFICATE-----
     externalK8sPSAT:
       enabled: true
       clusters:

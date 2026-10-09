@@ -33,14 +33,16 @@ resource "vault_pki_secret_backend_role" "spire_node" {
   name    = "node"
 
   # 节点以 lab.ddupan.top 下的 DNS 名注册（infrastructure/dns/README.md）。
-  allowed_domains     = ["lab.ddupan.top"]
-  allow_subdomains    = true
-  allow_bare_domains  = false
-  allow_glob_domains  = false
-  allow_any_name      = false
-  allow_ip_sans       = false
-  server_flag         = false
-  client_flag         = true # 只用于向 SPIRE Server 证明节点
+  allowed_domains    = ["lab.ddupan.top"]
+  allow_subdomains   = true
+  allow_bare_domains = false
+  allow_glob_domains = false
+  allow_any_name     = false
+  allow_ip_sans      = false
+  server_flag        = false
+  # 只用于向 SPIRE Server 证明节点。注意 OpenBao ACME 签出的证书 EKU 实为 serverAuth
+  # （2026-10-09 实测，不随此标志）；SPIRE x509pop 以 ExtKeyUsageAny 校验，不受影响。
+  client_flag         = true
   key_type            = "ec"
   key_bits            = 256
   use_csr_common_name = true
