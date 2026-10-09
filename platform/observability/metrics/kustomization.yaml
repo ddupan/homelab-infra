@@ -49,3 +49,5 @@ resources:
   - rules/proxmox.yaml
   - scrapes/vyos.yaml
   - rules/vyos.yaml
+  - scrapes/linstor.yaml
+  - rules/linstor.yaml

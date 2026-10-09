@@ -1,0 +1,139 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 复制链路断开 5 分钟告警
+  interval: 1m
+  input_series:
+  - series: drbd_connection_state{job="drbd",instance="192.168.10.4:9942",node="pve1",name="pm-aaaa",conn_name="pve2",peer_node_id="2",drbd_connection_state="Connected"}
+    values: 1 1 0x6
+  - series: drbd_connection_state{job="drbd",instance="192.168.10.4:9942",node="pve1",name="pm-aaaa",conn_name="pve2",peer_node_id="2",drbd_connection_state="Connecting"}
+    values: 0 0 1x6
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: DrbdConnectionDown
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: DrbdConnectionDown
+    exp_alerts:
+    - exp_labels:
+        job: drbd
+        instance: 192.168.10.4:9942
+        node: pve1
+        name: pm-aaaa
+        conn_name: pve2
+        peer_node_id: '2'
+        drbd_connection_state: Connected
+        severity: warning
+      exp_annotations:
+        summary: DRBD 资源 pm-aaaa 在 pve1 与 pve2 的连接断开
+        description: 复制链路不通，该卷可能只剩一份数据仍在更新。drbdadm status pm-aaaa； StandAlone 通常是 split-brain，需要人工决定丢弃哪一侧，不要盲目 connect --discard-my-data。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: diskless 客户端不算降级；重同步 30 分钟内不告警
+  interval: 1m
+  input_series:
+  - series: drbd_device_state{job="drbd",instance="192.168.10.4:9942",node="pve1",name="pm-bbbb",volume="0",minor="1002",drbd_device_state="Diskless"}
+    values: 1x40
+  - series: drbd_device_state{job="drbd",instance="192.168.10.7:9942",node="pve2",name="pm-cccc",volume="0",minor="1003",drbd_device_state="Inconsistent"}
+    values: 1x20 0x20
+  alert_rule_test:
+  - eval_time: 35m
+    alertname: DrbdDiskDegraded
+    exp_alerts: []
+  - eval_time: 35m
+    alertname: DrbdDiskFailed
+    exp_alerts: []
+- name: 后端盘故障即 critical
+  interval: 1m
+  input_series:
+  - series: drbd_device_unintentionaldiskless{job="drbd",instance="192.168.10.9:9942",node="pve3",name="pm-dddd",volume="0",minor="1004"}
+    values: 1x3
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DrbdDiskFailed
+    exp_alerts:
+    - exp_labels:
+        job: drbd
+        instance: 192.168.10.9:9942
+        node: pve3
+        name: pm-dddd
+        volume: '0'
+        minor: '1004'
+        severity: critical
+      exp_annotations:
+        summary: DRBD 资源 pm-dddd 在 pve3 的后端磁盘故障或被意外分离
+        description: 本地盘出错后 DRBD 转为 diskless 继续经网络读写对端，副本数已降为 1。查 dmesg 与 LVM（vg_ssd / vg_hdd）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 失去 quorum 一分钟即 critical
+  interval: 1m
+  input_series:
+  - series: drbd_device_quorum{job="drbd",instance="192.168.10.7:9942",node="pve2",name="pm-eeee",volume="0",minor="1005"}
+    values: '0x3'
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: DrbdNoQuorum
+    exp_alerts:
+    - exp_labels:
+        job: drbd
+        instance: 192.168.10.7:9942
+        node: pve2
+        name: pm-eeee
+        volume: '0'
+        minor: '1005'
+        severity: critical
+      exp_annotations:
+        summary: DRBD 资源 pm-eeee 在 pve2 失去 quorum
+        description: 失去 quorum 的一侧会按 on-no-quorum 策略挂起或报 IO 错误，跑在上面的客户机会卡住。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 存储池低于 15% warning，DISKLESS 池（total=0）不参与
+  interval: 1m
+  input_series:
+  - series: linstor_storage_pool_capacity_free_bytes{job="linstor",instance="192.168.10.4:3370",node="pve1",driver="LVM",backing_pool="vg_ssd",storage_pool="ssd"}
+    values: 10x40
+  - series: linstor_storage_pool_capacity_total_bytes{job="linstor",instance="192.168.10.4:3370",node="pve1",driver="LVM",backing_pool="vg_ssd",storage_pool="ssd"}
+    values: 100x40
+  - series: linstor_storage_pool_capacity_free_bytes{job="linstor",instance="192.168.10.4:3370",node="pve2",driver="DISKLESS",backing_pool="",storage_pool="DfltDisklessStorPool"}
+    values: '0x40'
+  - series: linstor_storage_pool_capacity_total_bytes{job="linstor",instance="192.168.10.4:3370",node="pve2",driver="DISKLESS",backing_pool="",storage_pool="DfltDisklessStorPool"}
+    values: '0x40'
+  alert_rule_test:
+  - eval_time: 35m
+    alertname: LinstorStoragePoolLow
+    exp_alerts:
+    - exp_labels:
+        job: linstor
+        instance: 192.168.10.4:3370
+        node: pve1
+        driver: LVM
+        backing_pool: vg_ssd
+        storage_pool: ssd
+        severity: warning
+      exp_annotations:
+        summary: LINSTOR 存储池 ssd@pve1 剩余不足 15%
+        description: 新建或扩容落在该节点的卷会失败。linstor storage-pool list；考虑把大卷挪到 pve-rg-hdd。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 35m
+    alertname: LinstorStoragePoolCritical
+    exp_alerts: []
+- name: satellite 离线
+  interval: 1m
+  input_series:
+  - series: linstor_node_state{job="linstor",instance="192.168.10.4:3370",node="pve3",address="192.168.10.9",nodetype="SATELLITE",encryption="PLAIN",port="3366"}
+    values: 2 0x6
+  alert_rule_test:
+  - eval_time: 7m
+    alertname: LinstorSatelliteNotOnline
+    exp_alerts:
+    - exp_labels:
+        job: linstor
+        instance: 192.168.10.4:3370
+        node: pve3
+        address: 192.168.10.9
+        nodetype: SATELLITE
+        encryption: PLAIN
+        port: '3366'
+        severity: warning
+      exp_annotations:
+        summary: LINSTOR 节点 pve3 状态不是 ONLINE（0）
+        description: 0=OFFLINE 3=VERSION_MISMATCH 8=OTHER_CONTROLLER 10=NO_STLT_CONN 11=MISSING_EXT_TOOLS。linstor node list。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

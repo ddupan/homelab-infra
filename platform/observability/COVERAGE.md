@@ -35,7 +35,11 @@ PR 号**；新发现的盲区直接追加。
 - [x] **P2** pve-exporter：guest 状态、存储、HA 状态 — 选 prometheus-pve-exporter（PVEAuditor token 在 Bao），没用 PVE 9.2 自带 OTLP：后者无 HA/锁/节点在线视角，且只发 JSON
 - [x] **P3** corosync / quorum 告警（fencing 已全集群启用，失去 quorum 会自重启） — corosync-quorumtool → textfile（`pve_corosync_*`），30 秒一次
 - [x] **P4** HA 事件：`vm:100` 迁移/重启要有通知 — `pve_ha_state`：HA 资源不在 started、fence/error
-- [ ] **P5** LINSTOR / DRBD 资源与复制状态
+- [x] **P5** LINSTOR / DRBD：controller `/metrics`（节点、volume、存储池容量、error report）+ 三节点
+  drbd-reactor Prometheus 插件（连接状态、quorum、IO 挂起、out-of-sync、后端盘故障）
+  - ⚠ pve2/pve3 上也在跑**空的** `linstor-controller`（0 节点 0 资源；PVE 插件与客户端只连 pve1）：
+    `pve_linstor` 只在 pve1 启用 controller，却没有在其他节点停用，Debian 包安装时默认启用（2026-10-09，未处理）
+  - pve1 的 `ssd` 池只剩约 18%（告警阈值 15%）
 - [x] **P6** VyOS：内置 node/frr exporter（`vyos.yml`）、服务状态 textfile（`vyos-monitoring.yml`）、pg-prod HAProxy
   metrics（`shared-postgresql/proxy.yml`）、四个 TCP 入口与 DN42 DNS 探测。VyOS 远不止路由：pg-prod 生产库入口、
   sandbox k3s API、SDN 的 DHCP/RA/NTP、DN42 都在它上面

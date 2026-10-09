@@ -12,3 +12,8 @@ pve_exporter_bao_mount: kv
 pve_exporter_bao_path: k8s/pve-exporter
 # Bao 里的 token 丢了（或要轮换）时用 -e pve_exporter_rotate_token=true 重建。
 pve_exporter_rotate_token: false
+
+# drbd-reactor 的 Prometheus 插件：DRBD 层的连接状态、quorum、out-of-sync。LINSTOR controller 的
+# /metrics 只有每个节点本地的 volume 状态——复制链路断开时两边都还是 UpToDate，只剩单副本却
+# 没有任何信号。包来自 LINBIT 仓库（由 pve_linstor 配置）。只听本机 LAN 地址。
+pve_drbd_reactor_listen: "{{ ansible_host }}:9942"
