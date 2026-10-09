@@ -32,7 +32,6 @@ def load_inventory() -> dict:
     try:
         inventory = data["homelab_dns"]
         split_records = inventory["split_horizon"]["records"]
-        public_records = inventory["public"]["records"]
     except (KeyError, TypeError) as exc:
         raise ValueError(f"invalid DNS inventory: missing {exc}") from exc
 
@@ -44,13 +43,6 @@ def load_inventory() -> dict:
         if unknown:
             raise ValueError(f"unknown split DNS backends {sorted(unknown)}")
 
-    for record in public_records:
-        require_fields(record, "name", "type", "values", "proxied", "terraform")
-        terraform = record["terraform"]
-        if terraform.get("managed") and not terraform.get("resource_name"):
-            raise ValueError(f"managed Terraform record needs resource_name: {record['name']}")
-        if len(record["values"]) != 1:
-            raise ValueError(f"Cloudflare Terraform supports one value per record: {record['name']}")
     check_retired(inventory["samba"])
     allocations(data)
     return inventory
@@ -181,7 +173,6 @@ def replace_block(original: str, target: str, rendered: str) -> str:
 def outputs(inventory: dict) -> dict[Path, str]:
     env = environment()
     split_records = inventory["split_horizon"]["records"]
-    public_records = inventory["public"]["records"]
     result = {}
 
     blocky_path = ROOT / "apps/blocky/config.yml"
@@ -196,11 +187,6 @@ def outputs(inventory: dict) -> dict[Path, str]:
     )
     result[coredns_path] = replace_block(coredns_path.read_text(), "coredns", coredns)
 
-    terraform_path = ROOT / "infrastructure/cloudflared/terraform/dns.generated.tf"
-    terraform = env.get_template("cloudflare.tf.j2").render(
-        records=[record for record in public_records if record["terraform"]["managed"]]
-    )
-    result[terraform_path] = terraform
     return result
 
 

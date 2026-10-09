@@ -5,7 +5,7 @@
 
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
-| 公网 `ddupan.top` | Cloudflare | 由生成器输出 Terraform；尚待完整导入已有记录 |
+| 公网 `ddupan.top` | Cloudflare | 直接写在 `infrastructure/cloudflared/terraform`：tunnel 的 CNAME 与 tunnel 路由共用同一份主机名列表（`local.tunnel_ingress`）；`oci-*` A 记录在 Cloudflare 手工维护 |
 | 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | zone 与没有母资源的主机在 `terraform/hosts.tf`（手动注册）；有 owner 的记录在 owner 的 root（incus：ayatori-*，etcd `lxc.yml`：etcd-pve*）；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
 | AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `samba_dns_record` Ansible module |
 | LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
@@ -20,20 +20,19 @@ uv run infrastructure/dns/generate.py
 uv run infrastructure/dns/generate.py --check
 ```
 
-脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染三个目标：
+脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染两个目标：
 
 - `apps/blocky/config.yml` 中带 marker 的 LAN split-horizon mapping；
 - `platform/k3s/coredns-custom.yaml` 中带 marker 的 Pod split-horizon server blocks；
-- `infrastructure/cloudflared/terraform/dns.generated.tf` 中已经完成 Terraform 接管的公网记录。
 
-`lab.ddupan.top` 不经生成器。CI 的 `tf.py` 给 dns 与 incus root 从 bao `kv/k8s/powerdns` 取 API key；
+公网与 `lab.ddupan.top` 都不经生成器。CI 的 `tf.py` 给 dns 与 incus root 从 bao `kv/k8s/powerdns` 取 API key；
 新增一个注册 lab 记录的 root 时把它加进那个判断。
 
 生成文件需要提交进 Git，以便 PR 直接审阅最终配置。CI 执行 `--check`，任何手工修改生成块、
 漏跑生成器或非确定性输出都会失败。Jinja 使用 `[[ ... ]]` 作为变量定界符，避免与 CoreDNS
 模板表达式 `{{ .Name }}` 冲突。
 
-`backends` 和 `terraform.managed` 是分阶段接管开关，而不是第二份记录数据：只有已经完成
+`backends` 是分阶段接管开关，而不是第二份记录数据：只有已经完成
 零变更接管的后端才会生成。把记录加入新的后端前，应先完成相应的 live/state 对账。
 
 ## 地址分配（IPAM）
@@ -71,7 +70,7 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
 ## 分阶段接管
 
 1. 用 Samba module 接管现有静态 A RRset，首次 check mode 应为零变更。
-2. 将 Cloudflare 已有 tunnel DNS 记录逐条导入 Terraform state，再启用 `terraform.managed`。
+2. ~~将 Cloudflare 已有 tunnel DNS 记录导入 Terraform~~：已由 cloudflared root 直接管理。
 3. Blocky 与 CoreDNS 已从 `split_horizon.records` 生成；通过 `backends` 分阶段扩展。
 4. 验证公网、LAN、Pod、AD 四个视图后，再单独修改 DHCP。
 
