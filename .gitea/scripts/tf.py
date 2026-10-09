@@ -59,9 +59,10 @@ def run(root, args):
     for key, value in (bao_kv(f'infra/terraform/{name}') or {}).items():
         env[f'TF_VAR_{key}'] = value
 
-    # dns：PowerDNS API key 只有一份，在 kv/k8s/powerdns（ESO 只能读 k8s/，Poweradmin 与
-    # external-dns 也用它），所以不按上面的约定复制到 kv/infra/terraform/dns。
-    if name == 'dns':
+    # PowerDNS API key 只有一份，在 kv/k8s/powerdns（ESO 只能读 k8s/，Poweradmin 与
+    # external-dns 也用它），所以不按上面的约定复制到 kv/infra/terraform/<root>。
+    # dns 管 zone，incus 注册自己实例的记录。
+    if name in ('dns', 'incus'):
         env['PDNS_API_KEY'] = bao_kv('k8s/powerdns')['api_key']
 
     if name != 'incus':

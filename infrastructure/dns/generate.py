@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import difflib
 import ipaddress
 import json
@@ -34,7 +33,6 @@ def load_inventory() -> dict:
         inventory = data["homelab_dns"]
         split_records = inventory["split_horizon"]["records"]
         public_records = inventory["public"]["records"]
-        powerdns_records = inventory["powerdns"]["records"]
     except (KeyError, TypeError) as exc:
         raise ValueError(f"invalid DNS inventory: missing {exc}") from exc
 
@@ -54,17 +52,6 @@ def load_inventory() -> dict:
         if len(record["values"]) != 1:
             raise ValueError(f"Cloudflare Terraform supports one value per record: {record['name']}")
     check_retired(inventory["samba"])
-
-    seen = set()
-    for record in powerdns_records:
-        require_fields(record, "name", "type", "values")
-        # Relative to lab.ddupan.top; the template appends the zone.
-        if "." in record["name"]:
-            raise ValueError(f"powerdns record name must be relative to lab.ddupan.top: {record['name']}")
-        key = (record["name"], record["type"])
-        if key in seen:
-            raise ValueError(f"duplicate powerdns RRset {key}; list every value in one entry")
-        seen.add(key)
     allocations(data)
     return inventory
 
@@ -79,8 +66,12 @@ def check_retired(samba: dict) -> None:
         raise ValueError(f"samba RRsets both managed and retired: {sorted(both)}")
 
 
-def allocations(data: dict) -> dict:
-    """Validate homelab_ipam against the A records and return {ip: owner}."""
+def allocations(data: dict, live: list[dict] = ()) -> dict:
+    """Validate homelab_ipam against the A records and return {ip: owner}.
+
+    lab.ddupan.top records live with their owners, not in this file, so they only
+    count when passed in as `live` (read from pdns by --next-free).
+    """
     ipam = data["homelab_ipam"]
     prefixes = [ipaddress.ip_network(p["prefix"]) for p in ipam["prefixes"]]
     ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]), r["description"])
@@ -97,7 +88,7 @@ def allocations(data: dict) -> dict:
     # A host listed in both zones (ad. and lab., during the migration) is still one
     # host, so names are collected as a set.
     named: dict = {}
-    records = data["homelab_dns"]["samba"]["records"] + data["homelab_dns"]["powerdns"]["records"]
+    records = data["homelab_dns"]["samba"]["records"] + list(live)
     for record in records:
         if record["type"] == "A":
             for value in record["values"]:
@@ -121,7 +112,7 @@ def live_records() -> list[dict]:
     """A RRsets actually in lab.ddupan.top, in records.yml shape.
 
     Creators register their own names (lxc.yml, external-dns, Poweradmin), so the
-    zone, not this file, is the complete set of used addresses. Without the key we
+    zone, not any file, is the complete set of used addresses. Without the key we
     fail rather than fall back to the file: a file-only answer is exactly how
     etcd-pve1/2 (10.60.0.20/21) went unseen and would have been handed out again.
     """
@@ -141,9 +132,7 @@ def live_records() -> list[dict]:
 def next_free(data: dict, prefix: str, live: list[dict]) -> ipaddress.IPv4Address:
     # Live records go through the same checks as declared ones, so a registered
     # address inside the DHCP pool or colliding with another host fails here too.
-    data = copy.deepcopy(data)
-    data["homelab_dns"]["powerdns"]["records"] += live
-    owners = allocations(data)
+    owners = allocations(data, live)
     ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]))
               for r in data["homelab_ipam"]["ranges"]]
     for ip in ipaddress.ip_network(prefix).hosts():
@@ -212,11 +201,6 @@ def outputs(inventory: dict) -> dict[Path, str]:
         records=[record for record in public_records if record["terraform"]["managed"]]
     )
     result[terraform_path] = terraform
-
-    powerdns_path = ROOT / "infrastructure/dns/terraform/dns.generated.tf"
-    result[powerdns_path] = env.get_template("powerdns.tf.j2").render(
-        records=inventory["powerdns"]["records"]
-    )
     return result
 
 

@@ -33,6 +33,14 @@ def main():
         credential = identities[0]['credentials'][0]
         env['AWS_ACCESS_KEY_ID'] = credential['accessKey']
         env['AWS_SECRET_ACCESS_KEY'] = credential['secretKey']
+        # 本 root 也注册 lab.ddupan.top 记录（ayatori-*）。
+        response = subprocess.run(
+            ['bao', 'kv', 'get', '-field=api_key', 'kv/k8s/powerdns'],
+            env=env, capture_output=True, text=True,
+        )
+        if response.returncode:
+            raise SystemExit('读取 PowerDNS API key 失败；请检查 Bao 登录和授权。')
+        env['PDNS_API_KEY'] = response.stdout.strip()
         command, cwd = ['terraform', *sys.argv[2:]], ROOT / 'terraform'
     else:
         command, cwd = ['ansible-playbook', *sys.argv[2:]], ROOT / 'ansible'
