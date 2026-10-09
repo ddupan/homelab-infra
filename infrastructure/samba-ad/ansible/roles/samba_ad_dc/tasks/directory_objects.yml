@@ -45,12 +45,14 @@
     - _grp_create.rc != 0
     - "'already exists' not in (_grp_create.stdout | default('') + _grp_create.stderr | default(''))"
 
+# One member per call: samba-tool adds a comma list all-or-nothing, so a single member that is already there
+# fails the call and, matched by the "already" check below, silently skips the members that are not.
 - name: Add group members
   ansible.builtin.command:
-    cmd: "samba-tool group addmembers {{ item.name }} {{ item.members | join(',') }}"
-  loop: "{{ samba_ad_groups | default([]) | selectattr('members', 'defined') | list }}"
+    cmd: "samba-tool group addmembers {{ item.0.name }} {{ item.1 }}"
+  loop: "{{ samba_ad_groups | default([]) | selectattr('members', 'defined') | list | subelements('members') }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.0.name }} <- {{ item.1 }}"
   register: _grp_members
   changed_when: "'Added members' in (_grp_members.stdout | default(''))"
   failed_when:

@@ -50,7 +50,9 @@ pve_auth_filter: >-
 # contains invalid characters" — spaces are illegal in PVE group IDs) and imports
 # the rest as clutter (DnsAdmins-ad, DnsUpdateProxy-ad). Convention: name any
 # group PVE should see `pve-*`.
-pve_auth_group_filter: "(&(objectClass=group)(cn=pve-*))"
+# platform-admins is the platform's administrator group (infrastructure/samba-ad); pve-* stays until those
+# groups are retired.
+pve_auth_group_filter: "(&(objectClass=group)(|(cn=pve-*)(cn=platform-admins)))"
 pve_auth_sync_attributes: "email=mail,firstname=givenName,lastname=sn"
 
 # AD logon names are case-insensitive; PVE defaults to case-sensitive, which
@@ -66,8 +68,10 @@ pve_auth_sync_job: pve-ad-sync
 pve_auth_sync_schedule: "*-*-* 04:11:00"
 
 # --- RBAC ---
-# PVE RENAMES synced groups to "<name>-<realm>", so AD's pve-admins becomes
-# pve-admins-ad. Granting the ACL to "pve-admins" would silently match nothing.
-pve_auth_admin_group: "pve-admins-{{ pve_auth_realm }}"
+# PVE RENAMES synced groups to "<name>-<realm>", so AD's platform-admins becomes
+# platform-admins-ad. Granting the ACL to "platform-admins" would silently match nothing.
+# The role only adds this ACL; the old pve-admins-ad grant is removed by hand once
+# platform-admins is verified, so the cluster is never without an administrator group.
+pve_auth_admin_group: "platform-admins-{{ pve_auth_realm }}"
 pve_auth_admin_role: Administrator
 pve_auth_admin_path: /

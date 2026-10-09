@@ -10,7 +10,7 @@
 # whatever realms the cluster has -- `pam` for node-local accounts and `ad` for
 # Samba AD over verified LDAPS (role pve_auth) -- and stores no bind credential.
 # A session additionally needs Sys.Modify on / in PVE's ACL, which in practice
-# means the pve-admins-ad group. It serves TLS with the node's own ACME cert, so
+# means the platform-admins-ad group. It serves TLS with the node's own ACME cert, so
 # reach it BY HOSTNAME: https://pve1.ad.ddupan.top:8088 (CN/SAN is the FQDN, and
 # there is no IP SAN -- the same trap as the DC's LDAPS cert).
 
