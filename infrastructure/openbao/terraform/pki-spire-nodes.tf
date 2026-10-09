@@ -51,10 +51,17 @@ resource "vault_pki_secret_backend_role" "spire_node" {
   max_ttl = 7776000 # 90d
 }
 
+# ACME order/directory URLs and every issued cert's AIA are built from this, so it is
+# what nodes actually call. lab directly, not var.bao_address (still ad while the rest
+# of bao migrates): this mount is new, and starting on lab avoids moving it later.
+locals {
+  spire_nodes_bao = "https://bao.lab.ddupan.top:8200"
+}
+
 resource "vault_pki_secret_backend_config_cluster" "spire_nodes" {
   backend  = vault_mount.pki_spire_nodes.path
-  path     = "${var.bao_address}/v1/${vault_mount.pki_spire_nodes.path}"
-  aia_path = "${var.bao_address}/v1/${vault_mount.pki_spire_nodes.path}"
+  path     = "${local.spire_nodes_bao}/v1/${vault_mount.pki_spire_nodes.path}"
+  aia_path = "${local.spire_nodes_bao}/v1/${vault_mount.pki_spire_nodes.path}"
 }
 
 resource "vault_pki_secret_backend_config_acme" "spire_nodes" {
