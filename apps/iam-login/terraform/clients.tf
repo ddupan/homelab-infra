@@ -66,8 +66,10 @@ resource "homelab_oidc_client" "openbao" {
   id   = "openbao"
   name = "OpenBao"
   redirect_uris = [
-    "https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc-sso/oidc/callback", # web UI
-    "http://localhost:8250/oidc/callback",                                 # CLI: bao login -method=oidc -path=oidc-sso
+    # The web UI builds the callback from the address it is opened at; bao answers to both names (one cert).
+    "https://bao.lab.ddupan.top:8200/ui/vault/auth/oidc-sso/oidc/callback", # web UI
+    "https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc-sso/oidc/callback",  # web UI, old name
+    "http://localhost:8250/oidc/callback",                                  # CLI: bao login -method=oidc -path=oidc-sso
   ]
   scopes = ["openid", "profile", "email", "groups"]
 }
