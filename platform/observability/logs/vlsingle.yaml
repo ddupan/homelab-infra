@@ -9,6 +9,14 @@ metadata:
   namespace: monitoring
 spec:
   retentionPeriod: "30d"
+  extraArgs:
+    # Default 5s fsyncs in-memory data every 5s. Everything shares one consumer
+    # SATA SSD (ZFS pool data); at peak these fsync storms pushed OpenBao's Raft
+    # writes past CI's 15s login timeout (2026-10-09). 10m cuts the fsyncs ~120x.
+    # Cost: an unclean shutdown (power loss, OOM, SIGKILL) loses up to 10m of
+    # data — accepted for metrics and logs; a normal shutdown still flushes all.
+    # Buffered data stays queryable; at current ingest it is a few dozen MB.
+    inmemoryDataFlushInterval: 10m
   storage:
     accessModes:
       - ReadWriteOnce
