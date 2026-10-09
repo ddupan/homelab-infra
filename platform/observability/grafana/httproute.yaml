@@ -6,17 +6,35 @@ metadata:
   namespace: monitoring
 spec:
   parentRefs:
-    - name: eg
-      namespace: envoy-gateway-system
-      sectionName: https
     # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https-lab
   hostnames:
-    - grafana.ad.ddupan.top
     - grafana.lab.ddupan.top
   rules:
     - backendRefs:
         - name: grafana
           port: 80
+---
+# The old name only redirects: root_url and the OAuth callback are on the lab name, and Grafana's OAuth state
+# cookie is per host, so a login started on the ad name would fail at the callback. Remove together with the
+# Samba A record once nothing uses the old name.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana-ad-redirect
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - grafana.ad.ddupan.top
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            hostname: grafana.lab.ddupan.top
+            statusCode: 301
