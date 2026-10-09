@@ -132,3 +132,35 @@ tests:
   - eval_time: 8m
     alertname: AyatoriServiceInactive
     exp_alerts: []
+- name: 选主丢失按环境分级并保留 env 以便路由
+  interval: 1m
+  input_series:
+  - series: leader_election_master_status{job="ayatori-manager",cluster="ayatori-prod",env="prod",instance="192.168.10.12:8080",name="a6325ed6.ddupan.top"}
+    values: 0x10
+  - series: leader_election_master_status{job="ayatori-manager",cluster="ayatori-dev",env="dev",instance="192.168.10.11:8080",name="a6325ed6.ddupan.top"}
+    values: 1x10
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: AyatoriControllerNotLeader
+    exp_alerts:
+    - exp_labels: {cluster: ayatori-prod, env: prod, severity: critical}
+      exp_annotations:
+        summary: Ayatori ayatori-prod manager 没有持有选主 Lease
+        description: 所有 controller 停止协调；查 journalctl -u ayatori-manager 中的 leader election 与 API 超时（宿主磁盘争用时常见）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: 1 小时内重启 3 次告警，2 次不告警
+  interval: 10m
+  input_series:
+  - series: process_start_time_seconds{job="ayatori-manager",cluster="ayatori-prod",env="prod"}
+    values: 100 700 1300 1900 1900 1900 1900
+  - series: process_start_time_seconds{job="ayatori-external-secrets",cluster="ayatori-prod",env="prod"}
+    values: 100 700 700 1900 1900 1900 1900
+  alert_rule_test:
+  - eval_time: 40m
+    alertname: AyatoriProcessRestarting
+    exp_alerts:
+    - exp_labels: {job: ayatori-manager, cluster: ayatori-prod, env: prod, severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod ayatori-manager 1 小时内重启 3 次以上
+        description: 反复退出后被 systemd 重启；查 journalctl 退出原因（选主丢失、OOM、配置错误）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
