@@ -90,7 +90,7 @@ A 记录等所有客户端切走后再删。
 | 批次 | 服务 | 状态 / 还差什么 |
 |---|---|---|
 | 1 | dns、nexus、s3、metrics-write | 双名。已切：9 个 TF backend、seaweedfs provider、nexus TF `nexus_url`（本地已有 `.terraform` 的需 `terraform init -reconfigure`）、zot `regionendpoint`、sandbox vmagent remoteWrite（sandbox 节点用 DC 解析，DC forwarder 已是 Blocky）。批次 1 客户端全部切完 |
-| 2 | grafana、backstage | grafana：随 iam-login 迁移切到 lab，ad 名 301 跳转（Samba A 记录待删）。backstage：`BACKSTAGE_BASE_URL` 与 OIDC 回调绑定单一名字，随其 IdP 迁移一起切 |
+| 2 | grafana、backstage | 均随 iam-login 迁移切到 lab，ad 名 301 跳转（Samba A 记录待删） |
 | 3 | zot、zot-push | 约 10 处镜像引用 + Flux ImageRepository + push 端 bearer realm，最后单独切 |
 | 4 | spire-server、ayatori-*、sandbox*、nats、pg-prod/dev、bao、spire-oidc、incus | 已完成：sandbox*/ayatori-*/spire-server 的 ad 记录已退役；nats、pg-prod/dev、bao 证书含 ad+lab 双名，bao 的 API/CA 客户端已切到 `bao.lab`。待办：Ayatori 租户 `host`（Ayatori 侧）；bao 的 PKI AIA/CRL/ACME URL 与 ACME directory（`bao.ad` 长期保留）；bao 与 incus 的 OIDC 回调随 IdP 迁移；spire-oidc issuer 迁移需单独设计 |
 

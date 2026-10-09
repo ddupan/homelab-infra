@@ -21,7 +21,7 @@ spec:
         probe_group: lan
       static:
         - https://auth.ddupan.top/api/health
-        - https://backstage.ad.ddupan.top/.backstage/health/v1/readiness
+        - https://backstage.lab.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
         - https://incus.ad.ddupan.top/1.0
         # 总 health 含 LDAP（Boot 的 ContextSource 连 dc1 LDAPS），目录不可用时也会告警。

@@ -38,11 +38,22 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKSTAGE_BASE_URL
-              value: https://backstage.ad.ddupan.top
-            # Read by app-config's oidc provider once the image takes the issuer from the environment
-            # (panxiao81/backstage); still Authelia until the switch to sso.ddupan.top.
+              value: https://backstage.lab.ddupan.top
+            # The issuer (panxiao81/backstage app-config) and the iam-login client. The client comes from the
+            # Terraform-written backstage-sso Secret; env wins over the envFrom below, which still carries the
+            # retired Authelia client's AUTH_OIDC_* values from kv/k8s/backstage.
             - name: AUTH_OIDC_METADATA_URL
-              value: https://auth.ddupan.top/.well-known/openid-configuration
+              value: https://sso.ddupan.top/.well-known/openid-configuration
+            - name: AUTH_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-sso
+                  key: client_id
+            - name: AUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-sso
+                  key: client_secret
             - name: POSTGRES_HOST
               value: shared-postgresql-rw.shared-db.svc.cluster.local
             - name: POSTGRES_PORT
