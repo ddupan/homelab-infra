@@ -5,5 +5,5 @@ name 'base'
 run_list 'homelab_base::default'
 cookbook 'homelab_base',
          git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-         branch: 'feat/drift-check',
+         tag: 'v0.2.0',
          rel: 'cookbooks/homelab_base'
