@@ -3,7 +3,7 @@
 # local.buckets 由 Terraform 创建（对不存在的对象 import 会失败）。
 locals {
   imported_buckets = toset(["public", "research", "research-data", "tfstate", "zot"])
-  buckets          = setunion(local.imported_buckets, ["techdocs", "terraform-registry"])
+  buckets          = setunion(local.imported_buckets, ["ci-cache", "techdocs", "terraform-registry"])
 }
 
 resource "aws_s3_bucket" "this" {

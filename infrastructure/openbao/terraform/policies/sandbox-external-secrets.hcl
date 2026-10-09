@@ -17,3 +17,12 @@ path "kv/data/k8s/dynamic-runner-pod-sandbox" {
 path "kv/metadata/k8s/dynamic-runner-pod-sandbox" {
   capabilities = ["read"]
 }
+
+# The pod pool's shared Actions cache bucket (apps/seaweedfs/terraform/ci-cache.tf).
+path "kv/data/k8s/gitea-runner-cache-s3" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/k8s/gitea-runner-cache-s3" {
+  capabilities = ["read"]
+}
