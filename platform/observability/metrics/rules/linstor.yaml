@@ -114,14 +114,36 @@ spec:
         summary: LINSTOR 产生了新的 error report
         description: linstor error-reports list；常见于卷创建/删除失败。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    - alert: LinstorScrapeFailing
-      expr: up{job=~"linstor|drbd"} == 0
+    # 控制器 HA（#295）：三个节点都抓 3370，只有 promoter 选中的节点在监听。
+    - alert: LinstorNoActiveController
+      expr: sum(up{job="linstor"}) == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: 没有任何节点在运行 LINSTOR controller
+        description: >-
+          已有 DRBD 卷照常读写，但 PVE 无法新建/迁移/删除卷。drbd-reactorctl status linstor_db
+          （任一节点）；journalctl -u drbd-reactor；看 linstor_db 是否失去 quorum（DrbdNoQuorum）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: LinstorMultipleControllers
+      expr: sum(up{job="linstor"}) > 1
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "{{ $value }} 个节点同时在运行 LINSTOR controller"
+        description: >-
+          controller 必须只由 promoter 启动。多出来的通常是手工 systemctl start 或 linstor-controller
+          被重新 enable（Debian 包升级会这么做）。空 controller 会让连到它的客户端看到一个空集群。
+          systemctl is-enabled linstor-controller 应在三个节点上都是 disabled。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: DrbdReactorScrapeFailing
+      expr: up{job="drbd"} == 0
       for: 5m
       labels:
         severity: warning
       annotations:
-        summary: LINSTOR/DRBD 指标抓取 {{ $labels.job }}（{{ $labels.instance }}）失败
-        description: >-
-          linstor = pve1 上唯一的 controller（挂了已有卷照常读写，但无法新建/迁移卷）；
-          drbd = 该节点的 drbd-reactor，失败则该节点的 DRBD 告警全部失效。
+        summary: drbd-reactor 指标抓取 {{ $labels.instance }}（{{ $labels.node }}）失败
+        description: 该节点的 DRBD 告警全部失效；drbd-reactor 同时也是 controller 的 promoter，停了就不会再发生故障转移。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

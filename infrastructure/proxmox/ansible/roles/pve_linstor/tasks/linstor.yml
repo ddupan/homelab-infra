@@ -16,17 +16,32 @@
     name: linstor-controller
     enabled: true
     state: started
-  when: inventory_hostname == pve_linstor_controller
+  when:
+    - not (pve_linstor_controller_ha | bool)
+    - inventory_hostname == pve_linstor_controller
 
-- name: Point the client at the controller
-  # Without this, `linstor` talks to localhost and fails on the satellites.
+# The Debian package enables linstor-controller on install, so without this every
+# node runs one. The extra ones are EMPTY clusters (found 2026-10-09: 0 nodes, 0
+# resources on pve2/pve3) — harmless only while nothing points at them.
+- name: Stop and disable the controller everywhere else
+  ansible.builtin.systemd_service:
+    name: linstor-controller
+    enabled: false
+    state: stopped
+  when:
+    - not (pve_linstor_controller_ha | bool)
+    - inventory_hostname != pve_linstor_controller
+
+- name: Point the client at the controller(s)
+  # Without this, `linstor` talks to localhost and fails on the satellites. With
+  # HA the client tries the list in order; only the active node listens on 3370.
   ansible.builtin.copy:
     dest: /etc/linstor/linstor-client.conf
     mode: "0644"
     content: |
       # Managed by Ansible (role pve_linstor).
       [global]
-      controllers=linstor://{{ hostvars[pve_linstor_controller].ansible_host }}
+      controllers={{ _pve_linstor_controllers | map('regex_replace', '^', 'linstor://') | join(',') }}
 
 - name: Wait for the controller API
   ansible.builtin.command:
@@ -68,8 +83,11 @@
   changed_when: false
   run_once: true
   delegate_to: "{{ pve_linstor_controller }}"
+  # Read-only. Without this, --check skips the shell and the until-loop fails.
+  check_mode: false
 
 # ── storage pools ─────────────────────────────────────────────────────────
+
 - name: Create the storage pools
   ansible.builtin.command:
     cmd: >-
@@ -141,7 +159,7 @@
     cmd: >-
       pvesm add drbd {{ item.name }}
       --content {{ item.content | default('images,rootdir') }}
-      --controller {{ hostvars[pve_linstor_controller].ansible_host }}
+      --controller {{ _pve_linstor_controllers | join(',') }}
       --resourcegroup {{ item.name }}
   loop: "{{ pve_linstor_resource_groups }}"
   loop_control:

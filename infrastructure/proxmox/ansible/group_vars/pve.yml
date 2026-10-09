@@ -57,3 +57,10 @@ pve_nameservers:
   - 192.168.10.5    # Samba AD DC: internal zone + external forwarding
   - 192.168.10.1    # router: external only, NO internal zone
 pve_dns_probe_name: bao.ad.ddupan.top
+
+# LINSTOR controller HA (#295), migrated 2026-10-09 by linstor-ha-migrate.yml: the DB is on
+# linstor_db and drbd-reactor's promoter runs the controller. Never flip this to false
+# without the rollback in README-linstor-ha.md: in non-HA mode linstor.yml stops the
+# controller on every node except pve_linstor_controller — which may be the active one.
+pve_linstor_controller_ha: true
+

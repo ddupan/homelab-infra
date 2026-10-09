@@ -1,0 +1,295 @@
+---
+# ONE-WAY: move the LINSTOR controller DB onto the replicated linstor_db DRBD
+# resource and hand the controller to drbd-reactor's promoter (#295).
+#   ansible-playbook linstor-ha-migrate.yml -e linstor_ha_migrate=true
+# Controller is down for the copy (~1 min): existing DRBD volumes keep serving I/O,
+# but PVE cannot create/migrate/delete LINSTOR volumes meanwhile.
+# Afterwards set pve_linstor_controller_ha: true in group_vars/pve.yml so
+# linstor.yml keeps the HA layout. Rollback: README-linstor-ha.md.
+# Procedure: LINSTOR User Guide, "Creating a highly available LINSTOR cluster".
+
+- name: Preflight
+  hosts: pve
+  gather_facts: false
+  pre_tasks:
+    - name: Load pve_linstor defaults
+      ansible.builtin.import_role:
+        name: pve_linstor
+        tasks_from: vars_only.yml
+  tasks:
+    - name: Require the explicit switch
+      ansible.builtin.assert:
+        that: linstor_ha_migrate | default(false) | bool
+        fail_msg: One-way migration. Re-run with -e linstor_ha_migrate=true.
+      run_once: true
+
+    - name: All LINSTOR nodes must be ONLINE
+      ansible.builtin.command: linstor -m node list
+      register: _pre_nodes
+      changed_when: false
+      check_mode: false
+      run_once: true
+      delegate_to: "{{ pve_linstor_controller }}"
+      failed_when: >-
+        _pre_nodes.rc != 0 or
+        (_pre_nodes.stdout | from_json | first | map(attribute='connection_status') | reject('equalto', 'ONLINE') | list | length) > 0
+
+    - name: Every existing volume must be UpToDate or intentionally diskless
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          linstor -m resource list | python3 -c '
+          import json,sys
+          bad=[(r["name"],r["node_name"],v.get("state",{}).get("disk_state"))
+               for r in json.load(sys.stdin)[0] for v in r.get("volumes",[])
+               if v.get("state",{}).get("disk_state") not in ("UpToDate","Diskless")]
+          print(bad); sys.exit(1 if bad else 0)'
+        executable: /bin/bash
+      changed_when: false
+      check_mode: false
+      run_once: true
+      delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Create the replicated linstor_db resource
+  hosts: "{{ pve_linstor_controller | default('pve1') }}"
+  gather_facts: false
+  vars:
+    _db: "{{ pve_linstor_db_resource }}"
+    _grp: "{{ pve_linstor_db_group }}"
+  pre_tasks:
+    - name: Load pve_linstor defaults
+      ansible.builtin.import_role:
+        name: pve_linstor
+        tasks_from: vars_only.yml
+  tasks:
+    - name: Read resource groups
+      ansible.builtin.command: linstor -m resource-group list
+      register: _rg
+      changed_when: false
+      check_mode: false
+
+    - name: Create the resource group (3 replicas, quorum, io-error, no auto-promote)
+      # auto-promote MUST be off and quorum must be io-error: the promoter, not
+      # whoever opens the device first, decides where the DB is mounted.
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          linstor resource-group create --storage-pool {{ pve_linstor_db_pool }} \
+            --place-count 3 --diskless-on-remaining true {{ _grp }}
+          linstor resource-group drbd-options --auto-promote=no --quorum=majority \
+            --on-suspended-primary-outdated=force-secondary --on-no-quorum=io-error \
+            --on-no-data-accessible=io-error {{ _grp }}
+          linstor volume-group create {{ _grp }}
+      when: _grp not in (_rg.stdout | from_json | first | map(attribute='name') | list)
+
+    - name: Read resource definitions
+      ansible.builtin.command: linstor -m resource-definition list
+      register: _rd
+      changed_when: false
+      check_mode: false
+
+    - name: Spawn linstor_db
+      ansible.builtin.command: linstor resource-group spawn-resources {{ _grp }} {{ _db }} {{ pve_linstor_db_size }}
+      when: _db not in (_rd.stdout | from_json | first | map(attribute='name') | list)
+
+    - name: Wait until all three replicas are UpToDate
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          linstor -m resource list -r {{ _db }} | python3 -c '
+          import json,sys
+          s=[v.get("state",{}).get("disk_state") for r in json.load(sys.stdin)[0] for v in r.get("volumes",[])]
+          print(s); sys.exit(0 if s.count("UpToDate")==3 else 1)'
+        executable: /bin/bash
+      register: _db_ready
+      until: _db_ready.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+      when: not ansible_check_mode
+
+- name: Stop the stray (empty) controllers first
+  hosts: "pve:!{{ pve_linstor_controller | default('pve1') }}"
+  gather_facts: false
+  pre_tasks:
+    - name: Load pve_linstor defaults
+      ansible.builtin.import_role:
+        name: pve_linstor
+        tasks_from: vars_only.yml
+  tasks:
+    # Once the promoter manages the controller, the controller on these nodes is
+    # no longer a stray: after a failover it is THE controller. Its toml is written
+    # only by the last play, so on a first run this still stops the empty ones.
+    - name: Is the promoter already managing the controller here?
+      ansible.builtin.stat:
+        path: /etc/drbd-reactor.d/{{ pve_linstor_db_resource }}.toml
+      register: _promoter_conf
+
+    - name: Stop and disable linstor-controller
+      ansible.builtin.systemd_service:
+        name: linstor-controller
+        enabled: false
+        state: stopped
+      when: not _promoter_conf.stat.exists
+
+- name: Move the DB onto linstor_db and start the controller there
+  hosts: "{{ pve_linstor_controller | default('pve1') }}"
+  gather_facts: false
+  vars:
+    _dev: "/dev/drbd/by-res/{{ pve_linstor_db_resource }}/0"
+  pre_tasks:
+    - name: Load pve_linstor defaults
+      ansible.builtin.import_role:
+        name: pve_linstor
+        tasks_from: vars_only.yml
+  tasks:
+    # Already migrated if ANY of these holds. Checking only the local mount is not
+    # enough: after a failover the DB lives on another node and this node is not
+    # mounted, so a re-run would try to migrate again (found in the 2026-10-09
+    # failover test; it would have stopped at `drbdadm primary`, but must not start).
+    - name: Has the DB already moved?
+      ansible.builtin.shell:
+        cmd: |
+          findmnt -n -o SOURCE /var/lib/linstor | grep -q '^/dev/drbd' && exit 0
+          test -e /var/lib/linstor.orig && exit 0
+          drbdadm status {{ pve_linstor_db_resource }} 2>/dev/null | grep -q 'role:Primary' && exit 0
+          exit 1
+      register: _moved
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Move the DB (skipped if already done)
+      when: _moved.rc != 0 and not ansible_check_mode
+      block:
+        - name: Stop and disable the controller
+          ansible.builtin.systemd_service:
+            name: linstor-controller
+            enabled: false
+            state: stopped
+
+        - name: Back up the stopped DB (consistent copy)
+          ansible.builtin.command:
+            cmd: tar -C /var/lib -czf /root/linstor-db-pre-ha-{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}.tgz linstor
+          changed_when: true
+
+        - name: Mount unit for the DB (never enabled; the promoter starts it)
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/var-lib-linstor.mount
+            mode: "0644"
+            content: |
+              # Managed by Ansible (role pve_linstor). Started by drbd-reactor's promoter
+              # on the node that holds {{ pve_linstor_db_resource }} Primary; do NOT enable.
+              [Unit]
+              Description=Filesystem for the LINSTOR controller
+
+              [Mount]
+              What={{ _dev }}
+              Where=/var/lib/linstor
+
+        - name: Keep the original DB directory aside
+          ansible.builtin.command: mv /var/lib/linstor /var/lib/linstor.orig
+          args:
+            creates: /var/lib/linstor.orig
+
+        - name: Empty mountpoint
+          ansible.builtin.file:
+            path: /var/lib/linstor
+            state: directory
+            mode: "0755"
+
+        - name: Promote linstor_db here
+          ansible.builtin.command: drbdadm primary {{ pve_linstor_db_resource }}
+          changed_when: true
+
+        - name: Check for an existing filesystem
+          ansible.builtin.command: blkid -o value -s TYPE {{ _dev }}
+          register: _fs
+          changed_when: false
+          failed_when: false
+
+        # Guard: only a DRBD device that carries no filesystem yet. Never mkfs anything else.
+        - name: Create the filesystem
+          ansible.builtin.command: mkfs.ext4 -q -b 4096 {{ _dev }}
+          when:
+            - _fs.stdout | trim == ''
+            - _dev is match('^/dev/drbd/by-res/')
+
+        - name: Mount it
+          ansible.builtin.systemd_service:
+            name: var-lib-linstor.mount
+            state: started
+            daemon_reload: true
+
+        - name: Copy the DB, preserving ownership
+          ansible.builtin.command: cp -a /var/lib/linstor.orig/. /var/lib/linstor/
+          changed_when: true
+
+        - name: Start the controller (not enabled)
+          ansible.builtin.systemd_service:
+            name: linstor-controller
+            state: started
+
+- name: Apply the HA steady state (promoter, client, storage.cfg)
+  hosts: pve
+  gather_facts: false
+  vars:
+    pve_linstor_controller_ha: true
+  tasks:
+    - name: Controller address list
+      ansible.builtin.set_fact:
+        _pve_linstor_controllers: "{{ groups['pve'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+    - name: Client and cluster config
+      ansible.builtin.include_role:
+        name: pve_linstor
+        tasks_from: linstor.yml
+
+    - name: HA pieces
+      ansible.builtin.include_role:
+        name: pve_linstor
+        tasks_from: controller_ha.yml
+
+    - name: Run handlers now (drbd-reactor picks up the promoter)
+      ansible.builtin.meta: flush_handlers
+
+- name: Verify
+  hosts: pve
+  gather_facts: false
+  pre_tasks:
+    - name: Load pve_linstor defaults
+      ansible.builtin.import_role:
+        name: pve_linstor
+        tasks_from: vars_only.yml
+  tasks:
+    - name: Promoter sees linstor_db
+      ansible.builtin.command: drbd-reactorctl status {{ pve_linstor_db_resource }}
+      register: _rs
+      changed_when: false
+      check_mode: false
+
+    # The drbd-reactor restart re-starts the controller through the promoter's own
+    # target, so right after the handlers it can briefly read "activating" (seen on
+    # the first run, 2026-10-09). Wait for it to settle before counting.
+    - name: Exactly one node runs the controller
+      ansible.builtin.command: systemctl is-active linstor-controller
+      register: _ctl
+      until: _ctl.stdout in ['active', 'inactive']
+      retries: 12
+      delay: 5
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Assert
+      ansible.builtin.assert:
+        that: (ansible_play_hosts | map('extract', hostvars, ['_ctl', 'stdout']) | select('equalto', 'active') | list | length) == 1
+        fail_msg: "{{ ansible_play_hosts | map('extract', hostvars, ['_ctl', 'stdout']) | list }}"
+      run_once: true
+      when: not ansible_check_mode
+
+    - name: The client reaches the controller through the HA address list
+      ansible.builtin.command: linstor node list
+      changed_when: false
+      check_mode: false
+      run_once: true
