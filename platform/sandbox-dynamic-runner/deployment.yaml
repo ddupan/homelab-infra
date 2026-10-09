@@ -74,7 +74,7 @@ spec:
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
-              value: "4"
+              value: "3"
             - name: POD_RUNNER_CACHE_SECRET
               value: gitea-runner-cache
             - name: SPIRE_CLUSTER
