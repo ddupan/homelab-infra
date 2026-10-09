@@ -2,4 +2,4 @@
 collections:
   - name: git+https://git.ddupan.top/panxiao81/ayatori.git#/deploy/ansible
     type: git
-    version: v0.1.4
+    version: v0.2.0
