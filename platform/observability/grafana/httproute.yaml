@@ -9,8 +9,13 @@ spec:
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https
+    # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
   hostnames:
     - grafana.ad.ddupan.top
+    - grafana.lab.ddupan.top
   rules:
     - backendRefs:
         - name: grafana

@@ -22,7 +22,7 @@ resource "homelab_oidc_client" "gitea" {
 resource "homelab_oidc_client" "grafana" {
   id            = "grafana"
   name          = "Grafana"
-  redirect_uris = ["https://grafana.ad.ddupan.top/login/generic_oauth"]
+  redirect_uris = ["https://grafana.lab.ddupan.top/login/generic_oauth"]
   scopes        = ["openid", "profile", "email", "groups"]
 }
 
