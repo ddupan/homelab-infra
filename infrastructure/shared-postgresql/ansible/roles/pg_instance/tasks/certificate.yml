@@ -14,7 +14,8 @@
     common_name: "{{ pg_cert_cn | default(omit, true) }}"
     use_common_name_for_san: false
     subject_alt_name: >-
-      {{ ['DNS:' ~ pg_profile.dns, 'IP:' ~ pg_address] if pg_cert_name == 'server'
+      {{ (([pg_profile.dns] + pg_profile.dns_aliases | default([])) | map('regex_replace', '^', 'DNS:') | list)
+         + ['IP:' ~ pg_address] if pg_cert_name == 'server'
          else ['DNS:etcd-patroni-pg-prod'] }}
     extended_key_usage: "{{ pg_cert_eku }}"
     key_usage: [digitalSignature]

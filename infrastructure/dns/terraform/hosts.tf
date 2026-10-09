@@ -38,6 +38,15 @@ resource "powerdns_record" "pg_prod_a" {
   records = ["192.168.10.2"]
 }
 
+# Patroni dev instance, a host process on the laptop (port 5433).
+resource "powerdns_record" "pg_dev_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "pg-dev.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.127"]
+}
+
 resource "powerdns_record" "pve1_a" {
   zone    = powerdns_zone.lab.name
   name    = "pve1.lab.ddupan.top."
