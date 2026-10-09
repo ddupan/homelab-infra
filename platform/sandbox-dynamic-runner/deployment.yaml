@@ -39,7 +39,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:2f8cce507995f1efc4d1b65e3bbd292f97bd34015d890de285fbb55e69a95154
+          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:24c6ca522c0cd39e21abbb7580a38429275ed5709498dfc678caa4806094b151
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -68,15 +68,18 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: POD_EXECUTOR_IMAGE
-              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:1a0d9e394be31f11f0aac18f225ecd59d29e2a0224993a7234ec297421e8a7b0
+              value: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:ebfb927739c3100e7cbcb5e356cad8d830cc8e2f8b28a034ab36dc66f55ed186
             - name: POD_SERVICE_ACCOUNT
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
               value: "3"
+            # See runner-config.yaml.
+            - name: POD_RUNNER_CONFIGMAP
+              value: gitea-runner-config
             - name: POD_RUNNER_CACHE_SECRET
-              value: gitea-runner-cache
+              value: gitea-runner-cache-s3
             - name: SPIRE_CLUSTER
               value: sandbox
             - name: SPIRE_CLASS

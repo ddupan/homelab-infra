@@ -1,0 +1,49 @@
+# Runner config for this cluster's executors, mounted by the controller via
+# POD_RUNNER_CONFIGMAP. Actions cache goes to the SeaweedFS ci-cache bucket
+# shared by every pod pool member (7-day lifecycle, apps/seaweedfs/terraform/ci-cache.tf).
+# host-mode jobs can read the S3 key, so all Pod repositories share one cache
+# trust domain.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-runner-config
+  namespace: dynamic-runner
+data:
+  config.yaml: |
+    runner:
+      capacity: 1
+      timeout: 3h
+      shutdown_timeout: 1m
+      hooks:
+        job_started: /usr/local/libexec/gitea-job-started
+    cache:
+      s3:
+        endpoint: https://s3.lab.ddupan.top
+        region: us-east-1
+        bucket: ci-cache
+        prefix: gitea-runner-cache
+        path_style: true
+        access_key_file: /run/gitea-runner-cache/access_key
+        secret_key_file: /run/gitea-runner-cache/secret_key
+    host:
+      workdir_parent: /workspace
+    container:
+      require_docker: false
+      valid_volumes: []
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitea-runner-cache-s3
+  namespace: dynamic-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    creationPolicy: Owner
+    name: gitea-runner-cache-s3
+  dataFrom:
+    - extract:
+        key: k8s/gitea-runner-cache-s3
