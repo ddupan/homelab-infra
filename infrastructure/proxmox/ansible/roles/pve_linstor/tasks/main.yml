@@ -10,6 +10,21 @@
   ansible.builtin.import_tasks: storage.yml
   tags: [linstor_storage]
 
+- name: Work out the controller address list
+  # One address without HA; every node with HA, since any of them may hold the
+  # promoter-elected controller. Used by the client config and storage.cfg.
+  ansible.builtin.set_fact:
+    _pve_linstor_controllers: >-
+      {{ (groups['pve'] | map('extract', hostvars, 'ansible_host') | list)
+         if (pve_linstor_controller_ha | bool)
+         else [hostvars[pve_linstor_controller].ansible_host] }}
+  tags: [linstor_config]
+
 - name: Configure the LINSTOR cluster
   ansible.builtin.import_tasks: linstor.yml
+  tags: [linstor_config]
+
+- name: Controller HA (promoter-managed controller on linstor_db)
+  ansible.builtin.import_tasks: controller_ha.yml
+  when: pve_linstor_controller_ha | bool
   tags: [linstor_config]

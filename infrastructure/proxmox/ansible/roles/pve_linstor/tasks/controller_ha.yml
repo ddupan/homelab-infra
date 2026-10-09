@@ -1,0 +1,100 @@
+---
+# Controller HA, steady state (#295). The one-way DB move is linstor-ha-migrate.yml;
+# this file only keeps the result in place and must never run ahead of it.
+# Procedure: LINSTOR User Guide, "Creating a highly available LINSTOR cluster".
+
+- name: Refuse to run before linstor_db exists
+  # In HA mode the controller unit is disabled below. If the DB still lives on
+  # pve1's root disk, that leaves the cluster with no controller at all.
+  ansible.builtin.command: drbdadm status {{ pve_linstor_db_resource }}
+  register: _lin_db_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Fail if this node has no linstor_db replica
+  ansible.builtin.assert:
+    that: _lin_db_status.rc == 0
+    fail_msg: >-
+      {{ pve_linstor_db_resource }} does not exist on {{ inventory_hostname }}. Run
+      linstor-ha-migrate.yml -e linstor_ha_migrate=true first; do not set
+      pve_linstor_controller_ha=true by hand.
+
+- name: Mount unit for the controller DB (started by the promoter, never enabled)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/var-lib-linstor.mount
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role pve_linstor). Started by drbd-reactor's promoter
+      # on the node that holds {{ pve_linstor_db_resource }} Primary; do NOT enable.
+      [Unit]
+      Description=Filesystem for the LINSTOR controller
+
+      [Mount]
+      What=/dev/drbd/by-res/{{ pve_linstor_db_resource }}/0
+      Where=/var/lib/linstor
+  notify: Reload systemd for LINSTOR HA
+
+# DynamicUser=true allocates the controller's uid from a hash of its name. It
+# matched on all three nodes in 2026-10 (61437), but a hash collision on one node
+# would leave the DB unwritable after failover — exactly when it is needed. Not in
+# the guide; costs a chown of a ~1MB directory. `+` runs it as root.
+- name: Drop-in directory for the controller unit
+  ansible.builtin.file:
+    path: /etc/systemd/system/linstor-controller.service.d
+    state: directory
+    mode: "0755"
+
+- name: Re-own the DB on the node that starts the controller
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/linstor-controller.service.d/homelab-db-owner.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role pve_linstor).
+      [Service]
+      ExecStartPre=+/bin/chown -R linstor-controller:linstor /var/lib/linstor
+  notify: Reload systemd for LINSTOR HA
+
+- name: Disable the controller unit (the promoter starts it; do not stop it here)
+  # state is left alone on purpose: on the active node this must not kill the
+  # running controller.
+  ansible.builtin.systemd_service:
+    name: linstor-controller
+    enabled: false
+
+# Only linstor_db goes to the promoter. Guest volumes stay with PVE's ha-manager:
+# two failover systems on one resource fight each other.
+# stop-services-on-exit stays false (default) so restarting drbd-reactor never
+# stops the controller. No on-drbd-demote-failure action: PVE fencing is already
+# armed, and a second reboot trigger is not wanted.
+- name: Promoter for the controller DB
+  ansible.builtin.copy:
+    dest: /etc/drbd-reactor.d/linstor_db.toml
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role pve_linstor).
+      [[promoter]]
+      [promoter.resources.{{ pve_linstor_db_resource }}]
+      start = ["var-lib-linstor.mount", "linstor-controller.service"]
+  notify: Restart drbd-reactor for LINSTOR HA
+
+- name: Read PVE storage config
+  ansible.builtin.command: pvesh get /storage --output-format json
+  register: _lin_pve_storage
+  changed_when: false
+  check_mode: false
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"
+
+- name: Point existing PVE drbd storages at every controller
+  # storage.cfg is cluster-wide (pmxcfs): once is enough. `pvesm add` in
+  # linstor.yml only covers storages that do not exist yet.
+  ansible.builtin.command: >-
+    pvesm set {{ item.storage }} --controller {{ _pve_linstor_controllers | join(',') }}
+  loop: >-
+    {{ _lin_pve_storage.stdout | from_json | selectattr('type', 'equalto', 'drbd')
+       | rejectattr('controller', 'equalto', _pve_linstor_controllers | join(',')) | list }}
+  loop_control:
+    label: "{{ item.storage }}"
+  run_once: true
+  delegate_to: "{{ pve_linstor_controller }}"

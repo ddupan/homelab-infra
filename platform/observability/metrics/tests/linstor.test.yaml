@@ -137,3 +137,61 @@ tests:
         summary: LINSTOR 节点 pve3 状态不是 ONLINE（0）
         description: 0=OFFLINE 3=VERSION_MISMATCH 8=OTHER_CONTROLLER 10=NO_STLT_CONN 11=MISSING_EXT_TOOLS。linstor node list。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 恰好一个 controller：不告警
+  interval: 1m
+  input_series:
+  - series: up{job="linstor",instance="192.168.10.4:3370"}
+    values: 1x8
+  - series: up{job="linstor",instance="192.168.10.7:3370"}
+    values: '0x8'
+  - series: up{job="linstor",instance="192.168.10.9:3370"}
+    values: '0x8'
+  alert_rule_test:
+  - eval_time: 7m
+    alertname: LinstorNoActiveController
+    exp_alerts: []
+  - eval_time: 7m
+    alertname: LinstorMultipleControllers
+    exp_alerts: []
+- name: 故障转移中短暂没有 controller 不告警，持续 5 分钟才告警
+  interval: 1m
+  input_series:
+  - series: up{job="linstor",instance="192.168.10.4:3370"}
+    values: 1 0x9
+  - series: up{job="linstor",instance="192.168.10.7:3370"}
+    values: '0x10'
+  - series: up{job="linstor",instance="192.168.10.9:3370"}
+    values: '0x10'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: LinstorNoActiveController
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: LinstorNoActiveController
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: 没有任何节点在运行 LINSTOR controller
+        description: 已有 DRBD 卷照常读写，但 PVE 无法新建/迁移/删除卷。drbd-reactorctl status linstor_db （任一节点）；journalctl -u drbd-reactor；看 linstor_db 是否失去 quorum（DrbdNoQuorum）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: 两个 controller 同时在线
+  interval: 1m
+  input_series:
+  - series: up{job="linstor",instance="192.168.10.4:3370"}
+    values: 1x5
+  - series: up{job="linstor",instance="192.168.10.7:3370"}
+    values: 1x5
+  - series: up{job="linstor",instance="192.168.10.9:3370"}
+    values: '0x5'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: LinstorMultipleControllers
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: 2 个节点同时在运行 LINSTOR controller
+        description: controller 必须只由 promoter 启动。多出来的通常是手工 systemctl start 或 linstor-controller 被重新 enable（Debian 包升级会这么做）。空 controller 会让连到它的客户端看到一个空集群。 systemctl is-enabled linstor-controller 应在三个节点上都是
+          disabled。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

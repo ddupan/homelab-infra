@@ -1,6 +1,7 @@
 # LINSTOR / DRBD（PVE 存储 pve-rg / pve-rg-hdd，place-count 2）。
-# - controller（只在 pve1，单控制器无 HA）：节点、资源、volume 状态与存储池容量。controller 挂了
-#   已有 DRBD 卷照常工作，只是无法新建/迁移卷。
+# - controller（HA，#295）：DB 在 linstor_db 上，由 drbd-reactor promoter 选一个节点运行。三个
+#   节点都抓，任一时刻只有活动节点监听 3370，其余 up=0 属于正常；由规则判断"恰好一个"。
+#   controller 挂了已有 DRBD 卷照常工作，只是无法新建/迁移卷。
 # - drbd-reactor（三个节点，infrastructure/proxmox/ansible/monitoring.yml 部署）：DRBD 层的连接状态、
 #   quorum、out-of-sync。controller 看不到复制链路是否断开。
 apiVersion: operator.victoriametrics.com/v1beta1
@@ -13,6 +14,8 @@ spec:
   targetEndpoints:
   - targets:
     - 192.168.10.4:3370
+    - 192.168.10.7:3370
+    - 192.168.10.9:3370
     path: /metrics
     # 不加 node 标签：LINSTOR 指标自带 node（satellite 名），目标标签会把它覆盖成 pve1、
     # 原值被改名为 exported_node，每个池和节点都会显示成 pve1。

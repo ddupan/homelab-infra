@@ -10,9 +10,23 @@ pve_linstor_repo_key_url: "https://packages.linbit.com/package-signing-pubkey.as
 pve_linstor_keyring: /usr/share/keyrings/linbit-keyring.gpg
 
 # --- Roles ---
-# Controller on pve1: most RAM (16G vs 8G). Single controller, no HA — this
-# cluster deliberately holds nothing critical.
+# Controller on pve1: most RAM (16G vs 8G). With controller HA (below) this is
+# only where the migration runs and the first controller starts; afterwards
+# drbd-reactor's promoter decides which node runs it.
 pve_linstor_controller: pve1
+
+# --- Controller HA (#295) ---
+# The controller DB lives on the replicated `linstor_db` DRBD resource, mounted at
+# /var/lib/linstor by whichever node drbd-reactor's promoter elects; the
+# linstor-controller unit is disabled everywhere and started only by the promoter.
+# Flip to true ONLY via linstor-ha-migrate.yml: before the DB is moved, an HA-mode
+# baseline would disable the one controller that holds the data. The role asserts this.
+pve_linstor_controller_ha: false
+pve_linstor_db_group: linstor-db-grp
+pve_linstor_db_resource: linstor_db
+pve_linstor_db_size: 200M
+# Tiny (the H2 DB was 956K in 2026-10) and latency-sensitive: SSD, all three nodes.
+pve_linstor_db_pool: "{{ pve_linstor_ssd_pool }}"
 
 # --- Storage pools ---
 # SSD = VM disks (fast). Built from the space the installer left free beyond the

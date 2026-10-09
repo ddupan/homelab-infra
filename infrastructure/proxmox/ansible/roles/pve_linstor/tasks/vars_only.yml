@@ -1,0 +1,6 @@
+---
+# No tasks. Plays in linstor-ha-migrate.yml import this so the role's defaults are
+# in scope at role-default precedence (group_vars still win), instead of loading
+# defaults/main.yml via vars_files, which would silently override group_vars.
+- name: Load pve_linstor defaults only
+  ansible.builtin.meta: noop
