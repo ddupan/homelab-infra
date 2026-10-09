@@ -42,7 +42,8 @@ resource "homelab_oidc_client" "backstage" {
   id            = "backstage"
   name          = "Backstage"
   redirect_uris = ["https://backstage.lab.ddupan.top/api/auth/oidc/handler/frame"]
-  scopes        = ["openid", "profile", "email"]
+  # The frontend asks for groups too (packages/app/src/App.tsx), though nothing uses them yet.
+  scopes        = ["openid", "profile", "email", "groups"]
   pkce_required = false
 }
 
