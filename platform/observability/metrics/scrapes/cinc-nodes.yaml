@@ -1,0 +1,16 @@
+# Nodes whose node_exporter comes from the homelab_base cookbook
+# (infrastructure/chef/). Same job as the PVE nodes, so host-health rules apply;
+# also carries the homelab_cinc_* run report that rules/cinc.yaml alerts on.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: cinc-nodes
+  namespace: monitoring
+spec:
+  jobName: node-exporter
+  targetEndpoints:
+  - targets:
+    - etcd-pve1.lab.ddupan.top:9100
+    labels:
+      node: etcd-pve1
+    interval: 30s

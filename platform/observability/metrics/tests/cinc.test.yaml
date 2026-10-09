@@ -1,0 +1,54 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 1m
+tests:
+- name: 每日检查发现漂移
+  interval: 1m
+  input_series:
+  - series: homelab_cinc_resources_updated{job="node-exporter",node="etcd-pve1",mode="drift"}
+    values: 2x10
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CincDriftDetected
+    exp_alerts:
+    - exp_labels: {job: node-exporter, node: etcd-pve1, mode: drift, severity: warning, service: cinc}
+      exp_annotations:
+        summary: 节点配置偏离最后一次应用的 Cinc policy
+        description: etcd-pve1 的每日 why-run 发现 2 个顶层 resource 会被修改。 先用 converge.sh run <policy> --why-run 查看差异，再决定手动 apply。
+- name: 手动 why-run 预览有差异不告警
+  interval: 1m
+  input_series:
+  - series: homelab_cinc_resources_updated{job="node-exporter",node="etcd-pve1",mode="why-run"}
+    values: 19x10
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CincDriftDetected
+    exp_alerts: []
+- name: 运行失败
+  interval: 1m
+  input_series:
+  - series: homelab_cinc_last_run_success{job="node-exporter",node="etcd-pve1",mode="apply"}
+    values: 0x10
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CincRunFailed
+    exp_alerts:
+    - exp_labels: {job: node-exporter, node: etcd-pve1, mode: apply, severity: warning, service: cinc}
+      exp_annotations:
+        summary: Cinc 运行失败（apply）
+- name: 漂移检查停止
+  interval: 1m
+  input_series:
+  # 时间戳停在 0：评估时刻的 time() 就是距上次检查的秒数。
+  - series: homelab_cinc_last_run_timestamp_seconds{job="node-exporter",node="etcd-pve1",mode="drift"}
+    values: 0x2400
+  alert_rule_test:
+  - eval_time: 30h
+    alertname: CincDriftCheckStale
+    exp_alerts: []
+  - eval_time: 38h
+    alertname: CincDriftCheckStale
+    exp_alerts:
+    - exp_labels: {job: node-exporter, node: etcd-pve1, mode: drift, severity: warning, service: cinc}
+      exp_annotations:
+        summary: Cinc 漂移检查超过 36 小时未运行

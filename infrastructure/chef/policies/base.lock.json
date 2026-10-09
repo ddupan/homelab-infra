@@ -1,0 +1,44 @@
+{
+  "revision_id": "ddbed35a2cd19a18cdb7a2cadfe71d06e837cba0930d27ef4d8dde955a334047",
+  "name": "base",
+  "run_list": [
+    "recipe[homelab_base::default]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_base": {
+      "version": "0.2.0",
+      "identifier": "8345585b2c98e18644d00c0fd1f49912887e48db",
+      "dotted_decimal_identifier": "36949467738183905.37793307225477620.168304878438619",
+      "cache_key": "homelab_base-541e4701a477594f317678bb9349db2db09bd697",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "541e4701a477594f317678bb9349db2db09bd697",
+        "branch": "feat/drift-check",
+        "rel": "cookbooks/homelab_base"
+      }
+    }
+  },
+  "default_attributes": {
+
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_base (0.2.0)": [
+
+      ]
+    }
+  }
+}

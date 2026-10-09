@@ -1,0 +1,9 @@
+# Every Linux node: homelab_base only. Node-specific policies add their own
+# cookbooks on top. The lock (base.lock.json) pins the exact cookbook revision;
+# regenerate it deliberately with `converge.sh lock base`.
+name 'base'
+run_list 'homelab_base::default'
+cookbook 'homelab_base',
+         git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
+         branch: 'feat/drift-check',
+         rel: 'cookbooks/homelab_base'
