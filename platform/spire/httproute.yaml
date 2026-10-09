@@ -8,8 +8,13 @@ spec:
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https
+    # lab name for the issuer move; external-dns publishes it.
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
   hostnames:
     - spire-oidc.ad.ddupan.top
+    - spire-oidc.lab.ddupan.top
   rules:
     - backendRefs:
         - name: spire-spiffe-oidc-discovery-provider
