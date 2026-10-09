@@ -26,14 +26,15 @@ spec:
     strategy:
       name: RetryOnFailure
       retryInterval: 5m
-  # Keep the patch release explicit because chart 12.7.0 defaults to 1.27.0.
+  # Keep the release explicit: chart 12.7.0 (latest) defaults to 1.27.0 and no
+  # chart for Gitea 28 exists yet; it renders the 28.1.0-rootless image unchanged.
   # This override is in the suspended HelmRelease itself so chart, image and
   # suspension are applied atomically; changing the watched values ConfigMap in
   # the same revision could otherwise trigger reconciliation first.
   values:
     image:
       rootless: true
-      tag: "1.27.3"
+      tag: "28.1.0"
   valuesFrom:
     - kind: ConfigMap
       name: gitea-values
