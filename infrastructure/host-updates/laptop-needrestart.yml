@@ -1,0 +1,47 @@
+---
+# 保留 unattended-upgrades 的安全更新，但不让 needrestart 自动重启 laptop 上有状态/承载性的服务。
+#
+# 2026-10-09 06:36：unattended-upgrade 升级 libxml2，needrestart 的 dpkg hook 随即重启所有链接它的
+# 服务——包括 Patroni 管理的 pg-prod（leader），主库被动切到 pve1；同时重启了 pg-dev、nfs-server。
+# 这些服务改为只报告、不自动重启，由人选时机重启（Patroni 用 switchover）。无状态的小服务
+# （fwupd、thermald 等）仍按 needrestart 默认自动重启。
+#
+#   ansible-playbook -i localhost, infrastructure/host-updates/laptop-needrestart.yml --check --diff
+#   ansible-playbook -i localhost, infrastructure/host-updates/laptop-needrestart.yml
+- name: needrestart 不自动重启 laptop 的有状态服务
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    # 键是 needrestart 的正则（与发行版自带的 conf.d/incus.conf 同一写法）。
+    laptop_needrestart_no_autorestart:
+      - '^homelab-postgresql-'   # Patroni：重启 leader 即触发故障转移
+      - '^homelab-etcd\.service' # Patroni 的 DCS 成员
+      - '^nfs-'                  # PVE 存储 "laptop" 与 k8s 的 NFS
+      - '^k3s\.service'          # 重启会让所有 Pod 跟着重建
+      - '^containerd\.service'
+      - '^docker\.service'
+      - '^libvirtd\.service'     # dc1 / bao1 / winadmin
+      - '^incus\.service'
+      - '^tailscaled\.service'   # 唯一的子网路由器，也是 oci-arm 外部看守的通路
+      - '^cloudflared\.service'
+  tasks:
+    - name: 确认目标
+      ansible.builtin.assert:
+        that: ansible_facts.hostname == 'laptop'
+        fail_msg: 此 play 仅用于 laptop。
+
+    - name: 写入 needrestart 覆盖（perl 语法检查通过才落盘）
+      ansible.builtin.copy:
+        dest: /etc/needrestart/conf.d/50-homelab.conf
+        owner: root
+        group: root
+        mode: "0644"
+        validate: perl -c %s
+        content: |
+          # Ansible managed: infrastructure/host-updates/laptop-needrestart.yml
+          # 这些服务在库升级后只报告、不自动重启；由人择时重启（Patroni 用 switchover）。
+          {% for re in laptop_needrestart_no_autorestart %}
+          $nrconf{override_rc}->{q({{ re }})} = 0;
+          {% endfor %}
