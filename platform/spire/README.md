@@ -144,3 +144,18 @@ OpenBao 中对应的 Terraform 资源位于
 - 丢失 signing keys 会使既有 SVID 和下游 JWKS 信任失效；
 - PostgreSQL或 SPIRE 不可用时，不得用新的空数据库覆盖现有状态；
 - 当前 Flux root 与本 Kustomization 均保持 `prune: false`，删除资源需单独审计。
+
+## Issuer migration（`spire-oidc.ad` → `spire-oidc.lab`，2026-10）
+
+JWT-SVID 只能带一个 `iss`，校验它的有三处：Bao `jwt-spire`（`bound_issuer`）、zot
+（`bearer.oidc[].issuer`，且从 issuer URL 做 discovery，v2.1.21 无独立 discovery 地址）、
+iam-login（`iam.clients.spiffe.issuer`，JWKS 地址单独配置）。按以下顺序切换：
+
+1. **A1** discovery provider 以 `config.additionalDomains` 同时服务 lab 名，HTTPRoute 挂 `https-lab`。
+2. **A2** Bao 改 `jwks_url`（lab）并**临时清空 `bound_issuer`**；iam-login `jwk-set-uri` 改 lab。
+   CI 的 Terraform 自身经 jwt-spire 登录，Bao 必须在 SPIRE 切换前就接受新 issuer，否则修它的
+   apply 登录不了。签名仍只认 SPIRE 的 JWKS，各 role 保留 `bound_audiences`。
+3. **B** `jwtIssuer` 改 lab（`additionalDomains` 改为旧 ad 名）；zot 与 iam-login 的 issuer 改 lab。
+   agent 缓存的旧 `iss` JWT-SVID 在几分钟内过期，期间 zot 推送与 iam-login 管理 API 会拒绝
+   旧令牌（可接受的停机）；Bao 不受影响。
+4. **C** Bao `bound_issuer` 设为 lab；移除 ad Host 与 HTTPRoute 旧名，退役 `spire-oidc.ad` 记录。
