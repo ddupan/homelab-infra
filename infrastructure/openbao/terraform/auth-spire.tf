@@ -1,19 +1,14 @@
 # Workload authentication via SPIFFE JWT-SVIDs. The discovery document and
 # JWKS contain public verification material, so this backend carries no secret.
 #
-# ISSUER MIGRATION spire-oidc.ad -> spire-oidc.lab (step A of 3, platform/spire/README.md):
-# keys come straight from the lab JWKS, and bound_issuer is EMPTY for the duration.
-# Discovery mode would require the document's issuer to equal the URL, which breaks
-# while the issuer changes; and CI's own Terraform login goes through this backend,
-# so it must accept the new issuer BEFORE SPIRE switches to it, or the apply that
-# fixes it could never log in. Signatures are still checked against SPIRE's JWKS and
-# every role keeps bound_audiences, so only SPIRE-minted tokens for openbao pass.
-# Step C sets bound_issuer = "https://spire-oidc.lab.ddupan.top" again.
+# Keys come straight from the JWKS rather than discovery (platform/spire/README.md,
+# "Issuer migration"): a fixed key URL keeps working through any future issuer change,
+# where discovery would fail the moment the document's issuer and the URL differ.
 resource "vault_jwt_auth_backend" "spire" {
   path         = "jwt-spire"
   description  = "SPIFFE JWT-SVID workload authentication"
   jwks_url     = "https://spire-oidc.lab.ddupan.top/keys"
-  bound_issuer = ""
+  bound_issuer = "https://spire-oidc.lab.ddupan.top"
 }
 
 # First end-to-end identity. Keep the subject exact: this role is deliberately

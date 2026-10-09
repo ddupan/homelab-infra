@@ -102,13 +102,12 @@ Workload API 获取 JWT-SVID。二进制来自 SPIRE 官方 `linux-amd64-musl` r
 稳定的 JWT issuer 预留为：
 
 ```text
-https://spire-oidc.ad.ddupan.top
+https://spire-oidc.lab.ddupan.top
 ```
 
-OIDC Discovery Provider 在 Pod 内部使用明文 HTTP，由现有 Envoy Gateway 的
-`https` listener 使用 `*.ad.ddupan.top` wildcard certificate 终止 TLS。对应的
-`HTTPRoute` 将 `spire-oidc.ad.ddupan.top` 转发到 ClusterIP Service；AD DNS 记录
-声明在 `../../infrastructure/dns/records.yml`，由 Samba DNS Ansible 流程应用。
+OIDC Discovery Provider 在 Pod 内部使用明文 HTTP，由 Envoy Gateway 的 `https-lab`
+listener 使用 `*.lab.ddupan.top` wildcard certificate 终止 TLS。`HTTPRoute` 将
+`spire-oidc.lab.ddupan.top` 转发到 ClusterIP Service，lab DNS 记录由 external-dns 发布。
 
 接入 OpenBao 前必须从集群内和 LAN 分别验证 discovery document 的 `issuer` 与
 上述 URL 完全一致。该 endpoint 只发布公开的 discovery metadata 和 JWKS，不能
