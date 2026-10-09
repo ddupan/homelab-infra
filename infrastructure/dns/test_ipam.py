@@ -40,8 +40,6 @@ rejects(a_record("pool", "192.168.10.200"), "non-static range")         # 落在
 rejects(a_record("stray", "172.16.0.5"), "outside every homelab_ipam")  # 不在任何网段
 rejects(lambda d: d["homelab_ipam"]["addresses"].append(
     {"address": "192.168.10.1", "name": "again"}), "allocated twice")
-rejects(lambda d: d["homelab_dns"]["powerdns"]["records"].append(
-    {"name": "dup", "type": "A", "values": ["192.168.10.4"]}), "declare its host")  # lab 区同样查
 # 同一 RRset 不能既受管又退役：两个任务会来回删建。
 samba = copy.deepcopy(BASE["homelab_dns"]["samba"])
 samba["retired"].append({"zone": "ad.ddupan.top", "name": "pve1", "type": "A"})
@@ -52,8 +50,15 @@ except ValueError as exc:
 else:
     raise AssertionError("expected managed+retired rejection")
 generate.check_retired(BASE["homelab_dns"]["samba"])
-# 同一主机同时出现在 ad. 与 lab.（迁移期）不是撞地址；BASE 里 pve1 就是如此。
-assert any(r["name"] == "pve1" for r in BASE["homelab_dns"]["powerdns"]["records"])
+# lab 区记录从 pdns 读入（live），与 AD 记录同样校验。
+try:
+    generate.allocations(BASE, [{"name": "dup", "type": "A", "values": ["192.168.10.4"]}])
+except ValueError as exc:
+    assert "declare its host" in str(exc), exc
+else:
+    raise AssertionError("expected live record colliding with pve1 to be rejected")
+# 同一主机同时出现在 ad. 与 lab.（迁移期）不是撞地址。
+generate.allocations(BASE, [{"name": "pve1", "type": "A", "values": ["192.168.10.4"]}])
 assert str(generate.next_free(BASE, "10.61.0.0/24", [])) == "10.61.0.2"
 # 只在 zone 里注册、文件里没有的地址同样算占用（etcd-pve1 的教训）。
 taken = [{"name": "x", "type": "A", "values": ["10.61.0.2"]}]

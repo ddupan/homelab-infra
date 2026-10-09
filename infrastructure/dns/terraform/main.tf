@@ -1,11 +1,12 @@
 # lab.ddupan.top — the internal zone for hosts and services, served by PowerDNS
 # behind Blocky (apps/blocky/). Samba keeps ad.ddupan.top for AD's own records.
 #
-# Three writers share this zone, each through the API:
-#   this root     — the zone itself and fixed hosts (dns.generated.tf, from records.yml)
+# Several writers share this zone, each through the API:
+#   this root     — the zone itself, plus hosts nothing else owns (hosts.tf)
+#   owning roots  — records next to the thing they name (incus: ayatori-*)
 #   external-dns  — HTTPRoute hostnames, marked by its TXT ownership records
 #   Poweradmin    — ad-hoc records added by hand
-# Terraform only touches the RRsets it declares, so the other two are safe.
+# Terraform only touches the RRsets it declares, so the others are safe.
 
 resource "powerdns_zone" "lab" {
   name = "lab.ddupan.top."

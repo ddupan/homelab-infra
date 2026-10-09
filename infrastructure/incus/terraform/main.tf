@@ -5,6 +5,8 @@ terraform {
       source  = "lxc/incus"
       version = "1.2.0"
     }
+    # Same provider and pin as infrastructure/dns/terraform.
+    powerdns = { source = "mmianl/powerdns", version = "~> 2.5" }
   }
 }
 
@@ -19,6 +21,11 @@ variable "incus_address" {
 variable "incus_config_dir" {
   type    = string
   default = null
+}
+
+# API key from PDNS_API_KEY (tf.py in CI, run.py locally), as in the dns root.
+provider "powerdns" {
+  server_url = "http://192.168.10.127:8053"
 }
 
 provider "incus" {
@@ -60,14 +67,35 @@ resource "incus_storage_volume" "ayatori_backup" {
   }
 }
 
-# 地址只在 records.yml（homelab_dns.powerdns，lab.ddupan.top）声明一次，DNS 与此处同源读取；
+# 地址在此声明，并由本 root 注册 lab.ddupan.top 记录：谁创建资源谁注册名字。
 # 须位于 NEC IX DHCP 池（.128–.250）之外，池由路由器手工维护，无法声明 reservation。
+# 新地址先用 infrastructure/dns/generate.py --next-free 查空闲。
 locals {
   ayatori_ipv4 = {
-    for r in yamldecode(file("${path.module}/../../dns/records.yml")).homelab_dns.powerdns.records :
-    trimprefix(r.name, "ayatori-") => r.values[0]
-    if r.type == "A" && startswith(r.name, "ayatori-")
+    dev  = "192.168.10.11"
+    prod = "192.168.10.12"
   }
+}
+
+resource "powerdns_record" "ayatori" {
+  for_each = local.ayatori_ipv4
+  zone     = "lab.ddupan.top."
+  name     = "ayatori-${each.key}.lab.ddupan.top."
+  type     = "A"
+  ttl      = 300
+  records  = [each.value]
+}
+
+# 记录原由 infrastructure/dns/terraform 管理（那边以 removed 放弃、不删除）。
+# 两边都 apply 后即可删掉这两段。
+import {
+  to = powerdns_record.ayatori["dev"]
+  id = jsonencode({ zone = "lab.ddupan.top.", id = "ayatori-dev.lab.ddupan.top.:::A" })
+}
+
+import {
+  to = powerdns_record.ayatori["prod"]
+  id = jsonencode({ zone = "lab.ddupan.top.", id = "ayatori-prod.lab.ddupan.top.:::A" })
 }
 
 # 镜像不含 openssh-server。不设 ssh_pwauth：它会在装包前写出残缺的 sshd_config，

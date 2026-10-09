@@ -61,7 +61,8 @@ CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=o
 - `ansible/templates/gateway.yaml.j2`：独立 namespace、Service/EndpointSlice、HTTPRoute、
   BackendTLSPolicy。入口复用现有通配符证书，后端以 Incus 的公共 server.crt 验证
   `laptop` SAN，不跳过 TLS 验证。公共证书由 playbook 读取，不复制私钥。
-- `infrastructure/dns/records.yml`：唯一 DNS 声明；`ansible/dns.yml` 只协调 Incus 与两个 Ayatori 容器的记录。
+- DNS：`ayatori-{dev,prod}.lab.ddupan.top` 由本 root 的 Terraform 注册到 PowerDNS；`ansible/dns.yml`
+  只协调 AD 里的 `incus.ad.ddupan.top`（声明在 `infrastructure/dns/records.yml`）。
 
 入口资源由此 Ansible playbook 管理，尚未交由 Flux。共享 Gateway 的后端 TLS
 兼容配置由 Flux 管理：EnvoyProxy `eg` 允许 TLS 1.2–1.3，以连接要求 TLS 1.3
@@ -112,9 +113,10 @@ kube-apiserver、controller 或数据库；准备 Prod 空容器不代表生产�
 
 网络接入既有 `br0`，固定 MAC 分别为 `02:16:3e:aa:00:01`、`02:16:3e:aa:00:02`。
 Terraform 通过 `cloud-init.network-config` 配置静态地址：Dev `192.168.10.11`、
-Prod `192.168.10.12`（`ayatori-{dev,prod}.ad.ddupan.top`）。地址只在
-`infrastructure/dns/records.yml` 声明一次，Terraform 与 AD DNS 均从此读取；须位于
-NEC IX DHCP 池（`.128–.250`）之外。⚠ 镜像模板只在创建/复制时渲染 cloud-init seed，
+Prod `192.168.10.12`（`ayatori-{dev,prod}.lab.ddupan.top`）。地址只在 `terraform/main.tf`
+声明一次，同一 root 用它写 cloud-init 并注册 lab 记录；须位于
+NEC IX DHCP 池（`.128–.250`）之外，新地址先用 `generate.py --next-free` 查空闲。
+本地运行需 Bao 能读 `kv/k8s/powerdns`（`run.py` 取 API key）。⚠ 镜像模板只在创建/复制时渲染 cloud-init seed，
 对已有实例改地址不会生效（重启、`cloud-init clean` 都不行），只能重建实例。
 
 SSH 全部由 cloud-init 完成：安装 openssh-server，创建 `panxiao81`（`ansible/files/panxiao81.pub`

@@ -1,12 +1,12 @@
 # DNS 声明与权威边界
 
-`records.yml` 是 homelab DNS 的唯一声明清单，但不是 DNS 服务本身。不同视图仍由最适合
-它们的后端提供：
+`lab.ddupan.top` 的记录跟着它的 owner 走：谁创建资源，谁在自己的 root 里注册名字。
+其余视图仍由 `records.yml` 统一声明、生成到各后端（这是 AD DNS 时代的折中，正在逐个拆掉）：
 
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
 | 公网 `ddupan.top` | Cloudflare | 由生成器输出 Terraform；尚待完整导入已有记录 |
-| 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | 生成器输出 `terraform/dns.generated.tf`，CI apply；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
+| 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | zone 与无主主机在 `terraform/`（手写）；有 owner 的记录在 owner 的 root（incus：ayatori-*，etcd `lxc.yml`：etcd-pve*）；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
 | AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `samba_dns_record` Ansible module |
 | LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
 | Kubernetes Pod split horizon | CoreDNS | 由生成器维护 `.server` 标记块 |
@@ -20,13 +20,14 @@ uv run infrastructure/dns/generate.py
 uv run infrastructure/dns/generate.py --check
 ```
 
-脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染四个目标：
+脚本使用内嵌锁定版本的 PyYAML 和 Jinja2，从 `records.yml` 渲染三个目标：
 
 - `apps/blocky/config.yml` 中带 marker 的 LAN split-horizon mapping；
 - `platform/k3s/coredns-custom.yaml` 中带 marker 的 Pod split-horizon server blocks；
 - `infrastructure/cloudflared/terraform/dns.generated.tf` 中已经完成 Terraform 接管的公网记录。
-- `infrastructure/dns/terraform/dns.generated.tf` 中 `lab.ddupan.top` 的固定主机（`homelab_dns.powerdns`）。
-  zone、SOA、NS 在同目录手写的 `main.tf`。CI 的 `tf.py` 从 bao `kv/k8s/powerdns` 取 API key。
+
+`lab.ddupan.top` 不经生成器。CI 的 `tf.py` 给 dns 与 incus root 从 bao `kv/k8s/powerdns` 取 API key；
+新增一个注册 lab 记录的 root 时把它加进那个判断。
 
 生成文件需要提交进 Git，以便 PR 直接审阅最终配置。CI 执行 `--check`，任何手工修改生成块、
 漏跑生成器或非确定性输出都会失败。Jinja 使用 `[[ ... ]]` 作为变量定界符，避免与 CoreDNS
@@ -41,13 +42,13 @@ IPAM 只维护**地址池**；"哪个地址被谁占用"以 DNS 为准。
 
 - `homelab_ipam`（本文件）：网段、DHCP 池与预留段（`ranges`，单个租约不归 IPAM 管），
   以及没有 A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册的域成员、AP、laptop）。
-- 已占用集合 = 上述 `addresses` + 本文件声明的 A 记录 + **`lab.ddupan.top` 里实际存在的
-  A 记录**。资源由创建者自己注册 DNS（`etcd/ansible/lxc.yml`、external-dns、Poweradmin），
-  不必回写本文件；`--next-free` 运行时从 PowerDNS API 读取 zone。
+- 已占用集合 = 上述 `addresses` + 本文件里 AD 区的 A 记录 + **`lab.ddupan.top` 里实际存在的
+  A 记录**。资源由创建者自己注册 DNS（incus Terraform、`etcd/ansible/lxc.yml`、external-dns、
+  Poweradmin），不回写本文件；`--next-free` 运行时从 PowerDNS API 读取 zone。
 
 校验对两类记录相同：地址必须落在某个网段内、不得落在 `ranges` 内、`addresses` 不得重复；
 同一 IP 被多个名字引用时（ingress、路由器），必须在 `addresses` 声明归属。`test_ipam.py`
-覆盖这些拒绝路径。`--check`（CI）只校验文件，不访问 PowerDNS。
+覆盖这些拒绝路径。`--check`（CI）只校验文件，不访问 PowerDNS，因此不检查 lab 区。
 
 分配新静态地址：
 

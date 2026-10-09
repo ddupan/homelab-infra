@@ -1,6 +1,6 @@
 ---
-# Homelab DNS desired state. This file is the canonical inventory; individual
-# backends consume only the views they own.
+# Homelab DNS views that are still generated from one file. lab.ddupan.top is not
+# here: its records live with whatever owns them (see README.md).
 homelab_dns:
   samba:
     # Samba remains authoritative for the AD zone. Only these explicitly listed
@@ -29,7 +29,7 @@ homelab_dns:
 
     # Deleted from AD (state: absent) by the samba_ad_dc role. Kept as tombstones so a
     # rerun stays a no-op and the names cannot creep back. These hosts live in
-    # lab.ddupan.top (powerdns below); nothing connects to them by their ad name —
+    # lab.ddupan.top (PowerDNS, registered by their owners); nothing connects to them by their ad name —
     # kube-apiserver and Bao auth use IPs (checked 2026-10-05).
     retired:
       - { zone: ad.ddupan.top, name: ayatori-dev, type: A }
@@ -39,30 +39,6 @@ homelab_dns:
       - { zone: ad.ddupan.top, name: sandbox-k8s, type: A }
       # Every agent moved to spire-server.lab (sandbox, Kata runners, LXC 104), 2026-10-05.
       - { zone: ad.ddupan.top, name: spire-server, type: A }
-
-  powerdns:
-    # lab.ddupan.top on PowerDNS, applied by CI via infrastructure/dns/terraform.
-    # Only FIXED hosts live here: HTTPRoute names come from external-dns, ad-hoc
-    # ones from Poweradmin. Names are relative to lab.ddupan.top.
-    # While services migrate off ad.ddupan.top, a host may appear in both zones.
-    records:
-      - { name: laptop, type: A, values: [192.168.10.127] }
-      - { name: incus, type: A, values: [192.168.10.127] }
-      - { name: pg-prod, type: A, values: [192.168.10.2] }
-      - { name: pve1, type: A, values: [192.168.10.4] }
-      - { name: pve2, type: A, values: [192.168.10.7] }
-      - { name: pve3, type: A, values: [192.168.10.9] }
-      - { name: bao, type: A, values: [192.168.10.8] }
-      # Static, outside the NEC IX pool (.128-.250); infrastructure/incus/terraform reads
-      # the ayatori-* values into each container's cloud-init network-config.
-      - { name: ayatori-dev, type: A, values: [192.168.10.11] }
-      - { name: ayatori-prod, type: A, values: [192.168.10.12] }
-      - { name: retrolab, type: A, values: [10.60.0.10] }
-      - { name: sandbox1, type: A, values: [10.60.0.11] }
-      - { name: sandbox2, type: A, values: [10.60.0.12] }
-      - { name: sandbox-k8s, type: A, values: [10.60.0.13] }
-      # LoadBalancer on the laptop, so external-dns (HTTPRoutes only) cannot publish it.
-      - { name: spire-server, type: A, values: [192.168.10.127] }
 
   split_horizon:
     # backends records the current adoption boundary. obj is deliberately not
