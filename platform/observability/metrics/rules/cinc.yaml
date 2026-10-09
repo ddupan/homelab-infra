@@ -1,0 +1,37 @@
+# Cinc runs on nodes report through node_exporter's textfile collector
+# (homelab_base libraries/run_report.rb). There is no Cinc Server; this is the
+# only place a failed run or drift becomes visible. Applying stays manual
+# (infrastructure/chef/converge.sh), so these alerts ask a human to look.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cinc
+  namespace: monitoring
+spec:
+  groups:
+    - name: cinc
+      rules:
+        # mode="drift" is only the daily timer; a manual why-run preview of a new
+        # policy (mode="why-run") is expected to differ and does not alert.
+        - alert: CincDriftDetected
+          expr: homelab_cinc_resources_updated{mode="drift"} > 0
+          for: 5m
+          labels: {severity: warning, service: cinc}
+          annotations:
+            summary: 节点配置偏离最后一次应用的 Cinc policy
+            description: >-
+              {{ $labels.node }} 的每日 why-run 发现 {{ $value }} 个顶层 resource 会被修改。
+              先用 converge.sh run <policy> --why-run 查看差异，再决定手动 apply。
+        - alert: CincRunFailed
+          expr: homelab_cinc_last_run_success == 0
+          for: 5m
+          labels: {severity: warning, service: cinc}
+          annotations:
+            summary: Cinc 运行失败（{{ $labels.mode }}）
+        # Daily timer + up to 1h random delay; 36h leaves a missed day to retry.
+        - alert: CincDriftCheckStale
+          expr: time() - homelab_cinc_last_run_timestamp_seconds{mode="drift"} > 36 * 3600
+          for: 5m
+          labels: {severity: warning, service: cinc}
+          annotations:
+            summary: Cinc 漂移检查超过 36 小时未运行

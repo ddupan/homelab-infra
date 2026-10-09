@@ -1,0 +1,7 @@
+---
+cinc_version: 19.3.14   # keep equal to the workstation image's client
+cinc_workstation: docker.io/cincproject/workstation:26.3.0
+# Shared with homelab_base: policy/ is the last applied policy, which the node's
+# daily drift timer why-runs against.
+cinc_node_dir: /var/lib/homelab-cinc
+cinc_cache: "{{ lookup('env', 'HOME') }}/.cache/homelab-cinc"

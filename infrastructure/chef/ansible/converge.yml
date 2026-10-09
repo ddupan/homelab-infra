@@ -1,0 +1,197 @@
+---
+# Agentless push of Cinc policies. Ansible only bootstraps the client and ships the
+# archive; Cinc does the configuring. There is no Cinc Server and nothing applies
+# automatically; the node's own timer only why-runs (homelab_base drift_check).
+#
+#   ansible-playbook converge.yml --check -l <host>   why-run (preview; changes nothing)
+#   ansible-playbook converge.yml -l <host>           apply
+#
+# `changed` means Cinc updated (or in --check, would update) something, so a second
+# apply reporting changed=0 is the same acceptance test as everywhere else.
+# (Cinc's own agentless mode was tried 2026-10-09 and rejected: in 19.3.14 it
+# misreads remote file checksums, so every run rewrote files and restarted services.)
+
+- name: Export policy archives from the committed locks
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Scratch dir for archives
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: cinc
+      register: cinc_export_dir
+      changed_when: false
+      check_mode: false
+
+    # With a lock present `cinc install` only fetches the pinned revisions into the
+    # container's (fresh) cache; it never re-resolves. `export` needs that cache.
+    - name: Export each policy in use
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - -u
+          - "{{ lookup('pipe', 'id -u') }}:{{ lookup('pipe', 'id -g') }}"
+          - -e
+          - HOME=/tmp
+          - -v
+          - "{{ playbook_dir }}/../policies:/p"
+          - -v
+          - "{{ cinc_export_dir.path }}:/out"
+          - -w
+          - /p
+          - "{{ cinc_workstation }}"
+          - bash
+          - -c
+          - "cinc install {{ item }}.rb >/dev/null && cinc export {{ item }}.rb /out --archive >/dev/null && mv /out/{{ item }}-*.tgz /out/{{ item }}.tgz"
+      loop: "{{ groups['cinc'] | map('extract', hostvars, 'cinc_policy') | unique }}"
+      changed_when: false
+      check_mode: false
+      retries: 3
+      delay: 10
+      register: cinc_export
+      until: cinc_export is succeeded
+
+- name: Converge nodes
+  hosts: cinc
+  gather_facts: true
+  tasks:
+    - name: Installed Cinc version
+      ansible.builtin.command: dpkg-query -W -f=${Version} cinc
+      register: cinc_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install the Cinc client
+      when: cinc_installed.stdout != cinc_version ~ '-1'
+      block:
+        # Official per-package sha256 from omnitruck; never a hard-coded checksum.
+        - name: Package metadata
+          ansible.builtin.uri:
+            url: >-
+              https://omnitruck.cinc.sh/stable/cinc/metadata?p={{ ansible_distribution | lower }}&pv={{
+              ansible_distribution_major_version if ansible_distribution == 'Debian'
+              else ansible_distribution_version }}&m={{ ansible_architecture }}&v={{ cinc_version }}
+            return_content: true
+          register: cinc_meta
+          delegate_to: localhost
+          check_mode: false
+          retries: 5
+          delay: 10
+          until: cinc_meta is succeeded
+
+        - name: Parse metadata
+          ansible.builtin.set_fact:
+            cinc_deb_url: "{{ cinc_meta.content | regex_search('^url\\s+(\\S+)', '\\1', multiline=True) | first }}"
+            cinc_deb_sha256: "{{ cinc_meta.content | regex_search('^sha256\\s+(\\S+)', '\\1', multiline=True) | first }}"
+
+        # Fetched on the laptop and copied, so nodes need no internet access.
+        - name: Download (laptop cache)
+          ansible.builtin.get_url:
+            url: "{{ cinc_deb_url }}"
+            dest: "{{ cinc_cache }}/{{ cinc_deb_url | basename }}"
+            checksum: "sha256:{{ cinc_deb_sha256 }}"
+            mode: '0644'
+          delegate_to: localhost
+          retries: 5
+          delay: 10
+          register: cinc_download
+          until: cinc_download is succeeded
+
+        - name: Copy package to node
+          ansible.builtin.copy:
+            src: "{{ cinc_cache }}/{{ cinc_deb_url | basename }}"
+            dest: "/var/cache/{{ cinc_deb_url | basename }}"
+            mode: '0644'
+
+        # In --check the copy above did not happen; it already reported the install.
+        - name: Install package
+          ansible.builtin.apt:
+            deb: "/var/cache/{{ cinc_deb_url | basename }}"
+          when: not ansible_check_mode
+
+    # Staging is scratch: recreated every run, so it never counts as a change.
+    - name: Clear staging
+      ansible.builtin.file:
+        path: "{{ cinc_node_dir }}/staging"
+        state: absent
+      changed_when: false
+      check_mode: false
+
+    - name: Create staging
+      ansible.builtin.file:
+        path: "{{ cinc_node_dir }}/staging"
+        state: directory
+        mode: '0700'
+      changed_when: false
+      check_mode: false
+
+    - name: Unpack policy archive
+      ansible.builtin.unarchive:
+        src: "{{ hostvars.localhost.cinc_export_dir.path }}/{{ cinc_policy }}.tgz"
+        dest: "{{ cinc_node_dir }}/staging"
+      changed_when: false
+      check_mode: false
+
+    - name: Run Cinc ({{ 'why-run' if ansible_check_mode else 'apply' }})
+      ansible.builtin.command:
+        # -c explicitly: Cinc finds .cinc/config.rb through $PWD, which chdir does not
+        # set. Without it the run silently "succeeds" with an empty run list.
+        argv: "{{ ['/opt/cinc/bin/cinc-client', '-z', '--no-color', '-c', cinc_node_dir ~ '/staging/.cinc/config.rb']
+                  + (['--why-run'] if ansible_check_mode else []) }}"
+        chdir: "{{ cinc_node_dir }}/staging"
+      register: cinc_run
+      check_mode: false
+      failed_when: cinc_run.rc != 0 or 'has an empty run list' in cinc_run.stdout
+      # "Infra Phase complete, N/M resources (would have been) updated"
+      changed_when: (cinc_run.stdout | regex_search('Infra Phase complete, (\\d+)/', '\\1') | first | int) > 0
+      when: not (ansible_check_mode and cinc_installed.rc != 0)
+
+    - name: Show what changed (or would)
+      ansible.builtin.debug:
+        msg: "{{ cinc_run.stdout_lines | select('search', '^\\s+- ') | list }}"
+      when: cinc_run is changed
+
+    # Only after a successful apply: the drift timer must compare against what was
+    # really applied, never a preview or a failed run.
+    - name: Promote staging to last applied
+      ansible.builtin.shell: |
+        set -e
+        cd {{ cinc_node_dir }}
+        rm -rf previous
+        if [ -d policy ]; then mv policy previous; fi
+        mv staging policy
+      changed_when: false
+      when: not ansible_check_mode
+
+    # Refresh the drift metric now, not at the next daily run: drift found before
+    # this apply would otherwise keep alerting for up to a day after it was fixed.
+    - name: Refresh drift check
+      ansible.builtin.systemd_service:
+        name: homelab-cinc-drift.service
+        state: started
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Drop preview staging
+      ansible.builtin.file:
+        path: "{{ cinc_node_dir }}/staging"
+        state: absent
+      changed_when: false
+      check_mode: false
+      when: ansible_check_mode
+
+- name: Remove exported archives
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Remove scratch dir
+      ansible.builtin.file:
+        path: "{{ cinc_export_dir.path }}"
+        state: absent
+      changed_when: false
+      check_mode: false
