@@ -83,7 +83,8 @@ resource "vault_jwt_auth_backend" "sso" {
   default_role = "admin"
 }
 
-# Same conditions as auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf).
+# auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf), granted to platform-admins rather than the
+# per-app vault-admins group, which retires with auth/oidc.
 resource "vault_jwt_auth_backend_role" "sso_admin" {
   backend   = vault_jwt_auth_backend.sso.path
   role_name = "admin"
@@ -91,9 +92,9 @@ resource "vault_jwt_auth_backend_role" "sso_admin" {
 
   user_claim      = "preferred_username"
   bound_audiences = [homelab_oidc_client.openbao.id]
-  # Only members of the AD group vault-admins get the admin policy.
+  # Only members of the AD group platform-admins get the admin policy.
   bound_claims = {
-    groups = "vault-admins"
+    groups = "platform-admins"
   }
   groups_claim = "groups"
   oidc_scopes  = ["profile", "email", "groups"]
