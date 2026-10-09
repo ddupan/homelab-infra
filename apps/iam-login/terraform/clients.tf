@@ -56,3 +56,52 @@ resource "vault_kv_secret_v2" "backstage" {
     client_secret = homelab_oidc_client.backstage.secret
   })
 }
+
+# OpenBao's human login through iam-login: a second OIDC mount, oidc-sso, next to the Authelia one (auth/oidc,
+# infrastructure/openbao) until it is verified, so there is never a moment without a working login. Kept whole in
+# this root because the client secret is created here: the mount's config can take it from state, with no copy
+# through the Ansible vault (which is why auth/oidc's config lives in infrastructure/openbao/ansible).
+# OpenBao sends PKCE for the code flow and checks the ID token's aud against bound_audiences (= client id).
+resource "homelab_oidc_client" "openbao" {
+  id   = "openbao"
+  name = "OpenBao"
+  redirect_uris = [
+    "https://bao.ad.ddupan.top:8200/ui/vault/auth/oidc-sso/oidc/callback", # web UI
+    "http://localhost:8250/oidc/callback",                                 # CLI: bao login -method=oidc -path=oidc-sso
+  ]
+  scopes = ["openid", "profile", "email", "groups"]
+}
+
+resource "vault_jwt_auth_backend" "sso" {
+  type               = "oidc"
+  path               = "oidc-sso"
+  description        = "Human login through iam-login (sso.ddupan.top)"
+  oidc_discovery_url = "https://sso.ddupan.top"
+  oidc_client_id     = homelab_oidc_client.openbao.id
+  oidc_client_secret = homelab_oidc_client.openbao.secret
+  # A literal, not a reference: the role needs the mount to exist first.
+  default_role = "admin"
+}
+
+# auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf), granted to platform-admins rather than the
+# per-app vault-admins group, which retires with auth/oidc.
+resource "vault_jwt_auth_backend_role" "sso_admin" {
+  backend   = vault_jwt_auth_backend.sso.path
+  role_name = "admin"
+  role_type = "oidc"
+
+  user_claim      = "preferred_username"
+  bound_audiences = [homelab_oidc_client.openbao.id]
+  # Only members of the AD group platform-admins get the admin policy.
+  bound_claims = {
+    groups = "platform-admins"
+  }
+  groups_claim = "groups"
+  oidc_scopes  = ["profile", "email", "groups"]
+
+  allowed_redirect_uris = homelab_oidc_client.openbao.redirect_uris
+
+  token_policies = ["admin"]
+  token_ttl      = 3600
+  token_max_ttl  = 0
+}
