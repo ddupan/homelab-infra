@@ -54,6 +54,6 @@ and external-dns deletes only records it holds a TXT marker for.
 1. pdns running (`../blocky/`).
 2. Secrets in bao and the samba-ad vault (above).
 3. `ansible-playbook provision-dc.yml --tags accounts,dns` in
-   `infrastructure/samba-ad/ansible`. This creates `svc-poweradmin`, `dns-admins`
+   `infrastructure/samba-ad/ansible`. This creates `svc-poweradmin`, `platform-admins`
    and the `dns.ad.ddupan.top` A record.
 4. Merge. Flux deploys `clusters/homelab/apps/poweradmin.yaml`.

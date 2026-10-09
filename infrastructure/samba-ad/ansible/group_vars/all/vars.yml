@@ -46,33 +46,21 @@ samba_ad_service_accounts:
     description: "Poweradmin LDAP bind: looks up the login user, then binds as them (read-only)"
 
 # --- Groups used for RBAC by downstream apps ---
-# NOTE: PVE renames synced groups to "<name>-<realm>", so pve-admins becomes
-# "pve-admins-ad" inside Proxmox. Grant ACLs to THAT name, not this one.
+# NOTE: PVE renames synced groups to "<name>-<realm>", so platform-admins becomes
+# "platform-admins-ad" inside Proxmox. Grant ACLs to THAT name, not this one.
 samba_ad_groups:
   # The one administrator group of the platform: apps grant their admin role to it (iam-login groups claim,
   # LDAP filters, PVE ACL, Incus scriptlet) instead of each keeping its own group. iam-login releases direct
-  # memberships only, so administrators are direct members. The per-app groups below are being retired
-  # app by app; AD's own Domain/Enterprise Admins stay for administering the domain itself.
+  # memberships only, so administrators are direct members. It replaced the per-app groups (pve-admins,
+  # gitea-admins, dns-admins, vault-admins; retired 2026-10-09). AD's own Domain/Enterprise Admins stay for
+  # administering the domain itself. Poweradmin's LDAP filter matches this DN: a rename breaks its logins.
+  # Keep at least one human administrator independent of each app's local break-glass account.
   - name: platform-admins
-    members: [panxiao81]
-
-  - name: pve-admins
-    members: [panxiao81]
-
-  # Gitea maps this OIDC group to site administrators through oauth2.adminGroup.
-  # Keep at least one human administrator independent of the local break-glass account.
-  - name: gitea-admins
-    members: [panxiao81]
-
-  # Poweradmin (apps/poweradmin) only accepts LDAP logins from direct members.
-  # Its search_filter matches this group's DN — a rename breaks every login.
-  - name: dns-admins
     members: [panxiao81]
 
   # Who may log in to AD-joined workstations (SSSD simple_allow_groups).
   # NESTING DIRECTION MATTERS: platform-admins is a MEMBER OF this group, so admins
   # get lab access. The reverse (this group inside platform-admins) would hand every
   # lab user Proxmox Administrator on / — see the ACL in proxmox/ansible.
-  # pve-admins stays a member until it is retired (the role only adds members).
   - name: retrolab-users
-    members: [platform-admins, pve-admins]
+    members: [platform-admins]

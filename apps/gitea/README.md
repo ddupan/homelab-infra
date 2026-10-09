@@ -59,7 +59,7 @@ suspend、详细日志审计和扩展验收。出现启动失败或 migration er
   **关闭 PKCE**（Gitea 1.27 不发 PKCE 与 nonce）。
 - secret 在 `kv/k8s/gitea-sso:client_secret`，经 `ExternalSecret/gitea-sso-oidc` 投射；轮换用
   API 的 `POST /api/iam/clients/gitea/secret` 后更新该 kv，再重启 Gitea。
-- 继续映射 `gitea-admins`；`groups` 在 ID token 中。
+- 站点管理员按 `platform-admins` 映射（平台唯一的管理员组）；`groups` 在 ID token 与 userinfo 中。
 - discovery 在 Pod 启动时由 init container 获取，`sso.ddupan.top` 因此走 split horizon（Envoy）。
 
 Hydra 已于 2026-10-05 下线（清单在 `archive/hydra`），不再有回退到 Hydra 的路径。
