@@ -1,6 +1,6 @@
 # Grafana — single pane over metrics (VictoriaMetrics), logs (VictoriaLogs) and
-# traces (VictoriaTraces via Jaeger API). LAN: grafana.ad.ddupan.top,
-# authenticated via Authelia OIDC. Local admin is
+# traces (VictoriaTraces via Jaeger API). LAN: grafana.lab.ddupan.top,
+# authenticated via iam-login OIDC (sso.ddupan.top). Local admin is
 # break-glass only.
 #
 # Chart: grafana/grafana   (repo: https://grafana.github.io/helm-charts)
@@ -78,7 +78,7 @@ envValueFrom:
 
 grafana.ini:
   server:
-    root_url: "https://grafana.ad.ddupan.top"   # 与 iam-login 客户端的 redirect_uri 一致
+    root_url: "https://grafana.lab.ddupan.top"   # 与 iam-login 客户端的 redirect_uri 一致
   auth:
     # Keep the local admin login available as break-glass; don't force OIDC-only.
     disable_login_form: false

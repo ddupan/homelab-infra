@@ -26,7 +26,7 @@ spec:
         # iam-login 的总 /actuator/health 因 LDAP 指向 localhost:389 常年 503（应用自身配置问题），
         # 这里探 readiness；LDAP 修好后可改回总端点。
         - https://sso.ddupan.top/actuator/health/readiness
-        - https://grafana.ad.ddupan.top/api/health
+        - https://grafana.lab.ddupan.top/api/health
         - https://nexus.ad.ddupan.top/service/rest/v1/status
         - https://dns.ad.ddupan.top/login
         - https://s3.ad.ddupan.top/status

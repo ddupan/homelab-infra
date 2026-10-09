@@ -7,10 +7,11 @@ were removed on 2026-09-16 with the maintainer's explicit approval.
 
 监控覆盖缺口与补齐路线图见 [COVERAGE.md](COVERAGE.md)。
 
-## Grafana 当前入口（2026-09-16）
+## Grafana 当前入口（2026-10-09）
 
-统一使用 <https://grafana.ad.ddupan.top>，A 记录指向 `192.168.10.127`，由共享
-Envoy Gateway 的 `https` listener 与 `*.ad.ddupan.top` 证书提供 TLS。
+统一使用 <https://grafana.lab.ddupan.top>（PowerDNS，external-dns 发布），由共享 Envoy Gateway 的
+`https-lab` listener 与 `*.lab.ddupan.top` 证书提供 TLS。旧名 `grafana.ad.ddupan.top` 只做 301 跳转：
+OAuth state cookie 按主机名，两个名字不能混用。
 Grafana root_url 和 iam-login（sso.ddupan.top）回调均使用此域名；旧专用 Tailscale Ingress 已停用。
 远程客户端仍需有到 LAN 的路由及已配置的内网 DNS 转发。
 
