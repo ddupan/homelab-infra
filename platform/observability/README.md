@@ -104,6 +104,9 @@ VM 资源，不需要每个应用额外维护一份 `VM*Scrape`。
   `Probe`、`VMServiceScrape` → `ServiceMonitor`）会被 converter 原地接管；**换了类型的**
   （`VMStaticScrape` → `ScrapeConfig` 变成 `VMScrapeConfig`）旧对象会留在集群里重复抓取，合并后要
   手工 `kubectl delete`。
+- **`PodMonitor.portNumber` 只匹配已声明的容器端口**：operator 生成
+  `keep __meta_kubernetes_pod_container_port_number=<n>`，容器没声明端口就永远没有 target，而且不报错。
+  这种情况不指定端口，用 relabelings 把 `__address__` 改成 `<podIP>:<port>`（见 cloudflared）。
 - 目标标签不要和指标自带的标签同名（如 LINSTOR 指标自带 `node`），否则会被覆盖、原值改名为 `exported_*`。
 
 2026-10 之前留下的 `VMNodeScrape`（kubelet / cadvisor / node-exporter）与若干 `VMStaticScrape`
