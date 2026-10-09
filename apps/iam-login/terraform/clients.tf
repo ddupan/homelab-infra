@@ -35,3 +35,23 @@ resource "vault_kv_secret_v2" "grafana" {
     client_secret = homelab_oidc_client.grafana.secret
   })
 }
+
+# Backstage's oidc provider (panxiao81/backstage). It sends no PKCE (plugin-auth-backend-module-oidc-provider),
+# so PKCE is off as for Gitea; it authenticates with client_secret_basic and resolves users by preferred_username.
+resource "homelab_oidc_client" "backstage" {
+  id            = "backstage"
+  name          = "Backstage"
+  redirect_uris = ["https://backstage.lab.ddupan.top/api/auth/oidc/handler/frame"]
+  scopes        = ["openid", "profile", "email"]
+  pkce_required = false
+}
+
+# Read by apps/backstage/sso-external-secret.yaml.
+resource "vault_kv_secret_v2" "backstage" {
+  mount = "kv"
+  name  = "k8s/backstage-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.backstage.id
+    client_secret = homelab_oidc_client.backstage.secret
+  })
+}

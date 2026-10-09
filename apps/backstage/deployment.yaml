@@ -39,6 +39,10 @@ spec:
           env:
             - name: BACKSTAGE_BASE_URL
               value: https://backstage.ad.ddupan.top
+            # Read by app-config's oidc provider once the image takes the issuer from the environment
+            # (panxiao81/backstage); still Authelia until the switch to sso.ddupan.top.
+            - name: AUTH_OIDC_METADATA_URL
+              value: https://auth.ddupan.top/.well-known/openid-configuration
             - name: POSTGRES_HOST
               value: shared-postgresql-rw.shared-db.svc.cluster.local
             - name: POSTGRES_PORT

@@ -8,8 +8,13 @@ spec:
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https
+    # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
   hostnames:
     - backstage.ad.ddupan.top
+    - backstage.lab.ddupan.top
   rules:
     - matches:
         - path:
