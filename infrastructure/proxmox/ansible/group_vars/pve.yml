@@ -63,4 +63,3 @@ pve_dns_probe_name: bao.ad.ddupan.top
 # without the rollback in README-linstor-ha.md: in non-HA mode linstor.yml stops the
 # controller on every node except pve_linstor_controller — which may be the active one.
 pve_linstor_controller_ha: true
-
