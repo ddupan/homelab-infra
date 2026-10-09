@@ -14,3 +14,8 @@ spec:
     labels:
       node: etcd-pve1
     interval: 30s
+  - targets:
+    - etcd-pve2.lab.ddupan.top:9100
+    labels:
+      node: etcd-pve2
+    interval: 30s
