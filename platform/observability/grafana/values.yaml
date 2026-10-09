@@ -97,9 +97,9 @@ grafana.ini:
     name_attribute_path: name
     email_attribute_path: email
     groups_attribute_path: groups
-    # AD "Enterprise Admins" -> full Grafana server admin; "Domain Admins" -> org Admin;
-    # everyone else who can authenticate -> Viewer. Tune group names to taste.
-    role_attribute_path: "contains(groups[*], 'Enterprise Admins') && 'GrafanaAdmin' || contains(groups[*], 'Domain Admins') && 'Admin' || 'Viewer'"
+    # The platform's administrator group (infrastructure/samba-ad) -> Grafana server admin (and org Admin);
+    # everyone else who can sign in -> Viewer. AD's Domain/Enterprise Admins no longer grant app roles.
+    role_attribute_path: "contains(groups[*], 'platform-admins') && 'GrafanaAdmin' || 'Viewer'"
     allow_assign_grafana_admin: true
     role_attribute_strict: false
     use_pkce: true
