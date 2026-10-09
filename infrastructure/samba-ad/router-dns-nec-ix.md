@@ -1,4 +1,4 @@
-# NEC IX — conditional DNS forwarding for `ad.ddupan.top`
+# NEC IX — conditional DNS forwarding for `ad.ddupan.top` and `lab.ddupan.top`
 
 Makes the LAN router (NEC IX, `192.168.10.1`) forward queries for the AD zone to the
 Samba DC (`192.168.10.5`) while sending everything else to its normal upstream.
@@ -57,6 +57,32 @@ this shape, but use `?` to confirm. Notably:
   `*.ad.ddupan.top` matches hosts under it. Add both.
 - Persist with `write memory`.
 
+## `lab.ddupan.top` → Blocky (added 2026-10-09)
+
+Service and host names live in `lab.ddupan.top` (PowerDNS, `apps/blocky/`). PowerDNS's port 53
+is **not published** — only Blocky reaches it — so the router forwards the zone to **Blocky on
+`192.168.10.127`**, which resolves it via its own `conditional` mapping. No loop: Blocky sends
+`lab.ddupan.top` straight to PowerDNS and only uses the router for everything else.
+
+Before this, anything resolving through the router got an empty answer for `*.lab`. The laptop
+only worked by accident (Tailscale's DNS answered on `tailscale0`), and `br0`'s DNS still pointed
+at the router because the 2026-10-05 netplan change has not been applied.
+
+```
+configure
+url-list lab_zone permit domain lab.ddupan.top
+url-list lab_zone permit domain *.lab.ddupan.top
+proxy-dns server 192.168.10.127 url-list lab_zone priority 200
+write memory
+```
+
+The live router names its lists `ad_zone` / `lab_zone` (lower case), not `AD-ZONE` as in the
+example above. Applied with netmiko (`nec_ix_telnet`, the same connection
+`~/scripts/netrestart` uses); `show running-config` only works inside `configure` and contains
+secrets — filter its output, never print it whole.
+
+If Blocky is down, `*.lab` fails through the router as well — PowerDNS has no other path in.
+
 ## Verify
 
 From a non-domain LAN client using the router as resolver:
@@ -71,4 +97,10 @@ Reverse (only if the in-addr.arpa url-list entry was added):
 
 ```bash
 nslookup 192.168.10.5 192.168.10.1                          # → dc1.ad.ddupan.top
+```
+
+`lab.ddupan.top`:
+
+```bash
+dig @192.168.10.1 nexus.lab.ddupan.top +short                # → 192.168.10.127
 ```
