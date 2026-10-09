@@ -16,8 +16,10 @@ iam:
     signing-keys:
       - file:/run/secrets/iam/signing-key.pem
   clients:
+    # Humans who manage clients (/console). The platform's administrator group (infrastructure/samba-ad);
+    # machines (Terraform) are the SPIFFE IDs below.
     admin-groups:
-      - Domain Admins
+      - platform-admins
     # Machine callers (Terraform via terraform-provider-homelab) present a JWT-SVID with
     # audience iam-login. Exact SPIFFE IDs only: Terraform CD's plan (PRs) and apply (main) jobs,
     # and the laptop's development identity (uid 1000 on the k3s node; local Terraform runs and
