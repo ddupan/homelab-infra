@@ -70,8 +70,9 @@ samba_ad_groups:
     members: [panxiao81]
 
   # Who may log in to AD-joined workstations (SSSD simple_allow_groups).
-  # NESTING DIRECTION MATTERS: pve-admins is a MEMBER OF this group, so admins
-  # get lab access. The reverse (this group inside pve-admins) would hand every
+  # NESTING DIRECTION MATTERS: platform-admins is a MEMBER OF this group, so admins
+  # get lab access. The reverse (this group inside platform-admins) would hand every
   # lab user Proxmox Administrator on / — see the ACL in proxmox/ansible.
+  # pve-admins stays a member until it is retired (the role only adds members).
   - name: retrolab-users
-    members: [pve-admins]
+    members: [platform-admins, pve-admins]

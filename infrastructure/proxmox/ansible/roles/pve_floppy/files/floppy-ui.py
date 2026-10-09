@@ -29,7 +29,7 @@ holds no bind DN or password of its own.
 Then AUTHORISATION, which is the half that matters: authenticating merely proves
 you are someone in AD. Inserting a host file into a VM is a host-level action, so
 a session additionally needs Sys.Modify on `/` in PVE's own ACL -- i.e. the same
-`pve-admins-ad` group that already administers the cluster.
+`platform-admins-ad` group that already administers the cluster.
 """
 
 import argparse

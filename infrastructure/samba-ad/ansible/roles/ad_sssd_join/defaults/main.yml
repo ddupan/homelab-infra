@@ -28,7 +28,7 @@ ad_sssd_shell: "/bin/bash"
 
 # Restrict who may log in. EMPTY = every domain user can, which on a lab box
 # reachable from the LAN is broader than it looks. Prefer naming a group.
-# pve-admins is nested INSIDE retrolab-users, so admins get lab login without
+# platform-admins is nested INSIDE retrolab-users, so admins get lab login without
 # lab users gaining Proxmox rights. SSSD resolves nested AD groups.
 ad_sssd_allow_groups: [retrolab-users]
 
