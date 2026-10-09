@@ -11,3 +11,8 @@ output "acme_enabled" {
   value       = vault_pki_secret_backend_config_acme.this.enabled
   description = "Whether the ACME directory is currently serving."
 }
+
+output "spire_node_ca_pem" {
+  description = "x509pop CA bundle for the SPIRE Server (public)."
+  value       = vault_pki_secret_backend_root_cert.spire_nodes.certificate
+}
