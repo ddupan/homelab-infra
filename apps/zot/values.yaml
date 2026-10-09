@@ -258,12 +258,21 @@ startupProbe:
   failureThreshold: 60
 httproute:
   enabled: true
+  # Both names during the move to lab.ddupan.top (infrastructure/dns/README.md):
+  # publishers and deployments switch on their own next release. externalUrl and
+  # the bearer realm/service above stay on the ad name until the last one has
+  # moved — a client on the lab name is pointed at the ad realm, which still works.
+  # The reader route (reader-values.yaml) inherits these parentRefs.
   parentRefs:
   - name: eg
     namespace: envoy-gateway-system
     sectionName: https
+  - name: eg
+    namespace: envoy-gateway-system
+    sectionName: https-lab
   hostnames:
   - zot-push.ad.ddupan.top
+  - zot-push.lab.ddupan.top
   rules:
   - matches:
     - path:

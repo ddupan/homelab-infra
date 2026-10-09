@@ -43,6 +43,7 @@ configFiles:
 httproute:
   hostnames:
   - zot.ad.ddupan.top
+  - zot.lab.ddupan.top
   rules:
   - matches:
     - path:

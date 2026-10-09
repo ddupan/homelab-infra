@@ -190,3 +190,24 @@ SeaweedFS 内的数据副本当作独立灾备。重装 zot 不得删除 `zot` b
 参考：[官方 Kubernetes 安装](https://zotregistry.dev/v2.1.21/install-guides/install-guide-k8s/)、
 [S3 存储](https://zotregistry.dev/v2.1.21/articles/storage/)、
 [OIDC workload identity](https://github.com/project-zot/zot/blob/v2.1.21/examples/README-OIDC-WORKLOAD-IDENTITY.md)。
+
+## 迁移到 `zot.lab` / `zot-push.lab`（随发版逐步进行）
+
+两个 HTTPRoute 同时服务 ad 与 lab 名，镜像内容与 digest 不变，只是引用里的主机名不同。
+各处在**自己的下一次发版**时改用 lab 名，不做集中切换：
+
+| 位置 | 改什么 |
+|---|---|
+| ayatori `.gitea/workflows/release.yml` | `PUSH_REGISTRY` → `zot-push.lab…`，`PULL_REGISTRY` → `zot.lab…` |
+| ayatori `deploy/ansible/roles/control_plane/defaults/main.yml` | `ayatori_image` |
+| backstage `.gitea/workflows/ci.yml` | `PUSH_IMAGE`、`PULL_IMAGE`、`docker login` |
+| 本仓库 `platform/flux-image-automation/backstage.yaml` | ImageRepository `image`；`apps/backstage/deployment.yaml` 由 image automation 随后改写 |
+| gitea-dynamic-runner `.gitea/workflows/publish-images.yml`、`publish-runner-image.yml` | `PUSH_REGISTRY`、`PULL_REGISTRY` |
+| 本仓库 `platform/{dynamic-runner,sandbox-dynamic-runner,sandbox-ci-runners}/` | runner 发版 PR 中的镜像引用 |
+| iam-login `scripts/publish-image` | `repo=`、`docker login` |
+| 本仓库 `apps/iam-login/deployment.yaml` | 发版 PR 中的镜像引用 |
+
+全部改完后（`git grep zot.ad.ddupan.top` 只剩历史文档）：把 `values.yaml` 的 `externalUrl`、
+bearer `realm`/`service` 与 `reader-values.yaml` 的 `externalUrl` 改为 lab，探测与 catalog 跟随，
+再从 HTTPRoute 与 Samba（`samba.retired`）移除 ad 名。过渡期以 lab 名推送会被指向 ad 的 token
+realm，两个名字到达同一个 zot，因此可用。
