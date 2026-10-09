@@ -30,3 +30,10 @@ path "kv/metadata/infra/*" {
 path "ssh-client-signer/sign/ai-agent" {
   capabilities = ["create", "update"]
 }
+
+# Mint a one-time EAB credential to enroll a node in the SPIRE node CA (ACME).
+# Enrollment is an operator action from the laptop (infrastructure/chef/ansible);
+# renewals afterwards need no Bao token at all.
+path "pki-spire-nodes/roles/node/acme/new-eab" {
+  capabilities = ["update"]
+}
