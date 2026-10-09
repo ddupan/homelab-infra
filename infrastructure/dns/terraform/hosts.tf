@@ -1,6 +1,7 @@
-# Hosts with no Terraform root of their own. A record belongs with whatever
-# creates the thing it names (incus declares ayatori-*, etcd's lxc.yml registers
-# etcd-pve*), so when one of these gains an owning root, move it there.
+# Manual registration: hosts whose parent resource no code creates (bare metal,
+# hand-built VMs, a VIP). Where code does create the thing a name points at, the
+# record lives with that code instead (incus: ayatori-*, etcd's lxc.yml:
+# etcd-pve*); move a record there if its host later gains one.
 
 # ayatori-* moved to infrastructure/incus/terraform, which imports them.
 removed {

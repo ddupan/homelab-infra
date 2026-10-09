@@ -6,7 +6,7 @@
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
 | 公网 `ddupan.top` | Cloudflare | 由生成器输出 Terraform；尚待完整导入已有记录 |
-| 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | zone 与无主主机在 `terraform/`（手写）；有 owner 的记录在 owner 的 root（incus：ayatori-*，etcd `lxc.yml`：etcd-pve*）；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
+| 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | zone 与没有母资源的主机在 `terraform/hosts.tf`（手动注册）；有 owner 的记录在 owner 的 root（incus：ayatori-*，etcd `lxc.yml`：etcd-pve*）；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
 | AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `samba_dns_record` Ansible module |
 | LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
 | Kubernetes Pod split horizon | CoreDNS | 由生成器维护 `.server` 标记块 |

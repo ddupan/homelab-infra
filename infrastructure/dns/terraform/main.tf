@@ -2,7 +2,7 @@
 # behind Blocky (apps/blocky/). Samba keeps ad.ddupan.top for AD's own records.
 #
 # Several writers share this zone, each through the API:
-#   this root     — the zone itself, plus hosts nothing else owns (hosts.tf)
+#   this root     — the zone itself, plus hosts no code creates (hosts.tf)
 #   owning roots  — records next to the thing they name (incus: ayatori-*)
 #   external-dns  — HTTPRoute hostnames, marked by its TXT ownership records
 #   Poweradmin    — ad-hoc records added by hand
