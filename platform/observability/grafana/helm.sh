@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Deploy Grafana. Create the OIDC client secret first (see oidc-secret.yaml header),
-# then install the chart. Requires the metrics/logs/traces backends to exist so the
+# Deploy Grafana. The OIDC client secret comes from bao via ESO (sso-external-secret.yaml);
+# install the chart. Requires the metrics/logs/traces backends to exist so the
 # provisioned datasources resolve.
 set -euo pipefail
-
-# 1) OIDC client secret (edit oidc-secret.yaml, or create it imperatively — preferred).
-kubectl apply -f oidc-secret.yaml
 
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update grafana

@@ -11,7 +11,7 @@ were removed on 2026-09-16 with the maintainer's explicit approval.
 
 统一使用 <https://grafana.ad.ddupan.top>，A 记录指向 `192.168.10.127`，由共享
 Envoy Gateway 的 `https` listener 与 `*.ad.ddupan.top` 证书提供 TLS。
-Grafana root_url 和 Authelia 回调均使用此域名；旧专用 Tailscale Ingress 已停用。
+Grafana root_url 和 iam-login（sso.ddupan.top）回调均使用此域名；旧专用 Tailscale Ingress 已停用。
 远程客户端仍需有到 LAN 的路由及已配置的内网 DNS 转发。
 
 内存看板：`/d/homelab-memory`；采集配置及 AppArmor 规则见
@@ -55,9 +55,9 @@ Grafana 升级会有一次短暂停机，但旧 Pod 会先退出，新 Pod 才�
 RollingUpdate，除非存储改为真正支持并发挂载的 RWX。
 
 以下内容明确不属于本批接管：尚未部署的 kube-state-metrics、`vlogs-ingress.yaml`，以及
-仅作 standalone chart 参考的 `traces-values.yaml`。`grafana/oidc-secret.yaml` 是不含真实
-值的占位模板；live `grafana-oidc` Secret 继续只被 HelmRelease 引用，尚未由 OpenBao/ESO
-纳管。
+仅作 standalone chart 参考的 `traces-values.yaml`。Grafana 的 OIDC 客户端
+由 `apps/iam-login/terraform` 注册，secret 写入 bao `kv/k8s/grafana-sso`，经
+`grafana/sso-external-secret.yaml` 同步为 `grafana-sso` Secret。
 
 Still host-side (not yet done): deploy `docker-hosts/compose.yaml` on the Docker
 hosts and `logs/vlogs-ingress.yaml` to push their logs.
@@ -152,19 +152,17 @@ cd logs && ./helm.sh && cd ..
 # 4. Traces
 cd traces && ./helm.sh && cd ..
 
-# 5. Grafana (create the OIDC secret first — see grafana/oidc-secret.yaml)
+# 5. Grafana (OIDC client + secret: apps/iam-login/terraform, synced by ESO)
 cd grafana && ./helm.sh && cd ..
 ```
 
 ## Before it works — required edits
 
-- **OIDC secret pair.** Generate once:
-  `authelia crypto hash generate pbkdf2 --variant sha512 --random --random.length 72`
-  - plaintext → the `grafana-oidc` Secret (create imperatively, don't commit)
-  - hash → `authelia/values.yaml` grafana client `client_secret`, then `helm upgrade` Authelia.
+- **OIDC client.** `homelab_oidc_client.grafana` in `apps/iam-login/terraform/clients.tf`; its secret
+  reaches Grafana via bao and ESO (`grafana-sso`). Nothing to create by hand.
 - **Tailnet FQDN.** This scaffold assumes `grafana.tail7e769.ts.net` (your existing tailnet,
   per `seaweedfs-admin`). If the operator assigns a different name, update it in
-  `grafana/values.yaml` (`root_url`) **and** the Authelia grafana `redirect_uris`.
+  `grafana/values.yaml` (`root_url`) **and** the client's `redirect_uris` in `apps/iam-login/terraform/clients.tf`.
 - **Chart value names.** `logs/collector-values.yaml` and `traces/traces-values.yaml` note a
   `helm show values` check — verify the keys against the installed chart versions.
 - **Pin chart + image versions** after first install (all `helm.sh` scripts note this;
