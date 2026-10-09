@@ -7,5 +7,6 @@ resources:
   - clusterspiffeid.yaml
   - limitrange.yaml
   - cache-server.yaml
+  - runner-config.yaml
   - deployment.yaml
   - service.yaml
