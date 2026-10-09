@@ -15,12 +15,6 @@ iam:
     issuer: https://sso.ddupan.top
     signing-keys:
       - file:/run/secrets/iam/signing-key.pem
-    # Keeps the `sub` Gitea already linked through the Hydra login source, so the
-    # existing account stays linked after the cutover. Identifiers, not secrets.
-    subjects:
-      - authority: ad.ddupan.top
-        directory-id: 76525983-b44d-4264-bf16-688d0a5b8338
-        subject: human:accf99141a786663f56aa8790cd51fcc4726c9ba2e7fff460728faa344bbbb4f
   clients:
     admin-groups:
       - Domain Admins
