@@ -1,4 +1,6 @@
 # OIDC auth (human logins via Authelia).
+# Being replaced by auth/oidc-sso (iam-login, sso.ddupan.top), declared with its client in
+# apps/iam-login/terraform/clients.tf; this mount stays until that one is verified for the UI and the CLI.
 #
 # SCOPE NOTE: only the auth MOUNT and the ROLE are managed here. The backend
 # CONFIG (auth/oidc/config) is intentionally left to ../ansible because it
