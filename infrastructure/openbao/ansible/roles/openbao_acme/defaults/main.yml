@@ -15,6 +15,11 @@ openbao_group: "openbao"
 
 # --- Certificate ---
 openbao_acme_domain: "{{ openbao_fqdn }}"      # bao.ad.ddupan.top (from group_vars/all)
+# Extra SANs on the same cert. The primary above stays first: lego names the cert files
+# after it, and the deploy hook and the first-run guard read those paths. bao.lab is the
+# migration target (infrastructure/dns/README.md); DNS-01 puts its challenge in the
+# Cloudflare ddupan.top zone like the ad one — LE never needs lab delegated.
+openbao_acme_extra_domains: ["bao.lab.ddupan.top"]
 openbao_acme_email: "panxiao81@outlook.com"    # ACME account / expiry-notice email
 
 # Cloudflare API token with Zone:DNS:Edit on ddupan.top. Set vault_openbao_cf_dns_token
