@@ -14,6 +14,9 @@ pg_secret_paths:
   dev: infra/postgresql/dev
 pg_etcd_secret_path: infra/etcd/consumers/patroni-pg-prod
 pg_etcd_endpoints: ['192.168.10.127:2379', '10.60.0.20:2379', '10.60.0.21:2379']
+# dns is the CN and what bootstrap connects to; dns_aliases are extra SANs on the
+# server cert (the lab.ddupan.top name, while clients still verify the ad one).
+# Each must also be allowed by the role in ../../terraform/main.tf.
 pg_profiles:
   prod:
     user: pgprod
@@ -21,6 +24,7 @@ pg_profiles:
     api_port: 8008
     exporter_port: 9187
     dns: pg-prod.ad.ddupan.top
+    dns_aliases: [pg-prod.lab.ddupan.top]
     memory_high: 768M
     memory_max: 1G
     shared_buffers: 128MB
@@ -29,6 +33,7 @@ pg_profiles:
     user: pgdev
     port: 5433
     dns: pg-dev.ad.ddupan.top
+    dns_aliases: [pg-dev.lab.ddupan.top]
     exporter_port: 9188
     memory_high: 256M
     memory_max: 384M
