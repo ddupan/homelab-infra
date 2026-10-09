@@ -18,8 +18,7 @@ resource "homelab_oidc_client" "gitea" {
   pkce_required = false
 }
 
-# Grafana's generic_oauth (platform/observability/grafana/values.yaml). Group claims come from the ID token, which
-# Grafana reads alongside userinfo.
+# Grafana's generic_oauth (platform/observability/grafana/values.yaml).
 resource "homelab_oidc_client" "grafana" {
   id            = "grafana"
   name          = "Grafana"
