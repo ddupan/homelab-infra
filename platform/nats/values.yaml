@@ -79,7 +79,8 @@ service:
 # Scaled to zero 2026-10-05: gitea-dynamic-runner workers now fetch from Gitea
 # with their own registrations, so the CI account has no clients left. Config,
 # PVC and Service stay for a rollback; set replicas back to 1 (and restore the
-# NATS alerts from git history) to re-enable.
+# NATS alerts from git history) to re-enable. Point new clients at
+# tls://nats.lab.ddupan.top:4222; the cert carries both lab and ad names.
 statefulSet:
   merge:
     spec:
