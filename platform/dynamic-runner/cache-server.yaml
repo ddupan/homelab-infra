@@ -81,7 +81,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: cache-server
-          image: docker.io/gitea/runner:3.5.0@sha256:66b7da94dc7dcadb2e076bec6928221336a9a637196399281c4b766fe1288242
+          image: docker.io/gitea/runner:5.0.0@sha256:328b8dad8de80a19dab6c5c61292c1d624cd3460c25a5c0067e95c11318657ca
           command: [/usr/local/bin/gitea-runner, -c, /etc/gitea-runner-cache/config.yaml, cache-server]
           ports:
             - name: cache
