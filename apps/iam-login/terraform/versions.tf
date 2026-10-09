@@ -8,6 +8,11 @@ terraform {
       source  = "terraform.lab.ddupan.top/ddupan/homelab"
       version = "~> 0.1"
     }
+    # Client secrets go straight to bao for the apps' ExternalSecrets; CD's ci-terraform token covers kv.
+    vault = {
+      source  = "hashicorp/vault"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -17,4 +22,9 @@ terraform {
 provider "homelab" {
   iam_login              = { endpoint = "https://sso.ddupan.top" }
   spiffe_endpoint_socket = "unix:///run/spire/agent-sockets/spire-agent.sock"
+}
+
+# Token from the environment (CD: spiffe-openbao-login; locally: bao login). By hostname: the cert has no IP SAN.
+provider "vault" {
+  address = "https://bao.ad.ddupan.top:8200"
 }

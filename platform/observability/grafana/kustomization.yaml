@@ -27,3 +27,4 @@ configMapGenerator:
 resources:
   - helmrelease.yaml
   - httproute.yaml
+  - sso-external-secret.yaml

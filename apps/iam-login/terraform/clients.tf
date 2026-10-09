@@ -17,3 +17,21 @@ resource "homelab_oidc_client" "gitea" {
   scopes        = ["openid", "profile", "email", "groups"]
   pkce_required = false
 }
+
+# Grafana's generic_oauth (platform/observability/grafana/values.yaml).
+resource "homelab_oidc_client" "grafana" {
+  id            = "grafana"
+  name          = "Grafana"
+  redirect_uris = ["https://grafana.ad.ddupan.top/login/generic_oauth"]
+  scopes        = ["openid", "profile", "email", "groups"]
+}
+
+# Read by platform/observability/grafana/sso-external-secret.yaml.
+resource "vault_kv_secret_v2" "grafana" {
+  mount = "kv"
+  name  = "k8s/grafana-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.grafana.id
+    client_secret = homelab_oidc_client.grafana.secret
+  })
+}
