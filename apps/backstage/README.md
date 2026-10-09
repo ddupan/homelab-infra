@@ -7,16 +7,17 @@ OCI digest 固定镜像。
 ## 外部前置
 
 - OpenBao `kv/k8s/backstage` 必须包含以下与容器环境变量同名的字段：
-  `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`AUTH_OIDC_CLIENT_ID`、
-  `AUTH_OIDC_CLIENT_SECRET`、`POSTGRES_PASSWORD`、`GITEA_TOKEN`。
+  `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`POSTGRES_PASSWORD`、`GITEA_TOKEN`。
+  其中旧的 `AUTH_OIDC_CLIENT_ID` / `AUTH_OIDC_CLIENT_SECRET`（Authelia 客户端）不再使用：Deployment 的 `env`
+  从 `backstage-sso` Secret 取值，优先于 `envFrom`。
 - OpenBao `kv/k8s/techdocs-s3-reader` 提供 TechDocs 只读 S3 凭据，投射为
   `TECHDOCS_S3_ACCESS_KEY_ID` / `TECHDOCS_S3_SECRET_ACCESS_KEY`。
 - PostgreSQL 需要在共享集群中预先创建由 `backstage` 角色拥有的 `backstage`
   数据库；密码必须与 OpenBao 中的 `POSTGRES_PASSWORD` 一致。
-- Authelia OIDC 客户端回调地址为
-  `https://backstage.ad.ddupan.top/api/auth/oidc/handler/frame`。
-- AD DNS 需要将 `backstage.ad.ddupan.top` 指向 Envoy Gateway
-  `192.168.10.127`。
+- 登录走 iam-login（`sso.ddupan.top`，`AUTH_OIDC_METADATA_URL`）。客户端由 `apps/iam-login/terraform/clients.tf`
+  注册，回调 `https://backstage.lab.ddupan.top/api/auth/oidc/handler/frame`；secret 由 Terraform 写入
+  `kv/k8s/backstage-sso`，经 `sso-external-secret.yaml` 同步为 `backstage-sso`。
+- 入口 `backstage.lab.ddupan.top`（PowerDNS，external-dns 发布）；旧名 `backstage.ad.ddupan.top` 只做 301 跳转。
 
 Flux 等待 ExternalSecret 和 Deployment 就绪；任何前置缺失都会使该
 Kustomization 保持 NotReady，而不会回退到明文 Secret。

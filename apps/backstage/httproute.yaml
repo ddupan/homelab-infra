@@ -5,15 +5,11 @@ metadata:
   namespace: backstage
 spec:
   parentRefs:
-    - name: eg
-      namespace: envoy-gateway-system
-      sectionName: https
     # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https-lab
   hostnames:
-    - backstage.ad.ddupan.top
     - backstage.lab.ddupan.top
   rules:
     - matches:
@@ -23,3 +19,24 @@ spec:
       backendRefs:
         - name: backstage
           port: 7007
+---
+# The old name only redirects: BACKSTAGE_BASE_URL and the OAuth callback are on the lab name, and a sign-in
+# started on the ad name would lose its state at the callback. Remove with the Samba A record once unused.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backstage-ad-redirect
+  namespace: backstage
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - backstage.ad.ddupan.top
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            hostname: backstage.lab.ddupan.top
+            statusCode: 301
