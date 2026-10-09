@@ -7,12 +7,23 @@ incus_packages:
   - incus-client
   - incus-ui-canonical
 
-# 先完成 IdP 准入限制，再配置 OIDC，最后开放 listener。
+# OIDC 由 iam-login（sso.ddupan.top）签发：incus 客户端在 apps/iam-login/terraform/clients.tf 注册（public，
+# 含 device 授权）。不配授权时 Incus 让任何 OIDC 用户获得完整权限，所以授权必须在 Incus 这边做：
+# OIDC 客户端走 scriptlet，只有 access token 的 groups 含 incus_admin_group 的人可以操作，其余一律拒绝。
+# TLS 客户端（CI 的短期证书、本机 unix socket）不受影响。
+incus_admin_group: platform-admins
+
+# 按顺序逐项设置（access.yml）：授权在前，避免换 issuer 后、设授权前出现所有人都是管理员的窗口。
 incus_server_config:
-  oidc.issuer: https://auth.ddupan.top
+  authorization.client.oidc: scriptlet
+  authorization.scriptlet: |
+    def authorize(details, object, entitlement):
+        return "{{ incus_admin_group }}" in details.Claims.get("groups", [])
+  oidc.issuer: https://sso.ddupan.top
   oidc.client.id: incus
   oidc.audience: https://incus.ad.ddupan.top
-  oidc.scopes: openid,offline_access
+  # groups 进入 access token，scriptlet 才能读到。
+  oidc.scopes: openid,offline_access,groups
   core.https_address: 192.168.10.127:8443
   # 须在 server.ca 就位后开启（access.yml 保证顺序）；凭此 CI 的短期证书获得完整权限。
   core.trust_ca_certificates: "true"

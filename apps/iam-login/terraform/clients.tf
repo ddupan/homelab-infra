@@ -112,3 +112,17 @@ resource "vault_jwt_auth_backend_role" "sso_admin" {
   token_ttl      = 3600
   token_max_ttl  = 0
 }
+
+# Incus (infrastructure/incus): the web UI's code flow and the CLI's device grant (incus remote add --auth-type=oidc),
+# both without a secret. Incus checks the access token's aud against oidc.audience, and authorizes from its groups
+# claim (authorization scriptlet, infrastructure/incus/ansible/group_vars/incus_hosts.yml): who may do what is
+# Incus's decision, not this client's.
+resource "homelab_oidc_client" "incus" {
+  id                   = "incus"
+  name                 = "Incus"
+  redirect_uris        = ["https://incus.ad.ddupan.top/oidc/callback"]
+  scopes               = ["openid", "offline_access", "groups"]
+  public_client        = true
+  device_authorization = true
+  audiences            = ["https://incus.ad.ddupan.top"]
+}
