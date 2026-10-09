@@ -63,9 +63,11 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 
 ## Secrets
 
-- **OpenBao** (`bao.ad.ddupan.top`, host .8) is the real secrets store and the **internal CA**.
+- **OpenBao** (`bao.lab.ddupan.top`, host .8) is the real secrets store and the **internal CA**.
   Authenticate with `bao login -method=oidc`. ⚠ Always by HOSTNAME — its Let's Encrypt cert
-  has a DNS SAN only, so `192.168.10.8` and `127.0.0.1` both fail TLS verification.
+  has DNS SANs only, so `192.168.10.8` and `127.0.0.1` both fail TLS verification. The old
+  `bao.ad.ddupan.top` stays valid long-term: the AIA/CRL/ACME URLs in certs bao has already
+  issued, and the ACME accounts of cert-manager, PVE and dc1, point at it.
 - **Kubernetes Secrets come from OpenBao** via External Secrets Operator (`platform/external-secrets/`),
   which authenticates with its own ServiceAccount JWT — no credential is stored in the cluster.
   The gitignored `<svc>/secret.yaml` files remain as **break-glass** for when bao is down.

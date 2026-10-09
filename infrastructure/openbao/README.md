@@ -101,8 +101,11 @@ ESO 的短期登录 JWT 执行 TokenReview。该组资源已于 2026-09-18 apply
 
 ## DNS
 
-`bao.ad.ddupan.top` is an **internal-only** name — not a public Cloudflare record and
-not behind the tunnel. Add the A record on the Samba DC (authoritative for
+`bao.lab.ddupan.top` is the name clients use; its A record is in
+`../dns/terraform/hosts.tf` (PowerDNS, `lab.ddupan.top`). The original
+`bao.ad.ddupan.top` stays: already-issued certs carry it in their AIA/CRL URLs and the
+ACME accounts are bound to it. Both are **internal-only** — not public Cloudflare records
+and not behind the tunnel. The ad record lives on the Samba DC (authoritative for
 `ad.ddupan.top`), same pattern as the KMS record:
 
 ```bash
@@ -193,7 +196,8 @@ Replace the self-signed listener cert with a **Let's Encrypt** cert so clients d
 it is **not delegated** in public DNS, so Cloudflare answers `*.ad.ddupan.top`
 authoritatively. lego writes a **transient** `_acme-challenge.bao.ad.ddupan.top` TXT into
 the Cloudflare `ddupan.top` zone, LE validates, and issues for the **internal** name —
-no permanent record, no IP leak. Renewal reloads bao via **SIGHUP** (no restart/reseal).
+no permanent record, no IP leak. `bao.lab.ddupan.top` is a second SAN on the same cert
+(`openbao_acme_extra_domains`), validated the same way; lab is not publicly delegated either. Renewal reloads bao via **SIGHUP** (no restart/reseal).
 
 By default it **reuses the Cloudflare token already managed for the tunnel**
 (`cloudflared/terraform/terraform.tfvars` — it has `Zone:DNS:Edit` on ddupan.top), so
@@ -208,8 +212,9 @@ Test against LE **staging** first to avoid rate limits: set `openbao_acme_server
 https://acme-staging-v02.api.letsencrypt.org/directory`, run, confirm, then clear it and
 re-run for a real cert (`rm -rf /etc/openbao/acme` on the host between the two to reset).
 
-Note: the LE cert covers the **hostname only** (`bao.ad.ddupan.top`), not the IP — so
-after this, use `BAO_ADDR=https://bao.ad.ddupan.top:8200` (no skip-verify), not the IP.
+Note: the LE cert covers the **hostnames only** (`bao.ad.ddupan.top`, `bao.lab.ddupan.top`),
+not the IP — so after this, use `BAO_ADDR=https://bao.lab.ddupan.top:8200` (no
+skip-verify), not the IP.
 
 ## Using it
 

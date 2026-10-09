@@ -249,9 +249,9 @@ LOGIN_PAYLOAD="$(jq -nc \
 LOGIN_RESPONSE="$(curl --fail-with-body --silent --show-error \
   -H 'Content-Type: application/json' \
   --data "$LOGIN_PAYLOAD" \
-  https://bao.ad.ddupan.top:8200/v1/auth/jwt-spire/login)"
+  https://bao.lab.ddupan.top:8200/v1/auth/jwt-spire/login)"
 
-export BAO_ADDR=https://bao.ad.ddupan.top:8200
+export BAO_ADDR=https://bao.lab.ddupan.top:8200
 export BAO_TOKEN="$(printf '%s' "$LOGIN_RESPONSE" | jq -er '.auth.client_token')"
 ```
 
@@ -334,7 +334,7 @@ discovery 的 `issuer` 必须严格等于
 管理员只检查非敏感配置：
 
 ```bash
-export BAO_ADDR=https://bao.ad.ddupan.top:8200
+export BAO_ADDR=https://bao.lab.ddupan.top:8200
 bao auth list
 bao read auth/jwt-spire/role/<role-name>
 bao policy read <policy-name>
