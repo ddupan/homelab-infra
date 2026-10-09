@@ -1,5 +1,5 @@
 # OpenBao internal CA, to verify dc1's LDAPS cert (issued by bao ACME). Public:
-#   curl -s https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+#   curl -s https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
 apiVersion: v1
 kind: ConfigMap
 metadata:

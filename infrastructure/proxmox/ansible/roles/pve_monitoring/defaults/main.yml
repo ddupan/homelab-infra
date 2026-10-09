@@ -7,7 +7,7 @@ pve_node_exporter_textfile_dir: /var/lib/prometheus/node-exporter
 pve_exporter_user: pve-exporter@pve
 pve_exporter_token_id: exporter
 # token 只在创建时可见；写进 Bao 后由 ESO 同步到 monitoring/pve-exporter。
-pve_exporter_bao_url: https://bao.ad.ddupan.top:8200
+pve_exporter_bao_url: https://bao.lab.ddupan.top:8200
 pve_exporter_bao_mount: kv
 pve_exporter_bao_path: k8s/pve-exporter
 # Bao 里的 token 丢了（或要轮换）时用 -e pve_exporter_rotate_token=true 重建。

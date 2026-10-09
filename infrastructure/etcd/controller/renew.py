@@ -37,7 +37,7 @@ def main():
             return 0
         finally:
             request = urllib.request.Request(
-                'https://bao.ad.ddupan.top:8200/v1/auth/token/revoke-self',
+                'https://bao.lab.ddupan.top:8200/v1/auth/token/revoke-self',
                 data=b'{}', headers={'X-Vault-Token': token}, method='POST',
             )
             try:

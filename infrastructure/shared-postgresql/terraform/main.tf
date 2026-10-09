@@ -5,7 +5,7 @@ terraform {
   }
 }
 provider "vault" {
-  address = "https://bao.ad.ddupan.top:8200"
+  address = "https://bao.lab.ddupan.top:8200"
   # 使用包装器取得的短期 token；它负责执行后撤销，不要求额外创建子 token。
   skip_child_token = true
 }

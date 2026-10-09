@@ -24,7 +24,7 @@
     # CA 只有公钥，Bao 的 /ca/pem 无需认证；服务器证书本身不受影响，网关校验照旧。
     - name: 获取 Incus 客户端 CA
       ansible.builtin.uri:
-        url: https://bao.ad.ddupan.top:8200/v1/pki-incus/ca/pem
+        url: https://bao.lab.ddupan.top:8200/v1/pki-incus/ca/pem
         return_content: true
       register: incus_client_ca
       check_mode: false

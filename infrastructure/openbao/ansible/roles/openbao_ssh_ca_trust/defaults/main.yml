@@ -4,7 +4,7 @@
 # For no-root hosts, use a `cert-authority` line in ~/.ssh/authorized_keys instead.
 
 openbao_ssh_mount: "ssh-client-signer"
-openbao_addr: "https://bao.ad.ddupan.top:8200"
+openbao_addr: "https://bao.lab.ddupan.top:8200"
 
 # The CA public key. Leave empty to fetch it (once, from the control node) from bao's
 # UNAUTHENTICATED public_key endpoint — so it stays current even after a CA rotation.

@@ -41,7 +41,7 @@ def role(ip):
 def main():
     if sys.argv[1:] != ['--run']:
         raise SystemExit('需显式 --run；会停止生产 laptop PG 服务并在验收后回切。')
-    address = 'https://bao.ad.ddupan.top:8200'
+    address = 'https://bao.lab.ddupan.top:8200'
     token = runner.spiffe_token(address)
     database = 'homelab_ha_probe_' + str(int(time.time()))
     try:

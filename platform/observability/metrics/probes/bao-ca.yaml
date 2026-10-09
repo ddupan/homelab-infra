@@ -1,5 +1,5 @@
 # OpenBao 内部 CA（公开证书），供 blackbox 校验 dc1 的 LDAPS 证书链。dc1 证书由 bao ACME
-# 签发、只有 DNS SAN。来源：curl -s https://bao.ad.ddupan.top:8200/v1/pki/ca/pem
+# 签发、只有 DNS SAN。来源：curl -s https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
 # CA 有效期到 2036-07-21；换 CA 时这里要同步。
 apiVersion: v1
 kind: ConfigMap

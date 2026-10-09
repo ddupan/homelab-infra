@@ -14,7 +14,7 @@ provider "vault" {
 
 variable "bao_address" {
   type    = string
-  default = "https://bao.ad.ddupan.top:8200"
+  default = "https://bao.lab.ddupan.top:8200"
 }
 variable "pki_mount" {
   type    = string

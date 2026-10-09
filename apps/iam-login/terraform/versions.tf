@@ -26,5 +26,5 @@ provider "homelab" {
 
 # Token from the environment (CD: spiffe-openbao-login; locally: bao login). By hostname: the cert has no IP SAN.
 provider "vault" {
-  address = "https://bao.ad.ddupan.top:8200"
+  address = "https://bao.lab.ddupan.top:8200"
 }

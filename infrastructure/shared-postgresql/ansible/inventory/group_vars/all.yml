@@ -1,7 +1,7 @@
 ---
 pg_major: 18
 pg_patroni_version: 4.1.5
-pg_bao_url: https://bao.ad.ddupan.top:8200
+pg_bao_url: https://bao.lab.ddupan.top:8200
 pg_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
 pg_config_root: /etc/homelab-postgresql
 pg_data_root: /var/lib/homelab-postgresql

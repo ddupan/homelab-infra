@@ -1,5 +1,5 @@
 ---
-etcd_bao_url: https://bao.ad.ddupan.top:8200
+etcd_bao_url: https://bao.lab.ddupan.top:8200
 etcd_bao_pki_mount: pki
 etcd_bao_kv_mount: kv
 etcd_bao_secret_base: infra/etcd/consumers
