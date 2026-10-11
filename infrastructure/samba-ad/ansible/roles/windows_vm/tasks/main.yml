@@ -103,3 +103,18 @@
       loop:
         - "/var/lib/libvirt/images/{{ win_vm_name }}-unattend.iso"
         - "/var/lib/libvirt/images/{{ win_vm_name }}-autounattend.xml"
+
+# Without this the domain stays off after a host reboot: libvirt-guests here runs with the
+# Debian defaults (ON_SHUTDOWN=shutdown, ON_BOOT=ignore), so only libvirt autostart brings
+# it back. All three lab VMs were found with autostart disabled on 2026-10-11.
+- name: Read the domain's autostart flag
+  ansible.builtin.command: "virsh dominfo {{ win_vm_name }}"
+  register: win_autostart
+  changed_when: false
+  failed_when: false   # a domain only created later in this run is absent in check mode
+  check_mode: false
+
+- name: Start the domain with the host
+  ansible.builtin.command: "virsh autostart {{ win_vm_name }}"
+  when: win_autostart.stdout is not search('Autostart:\\s+enable')
+  changed_when: true
