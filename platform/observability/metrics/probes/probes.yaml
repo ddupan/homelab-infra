@@ -23,7 +23,7 @@ spec:
         - https://auth.ddupan.top/api/health
         - https://backstage.lab.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
-        - https://incus.ad.ddupan.top/1.0
+        - https://incus.lab.ddupan.top/1.0
         # 总 health 含 LDAP（Boot 的 ContextSource 连 dc1 LDAPS），目录不可用时也会告警。
         - https://sso.ddupan.top/actuator/health
         - https://grafana.lab.ddupan.top/api/health

@@ -70,7 +70,13 @@ spec:
       name: eg
       namespace: envoy-gateway-system
       sectionName: https
-  hostnames: [incus.ad.ddupan.top]
+    # lab.ddupan.top; external-dns publishes the record. The ad name stays until CLI remotes move off it.
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames: [incus.lab.ddupan.top, incus.ad.ddupan.top]
   rules:
     - matches:
         - path:
@@ -95,7 +101,7 @@ spec:
       name: eg
       namespace: envoy-gateway-system
       sectionName: http
-  hostnames: [incus.ad.ddupan.top]
+  hostnames: [incus.lab.ddupan.top, incus.ad.ddupan.top]
   rules:
     - matches:
         - path:
