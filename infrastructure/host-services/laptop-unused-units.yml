@@ -1,0 +1,45 @@
+---
+# mask laptop 上用不到、却在每次开机失败并触发 HostSystemdUnitFailed 的 unit。
+#
+# rpc-svcgssd：Kerberos NFS（sec=krb5*）的服务端守护进程。这里的 NFS 导出只有 sec=sys
+# （/etc/exports.d/zfs.exports），/etc/krb5.keytab 里也没有 nfs/ 主体，所以它每次开机都以
+# "No key table entry found matching nfs/@" 失败。将来真要上 Kerberos NFS，删掉列表项再 unmask。
+#
+#   ansible-playbook -i localhost, infrastructure/host-services/laptop-unused-units.yml --check --diff
+#   ansible-playbook -i localhost, infrastructure/host-services/laptop-unused-units.yml
+- name: mask laptop 上不用的 unit
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    laptop_masked_units:
+      - rpc-svcgssd.service
+  tasks:
+    - name: 确认目标
+      ansible.builtin.assert:
+        that: ansible_facts.hostname == 'laptop'
+        fail_msg: 此 play 仅用于 laptop。
+
+    - name: mask unit
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        masked: true
+      loop: "{{ laptop_masked_units }}"
+
+    # mask 不清除已有的 failed 状态，不清的话告警要等下次开机才会消失。
+    - name: 查询 failed 状态
+      ansible.builtin.command: "systemctl is-failed {{ item }}"
+      loop: "{{ laptop_masked_units }}"
+      register: laptop_unit_failed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: 清除 failed 状态
+      ansible.builtin.command: "systemctl reset-failed {{ item.item }}"
+      loop: "{{ laptop_unit_failed.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.stdout == 'failed'
+      changed_when: true

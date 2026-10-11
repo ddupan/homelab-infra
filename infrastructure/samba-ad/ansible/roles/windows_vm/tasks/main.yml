@@ -116,5 +116,14 @@
 
 - name: Start the domain with the host
   ansible.builtin.command: "virsh autostart {{ win_vm_name }}"
-  when: win_autostart.stdout is not search('Autostart:\\s+enable')
+  when:
+    - win_vm_autostart
+    - win_autostart.stdout is not search('Autostart:\\s+enable')
+  changed_when: true
+
+- name: Do not start the domain with the host
+  ansible.builtin.command: "virsh autostart --disable {{ win_vm_name }}"
+  when:
+    - not win_vm_autostart
+    - win_autostart.stdout is search('Autostart:\\s+enable')
   changed_when: true
