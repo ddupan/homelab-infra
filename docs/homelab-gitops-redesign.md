@@ -28,7 +28,8 @@ persistent libvirt domains were observed on 2026-09-09:
 | `bao1` | running | 1 | 1 GiB | `data/vm/bao1` zvol | bridge `br0` |
 | `win2k25` | stopped | 2 | 4 GiB | `data/vm/win2k25` zvol | network `network` |
 
-All four have autostart disabled. The intended values for `dc1`, `winadmin`
+All four had autostart disabled. Since 2026-10-11 the `dc_vm`, `bao_vm` and
+`windows_vm` roles enable it for `dc1`, `bao1` and `winadmin`. The intended values for `dc1`, `winadmin`
 and `bao1` mostly agree with live configuration. Current Ansible roles stop
 managing a VM once its domain exists. That avoids recreation but cannot report
 or reconcile later CPU, memory, NIC or boot drift.
@@ -231,7 +232,6 @@ offline break-glass path. ESO-generated Secrets are projections, not backups.
 - Whether the OCI VM should later move from its current public subnet.
 - Schema/generator for the Git-owned service declaration.
 - Migration order for Helm releases after the `gitea-actions` adoption.
-- Whether each local libvirt VM should autostart.
 - Which first job genuinely requires a dynamic Proxmox VM.
 
 ## Safety invariants
