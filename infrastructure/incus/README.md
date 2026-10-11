@@ -44,20 +44,22 @@ sudo journalctl -u incus.service -n 80 --no-pager
 安装验收不等于实例运行验收；存储、实例备份恢复方案留待资源初始化时确定。
 共享知识入口：`homelab-wiki/services/incus.md`（随本次变更同步）。
 
-## Web UI 与 Authelia
+## Web UI 与 OIDC（iam-login）
 
-入口：`https://incus.ad.ddupan.top`，选择 **Login with SSO**，使用 `panxiao81`
-并完成 MFA。Authelia 专属 policy 默认 deny，仅此账号可取得 Incus token。
-该客户端登录者具有 Incus 完整管理权限，不根据当前 AD 组放权。
+入口：`https://incus.ad.ddupan.top`，选择 **Login with SSO**，在 sso.ddupan.top 用 AD 密码 + passkey 登录。
+授权在 Incus 这边：OIDC 客户端走 scriptlet（`authorization.client.oidc=scriptlet`），access token 的
+`groups` 含 `incus_admin_group`（`platform-admins`）才放行，其余一律拒绝。不配授权时 Incus 让任何 OIDC
+用户获得完整权限，所以这一项不能省。TLS 客户端（CI 短期证书、本机 unix socket）不受影响。
 
 CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=oidc`，
 按设备码流程在浏览器中完成同一登录；token 由客户端保存在本机，不写入 Git。
 
 声明分工：
 
-- `apps/authelia/clients/incus.yaml`：单用户 MFA 准入、public client、PKCE S256、
-  签名 access token、唯一 audience、浏览器回调和 device/refresh grants。
-- `ansible/group_vars/incus_hosts.yml`：Incus OIDC issuer/client/audience/scopes 和 listener。
+- `apps/iam-login/terraform/clients.tf`（`homelab_oidc_client.incus`）：public client、PKCE、device 授权、
+  access token 的 audience、浏览器回调。
+- `ansible/group_vars/incus_hosts.yml`：Incus OIDC issuer/client/audience/scopes、授权 scriptlet
+  （组名 `incus_admin_group`）和 listener。
 - `ansible/templates/gateway.yaml.j2`：独立 namespace、Service/EndpointSlice、HTTPRoute、
   BackendTLSPolicy。入口复用现有通配符证书，后端以 Incus 的公共 server.crt 验证
   `laptop` SAN，不跳过 TLS 验证。公共证书由 playbook 读取，不复制私钥。
@@ -68,11 +70,6 @@ CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=o
 兼容配置由 Flux 管理：EnvoyProxy `eg` 允许 TLS 1.2–1.3，以连接要求 TLS 1.3
 的 Incus；见 [PR #164](https://git.ddupan.top/panxiao81/homelab-infra/pulls/164)。
 此补丁不升级网关、不改变前端证书或其他路由。
-Authelia 当前不是 Flux 受管 release。协调脚本先读取 live Helm values，
-仅合并 Incus client/policy，固定 chart 0.11.6 渲染后部署；保留 Hydra/Backstage 等
-现有配置和秘密，禁止以滞后的 `apps/authelia/values.yaml` 全量覆盖线上 release。
-临时 values 存在 0700 目录、0600 文件中并自动清理，部署前检查 release revision，
-避免覆盖准备期间的并发 Helm 变更；仍应避免同时升级该 release。
 
 ```bash
 # 先 site.yml 安装 UI，再接入；均先 --check --diff 再移除这两个参数执行。
@@ -83,19 +80,20 @@ cd infrastructure/samba-ad/ansible
 ANSIBLE_CONFIG=ansible.cfg ANSIBLE_COLLECTIONS_PATH=collections ANSIBLE_LOCAL_TEMP=/tmp/ansible-incus-dns ansible-playbook -i inventory/hosts.yml ../../incus/ansible/dns.yml --check --diff
 ```
 
-执行接入需要本机 Python3/PyYAML、Helm、kubectl 及现有集群管理凭据；DNS 另需
+执行接入需要本机 kubectl 及现有集群管理凭据；DNS 另需
 既有 Samba Ansible vault 与 SSH 权限。首次入口 namespace 不存在时 check 使用
 客户端 dry-run；存在后使用 kubectl diff。后续实际重跑要求 `changed=0`。
 
 ### 故障与迁移
 
-- Web 入口和 OIDC 依赖 k3s/Envoy/Authelia；它们不可用时使用宿主 `sudo incus`，
+- Web 入口和 OIDC 依赖 k3s/Envoy/iam-login；它们不可用时使用宿主 `sudo incus`，
   Incus daemon 与实例生命周期不依赖网页登录。
 - `8443` 直连仍由 Incus 原生认证保护，但只注册域名 443 的 OIDC callback，
   浏览器登录应从正式域名进入。网关不透传客户端 TLS 证书；远程主要使用 OIDC。
 - 更换宿主 Incus 证书后重跑 `access.yml`，同步网关公共信任证书。
-- 未来切换 IdM：更新 issuer/client/audience/scopes 和新 provider 的准入策略，
-  验证浏览器及 CLI 后再停用 Authelia client；本次不引入永久组模型。
+- 2026-10-09 从 Authelia 切到 iam-login。切 issuer 后，CLI 里存的 Authelia token 失效，
+  `incus` 命令会重新走设备码登录。回退：`sudo incus config set oidc.issuer=…` 并
+  `sudo incus config unset authorization.client.oidc`（宿主本地操作不经 OIDC）。
 - 移除用户准入不会立即撤销已签发的 JWT；紧急撤权需同时处理现有 token/会话。
 - 回退入口时先撤 HTTPRoute，再关闭 `core.https_address`；保留本地管理和现有实例数据。
 

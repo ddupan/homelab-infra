@@ -1,17 +1,9 @@
 ---
-- name: 接入 Incus Web UI 与 Authelia
+- name: 接入 Incus Web UI 与 OIDC（iam-login）
   hosts: incus_hosts
   become: true
   gather_facts: false
   tasks:
-    - name: 增量协调 Authelia 的 Incus 客户端
-      become: false
-      ansible.builtin.command:
-        argv: "{{ ['python3', playbook_dir ~ '/../scripts/reconcile_authelia.py', '--desired', playbook_dir ~ '/../../../apps/authelia/clients/incus.yaml'] + (['--check'] if ansible_check_mode else []) }}"
-      register: incus_authelia
-      changed_when: "'changed=true' in incus_authelia.stdout"
-      check_mode: false
-
     - name: 查询当前 Incus 服务配置
       ansible.builtin.command: incus query /1.0
       register: incus_server

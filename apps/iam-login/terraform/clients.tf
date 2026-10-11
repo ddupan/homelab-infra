@@ -88,6 +88,13 @@ resource "vault_jwt_auth_backend" "sso" {
   tune {
     listing_visibility = "unauth"
   }
+
+  # The vault provider (4.8) reads tune back empty for this resource, so every plan would set it again although
+  # it is applied (sys/internal/ui/mounts lists oidc-sso unauthenticated). To change tune, drop this line for
+  # that apply.
+  lifecycle {
+    ignore_changes = [tune]
+  }
 }
 
 # auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf), granted to platform-admins rather than the
@@ -111,4 +118,18 @@ resource "vault_jwt_auth_backend_role" "sso_admin" {
   token_policies = ["admin"]
   token_ttl      = 3600
   token_max_ttl  = 0
+}
+
+# Incus (infrastructure/incus): the web UI's code flow and the CLI's device grant (incus remote add --auth-type=oidc),
+# both without a secret. Incus checks the access token's aud against oidc.audience, and authorizes from its groups
+# claim (authorization scriptlet, infrastructure/incus/ansible/group_vars/incus_hosts.yml): who may do what is
+# Incus's decision, not this client's.
+resource "homelab_oidc_client" "incus" {
+  id                   = "incus"
+  name                 = "Incus"
+  redirect_uris        = ["https://incus.ad.ddupan.top/oidc/callback"]
+  scopes               = ["openid", "offline_access", "groups"]
+  public_client        = true
+  device_authorization = true
+  audiences            = ["https://incus.ad.ddupan.top"]
 }
