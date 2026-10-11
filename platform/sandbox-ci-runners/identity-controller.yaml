@@ -16,7 +16,7 @@ spec:
       serviceAccountName: opensandbox-identity
       containers:
         - name: controller
-          image: zot.ad.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:dfbfaf2a7aa5951d1dc4e7f941a8cd05ceb4a860ac1ab23eb8be234861edcb55
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:dfbfaf2a7aa5951d1dc4e7f941a8cd05ceb4a860ac1ab23eb8be234861edcb55
           imagePullPolicy: IfNotPresent
           command: [/venv/bin/gitea-dynamic-runner-opensandbox-identity]
           resources:
