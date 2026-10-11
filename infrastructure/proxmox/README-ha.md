@@ -27,9 +27,10 @@ would be wiped by the next `add system image`.
 ## ⚠ The watchdog is still `softdog` — finish this
 
 `softdog` is a **software** watchdog: a kernel timer. **It cannot fire when the kernel
-itself is frozen**, which is exactly the failure this cluster has actually had (pve2's
-Raven Ridge idle freeze). So today's HA covers clean crashes, power loss and network
-partition — but *not* the freeze case that motivated it.
+itself is frozen**. That was the failure that motivated HA here — pve2's Raven Ridge idle
+freeze — which has since been fixed at the source (BIOS "Power Supply Idle Control" →
+*Typical Current Idle*, 2026-07-25), so it is no longer a known live risk. Today's HA covers
+clean crashes, power loss and network partition, but still not a hung kernel of any cause.
 
 Hardware watchdogs are present and verified (2026-07-26):
 
