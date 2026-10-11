@@ -48,7 +48,7 @@ CA 公钥证书 `internal-ca.pem` 随 ConfigMap 提供。库中保存 passkey、
 
 iam-login main 的 CI 在 Native 浏览器测试通过后，用其 `Dockerfile` 打包同一个二进制，以 runner 的
 SPIFFE 身份推到 `zot-push.ad.ddupan.top/iam/iam-login:<commit>`（见 `platform/spire/external-agent/`）。
-部署使用 `zot.ad.ddupan.top` 匿名拉取与不可变 digest，更新由 PR 修改 `deployment.yaml`。
+部署从 `zot.ad.ddupan.top` 匿名拉取，按 commit tag 固定版本；升级由 PR 把 `deployment.yaml` 的 tag 改成新的 commit。
 
 ## Passkey 与管理
 
