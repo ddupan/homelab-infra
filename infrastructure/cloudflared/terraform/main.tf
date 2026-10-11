@@ -58,33 +58,6 @@ resource "cloudflare_dns_record" "tunnel" {
   ttl      = 1
 }
 
-# Previously generated from infrastructure/dns/records.yml (auth, sso) or created
-# by hand (git, e5renew, obj). Delete these blocks once applied.
-moved {
-  from = cloudflare_dns_record.auth
-  to   = cloudflare_dns_record.tunnel["auth.ddupan.top"]
-}
-
-moved {
-  from = cloudflare_dns_record.sso
-  to   = cloudflare_dns_record.tunnel["sso.ddupan.top"]
-}
-
-import {
-  to = cloudflare_dns_record.tunnel["git.ddupan.top"]
-  id = "${var.zone_id}/5fc60a7aff43dc6acfe59d72c54aaa66"
-}
-
-import {
-  to = cloudflare_dns_record.tunnel["e5renew.ddupan.top"]
-  id = "${var.zone_id}/6e5083e97a69133c6a4a4d8e17a46459"
-}
-
-import {
-  to = cloudflare_dns_record.tunnel["obj.ddupan.top"]
-  id = "${var.zone_id}/7d6954c7e1cb18877088faf555ceec19"
-}
-
 # DKIM for Microsoft 365 mail sent as *@ddupan.top (via the smtp-relay). CNAMEs point
 # at the tenant's DKIM keys; must be DNS-only (unproxied). Enable signing in Exchange
 # after these resolve: smtp-relay/scripts/enable-dkim.ps1.

@@ -12,8 +12,8 @@ ServiceLB); routing is by `Host` header.
 ## Adding a service
 
 1. an `HTTPRoute` with `parentRefs` → `eg` / `envoy-gateway-system`, `sectionName: https`
-2. an A record in `../../infrastructure/dns/records.yml` → `192.168.10.127`, then
-   `ansible-playbook provision-dc.yml --tags dns` (`../../infrastructure/samba-ad`)
+2. DNS: attach the route to the `https-lab` listener as well and external-dns publishes
+   `<name>.lab.ddupan.top` by itself. Do not add new `ad.ddupan.top` names.
 3. **optionally** a `SecurityPolicy` for Authelia forward-auth — templates in `examples/`
 4. **a health probe**: add the service's health endpoint (one that answers `200` without a
    redirect — not `/` if that bounces to a login page) to `lan-https` in

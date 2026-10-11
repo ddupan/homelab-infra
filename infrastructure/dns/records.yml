@@ -1,46 +1,9 @@
 ---
-# Homelab DNS views that are still generated from one file. lab.ddupan.top is not
-# here: its records live with whatever owns them (see README.md).
+# What is still shared across DNS backends: split-horizon names (generated into
+# Blocky and CoreDNS) and the address pools. Records themselves live with their
+# owners — lab.ddupan.top in each creator's code, ad.ddupan.top in samba-ad
+# (see README.md).
 homelab_dns:
-  samba:
-    # Samba remains authoritative for the AD zone. Only these explicitly listed
-    # RRsets are reconciled; Samba-generated AD/Kerberos records are untouched.
-    records:
-      - { zone: ad.ddupan.top, name: incus, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: bao, type: A, values: [192.168.10.8] }
-      - { zone: ad.ddupan.top, name: pve1, type: A, values: [192.168.10.4] }
-      - { zone: ad.ddupan.top, name: pve2, type: A, values: [192.168.10.7] }
-      - { zone: ad.ddupan.top, name: pve3, type: A, values: [192.168.10.9] }
-      - { zone: ad.ddupan.top, name: retrolab, type: A, values: [10.60.0.10] }
-      - { zone: ad.ddupan.top, name: grafana, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: metrics-write, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: nats, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: nexus, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: s3, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: zot, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: zot-push, type: A, values: [192.168.10.127] }
-
-      - { zone: ad.ddupan.top, name: backstage, type: A, values: [192.168.10.127] }
-      # Poweradmin UI for PowerDNS; moves to dns.lab.ddupan.top with the other services.
-      - { zone: ad.ddupan.top, name: dns, type: A, values: [192.168.10.127] }
-      - { zone: ad.ddupan.top, name: pg-prod, type: A, values: [192.168.10.2] }
-      - { zone: ad.ddupan.top, name: pg-dev, type: A, values: [192.168.10.127] }
-
-    # Deleted from AD (state: absent) by the samba_ad_dc role. Kept as tombstones so a
-    # rerun stays a no-op and the names cannot creep back. These hosts live in
-    # lab.ddupan.top (PowerDNS, registered by their owners); nothing connects to them by their ad name —
-    # kube-apiserver and Bao auth use IPs (checked 2026-10-05).
-    retired:
-      - { zone: ad.ddupan.top, name: ayatori-dev, type: A }
-      - { zone: ad.ddupan.top, name: ayatori-prod, type: A }
-      - { zone: ad.ddupan.top, name: sandbox1, type: A }
-      - { zone: ad.ddupan.top, name: sandbox2, type: A }
-      - { zone: ad.ddupan.top, name: sandbox-k8s, type: A }
-      # Every agent moved to spire-server.lab (sandbox, Kata runners, LXC 104), 2026-10-05.
-      - { zone: ad.ddupan.top, name: spire-server, type: A }
-      # SPIRE JWT issuer moved to spire-oidc.lab (platform/spire/README.md), 2026-10-09.
-      - { zone: ad.ddupan.top, name: spire-oidc, type: A }
-
   split_horizon:
     # backends records the current adoption boundary. obj is deliberately not
     # emitted to CoreDNS yet, preserving the current pod resolver behaviour.

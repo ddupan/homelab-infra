@@ -1,4 +1,15 @@
 ---
+# A name both managed and retired would be created and deleted on every run.
+# Compared by name, not RRset: everything listed here is an A record.
+- name: Check no name is both managed and retired
+  ansible.builtin.assert:
+    that: both | length == 0
+    fail_msg: "AD names both managed and retired: {{ both }}"
+    quiet: true
+  vars:
+    both: "{{ samba_ad_dns_records | map(attribute='name') | intersect(samba_ad_dns_retired | map(attribute='name')) }}"
+  tags: [dns]
+
 - name: Reconcile explicitly managed AD DNS RRsets
   ddupan.homelab.samba_dns_record:
     server: "{{ samba_ad_dc_ip }}"
@@ -8,7 +19,7 @@
     values: "{{ item['values'] }}"
     state: present
     exact: true
-  loop: "{{ homelab_dns.samba.records }}"
+  loop: "{{ samba_ad_dns_records }}"
   loop_control:
     label: "{{ item['name'] }}.{{ item['zone'] }} {{ item['type'] }}"
   tags: [dns]
@@ -20,7 +31,7 @@
     name: "{{ item['name'] }}"
     type: "{{ item['type'] }}"
     state: absent
-  loop: "{{ homelab_dns.samba.retired | default([]) }}"
+  loop: "{{ samba_ad_dns_retired }}"
   loop_control:
     label: "{{ item['name'] }}.{{ item['zone'] }} {{ item['type'] }}"
   tags: [dns]

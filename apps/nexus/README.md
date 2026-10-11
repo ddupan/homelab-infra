@@ -42,7 +42,7 @@ kubectl -n nexus logs deployment/nexus --tail=100
 启动可能需要数分钟，startup probe 允许最多十分钟。不要因初次启动较慢反复删除 Pod；
 先确认 PVC 已 Bound、Pod 没有 OOM，以及日志仍在推进。
 
-DNS 期望状态已加入 `infrastructure/dns/records.yml`，需从 Samba AD Ansible root 以
+DNS 期望状态已加入 `infrastructure/samba-ad/ansible/group_vars/all/dns.yml`，需从 Samba AD Ansible root 以
 `--check --diff` 核对后再按其 README 应用 DNS tag。没有 DNS 时可先用 port-forward
 验证应用，但不能据此宣称 Gateway 路径已通过。
 

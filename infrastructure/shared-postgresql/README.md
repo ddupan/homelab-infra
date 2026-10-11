@@ -67,7 +67,7 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 4. `site.yml` 写入实例配置和证书；不初始化、不自动重启。`backup.yml` 建立专属仓库与 SSH 传输。
 5. `bootstrap.yml -e pg_allow_initialize=true` 显式初始化空目录，先 laptop 后 standby；未知数据不接管。
 6. `bootstrap-backup.yml` 验证 WAL 与首备成功后启用每日 timer；`proxy.yml` 要求唯一 primary 才发布入口。
-7. DNS 由 `infrastructure/dns/records.yml` 与 Samba `provision-dc.yml --tags dns` 管理。
+7. DNS 由 `infrastructure/samba-ad/ansible/group_vars/all/dns.yml` 与 Samba `provision-dc.yml --tags dns` 管理。
 8. `controller.yml` 安装 PG 证书每日续签调度，预检通过才启用。
 9. `monitoring.yml` 激活 SQL 指标：先由 `site.yml` 写入模板，再执行本 play。它只在配置未生效时
    向 Patroni 发 HUP、对 pending 成员 `patronictl restart --pending`（primary 原位重启，不 failover，

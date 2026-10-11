@@ -11,7 +11,7 @@
 ```
 
 - 公网：Cloudflare tunnel 直达 Service（`infrastructure/cloudflared/terraform/main.tf`），
-  DNS 由 `infrastructure/dns/records.yml` 生成。
+  CNAME 与 tunnel 路由同在该文件。
 - LAN 与 Pod：split horizon 解析到 Envoy `https-sso` listener，证书
   `platform/cert-manager/certificate-sso-ddupan.yaml`。Gitea 换 token 与启动时取 discovery 都不经 WAN。
 - TLS 在 Envoy 或 Cloudflare 终止，应用信任两者的 `X-Forwarded-Proto`；NetworkPolicy 只放行这两个 namespace。
