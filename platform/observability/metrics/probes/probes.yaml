@@ -20,7 +20,6 @@ spec:
       labels:
         probe_group: lan
       static:
-        - https://auth.ddupan.top/api/health
         - https://backstage.lab.ddupan.top/.backstage/health/v1/readiness
         - https://git.ddupan.top/api/healthz
         - https://incus.lab.ddupan.top/1.0
@@ -166,7 +165,7 @@ spec:
         - 192.168.10.5:88
         - 192.168.10.5:389
 ---
-# LDAPS：Authelia、PVE AD realm 等都靠它；同时监控证书到期（bao ACME 证书约 32 天，
+# LDAPS：iam-login、PVE AD realm 等都靠它；同时监控证书到期（bao ACME 证书约 32 天，
 # samba-acme.timer 在剩 10 天时续期）。
 apiVersion: monitoring.coreos.com/v1
 kind: Probe

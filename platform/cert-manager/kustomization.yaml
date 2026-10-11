@@ -17,6 +17,5 @@ resources:
   - clusterissuer-bao-acme.yaml
   - certificate-wildcard-ad.yaml
   - certificate-wildcard-lab.yaml
-  - certificate-auth-ddupan.yaml
   - certificate-git-ddupan.yaml
   - certificate-sso-ddupan.yaml

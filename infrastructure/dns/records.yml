@@ -9,7 +9,6 @@ homelab_dns:
     # emitted to CoreDNS yet, preserving the current pod resolver behaviour.
     records:
       - { name: git.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
-      - { name: auth.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: sso.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: obj.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky] }
 

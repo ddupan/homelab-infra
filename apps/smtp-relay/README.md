@@ -6,7 +6,7 @@ to Exchange Online with **OAuth2 (XOAUTH2)** via [`mauroreggio/postfix-365`], wh
 SMTP (app passwords) is being retired by Microsoft; this is the modern replacement.
 
 ```
-Authelia / Gitea / … ──plain SMTP :25 (in-cluster, no auth)──▶ smtp-relay ──587 STARTTLS + XOAUTH2──▶ smtp.office365.com
+Gitea / … ──plain SMTP :25 (in-cluster, no auth)──▶ smtp-relay ──587 STARTTLS + XOAUTH2──▶ smtp.office365.com
 ```
 
 Reach it at: `smtp-relay.smtp-relay.svc.cluster.local:25`. Sends **as** `noreply@ddupan.top`.
@@ -98,10 +98,9 @@ kubectl exec -n smtp-relay $POD -- tail -n 40 /var/log/maillog   # look for "sta
 
 ## Step 5 — Point apps at it
 
-- **Authelia** — replace the filesystem notifier with SMTP in `../authelia/values.yaml`:
-  address `smtp://smtp-relay.smtp-relay.svc.cluster.local:25`, sender `noreply@ddupan.top`,
-  `disable_require_tls: true` (plain in-cluster hop). 2FA enrollment codes then go to real email.
-- Any future app: same address, **From = `noreply@ddupan.top`** (O365 rejects other senders
+- **Gitea** — `mailer` in `../gitea/gitea-values.yaml` (plain SMTP, port 25).
+- Any future app: address `smtp-relay.smtp-relay.svc.cluster.local:25`, no TLS (plain
+  in-cluster hop), **From = `noreply@ddupan.top`** (O365 rejects other senders
   with `5.7.60` unless a send-as alias is configured in Exchange).
 
 ## Deliverability (keep mail out of Junk)

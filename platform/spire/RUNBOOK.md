@@ -35,7 +35,7 @@ SPIRE Server（trust domain: ddupan.top）
 - SPIRE 负责 workload 身份、证明和 SVID 签发，不保存业务 secret；
 - OpenBao 验证 JWT-SVID，并把身份映射为本地 policy；
 - 目标服务最终仍负责自己的资源授权，SPIFFE ID 本身不等于权限；
-- 人类身份继续使用 Samba AD + Authelia OIDC，不经过 `jwt-spire`。
+- 人类身份继续使用 Samba AD + iam-login OIDC，不经过 `jwt-spire`。
 
 ## 2. 线上对象与稳定标识
 
@@ -366,7 +366,7 @@ Workload API，而不是假设 Pod 一启动身份就已可用。
 - JWT `sub` 与 role 的 `bound_claims.sub` 不完全一致；
 - issuer 与 `bound_issuer` 不一致；
 - Bao 无法解析或验证 `spire-oidc.lab.ddupan.top`；
-- issuer/JWKS route 被 Authelia forward-auth 拦截；
+- issuer/JWKS route 被要求登录的认证代理拦截；
 - SVID 已过期，或者节点与 Bao 时钟偏差过大；
 - 脚本错误解析 CLI JSON，向 Bao 发送了空 JWT。
 

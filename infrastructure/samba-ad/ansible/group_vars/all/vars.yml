@@ -34,7 +34,8 @@ samba_ad_admin_password: "{{ vault_samba_ad_admin_password }}"
 win_domain_admin_password: "{{ vault_samba_ad_admin_password }}"
 
 # --- Service accounts for apps that BIND to LDAP (passwords in vault.yml) ---
-# Previously created by hand (svc-authelia); codified so a DC rebuild restores them.
+# The first (svc-authelia, for the since-retired Authelia) was made by hand; codified so
+# a DC rebuild restores them.
 samba_ad_service_accounts:
   - name: svc-pve
     password: "{{ vault_pve_bind_password }}"

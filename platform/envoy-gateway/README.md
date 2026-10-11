@@ -1,8 +1,7 @@
-# Envoy Gateway — LAN ingress + Authelia forward-auth
+# Envoy Gateway — LAN ingress
 
-The cluster's HTTP entry point for services on `ad.ddupan.top`, and the enforcement
-point for Authelia authentication. Envoy's LoadBalancer holds **192.168.10.127** (k3s
-ServiceLB); routing is by `Host` header.
+The cluster's HTTP entry point for services on `ad.ddupan.top`. Envoy's LoadBalancer
+holds **192.168.10.127** (k3s ServiceLB); routing is by `Host` header.
 
 - Chart: `oci://docker.io/envoyproxy/gateway-helm` **v1.5.6**, ns `envoy-gateway-system`
 - `gateway.yaml` — `GatewayClass eg` + `Gateway eg` (`:80` plaintext, `:443` wildcard TLS)
@@ -14,8 +13,7 @@ ServiceLB); routing is by `Host` header.
 1. an `HTTPRoute` with `parentRefs` → `eg` / `envoy-gateway-system`, `sectionName: https`
 2. DNS: attach the route to the `https-lab` listener as well and external-dns publishes
    `<name>.lab.ddupan.top` by itself. Do not add new `ad.ddupan.top` names.
-3. **optionally** a `SecurityPolicy` for Authelia forward-auth — templates in `examples/`
-4. **a health probe**: add the service's health endpoint (one that answers `200` without a
+3. **a health probe**: add the service's health endpoint (one that answers `200` without a
    redirect — not `/` if that bounces to a login page) to `lan-https` in
    `../observability/metrics/probes/probes.yaml`. Without it, nothing notices when the route
    or backend breaks, and `LanEndpointDown` has no target. Check it first with the in-cluster
@@ -26,66 +24,20 @@ ServiceLB); routing is by `Host` header.
    (Hydra, 2026-10-05).
 
 No certificate work: the `:443` listener already serves the `*.ad.ddupan.top` wildcard
-from `../cert-manager`. The forward-auth templates in `examples/` were extracted from
-NetBox (retired 2026-10-04), the only app that used them.
+from `../cert-manager`.
+
+No authentication either: the Gateway has no forward-auth. An app that needs login or
+AD-group access control does it itself, as an OIDC client of iam-login
+(`../../apps/iam-login/`, `sso.ddupan.top`). The Authelia forward-auth that used to
+live here went with Authelia's retirement (2026-10-11).
 
 ## Why not Contour
 
-Contour worked as an ingress, but supports **only the gRPC** Envoy ext_authz protocol —
-*"Only the Envoy GRPC authorization protocol will be supported"* (Contour 1.33 docs).
-Authelia implements the **HTTP** ExtAuthz filter. The two cannot meet, so Authelia
-forward-auth was impossible.
-
-That mattered because **NetBox has no SSO group→role mapping** — its group/superuser
-mapping is LDAP-only, and the OIDC pipeline can only assign one static group. Without
-forward-auth the options were "promote every user by hand" or "drop SSO and use LDAP,
-losing 2FA". Envoy Gateway's `SecurityPolicy.extAuth.http` removes the dilemma.
-
-Envoy Gateway was chosen over Traefik because everything already built — Gateway,
-HTTPRoute, wildcard cert, DNS — is Gateway API, so only the GatewayClass and controller
-changed. Traefik would have meant reverting to `IngressRoute` + `Middleware`.
-
-## Forward-auth: how it fits together
-
-```
-browser ──▶ Envoy ──(ext_authz HTTP)──▶ Authelia ──▶ 200 + Remote-* headers
-                │                             └──▶ 401 ⇒ 302 to auth.ddupan.top
-                └──▶ upstream app (headers attached)
-```
-
-Pieces, each in the directory that owns it:
-
-| where | what |
-|---|---|
-| `examples/securitypolicy-forward-auth.yaml` | `SecurityPolicy` targeting the app's HTTPRoute |
-| `examples/referencegrant-extauth.yaml` (apply in `authelia`) | lets a SecurityPolicy in another namespace reference the Authelia Service |
-| `../../apps/authelia/values.yaml` | `server.endpoints.authz.ext-authz` + an `access_control` rule |
-| `examples/networkpolicy-gateway-only.yaml` | stops anything bypassing Envoy to reach the app directly |
-
-### Three details that cost time
-
-- **`headersToBackend` lives under `extAuth.http`, not `extAuth`.** One level up the API
-  rejects it: `unknown field "spec.extAuth.headersToBackend"`.
-- **`backendRefs.port` is the SERVICE port, not the container port.** The Authelia chart
-  publishes `80 → targetPort http (9091)`; using `9091` fails with
-  `TCP Port 9091 not found on service authelia/authelia`.
-- **Authelia's session cookie is scoped to `ddupan.top`**, which already covers
-  `*.ad.ddupan.top` — so SSO works across both without touching the cookie config.
-
-### ⚠ Trust boundary
-
-Apps behind forward-auth trust `Remote-*` headers. Two things make that safe and **both**
-must remain true:
-
-1. `headersToBackend` **overrides** any client-supplied value ("coexisting headers will be
-   overridden"), so a spoofed `Remote-User` cannot survive the hop through Envoy.
-2. A `NetworkPolicy` per app restricts pod ingress to `envoy-gateway-system`, so nothing
-   in-cluster can bypass Envoy. k3s enforces NetworkPolicy (kube-router), so this is real.
-
-Verified by test: a pod in `default` sending `Remote-User: admin` to the app Service gets
-**connection refused**, while the same request from `envoy-gateway-system` is served.
-Also set `failOpen: false` — if Authelia is down, refuse traffic rather than admit
-unauthenticated requests to an app whose auth model is "trust the header".
+Contour supports **only the gRPC** Envoy ext_authz protocol, while the forward-auth
+target at the time (Authelia, since retired) spoke only HTTP ExtAuthz — so the 2026-07-25
+switch was made for forward-auth. That reason is gone; Envoy Gateway stays because
+everything already built — Gateway, HTTPRoute, wildcard cert, DNS — is Gateway API, and
+Traefik would have meant reverting to `IngressRoute` + `Middleware`.
 
 ## Install
 
@@ -129,7 +81,6 @@ the previous controller's Service is gone.
 ```bash
 kubectl -n envoy-gateway-system get gateway eg          # PROGRAMMED=True, ADDRESS 192.168.10.127
 kubectl -n envoy-gateway-system get pods                # envoy-... 2/2
-kubectl -n <ns> get securitypolicy                      # Accepted=True
 curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.127/    # 404 = serving, no route matched
 ```
 

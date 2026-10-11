@@ -5,7 +5,7 @@
 # group SYNC (pveum realm sync), so permissions can be granted to a group BEFORE
 # anyone logs in, and username+password works for the API/CLI (Terraform,
 # pvesh). PVE's OIDC realm only creates users on first browser login and cannot
-# do non-interactive auth. Authelia OIDC can be added later as an EXTRA realm
+# do non-interactive auth. iam-login OIDC can be added later as an EXTRA realm
 # for convenient SSO; it is not a replacement.
 
 pve_auth_realm: ad                     # users appear as <user>@ad

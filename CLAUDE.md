@@ -232,10 +232,9 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 - `platform/envoy-gateway/` — **the LAN ingress**. Gateway API; Envoy holds 192.168.10.127 and
   routes `*.ad.ddupan.top` by Host header. Adding a service = an `HTTPRoute` (external-dns
   publishes its `*.lab.ddupan.top` name; no new `ad.ddupan.top` records) + a health probe in `platform/observability/metrics/probes/probes.yaml`
-  (and removing one = deleting its probe); no cert work (see `platform/cert-manager/`). Authelia forward-auth is
-  available per-route via a `SecurityPolicy` — `platform/envoy-gateway/examples/` holds the worked
-  example, and it is what makes AD-group→role mapping possible for apps whose own SSO
-  cannot do it.
+  (and removing one = deleting its probe); no cert work (see `platform/cert-manager/`). There is **no
+  forward-auth** at the Gateway (it went with Authelia): an app needing login or AD-group→role
+  mapping must do it itself as an OIDC client of iam-login.
 - `platform/cert-manager/` — two ClusterIssuers: `letsencrypt` (DNS-01 via Cloudflare) and
   `bao-acme` (OpenBao internal PKI). One `*.ad.ddupan.top` wildcard serves every LAN
   service, deliberately, so per-host names stay out of Certificate Transparency logs.
@@ -249,4 +248,5 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   code creates (bare metal, hand-built VMs, VIPs) go in `infrastructure/dns/terraform/hosts.tf`.
   Do not recentralise records into one file "for overview" — that was the AD-era compromise
   dismantled 2026-10-09; the same rule is why there is no `terraform_remote_state` anywhere.
-- `archive/keycloak/` and `archive/casdoor/` are retired IdP experiments; Authelia is the only identity stack.
+- `archive/keycloak/` and `archive/casdoor/` are retired IdP experiments; **iam-login** (`apps/iam-login/`, `sso.ddupan.top`) is the
+  identity stack. Authelia (`auth.ddupan.top`) was retired 2026-10-11.

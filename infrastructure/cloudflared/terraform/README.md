@@ -6,7 +6,8 @@ ingress config is authoritative **at Cloudflare's edge**, not the in-cluster `co
 
 - `cloudflare_zero_trust_tunnel_cloudflared_config.main` — the tunnel's full ingress list
   (all public hostnames → in-cluster services). First match wins; `http_status:404` stays last.
-- `cloudflare_dns_record.auth` — proxied CNAME `auth.ddupan.top → <tunnel>.cfargotunnel.com`.
+- `cloudflare_dns_record.tunnel[<host>]` — one proxied CNAME `<host> → <tunnel>.cfargotunnel.com`
+  per ingress hostname, derived from the same list.
 
 > The `../cloudflared/cloudflared.yaml` `config.yml` ingress is now cosmetic. Either keep it
 > in sync for documentation, or drop `TUNNEL_TOKEN` to make it authoritative instead — but
@@ -31,14 +32,14 @@ ingress config is authoritative **at Cloudflare's edge**, not the in-cluster `co
    # tunnel config singleton:
    terraform import cloudflare_zero_trust_tunnel_cloudflared_config.main \
      65bf9ede92caa915f992fdf3d1e7b2f1/ff392451-b0b1-45bb-964e-6d9372c3a9e3
-   # the auth DNS record (get its id from the API, then):
-   terraform import cloudflare_dns_record.auth $TF_VAR_zone_id/<record_id>
+   # each existing hostname's DNS record (get its id from the API, then):
+   terraform import 'cloudflare_dns_record.tunnel["<host>"]' $TF_VAR_zone_id/<record_id>
    ```
 
 ## Apply
 
 ```bash
-terraform plan     # should show only auth.ddupan.top being added to ingress
+terraform plan     # review: only the hostnames you changed should move
 terraform apply
 ```
 

@@ -2,7 +2,7 @@
 # LDAPS certificate for the DC, auto-renewed from OpenBao's internal ACME.
 #
 # WHY: the first bao-issued LDAPS cert (2026-07-25) was placed by hand and expires
-# 2027-07-25 with nothing to renew it. If it lapses, Authelia loses its LDAPS
+# 2027-07-25 with nothing to renew it. If it lapses, iam-login loses its LDAPS
 # backend and every SSO consumer (Gitea, Grafana, OpenBao's own OIDC login) fails
 # at once — a year later, with no memory of how it got there.
 

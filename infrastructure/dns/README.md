@@ -79,7 +79,7 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
 尚无对应覆盖。本阶段不改变线上语义；后续验证 Pod 侧入口后再加入 `coredns`。
 
 CoreDNS split-horizon 的原因是避免集群内请求经 Cloudflare 公网绕回同一个集群。尤其 Gitea
-启动时会访问 Authelia discovery URL，公网路径故障曾令其启动失败；生成块仍返回相同 LAN A
+启动时会访问 OIDC discovery URL（当时为 Authelia，现为 iam-login），公网路径故障曾令其启动失败；生成块仍返回相同 LAN A
 记录，并对 AAAA 返回 NOERROR/no-data。
 
 ## 服务名迁移：`*.ad.ddupan.top` → `*.lab.ddupan.top`

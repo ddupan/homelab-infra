@@ -27,7 +27,7 @@
 - name: Install the sender rewrite map
   # M365 authenticates as {{ pve_mail_from }} and rejects any other From with
   # 5.7.60 SendAsDenied. Node mail is generated as root@<fqdn>, so every local
-  # sender must be rewritten. In-cluster apps (Authelia, Gitea) never hit this
+  # sender must be rewritten. In-cluster apps (Gitea) never hit this
   # because they already send as noreply@.
   ansible.builtin.copy:
     dest: /etc/postfix/sender_canonical

@@ -7,7 +7,7 @@
 #     out of the box" buys nothing and the internal CA is already distributed
 #
 # COST: clients must trust the ddupan.top internal CA. Already true for the PVE
-# nodes (pve_ca_trust), Authelia, and the DC — generally NOT true of a fresh browser.
+# nodes (pve_ca_trust), iam-login, and the DC — generally NOT true of a fresh browser.
 #
 # Verified 2026-07-25:
 #   * directory live, "externalAccountRequired": false  -> no EAB stanza needed,
