@@ -12,12 +12,12 @@
       "version": "0.3.1",
       "identifier": "fd3206fc7ae68d02817576e3cfcd2a090b4aef15",
       "dotted_decimal_identifier": "71268174694901389.705291459219405.46218332532501",
-      "cache_key": "homelab_base-5fd4320f5845c290d83b8f6eab771bd981a49910",
+      "cache_key": "homelab_base-dacdd57d443cbe22b46a4b6bc183bdc365009684",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "5fd4320f5845c290d83b8f6eab771bd981a49910",
-        "branch": "fix/artifact-cache",
+        "revision": "dacdd57d443cbe22b46a4b6bc183bdc365009684",
+        "tag": "v0.3.1",
         "rel": "cookbooks/homelab_base"
       }
     }
