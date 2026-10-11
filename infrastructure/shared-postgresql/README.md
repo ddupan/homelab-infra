@@ -88,12 +88,12 @@ laptop 重启、或停掉 `homelab-postgresql-prod` 时，Patroni 会自动把�
 15 分钟后触发 `SharedPostgresPrimaryOnStandbyHost`。在 laptop 上回切：
 
 ```bash
-infrastructure/shared-postgresql/switchover.sh          # 预检：唯一 Leader、候选 streaming、同一时间线、落后 ≤ 1 MiB
-infrastructure/shared-postgresql/switchover.sh --run    # 执行并等待候选成为 primary、其余成员恢复 streaming
+infrastructure/shared-postgresql/switchover.py          # 预检：唯一 Leader、候选 streaming、同一时间线、落后 ≤ 1 MiB
+infrastructure/shared-postgresql/switchover.py --run    # 执行并等待候选成为 primary、其余成员恢复 streaming
 ```
 
 生产写入会中断数秒（2026-09-25 演练约 9 秒），入口代理跟随 Patroni `/primary`，客户端无需改配置。
-计划内维护 laptop 前也可先 `CANDIDATE=pg-pve1 ... --run` 主动切走，避免非计划 failover。
+计划内维护 laptop 前也可先 `switchover.py --candidate pg-pve1 --run` 主动切走，避免非计划 failover。
 
 ## 备份与恢复
 
