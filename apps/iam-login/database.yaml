@@ -29,8 +29,8 @@ spec:
           serviceAccountRef:
             name: 'iam-login-database'
 ---
-# Pinned to the confirmed credentialVersion from the Tenant status, as Ayatori recommends:
-# a re-issued credential is a deliberate bump here, not a silent change under a running pod.
+# Reads the latest version: only Ayatori writes this path, and every version it writes is usable
+# (an endpoint change re-issues the same password with the new host). Pods pick it up on restart.
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -54,4 +54,3 @@ spec:
   dataFrom:
     - extract:
         key: ayatori/prod/applications/2665d345-adbe-4f44-9fc7-ef8dd701468e
-        version: '1'
