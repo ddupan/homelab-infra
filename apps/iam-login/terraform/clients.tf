@@ -88,6 +88,13 @@ resource "vault_jwt_auth_backend" "sso" {
   tune {
     listing_visibility = "unauth"
   }
+
+  # The vault provider (4.8) reads tune back empty for this resource, so every plan would set it again although
+  # it is applied (sys/internal/ui/mounts lists oidc-sso unauthenticated). To change tune, drop this line for
+  # that apply.
+  lifecycle {
+    ignore_changes = [tune]
+  }
 }
 
 # auth/oidc's admin role (infrastructure/openbao/terraform/auth.tf), granted to platform-admins rather than the
