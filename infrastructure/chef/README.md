@@ -36,6 +36,19 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/policies:/p" -w /p 
 play 只从**已提交的 lock** 导出，不会重新解析版本。工具链用 Cinc Workstation 容器，laptop
 不需要 Ruby。
 
+## SPIRE agent（每个节点）
+
+`homelab_base` 安装 SPIRE agent，以 **x509pop** 向 `spire-server.lab.ddupan.top` 证明。节点证书来自
+Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<hostname>.lab.ddupan.top`。
+
+- **首次 enrollment 由本 play 完成**（证书不存在时）：检查 lab 名解析到本机 → 从 Server 导出
+  bootstrap bundle → 用操作者的 Bao token 铸**一次性 EAB** → 只经环境变量交给节点上的
+  `spire-node-cert` → 启动 agent 并等 healthcheck。需要 `BAO_TOKEN`（laptop 上 SPIFFE
+  `local-development` 登录即可）；此后的运行都不需要任何 token。
+- **续期**：节点上的 `spire-node-cert.timer` 每天运行 `lego run`（剩 30 天时续期），不需要 EAB。
+- workload entry 一律挂在 node alias `spiffe://ddupan.top/node/<名字>` 下（`platform/spire/spire-node-aliases.yaml`），
+  不要挂 agent ID：它包含证书指纹，每次续期都会变。新节点要在那里加一个 alias。
+
 ## 节点
 
 | 节点 | policy | 加入日期 |
