@@ -19,6 +19,29 @@
   register: bao_vm_dominfo
   changed_when: false
   failed_when: false
+  check_mode: false
+
+# virt-aa-helper does not add a passthrough TPM to the per-domain AppArmor profile, so
+# QEMU's I/O on the fd libvirt hands it is refused and the domain fails to start with
+# "'/dev/fdset/0' is not a TPM device" (verified 2026-10-11: starts fine with seclabel
+# none or as bare QEMU). The libvirt-qemu.d drop-in dir is the supported extension point;
+# it is read when a domain's profile is generated, i.e. at its next start.
+- name: Allow QEMU to use the passthrough TPM under AppArmor
+  when: bao_vm_tpm_passthrough
+  block:
+    - name: Ensure the libvirt-qemu abstraction drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/apparmor.d/abstractions/libvirt-qemu.d
+        state: directory
+        mode: "0755"
+
+    - name: Grant the TPM device in the libvirt-qemu abstraction
+      ansible.builtin.copy:
+        dest: /etc/apparmor.d/abstractions/libvirt-qemu.d/tpm-passthrough
+        mode: "0644"
+        content: |
+          # Managed by Ansible (openbao bao_vm role): TPM passthrough for {{ bao_vm_name }}.
+          {{ bao_vm_tpm_device }} rw,
 
 - name: Create the VM
   when: bao_vm_dominfo.rc != 0
@@ -101,8 +124,30 @@
           --disk path={{ bao_vm_images_dir }}/{{ bao_vm_name }}-seed.iso,device=cdrom
           --network bridge={{ bao_vm_bridge }},model=virtio
           --graphics none --noautoconsole --import
+          {{ '--tpm backend.type=passthrough,backend.device.path=' ~ bao_vm_tpm_device ~ ',model=tpm-crb'
+             if bao_vm_tpm_passthrough else '' }}
       register: virt_install
       changed_when: true
+
+# The create block only runs for a new domain, so an existing one is reconciled here.
+# virt-xml edits the persistent definition only; a running guest keeps its current
+# hardware until it is powered off and started again (a guest reboot is not enough).
+- name: Read the persistent domain definition
+  ansible.builtin.command: "virsh dumpxml --inactive {{ bao_vm_name }}"
+  register: bao_vm_xml
+  changed_when: false
+  check_mode: false
+  when: bao_vm_tpm_passthrough
+
+- name: Add the passthrough TPM to the existing domain
+  ansible.builtin.command:
+    cmd: >-
+      virt-xml {{ bao_vm_name }} --add-device
+      --tpm backend.type=passthrough,backend.device.path={{ bao_vm_tpm_device }},model=tpm-crb
+  when:
+    - bao_vm_tpm_passthrough
+    - "'<tpm ' not in bao_vm_xml.stdout"
+  changed_when: true
 
 - name: Wait for SSH on the new bao host
   ansible.builtin.wait_for:
