@@ -14,11 +14,15 @@
       ansible.builtin.import_role:
         name: pg_packages
         tasks_from: repository
-    - name: 安装备份工具（不安装数据库）
+    - name: 安装 SSH 客户端
       ansible.builtin.apt:
-        name: [pgbackrest, openssh-client]
+        name: openssh-client
         state: present
         install_recommends: false
+    - name: 安装与数据库主机同版本的 pgBackRest
+      ansible.builtin.import_role:
+        name: pg_packages
+        tasks_from: pgbackrest
     - name: 创建仓库组
       ansible.builtin.group:
         name: pgbackup
@@ -71,6 +75,8 @@
         argv: [ssh-keygen, -y, -f, "{{ pg_transport_home }}/.ssh/id_ed25519"]
       register: pg_transport_key
       changed_when: false
+      # 只读；否则 --check 跳过它，后续公钥与 authorized_keys 的 diff 全显示为"清空"。
+      check_mode: false
     - name: 保存对应公钥
       ansible.builtin.copy:
         content: "{{ pg_transport_key.stdout }}\n"

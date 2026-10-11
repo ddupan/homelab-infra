@@ -1,0 +1,13 @@
+---
+# 数据库主机（main.yml）与仓库主机（backup.yml）共用，保证版本一致；原因见 group_vars 的
+# pg_pgbackrest_version。先装指定版本（允许改动已 hold 的包），再 hold。
+- name: 安装固定版本的 pgBackRest
+  ansible.builtin.apt:
+    name: "pgbackrest={{ pg_pgbackrest_version }}"
+    state: present
+    install_recommends: false
+    allow_change_held_packages: true
+- name: 阻止 apt upgrade 单独升级 pgBackRest
+  ansible.builtin.dpkg_selections:
+    name: pgbackrest
+    selection: hold
