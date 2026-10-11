@@ -33,6 +33,8 @@
       ansible.builtin.file:
         path: /etc/postgresql-common/createcluster.d/90-homelab-no-auto.conf
         state: absent
+- name: 固定 pgBackRest 版本
+  ansible.builtin.import_tasks: pgbackrest.yml
 - name: 在独立 venv 安装固定 Patroni 版本
   ansible.builtin.pip:
     name: 'patroni[etcd3,psycopg3]=={{ pg_patroni_version }}'
