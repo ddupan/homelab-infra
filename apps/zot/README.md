@@ -1,7 +1,7 @@
 # zot OCI Registry
 
-内网匿名拉取入口为 `https://zot.ad.ddupan.top`，SPIRE 鉴权推送入口为
-`https://zot-push.ad.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
+内网匿名拉取入口为 `https://zot.lab.ddupan.top`，SPIRE 鉴权推送入口为
+`https://zot-push.lab.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
 zot `v2.1.21`，镜像固定到官方 linux/amd64 digest。
 
 ## 当前工作状态（2026-09-16 核验）
@@ -67,7 +67,7 @@ Terraform 的 `tfstate` bucket。`kv/k8s/zot-s3` 的字段是 `access_key` 和
 | issuer | `https://spire-oidc.lab.ddupan.top` |
 | JWT audience | `zot` |
 | subject | `spiffe://ddupan.top/` 下的 workload SPIFFE ID |
-| token endpoint | `https://zot-push.ad.ddupan.top/zot/auth/token` |
+| token endpoint | `https://zot-push.lab.ddupan.top/zot/auth/token` |
 | 拉取入口 | 内网匿名读取所有仓库，不要求 SPIRE 身份 |
 | 推送入口当前权限 | 受信身份可以读取所有仓库；没有常驻写入或删除授权 |
 
@@ -84,13 +84,13 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
   `anonymousPolicy: [read]`。入口只转发 `/v2/` 的 GET/HEAD，并移除客户端遗留的
   Authorization/Cookie；直接访问 reader Service 也不能写入。
 - `zot` 保留 SPIRE issuer/audience/subject 校验及仓库授权，`externalUrl`、
-  Bearer realm、service 与 HTTPRoute 均使用 `zot-push.ad.ddupan.top`。
+  Bearer realm、service 使用 `zot-push.lab.ddupan.top`；HTTPRoute 同时挂 ad 与 lab 两个名字。
 - reader 关闭 GC，没有同步或扫描扩展；读取同一份 S3 制品，不复制 bucket，
   不新增 PVC 或 S3 密钥。镜像、安全上下文、资源和 Secret 引用由共用 values 继承。
 - 两个配置的 `storageDriver` 必须保持一致；修改 S3 endpoint/bucket/prefix 时
   同时更新 `values.yaml` 与 `reader-values.yaml`。
 
-推送客户端应登录 `zot-push.ad.ddupan.top`；拉取客户端无需登录。
+推送客户端应登录 `zot-push.lab.ddupan.top`；拉取客户端无需登录。
 已有 SPIRE 身份的进程可以通过 Workload API 获取 `aud=zot` 的 JWT-SVID，然后
 通过 `docker login` 或 `crane auth login` 的 `--password-stdin` 交给 Registry。
 用户名可以使用 `zot`，实际权限取自已验证 JWT 的身份。使用独立、权限为 `0700`
@@ -98,8 +98,8 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
 不要把 token 放进命令参数。token 接口不会延长 SVID 有效期。
 
 同一仓库在两个入口使用相同路径和 tag/digest，例如 CI 推送到
-`zot-push.ad.ddupan.top/team/image:tag`，部署时使用
-`zot.ad.ddupan.top/team/image:tag`；无需在两个仓库间复制。
+`zot-push.lab.ddupan.top/team/image:tag`，部署时使用
+`zot.lab.ddupan.top/team/image:tag`；无需在两个仓库间复制。
 
 ## 部署与网络
 
@@ -167,7 +167,7 @@ reader Service 直连也拒绝写入。测试完成后撤回临时单仓库写�
 匿名拉取示例：
 
 ```bash
-crane pull zot.ad.ddupan.top/verification/anonymous-spire:smoke image.tar --format oci
+crane pull zot.lab.ddupan.top/verification/anonymous-spire:smoke image.tar --format oci
 ```
 
 鉴权推送示例（先通过 Workload API 将短期 JWT-SVID 保存到当前进程的 `ZOT_JWT`，
@@ -175,9 +175,9 @@ crane pull zot.ad.ddupan.top/verification/anonymous-spire:smoke image.tar --form
 
 ```bash
 export DOCKER_CONFIG="$(mktemp -d)"
-printf '%s' "$ZOT_JWT" | crane auth login zot-push.ad.ddupan.top \
+printf '%s' "$ZOT_JWT" | crane auth login zot-push.lab.ddupan.top \
   --username zot --password-stdin
-crane push image.tar zot-push.ad.ddupan.top/team/image:tag
+crane push image.tar zot-push.lab.ddupan.top/team/image:tag
 rm -rf -- "$DOCKER_CONFIG"
 unset DOCKER_CONFIG ZOT_JWT
 ```
@@ -207,7 +207,7 @@ SeaweedFS 内的数据副本当作独立灾备。重装 zot 不得删除 `zot` b
 | iam-login `scripts/publish-image` | `repo=`、`docker login` |
 | 本仓库 `apps/iam-login/deployment.yaml` | 发版 PR 中的镜像引用 |
 
-全部改完后（`git grep zot.ad.ddupan.top` 只剩历史文档）：把 `values.yaml` 的 `externalUrl`、
-bearer `realm`/`service` 与 `reader-values.yaml` 的 `externalUrl` 改为 lab，探测与 catalog 跟随，
-再从 HTTPRoute 与 Samba（`samba.retired`）移除 ad 名。过渡期以 lab 名推送会被指向 ad 的 token
-realm，两个名字到达同一个 zot，因此可用。
+`externalUrl` 与 bearer `realm`/`service` 已先切到 lab：客户端按 realm URL 取 token、原样回传
+service，所以经 ad 名推送照样可用，而新改过来的发布方不再依赖 ad 名。全部改完后
+（`git grep zot.ad.ddupan.top` 只剩历史文档）：探测与 catalog 跟随，再从 HTTPRoute 与 Samba
+（`samba.retired`）移除 ad 名。

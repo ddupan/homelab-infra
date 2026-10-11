@@ -22,7 +22,7 @@ configFiles:
       "http": {
         "address": "0.0.0.0",
         "port": "5000",
-        "externalUrl": "https://zot.ad.ddupan.top",
+        "externalUrl": "https://zot.lab.ddupan.top",
         "compat": [
           "docker2s2"
         ],

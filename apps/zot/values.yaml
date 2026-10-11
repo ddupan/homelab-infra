@@ -56,14 +56,14 @@ configFiles:
       "http": {
         "address": "0.0.0.0",
         "port": "5000",
-        "externalUrl": "https://zot-push.ad.ddupan.top",
+        "externalUrl": "https://zot-push.lab.ddupan.top",
         "compat": [
           "docker2s2"
         ],
         "auth": {
           "bearer": {
-            "realm": "https://zot-push.ad.ddupan.top/zot/auth/token",
-            "service": "zot-push.ad.ddupan.top",
+            "realm": "https://zot-push.lab.ddupan.top/zot/auth/token",
+            "service": "zot-push.lab.ddupan.top",
             "oidc": [
               {
                 "issuer": "https://spire-oidc.lab.ddupan.top",
@@ -260,8 +260,9 @@ httproute:
   enabled: true
   # Both names during the move to lab.ddupan.top (infrastructure/dns/README.md):
   # publishers and deployments switch on their own next release. externalUrl and
-  # the bearer realm/service above stay on the ad name until the last one has
-  # moved — a client on the lab name is pointed at the ad realm, which still works.
+  # the bearer realm/service above are already on the lab name: a client follows
+  # the realm URL and echoes service back, so pushes via the ad name still work
+  # and nothing new depends on the ad name.
   # The reader route (reader-values.yaml) inherits these parentRefs.
   parentRefs:
   - name: eg
