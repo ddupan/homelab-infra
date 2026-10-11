@@ -155,12 +155,26 @@ BAO_ADDR=https://127.0.0.1:8200 BAO_SKIP_VERIFY=true \
     -pgp-keys="yubikey.pub.b64,backup.pub.b64" \
     -root-token-pgp-key="yubikey.pub.b64"
 
-# unseal (decrypt a share — touch the YubiKey):
-echo "<encrypted-key-b64>" | base64 -d | gpg -dq | xargs bao operator unseal
+# Commit both as ciphertext, like .vault_pass.gpg — the runbooks below read them:
+echo "<Unseal Key 1 from the output>"       | base64 -d > unseal-key.gpg
+echo "<Initial Root Token from the output>" | base64 -d > root-token.gpg
 ```
 
 With transit auto-unseal (`openbao_auto_unseal: true`) there are no unseal keys — use
 `-recovery-pgp-keys` instead, and unsealing becomes automatic on restart.
+
+## Unseal after a restart
+
+A Shamir node re-seals on every restart of the service, the VM or the laptop. On the machine
+the YubiKey is plugged into (not over ssh into the laptop — the forwarded agent cannot decrypt):
+
+```bash
+infrastructure/openbao/unseal.sh        # touch the YubiKey → prints "unsealed"
+```
+
+It reads `unseal-key.gpg` (ciphertext, encrypted to `0166F47B5400ECC2`), checks the seal
+status first, and sends the key over stdin. Until bao is unsealed, External Secrets cannot
+sync, CI cannot log in, and pods that fetch the internal CA at start (dynamic-runner) wait.
 
 ## Bootstrap (engines, auth, policies)
 
@@ -168,8 +182,7 @@ Once initialized + unsealed, configure the bao side. Authenticate with the root 
 (decrypt it, then export), and run the bootstrap play:
 
 ```bash
-echo "<encrypted-root-token-b64>" | base64 -d | gpg -dq   # touch YubiKey
-export BAO_TOKEN=<plaintext-root-token>
+export BAO_TOKEN="$(gpg -dq ../root-token.gpg)"   # touch YubiKey; ciphertext committed
 ansible-playbook bootstrap-openbao.yml --ask-vault-pass
 ansible-playbook bootstrap-openbao.yml --tags verify
 ```

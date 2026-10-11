@@ -14,8 +14,7 @@
 #     bao operator init -key-shares=2 -key-threshold=1 \
 #       -pgp-keys="yubikey.pub.b64,backup.pub.b64" \
 #       -root-token-pgp-key="yubikey.pub.b64"
-#   # decrypt a key to unseal (touch YubiKey):
-#   echo "<encrypted-key-b64>" | base64 -d | gpg -dq | xargs bao operator unseal
+#   # unseal (touch YubiKey): infrastructure/openbao/unseal.sh — see README "Unseal after a restart"
 # With transit auto-unseal, use -recovery-pgp-keys instead (unseal is then automatic).
 - name: OpenBao server
   hosts: openbao
