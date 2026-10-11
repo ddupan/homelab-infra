@@ -40,8 +40,7 @@ spec:
             - name: BACKSTAGE_BASE_URL
               value: https://backstage.lab.ddupan.top
             # The issuer (panxiao81/backstage app-config) and the iam-login client. The client comes from the
-            # Terraform-written backstage-sso Secret; env wins over the envFrom below, in case kv/k8s/backstage
-            # still carries the retired Authelia client's AUTH_OIDC_* keys (being removed from it).
+            # Terraform-written backstage-sso Secret, not kv/k8s/backstage (envFrom below).
             - name: AUTH_OIDC_METADATA_URL
               value: https://sso.ddupan.top/.well-known/openid-configuration
             - name: AUTH_OIDC_CLIENT_ID
