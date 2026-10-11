@@ -1,11 +1,8 @@
 # LAN ingress for k3s services on ad.ddupan.top.
 #
-# Replaced Contour 2026-07-25. Contour was dropped for one concrete reason: it
-# supports ONLY the gRPC Envoy ext_authz protocol ("Only the Envoy GRPC authorization
-# protocol will be supported" — Contour 1.33 docs), while Authelia implements the
-# HTTP ExtAuthz filter. That made Authelia forward-auth impossible, which in turn made
-# AD-group -> role mapping impossible for apps like NetBox whose SSO support has no
-# group mapping. Envoy Gateway's SecurityPolicy supports extAuth.http, so it works.
+# Replaced Contour 2026-07-25 because Contour speaks only gRPC ext_authz and the
+# forward-auth target of the time (Authelia) only HTTP. Authelia and forward-auth are
+# both retired (2026-10-11); apps now authenticate themselves against iam-login.
 #
 # Everything else carried over unchanged: the Gateway API objects, the wildcard cert
 # from ../cert-manager, and the DNS A records in ../../infrastructure/samba-ad.
@@ -88,37 +85,9 @@ spec:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
 
-    # HTTPS :443 for auth.ddupan.top specifically.
-    #
-    # WHY a second listener rather than another hostname on the one above: a
-    # listener carries exactly one hostname, and `*.ad.ddupan.top` cannot match
-    # `auth.ddupan.top` — different zone (Cloudflare is authoritative for
-    # ddupan.top, the DC only for ad.ddupan.top) and one label shallower. Envoy
-    # selects between them by SNI, so both coexist on :443 cleanly.
-    #
-    # This exists so in-cluster clients reach Authelia over the LAN instead of
-    # hairpinning through Cloudflare proxy IPs that are unroutable from this
-    # network. Full reasoning in ../cert-manager/certificate-auth-ddupan.yaml;
-    # the route is ../../apps/authelia/httproute.yaml.
-    - name: https-auth
-      protocol: HTTPS
-      port: 443
-      hostname: "auth.ddupan.top"
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: auth-ddupan-top-tls
-      allowedRoutes:
-        namespaces:
-          from: All
-        kinds:
-          - group: gateway.networking.k8s.io
-            kind: HTTPRoute
-
-    # HTTPS :443 for git.ddupan.top. Third listener for the same reason as the
-    # second: one hostname per listener, and the *.ad.ddupan.top wildcard cannot
-    # match a name in the ddupan.top zone. Envoy picks between all three by SNI.
+    # HTTPS :443 for git.ddupan.top. Its own listener: one hostname per listener,
+    # and the *.ad.ddupan.top wildcard cannot match a name in the ddupan.top zone
+    # (different zone, one label shallower). Envoy picks between listeners by SNI.
     #
     # Exists so `git push` stays on the LAN instead of going out to Cloudflare and
     # back down the tunnel into this same cluster. The repo is what you need during

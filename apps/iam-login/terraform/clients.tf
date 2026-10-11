@@ -57,10 +57,10 @@ resource "vault_kv_secret_v2" "backstage" {
   })
 }
 
-# OpenBao's human login through iam-login: a second OIDC mount, oidc-sso, next to the Authelia one (auth/oidc,
-# infrastructure/openbao) until it is verified, so there is never a moment without a working login. Kept whole in
+# OpenBao's human login through iam-login: the oidc-sso mount. It was added next to the Authelia one (auth/oidc)
+# so there was never a moment without a working login; auth/oidc and Authelia are both retired now. Kept whole in
 # this root because the client secret is created here: the mount's config can take it from state, with no copy
-# through the Ansible vault (which is why auth/oidc's config lives in infrastructure/openbao/ansible).
+# through the Ansible vault.
 # OpenBao sends PKCE for the code flow and checks the ID token's aud against bound_audiences (= client id).
 resource "homelab_oidc_client" "openbao" {
   id   = "openbao"

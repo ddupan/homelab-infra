@@ -1,7 +1,7 @@
 ---
 # Replace Samba's default self-signed LDAPS certificate with one that has a POSITIVE
 # serial number and proper SANs. Samba's auto-generated cert uses a negative serial,
-# which Go 1.23+ LDAP clients (Authelia 4.39, etc.) reject at PARSE time with
+# which Go 1.23+ LDAP clients (e.g. Authelia 4.39, since retired) reject at PARSE time with
 # "x509: negative serial number" — so tls.skip_verify on the client can't help.
 # Idempotent via community.crypto (only regenerates when inputs change).
 

@@ -75,16 +75,6 @@ data:
             rcode NOERROR
         }
     }
-  auth-ddupan-top.server: |
-    auth.ddupan.top:53 {
-        errors
-        template IN A {
-            answer "{{ .Name }} 60 IN A 192.168.10.127"
-        }
-        template IN AAAA {
-            rcode NOERROR
-        }
-    }
   sso-ddupan-top.server: |
     sso.ddupan.top:53 {
         errors

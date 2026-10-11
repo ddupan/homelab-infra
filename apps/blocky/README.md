@@ -6,7 +6,7 @@ use it. Flip DHCP to adopt it; `docker compose down` to abandon it.
 
 Solves three things at once:
 
-1. **Split-horizon.** `git.ddupan.top`, `auth.ddupan.top` and `obj.ddupan.top` are
+1. **Split-horizon.** `git.ddupan.top`, `sso.ddupan.top` and `obj.ddupan.top` are
    public names that resolve to Cloudflare. On the LAN they should resolve to the
    Envoy gateway so traffic never leaves the network to reach a service hosted on
    it. There is currently **nowhere** to put such a record: the DC is

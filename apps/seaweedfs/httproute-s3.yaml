@@ -23,8 +23,8 @@ spec:
   parentRefs:
     - name: eg
       namespace: envoy-gateway-system
-      # Pin to the wildcard listener; the https-auth listener only matches
-      # auth.ddupan.top and would report a needless "no matching listener".
+      # Pin to the wildcard listener; the single-host listeners (git, sso, …)
+      # would each report a needless "no matching listener".
       sectionName: https
     # lab.ddupan.top (PowerDNS); external-dns publishes the record. The ad name
     # stays until every client has moved — see infrastructure/dns/README.md.

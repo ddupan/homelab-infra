@@ -39,5 +39,5 @@ serviceAccount:
   name: external-secrets
 
 # ClusterSecretStore is cluster-scoped; leaving this on lets one store serve every
-# namespace, which is the point here (authelia, gitea and cloudflared all consume it).
+# namespace, which is the point here (gitea, cloudflared, iam-login and others all consume it).
 installCRDs: true

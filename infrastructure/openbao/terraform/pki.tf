@@ -40,7 +40,7 @@ resource "vault_pki_secret_backend_config_cluster" "this" {
 
 # ── ACME ──────────────────────────────────────────────────────────────────
 # WHY: dc1's LDAPS cert was hand-issued 2026-07-25 and expires 2027-07-25 with
-# nothing to renew it. If it lapses, Authelia loses its LDAPS backend and every
+# nothing to renew it. If it lapses, iam-login loses its LDAPS backend and every
 # SSO consumer fails at once. ACME takes the human out of that loop.
 resource "vault_pki_secret_backend_config_acme" "this" {
   backend = vault_mount.pki.path

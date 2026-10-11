@@ -8,13 +8,7 @@
 locals {
   tunnel_ingress = [
     {
-      hostname = "auth.ddupan.top"
-      # Authelia's k8s Service listens on :80 (targetPort -> container 9091).
-      # Hitting :9091 on the service yields 502; the service port is 80.
-      service = "http://authelia.authelia.svc.cluster.local:80"
-    },
-    {
-      # iam-login issuer. Straight to the Service like Authelia; Cloudflare's
+      # iam-login issuer. Straight to the Service; Cloudflare's
       # X-Forwarded-Proto is what tells the app the request was HTTPS.
       hostname = "sso.ddupan.top"
       service  = "http://iam-login.iam-login.svc.cluster.local:8080"

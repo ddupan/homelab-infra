@@ -1,7 +1,7 @@
 # SPIFFE/SPIRE workload identity
 
 SPIRE 是 homelab 的机器与 workload identity 根。人类身份继续由 Samba AD 与
-Authelia 提供；SPIRE 不替代人类 OIDC，也不承担目标服务的资源授权。
+iam-login（sso.ddupan.top）提供；SPIRE 不替代人类 OIDC，也不承担目标服务的资源授权。
 
 部署状态、workload 接入、JWT-SVID → OpenBao exchange、安全规则和故障恢复详见
 [RUNBOOK.md](RUNBOOK.md)。本文只保留部署声明与关键恢复边界。
@@ -111,7 +111,7 @@ listener 使用 `*.lab.ddupan.top` wildcard certificate 终止 TLS。`HTTPRoute`
 
 接入 OpenBao 前必须从集群内和 LAN 分别验证 discovery document 的 `issuer` 与
 上述 URL 完全一致。该 endpoint 只发布公开的 discovery metadata 和 JWKS，不能
-在其 HTTPRoute 上添加 Authelia forward-auth。
+要求登录（例如在前面加认证代理）。
 
 ## 首次部署与验证
 

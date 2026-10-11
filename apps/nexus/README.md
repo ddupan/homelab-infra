@@ -13,7 +13,7 @@
 - 使用容器默认的 embedded H2。它只用于 POC；正式接管 OCI 制品前必须迁移到外部
   PostgreSQL，并验证备份恢复。
 - 入口只在 LAN wildcard Gateway 上发布，不创建公网 DNS 或 Cloudflare route。
-- 不套 Authelia forward-auth；它会破坏 Go、Ansible 与 OCI 非浏览器客户端。
+- 前面不加任何登录代理；它会破坏 Go、Ansible 与 OCI 非浏览器客户端。
 - 现有 zot 保持不变。Nexus 完成 OCI、BuildKit cache 和恢复验收前不得迁移或删除 zot。
 
 Terraform provider 创建 `ansible-public`、`go-public`、最小匿名权限与 OCI Bearer Token

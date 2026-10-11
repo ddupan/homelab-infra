@@ -7,7 +7,6 @@ watcher_telegram_bot_token: "{{ vault_watcher_telegram_bot_token }}"
 
 # 从外部（经 Cloudflare）看公网入口；obj 是 S3 根路径，未认证返回 403 也说明隧道和 SeaweedFS 都在。
 watcher_public_probes:
-  - {url: 'https://auth.ddupan.top/api/health', module: http_2xx}
   - {url: 'https://git.ddupan.top/api/healthz', module: http_2xx}
   - {url: 'https://e5renew.ddupan.top/', module: http_2xx}
   - {url: 'https://obj.ddupan.top/', module: http_s3_root}

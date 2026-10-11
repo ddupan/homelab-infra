@@ -7,7 +7,7 @@ domain-join and be GPO-managed, **without a licensed Windows Server as the DC**.
 Consumers layered on top (later docs):
 - **Samba file server** — domain member serving SMB shares.
 - **Linux clients** — `realmd`/`sssd` domain join for central login.
-- **Authelia** — LDAP source against this DC → OIDC / forward-auth web SSO.
+- **iam-login** (`sso.ddupan.top`) — binds as the user over LDAPS → OIDC web SSO.
 
 This document covers **Phase 1 (the DC)** and **Phase 2 (the Windows admin box)** only.
 
@@ -437,4 +437,4 @@ Verify by hand: `sudo net ads testjoin` → *Join is OK*; `wbinfo --online-statu
 
 - ~~`samba-fileserver` — domain-member SMB shares.~~ **Done** — see §5 above.
 - `linux-domain-join` — `realmd` + `sssd` (OS login, distinct from this fileserver join).
-- `../../apps/authelia/` — LDAP source → OIDC / forward-auth web SSO.
+- `../../apps/iam-login/` — LDAPS user bind → OIDC web SSO.

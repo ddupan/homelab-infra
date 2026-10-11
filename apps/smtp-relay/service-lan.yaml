@@ -3,7 +3,7 @@
 # (PVE notifications, smartd, cron) through here to M365.
 #
 # Kept SEPARATE from service.yaml on purpose: that ClusterIP service is what
-# Authelia and Gitea address by DNS name (smtp-relay.smtp-relay.svc.cluster.local),
+# Gitea addresses by DNS name (smtp-relay.smtp-relay.svc.cluster.local),
 # and it must not change shape.
 #
 # k3s servicelb (klipper) host-binds :25 on the laptop (192.168.10.127).

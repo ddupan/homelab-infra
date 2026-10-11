@@ -65,31 +65,11 @@ gitea:
       SMTP_PORT: 25
       FROM: Gitea <noreply@ddupan.top>
     oauth2_client:
-      # Auto-link an OIDC login to an existing account with the same email
-      # (migrating panxiao81 from the retired Keycloak source to Authelia).
+      # Auto-link an OIDC login to an existing account with the same email.
       ACCOUNT_LINKING: auto
       ENABLE_AUTO_REGISTRATION: true
       USERNAME: preferred_username
       UPDATE_AVATAR: true
-  # ⚠ FRAGILE BY DESIGN — this block is fetched at POD START, not at login.
-  # The chart's `configure-gitea` INIT container runs `gitea admin auth
-  # update-oauth`, which resolves and fetches autoDiscoverUrl before Gitea will
-  # start. So anything that makes this URL unreachable turns every restart into a
-  # CrashLoopBackOff, not merely a broken login.
-  #
-  # That happened on 2026-07-28: auth.ddupan.top resolved to Cloudflare proxy IPs
-  # (104.21.6.55 / 172.67.154.245) whose TCP/443 is persistently unroutable from
-  # this network, while other Cloudflare IPs (104.16.132.229) were fine. Gitea was
-  # hairpinning through the public internet to reach a Service in its own cluster.
-  #
-  # Fixed by resolving this hostname on the LAN instead — CoreDNS answers
-  # auth.ddupan.top with the Envoy gateway (../../platform/k3s/coredns-custom.yaml), which
-  # terminates TLS with a real LE cert for the name
-  # (../../platform/cert-manager/certificate-auth-ddupan.yaml) and routes to Authelia
-  # (../authelia/httproute.yaml). The URL below is deliberately UNCHANGED: the
-  # issuer, redirect URIs and cookie domain all stay auth.ddupan.top, so no OIDC
-  # client needed re-registering. Only the network path moved.
-
   # The DB password, injected as an env var rather than written into this file.
   # Gitea's env-to-ini step turns GITEA__DATABASE__PASSWD into `[database] PASSWD`,
   # so the rendered app.ini is identical to hardcoding it — but the credential
@@ -109,15 +89,6 @@ gitea:
           key: password
 
   oauth:
-    - name: authelia
-      provider: openidConnect
-      existingSecret: gitea-oidc-secret
-      autoDiscoverUrl: https://auth.ddupan.top/.well-known/openid-configuration
-      # Without explicit scopes Gitea only requests `openid`, so email/preferred_username
-      # claims are never released. Space-joined into the OAuth scope request.
-      scopes: openid profile email groups
-      groupClaimName: groups
-      adminGroup: gitea-admins
     # iam-login (AD password + passkey). This is login source ID 3, formerly `hydra`:
     # Gitea links accounts by (source ID, sub), and the chart's init container matches
     # sources by NAME, adding a new one (new ID, links lost) when none matches. So the

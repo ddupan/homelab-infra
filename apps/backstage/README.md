@@ -8,8 +8,8 @@ OCI digest 固定镜像。
 
 - OpenBao `kv/k8s/backstage` 必须包含以下与容器环境变量同名的字段：
   `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`POSTGRES_PASSWORD`、`GITEA_TOKEN`。
-  其中旧的 `AUTH_OIDC_CLIENT_ID` / `AUTH_OIDC_CLIENT_SECRET`（Authelia 客户端）不再使用：Deployment 的 `env`
-  从 `backstage-sso` Secret 取值，优先于 `envFrom`。
+  旧的 `AUTH_OIDC_CLIENT_ID` / `AUTH_OIDC_CLIENT_SECRET`（已退役的 Authelia 客户端）不再使用，正从
+  该路径删除；删除前也无影响：Deployment 的 `env` 从 `backstage-sso` Secret 取值，优先于 `envFrom`。
 - OpenBao `kv/k8s/techdocs-s3-reader` 提供 TechDocs 只读 S3 凭据，投射为
   `TECHDOCS_S3_ACCESS_KEY_ID` / `TECHDOCS_S3_SECRET_ACCESS_KEY`。
 - PostgreSQL 需要在共享集群中预先创建由 `backstage` 角色拥有的 `backstage`

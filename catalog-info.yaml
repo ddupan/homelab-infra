@@ -25,29 +25,6 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: authelia
-  description: OIDC broker and single sign-on
-  annotations:
-    backstage.io/kubernetes-namespace: authelia
-    backstage.io/kubernetes-label-selector: "!backstage.io/none"
-    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/authelia/
-  links:
-    - url: https://auth.ddupan.top
-      title: Authelia
-      icon: dashboard
-spec:
-  type: service
-  owner: user:default/panxiao81
-  lifecycle: production
-  system: identity
-  dependsOn:
-    - resource:shared-postgresql
-    - component:samba-ad
-    - component:smtp-relay
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
   name: cert-manager
   description: Deployed by Flux from platform/cert-manager
   annotations:
@@ -93,8 +70,6 @@ spec:
   owner: user:default/panxiao81
   lifecycle: production
   system: networking
-  dependsOn:
-    - component:authelia
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -165,7 +140,6 @@ spec:
     - resource:shared-postgresql
     - component:smtp-relay
     - component:iam-login
-    - component:authelia
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -296,7 +270,7 @@ spec:
   lifecycle: production
   system: observability
   dependsOn:
-    - component:authelia
+    - component:iam-login
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component

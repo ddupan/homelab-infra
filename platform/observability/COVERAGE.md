@@ -89,7 +89,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 
 ## 7. 应用（P2）
 
-- [ ] **A1** Authelia（SSO 前门；注意它在退役计划中，先确认是否值得做）
+- [x] ~~**A1** Authelia（SSO 前门）~~ — 不做：Authelia 已于 2026-10-11 退役，SSO 前门监控归 A5 iam-login
 - [ ] **A2** Gitea（CI 与 GitOps 源头）
 - [ ] **A3** Nexus
 - [ ] **A4** zot

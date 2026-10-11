@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: victoria-metrics
 spec:
   groups:
-  # dc1 是唯一的 DC：AD 登录、LDAPS（Authelia / iam-login / PVE realm）、内网 DNS 都靠它。
+  # dc1 是唯一的 DC：AD 登录、LDAPS（iam-login / PVE realm）、内网 DNS 都靠它。
   # dc1 整机不可达由 NodeExporterUnavailable（job=node-exporter）覆盖。
   - name: samba-dc
     interval: 30s
@@ -54,7 +54,7 @@ spec:
         severity: critical
       annotations:
         summary: dc1 LDAPS 证书 {{ $value | humanize }} 天内到期
-        description: 到期后所有 LDAPS 客户端（Authelia、iam-login、PVE realm）登录失败。立即手动跑 samba-acme.service。
+        description: 到期后所有 LDAPS 客户端（iam-login、PVE realm）登录失败。立即手动跑 samba-acme.service。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: SambaAcmeTimerStale
       expr: time() - node_systemd_timer_last_trigger_seconds{job="node-exporter",node="dc1",name="samba-acme.timer"} > 2 * 86400

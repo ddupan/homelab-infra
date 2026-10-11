@@ -129,4 +129,4 @@ NotReady，而是会让每个 Challenge 卡在 `gateway api is not enabled`。
 Issuance is capped by `default_directory_policy = role:bao-server`
 (`../../infrastructure/openbao/terraform/pki.tf`), which permits `ad.ddupan.top` subdomains only. Clients
 need the internal CA in their trust store — already true for the PVE nodes, the DC and
-Authelia, generally **not** for a browser.
+iam-login, generally **not** for a browser.

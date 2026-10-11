@@ -1,7 +1,8 @@
 ---
 # Service accounts + RBAC groups that downstream apps depend on.
-# Codified because these were originally created by hand (svc-authelia), which
-# means a DC rebuild would silently lose every app's ability to bind.
+# Codified because service accounts used to be created by hand (svc-authelia, for
+# the since-retired Authelia), which means a DC rebuild would silently lose every
+# app's ability to bind.
 
 - name: Create service accounts
   ansible.builtin.command:

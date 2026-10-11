@@ -19,8 +19,8 @@ Grafana root_url 和 iam-login（sso.ddupan.top）回调均使用此域名；旧
 [主机与进程内存采集](metrics/exporters/README.md)。
 
 Grafana 由 Flux 管理；修改 values 后通过 Git 合并触发 HelmRelease，避免现场 Helm
-修改被漂移检测回滚。Authelia 当前不由 Flux 管理，需单独 Helm upgrade 并先结构比较
-live values。迁移时先添加 DNS 和回调，再切换 Grafana。Recreate 策略会短暂中断访问，
+修改被漂移检测回滚。OIDC 客户端（回调）在 `../../apps/iam-login/terraform/clients.tf`
+中维护。迁移时先添加 DNS 和回调，再切换 Grafana。Recreate 策略会短暂中断访问，
 但保留原 PVC、用户、看板和数据源。回滚需同时恢复 root_url、回调和 Ingress 配置。
 
 ## 初始部署记录（2026-07-10）
@@ -73,7 +73,7 @@ hosts and `logs/vlogs-ingress.yaml` to push their logs.
 | Collect  | vmagent (metrics), vlagent (logs), OTel Collector (traces) | native to each backend |
 | Visualize| **Grafana**, one instance, 3 datasources | single pane |
 | Manage   | **victoria-metrics-operator** | VMSingle/VMAgent/VMAlert/VMAlertmanager/VMRule **and** VLSingle as CRDs |
-| Expose   | **Tailscale ingress** (private) + **Authelia OIDC** | admin tool: private + SSO |
+| Expose   | **Tailscale ingress** (private) + **iam-login OIDC** | admin tool: private + SSO |
 
 VictoriaMetrics Operator 的 Prometheus converter 已启用；官方
 `prometheus-operator-crds` chart 由 `operator/` 一并管理。因此应用 chart 可以原生
@@ -115,7 +115,7 @@ VM 资源，不需要每个应用额外维护一份 `VM*Scrape`。
 ## Architecture
 
 ```
- Grafana (grafana.<tailnet>.ts.net, Authelia OIDC)
+ Grafana (grafana.<tailnet>.ts.net, iam-login OIDC)
    ├── VictoriaMetrics datasource → VMSingle  ← vmagent (k8s SD, node-exporter, kubelet/cAdvisor, KSM)
    ├── VictoriaLogs   datasource → VLSingle   ← vlagent DaemonSet (pod logs)
    └── Jaeger         datasource → VictoriaTraces ← OTel Collector (OTLP 4317/4318) ← apps

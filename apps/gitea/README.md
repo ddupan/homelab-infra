@@ -48,7 +48,7 @@ suspend、详细日志审计和扩展验收。出现启动失败或 migration er
 ## IAM 登录源 `sso`
 
 登录源 `sso` 指向 iam-login 内置授权服务器 `https://sso.ddupan.top`（AD 密码 + Passkey），
-旧 `authelia` 入口保留。入口 `https://git.ddupan.top/user/oauth2/sso`，公网可达。
+旧 `authelia` 登录源已随 Authelia 退役（2026-10-11）从 values 移除；chart 不会删除登录源，数据库里的那条（ID 2）用 `gitea admin auth delete --id 2` 手工删除。入口 `https://git.ddupan.top/user/oauth2/sso`，公网可达。
 
 - 它是登录源 **ID 3**，原名 `hydra`。Gitea 按（登录源 ID，`sub`）关联账号，而 chart 的 init
   container 按**名称**匹配登录源，找不到就新建（新 ID，关联全部失效）。因此改名必须先在 Gitea

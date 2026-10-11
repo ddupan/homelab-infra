@@ -38,10 +38,6 @@ keycloak/keycloak.yaml
 # additionalConfigFromEnvs instead of embedding the credential.
 gitea/secret.yaml
 
-# Real Authelia secret material (LDAP bind, storage/session encryption keys,
-# OIDC hmac and the JWKS signing key). secret.example.yaml is the template.
-authelia/secret.yaml
-
 # These location-independent forms keep secrets ignored when service directories
 # move under apps/, platform/ or infrastructure/.
 **/.vault_pass
