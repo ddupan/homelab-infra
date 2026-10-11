@@ -82,6 +82,19 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 `/opt/homelab-postgresql-controller`，由 root 管理，以本机开发身份取短期 token。
 续签依赖现有 SPIRE（在 k3s）和 Bao；数据库与 etcd 的正常运行仅用本地证书，不实时依赖 k3s。
 
+### 计划内切换主库（含 laptop 重启后回切）
+
+laptop 重启、或停掉 `homelab-postgresql-prod` 时，Patroni 会自动把主库切到 pg-pve1（HDD），
+15 分钟后触发 `SharedPostgresPrimaryOnStandbyHost`。在 laptop 上回切：
+
+```bash
+infrastructure/shared-postgresql/switchover.sh          # 预检：唯一 Leader、候选 streaming、同一时间线、落后 ≤ 1 MiB
+infrastructure/shared-postgresql/switchover.sh --run    # 执行并等待候选成为 primary、其余成员恢复 streaming
+```
+
+生产写入会中断数秒（2026-09-25 演练约 9 秒），入口代理跟随 Patroni `/primary`，客户端无需改配置。
+计划内维护 laptop 前也可先 `CANDIDATE=pg-pve1 ... --run` 主动切走，避免非计划 failover。
+
 ## 备份与恢复
 
 仓库主机发起备份，发现实际 primary；每天 03:40 UTC 加随机延迟执行 full，保留 3 个 full，
