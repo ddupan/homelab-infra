@@ -1,0 +1,3 @@
+# PGP ciphertext (.vault_pass.gpg, openbao unseal/root-token): never let a Windows
+# checkout apply eol conversion — a single rewritten byte makes them undecryptable.
+*.gpg binary

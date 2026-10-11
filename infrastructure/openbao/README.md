@@ -172,6 +172,12 @@ the YubiKey is plugged into (not over ssh into the laptop — the forwarded agen
 infrastructure/openbao/unseal.sh        # touch the YubiKey → prints "unsealed"
 ```
 
+On Windows (Gpg4win's `gpg.exe` in PATH — not Git for Windows' gpg, which cannot see the card):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infrastructure\openbao\unseal.ps1
+```
+
 It reads `unseal-key.gpg` (ciphertext, encrypted to `0166F47B5400ECC2`), checks the seal
 status first, and sends the key over stdin. Until bao is unsealed, External Secrets cannot
 sync, CI cannot log in, and pods that fetch the internal CA at start (dynamic-runner) wait.
