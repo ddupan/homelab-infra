@@ -21,7 +21,7 @@ incus_server_config:
         return "{{ incus_admin_group }}" in details.Claims.get("groups", [])
   oidc.issuer: https://sso.ddupan.top
   oidc.client.id: incus
-  oidc.audience: https://incus.ad.ddupan.top
+  oidc.audience: https://incus.lab.ddupan.top
   # groups 进入 access token，scriptlet 才能读到。
   oidc.scopes: openid,offline_access,groups
   core.https_address: 192.168.10.127:8443

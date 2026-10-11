@@ -46,12 +46,13 @@ sudo journalctl -u incus.service -n 80 --no-pager
 
 ## Web UI 与 OIDC（iam-login）
 
-入口：`https://incus.ad.ddupan.top`，选择 **Login with SSO**，在 sso.ddupan.top 用 AD 密码 + passkey 登录。
+入口：`https://incus.lab.ddupan.top`（旧名 `incus.ad` 暂时并存，等 CLI remote 都改到 lab 后退役），选择 **Login with SSO**，在 sso.ddupan.top 用 AD 密码 + passkey 登录。
 授权在 Incus 这边：OIDC 客户端走 scriptlet（`authorization.client.oidc=scriptlet`），access token 的
 `groups` 含 `incus_admin_group`（`platform-admins`）才放行，其余一律拒绝。不配授权时 Incus 让任何 OIDC
 用户获得完整权限，所以这一项不能省。TLS 客户端（CI 短期证书、本机 unix socket）不受影响。
 
-CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=oidc`，
+CLI 可使用 `incus remote add laptop https://incus.lab.ddupan.top --auth-type=oidc`（已有 remote：
+`incus remote set-url laptop https://incus.lab.ddupan.top`），
 按设备码流程在浏览器中完成同一登录；token 由客户端保存在本机，不写入 Git。
 
 声明分工：
@@ -64,7 +65,7 @@ CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=o
   BackendTLSPolicy。入口复用现有通配符证书，后端以 Incus 的公共 server.crt 验证
   `laptop` SAN，不跳过 TLS 验证。公共证书由 playbook 读取，不复制私钥。
 - DNS：`ayatori-{dev,prod}.lab.ddupan.top` 由本 root 的 Terraform 注册到 PowerDNS；`ansible/dns.yml`
-  只协调 AD 里的 `incus.ad.ddupan.top`，记录就声明在该 play 里。
+  只协调 AD 里的旧名 `incus.ad.ddupan.top`；`incus.lab` 由 external-dns 按 HTTPRoute 发布。
 
 入口资源由此 Ansible playbook 管理，尚未交由 Flux。共享 Gateway 的后端 TLS
 兼容配置由 Flux 管理：EnvoyProxy `eg` 允许 TLS 1.2–1.3，以连接要求 TLS 1.3

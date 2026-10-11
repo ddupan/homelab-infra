@@ -123,13 +123,14 @@ resource "vault_jwt_auth_backend_role" "sso_admin" {
 # Incus (infrastructure/incus): the web UI's code flow and the CLI's device grant (incus remote add --auth-type=oidc),
 # both without a secret. Incus checks the access token's aud against oidc.audience, and authorizes from its groups
 # claim (authorization scriptlet, infrastructure/incus/ansible/group_vars/incus_hosts.yml): who may do what is
-# Incus's decision, not this client's.
+# Incus's decision, not this client's. Both names while CLI remotes still point at the ad name; the ad entries go
+# when that name is retired (Incus itself checks only oidc.audience, the lab name).
 resource "homelab_oidc_client" "incus" {
   id                   = "incus"
   name                 = "Incus"
-  redirect_uris        = ["https://incus.ad.ddupan.top/oidc/callback"]
+  redirect_uris        = ["https://incus.lab.ddupan.top/oidc/callback", "https://incus.ad.ddupan.top/oidc/callback"]
   scopes               = ["openid", "offline_access", "groups"]
   public_client        = true
   device_authorization = true
-  audiences            = ["https://incus.ad.ddupan.top"]
+  audiences            = ["https://incus.lab.ddupan.top", "https://incus.ad.ddupan.top"]
 }
