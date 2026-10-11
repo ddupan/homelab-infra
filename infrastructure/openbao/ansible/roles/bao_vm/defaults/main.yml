@@ -19,6 +19,14 @@ bao_vm_osinfo: "ubuntu24.04"
 bao_vm_images_dir: "/var/lib/libvirt/images"
 bao_vm_bridge: "br0"                 # LAN bridge → puts bao on 192.168.10.0/24
 
+# Pass the host's physical TPM 2.0 through to the guest. It is the planned key store for
+# pkcs11 auto-unseal (tpm2-pkcs11), so a host reboot no longer needs a YubiKey unseal.
+# Passthrough is exclusive in practice: nothing on the host may use the TPM (tpm2-tools,
+# tpm2-abrmd, systemd-cryptenroll) while the guest runs, and the guest can no longer be
+# suspended/managedsaved or migrated. Takes effect at the next cold boot of the domain.
+bao_vm_tpm_passthrough: true
+bao_vm_tpm_device: "/dev/tpm0"
+
 # ZFS zvol for the root disk. Thin-provisioned (sparse) — bao stores very little.
 bao_vm_zvol_parent: "data/vm"
 bao_vm_zvol: "{{ bao_vm_zvol_parent }}/{{ bao_vm_name }}"
