@@ -3,17 +3,6 @@
 # record lives with that code instead (incus: ayatori-*, etcd's lxc.yml:
 # etcd-pve*); move a record there if its host later gains one.
 
-# ayatori-* moved to infrastructure/incus/terraform, which imports them.
-removed {
-  from = powerdns_record.ayatori_dev_a
-  lifecycle { destroy = false }
-}
-
-removed {
-  from = powerdns_record.ayatori_prod_a
-  lifecycle { destroy = false }
-}
-
 resource "powerdns_record" "laptop_a" {
   zone    = powerdns_zone.lab.name
   name    = "laptop.lab.ddupan.top."

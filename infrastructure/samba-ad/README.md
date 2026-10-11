@@ -63,8 +63,9 @@ second run is a no-op there and only reconciles config drift.
 | `group_vars/all/vault.yml` | admin passwords (gitignored; encrypt with ansible-vault) |
 | `inventory/hosts.yml` | DC + Windows hosts |
 
-Static DNS records are declared once in `../../dns/records.yml`. The role manages
+Static DNS records are declared in `ansible/group_vars/all/dns.yml`. The role manages
 only those RRsets and deliberately leaves Samba-generated AD locator records alone.
+New service names go to `lab.ddupan.top` (PowerDNS), not here; this list only shrinks.
 
 ---
 

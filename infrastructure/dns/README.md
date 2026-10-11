@@ -1,13 +1,14 @@
 # DNS 声明与权威边界
 
-`lab.ddupan.top` 的记录跟着它的 owner 走：谁创建资源，谁在自己的 root 里注册名字。
-其余视图仍由 `records.yml` 统一声明、生成到各后端（这是 AD DNS 时代的折中，正在逐个拆掉）：
+记录跟着它的 owner 走：谁创建资源，谁在自己的代码里注册名字；没有母资源的主机手动注册。
+`records.yml` 原是 AD DNS 时代的统一清单，现在只剩 split horizon（生成到 Blocky 与 CoreDNS）
+和地址池（IPAM）：
 
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
 | 公网 `ddupan.top` | Cloudflare | 直接写在 `infrastructure/cloudflared/terraform`：tunnel 的 CNAME 与 tunnel 路由共用同一份主机名列表（`local.tunnel_ingress`）；`oci-*` A 记录在 Cloudflare 手工维护 |
 | 内部 `lab.ddupan.top` | PowerDNS（`apps/blocky/`，经 Blocky 条件转发） | zone 与没有母资源的主机在 `terraform/hosts.tf`（手动注册）；有 owner 的记录在 owner 的 root（incus：ayatori-*，etcd `lxc.yml`：etcd-pve*）；HTTPRoute 名由 external-dns 写，临时记录用 Poweradmin |
-| AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `samba_dns_record` Ansible module |
+| AD `ad.ddupan.top` | Samba internal DNS（迁移完成后只剩 AD 自身记录） | `infrastructure/samba-ad/ansible/group_vars/all/dns.yml`，`samba_dns_record` module；incus 的 `incus.ad` 由 `infrastructure/incus/ansible/dns.yml` 自行注册。新名字不再进 AD |
 | LAN split horizon | Blocky | 由生成器维护 `customDNS.mapping` 标记块 |
 | Kubernetes Pod split horizon | CoreDNS | 由生成器维护 `.server` 标记块 |
 
@@ -41,8 +42,8 @@ IPAM 只维护**地址池**；"哪个地址被谁占用"以 DNS 为准。
 
 - `homelab_ipam`（本文件）：网段、DHCP 池与预留段（`ranges`，单个租约不归 IPAM 管），
   以及没有 A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册的域成员、AP、laptop）。
-- 已占用集合 = 上述 `addresses` + 本文件里 AD 区的 A 记录 + **`lab.ddupan.top` 里实际存在的
-  A 记录**。资源由创建者自己注册 DNS（incus Terraform、`etcd/ansible/lxc.yml`、external-dns、
+- 已占用集合 = 上述 `addresses` + samba-ad `group_vars/all/dns.yml` 的 AD 记录 +
+  **`lab.ddupan.top` 里实际存在的 A 记录**。资源由创建者自己注册 DNS（incus Terraform、`etcd/ansible/lxc.yml`、external-dns、
   Poweradmin），不回写本文件；`--next-free` 运行时从 PowerDNS API 读取 zone。
 
 校验对两类记录相同：地址必须落在某个网段内、不得落在 `ranges` 内、`addresses` 不得重复；
@@ -61,7 +62,7 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
 
 ## 安全边界
 
-- Samba module 只管理 `homelab_dns.samba.records` 明确列出的 RRset，不遍历或清理 zone。
+- Samba module 只管理明确列出的 RRset（samba-ad `dns.yml`、incus `dns.yml`），不遍历或清理 zone。
 - `_ldap`、`_kerberos`、域控制器 locator 等由 Samba 自动维护的记录不进入 inventory。
 - 一个受管 RRset 默认使用 `exact: true`：同名同类型的额外值会被删除，但其他名称和类型
   不受影响。

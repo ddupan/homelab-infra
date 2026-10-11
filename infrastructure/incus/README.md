@@ -64,7 +64,7 @@ CLI 可使用 `incus remote add laptop https://incus.ad.ddupan.top --auth-type=o
   BackendTLSPolicy。入口复用现有通配符证书，后端以 Incus 的公共 server.crt 验证
   `laptop` SAN，不跳过 TLS 验证。公共证书由 playbook 读取，不复制私钥。
 - DNS：`ayatori-{dev,prod}.lab.ddupan.top` 由本 root 的 Terraform 注册到 PowerDNS；`ansible/dns.yml`
-  只协调 AD 里的 `incus.ad.ddupan.top`（声明在 `infrastructure/dns/records.yml`）。
+  只协调 AD 里的 `incus.ad.ddupan.top`，记录就声明在该 play 里。
 
 入口资源由此 Ansible playbook 管理，尚未交由 Flux。共享 Gateway 的后端 TLS
 兼容配置由 Flux 管理：EnvoyProxy `eg` 允许 TLS 1.2–1.3，以连接要求 TLS 1.3

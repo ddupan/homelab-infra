@@ -10,8 +10,7 @@ samba_ad_dc_ip: "192.168.10.5"
 samba_ad_dns_forwarder: "192.168.10.127"   # Blocky：DN42 条件转发及公网解析
 samba_ad_reverse_zone: "10.168.192.in-addr.arpa"   # reverse of 192.168.10.0/24
 
-# Static records now live in ../../dns/records.yml and are reconciled as complete
-# RRsets by the local samba_dns_record module.
+# Static AD DNS records: group_vars/all/dns.yml.
 
 # Support legacy clients (Win9x/NT4/2000/XP)? INSECURE — see README "Retro clients".
 samba_ad_legacy_clients: false

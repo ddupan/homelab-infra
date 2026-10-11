@@ -1,30 +1,19 @@
 ---
+# incus.ad.ddupan.top is registered here, by the stack that creates Incus, not in
+# samba-ad's list. ayatori-* moved to lab.ddupan.top (incus Terraform).
 - name: 仅协调 Incus 的 AD DNS 记录
   hosts: samba_dc
   become: true
   gather_facts: false
-  vars:
-    # ayatori-* moved to lab.ddupan.top (PowerDNS, Terraform); only incus stays in AD.
-    incus_dns_names: [incus]
   vars_files:
-    - ../../dns/records.yml
     - ../../samba-ad/ansible/group_vars/all/vars.yml
   tasks:
-    - name: 从共享清单选择 Incus 相关 RRset
-      ansible.builtin.set_fact:
-        incus_dns_records: "{{ homelab_dns.samba.records | selectattr('name', 'in', incus_dns_names) | selectattr('zone', 'equalto', 'ad.ddupan.top') | list }}"
-    - name: 确认每个名称恰有一个受管 A 记录
-      ansible.builtin.assert:
-        that:
-          - incus_dns_records | length == incus_dns_names | length
-          - incus_dns_records | map(attribute='type') | unique == ['A']
     - name: 协调 A 记录
       ddupan.homelab.samba_dns_record:
         server: "{{ samba_ad_dc_ip }}"
-        zone: "{{ item.zone }}"
-        name: "{{ item.name }}"
-        type: "{{ item.type }}"
-        values: "{{ item['values'] }}"
+        zone: ad.ddupan.top
+        name: incus
+        type: A
+        values: [192.168.10.127]
         state: present
         exact: true
-      loop: "{{ incus_dns_records }}"

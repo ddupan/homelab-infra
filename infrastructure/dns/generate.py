@@ -22,6 +22,8 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[2]
 DNS_DIR = ROOT / "infrastructure/dns"
+# Read for IPAM only: samba-ad owns these records, this script just counts them.
+AD_RECORDS = ROOT / "infrastructure/samba-ad/ansible/group_vars/all/dns.yml"
 POWERDNS_ZONE_URL = "http://192.168.10.127:8053/api/v1/servers/localhost/zones/lab.ddupan.top."
 BEGIN = "# BEGIN GENERATED: homelab DNS ([[ target ]])"
 END = "# END GENERATED: homelab DNS ([[ target ]])"
@@ -43,26 +45,19 @@ def load_inventory() -> dict:
         if unknown:
             raise ValueError(f"unknown split DNS backends {sorted(unknown)}")
 
-    check_retired(inventory["samba"])
-    allocations(data)
+    allocations(data, ad_records())
     return inventory
 
 
-def check_retired(samba: dict) -> None:
-    """A retired RRset is deleted by the role; also managing it would flap every run."""
-    for record in samba.get("retired", []):
-        require_fields(record, "zone", "name", "type")
-    key = lambda r: (r["zone"], r["name"], r["type"])
-    both = {key(r) for r in samba.get("retired", [])} & {key(r) for r in samba["records"]}
-    if both:
-        raise ValueError(f"samba RRsets both managed and retired: {sorted(both)}")
+def ad_records() -> list[dict]:
+    return yaml.safe_load(AD_RECORDS.read_text())["samba_ad_dns_records"]
 
 
-def allocations(data: dict, live: list[dict] = ()) -> dict:
-    """Validate homelab_ipam against the A records and return {ip: owner}.
+def allocations(data: dict, records: list[dict]) -> dict:
+    """Validate homelab_ipam against A records and return {ip: owner}.
 
-    lab.ddupan.top records live with their owners, not in this file, so they only
-    count when passed in as `live` (read from pdns by --next-free).
+    Records live with their owners, not in records.yml, so callers pass them in:
+    ad_records() always, plus the live lab.ddupan.top zone for --next-free.
     """
     ipam = data["homelab_ipam"]
     prefixes = [ipaddress.ip_network(p["prefix"]) for p in ipam["prefixes"]]
@@ -80,7 +75,6 @@ def allocations(data: dict, live: list[dict] = ()) -> dict:
     # A host listed in both zones (ad. and lab., during the migration) is still one
     # host, so names are collected as a set.
     named: dict = {}
-    records = data["homelab_dns"]["samba"]["records"] + list(live)
     for record in records:
         if record["type"] == "A":
             for value in record["values"]:
@@ -121,10 +115,10 @@ def live_records() -> list[dict]:
             for rrset in zone["rrsets"] if rrset["type"] == "A"]
 
 
-def next_free(data: dict, prefix: str, live: list[dict]) -> ipaddress.IPv4Address:
+def next_free(data: dict, prefix: str, records: list[dict]) -> ipaddress.IPv4Address:
     # Live records go through the same checks as declared ones, so a registered
     # address inside the DHCP pool or colliding with another host fails here too.
-    owners = allocations(data, live)
+    owners = allocations(data, records)
     ranges = [(ipaddress.ip_address(r["start"]), ipaddress.ip_address(r["end"]))
               for r in data["homelab_ipam"]["ranges"]]
     for ip in ipaddress.ip_network(prefix).hosts():
@@ -198,7 +192,7 @@ def main() -> int:
     if args.next_free:
         try:
             data = yaml.safe_load((DNS_DIR / "records.yml").read_text())
-            print(next_free(data, args.next_free, live_records()))
+            print(next_free(data, args.next_free, ad_records() + live_records()))
         except (OSError, ValueError, KeyError) as exc:
             print(f"ipam lookup failed: {exc}", file=sys.stderr)
             return 2

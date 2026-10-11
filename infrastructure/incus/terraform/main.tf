@@ -86,18 +86,6 @@ resource "powerdns_record" "ayatori" {
   records  = [each.value]
 }
 
-# 记录原由 infrastructure/dns/terraform 管理（那边以 removed 放弃、不删除）。
-# 两边都 apply 后即可删掉这两段。
-import {
-  to = powerdns_record.ayatori["dev"]
-  id = jsonencode({ zone = "lab.ddupan.top.", id = "ayatori-dev.lab.ddupan.top.:::A" })
-}
-
-import {
-  to = powerdns_record.ayatori["prod"]
-  id = jsonencode({ zone = "lab.ddupan.top.", id = "ayatori-prod.lab.ddupan.top.:::A" })
-}
-
 # 镜像不含 openssh-server。不设 ssh_pwauth：它会在装包前写出残缺的 sshd_config，
 # 使包自带的默认配置（UsePAM yes、Include sshd_config.d）无法落地，锁定密码的账号随即被拒。
 # 改为装包后（defer）再写 drop-in，只覆盖需要收紧的项。

@@ -6,8 +6,6 @@
   hosts: samba_dc
   become: true
   gather_facts: true
-  vars_files:
-    - ../../dns/records.yml
   roles:
     - role: samba_ad_dc
   post_tasks:
