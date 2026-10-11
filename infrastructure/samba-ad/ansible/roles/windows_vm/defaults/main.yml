@@ -7,6 +7,10 @@
 # virtio-win guest tools (QEMU guest agent, balloon, …) are installed at first logon.
 
 win_vm_name: "winadmin"
+# Off since 2026-10-11: winadmin is barely used and slated for removal (RSAT on the Windows
+# workstation replaces it). It also failed to boot after that day's host reboot and sat in
+# WinRE. Set true to bring it back with the host.
+win_vm_autostart: false
 win_vm_vcpus: 4
 win_vm_memory_mb: 6144
 win_vm_disk_gb: 60

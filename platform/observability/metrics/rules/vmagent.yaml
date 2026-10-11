@@ -30,14 +30,18 @@ spec:
             summary: "Vmagent is dropping data blocks that are rejected by remote storage"
             description: "Job \"{{ $labels.job }}\" on instance {{ $labels.instance }} drops the rejected by
               remote-write server data blocks. Check the logs to find the reason for rejects."
+        # 上游写法 increase(vm_promscrape_scrapes_failed_total) 不区分 job，会被"设计上就是 down"
+        # 的目标永久触发：LINSTOR controller HA（#295）三个节点都抓 3370，任一时刻只有活动节点
+        # 在监听。改为按 job 计 up==0 并排除 linstor，它的"恰好一个"由 LinstorNoActiveController /
+        # LinstorMultipleControllers 判断。顺带让告警带上是哪个 job。
         - alert: TooManyScrapeErrors
-          expr: increase(vm_promscrape_scrapes_failed_total[5m]) > 0
+          expr: count by (job) (up{job!="linstor"} == 0) > 0
           for: 15m
           labels:
             severity: warning
           annotations:
             summary: "Vmagent fails to scrape one or more targets"
-            description: "Job \"{{ $labels.job }}\" on instance {{ $labels.instance }} fails to scrape targets for last 15m"
+            description: "{{ $value }} target(s) of job \"{{ $labels.job }}\" have failed to scrape for the last 15m"
         - alert: ScrapePoolHasNoTargets
           expr: sum(vm_promscrape_scrape_pool_targets) without (status, instance, pod) == 0
           for: 30m
