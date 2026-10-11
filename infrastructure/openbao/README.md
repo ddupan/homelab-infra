@@ -155,8 +155,9 @@ BAO_ADDR=https://127.0.0.1:8200 BAO_SKIP_VERIFY=true \
     -pgp-keys="yubikey.pub.b64,backup.pub.b64" \
     -root-token-pgp-key="yubikey.pub.b64"
 
-# Commit the YubiKey share as ciphertext, like .vault_pass.gpg — the unseal runbook reads it:
-echo "<Unseal Key 1 from the output>" | base64 -d > unseal-key.gpg
+# Commit both as ciphertext, like .vault_pass.gpg — the runbooks below read them:
+echo "<Unseal Key 1 from the output>"       | base64 -d > unseal-key.gpg
+echo "<Initial Root Token from the output>" | base64 -d > root-token.gpg
 ```
 
 With transit auto-unseal (`openbao_auto_unseal: true`) there are no unseal keys — use
@@ -181,8 +182,7 @@ Once initialized + unsealed, configure the bao side. Authenticate with the root 
 (decrypt it, then export), and run the bootstrap play:
 
 ```bash
-echo "<encrypted-root-token-b64>" | base64 -d | gpg -dq   # touch YubiKey
-export BAO_TOKEN=<plaintext-root-token>
+export BAO_TOKEN="$(gpg -dq ../root-token.gpg)"   # touch YubiKey; ciphertext committed
 ansible-playbook bootstrap-openbao.yml --ask-vault-pass
 ansible-playbook bootstrap-openbao.yml --tags verify
 ```

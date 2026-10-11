@@ -3,7 +3,7 @@
 # Idempotent — safe to re-run. Authenticates with a token you export after decrypting
 # the PGP-wrapped root token:
 #
-#   echo "<encrypted-root-token-b64>" | base64 -d | gpg -dq   # touch YubiKey
+#   gpg -dq ../root-token.gpg   # touch YubiKey; ciphertext committed next to unseal-key.gpg
 #   export BAO_TOKEN=<that-plaintext-root-token>
 #   ansible-playbook bootstrap-openbao.yml --ask-vault-pass
 #
