@@ -63,3 +63,5 @@ pve_dns_probe_name: bao.ad.ddupan.top
 # without the rollback in README-linstor-ha.md: in non-HA mode linstor.yml stops the
 # controller on every node except pve_linstor_controller — which may be the active one.
 pve_linstor_controller_ha: true
+# 192.168.10.3 from generate.py --next-free; DNS in infrastructure/dns/terraform/hosts.tf.
+pve_linstor_controller_vip: 192.168.10.3

@@ -15,7 +15,8 @@ LINSTOR User Guide, "Creating a highly available LINSTOR cluster".
 | steady state | role `pve_linstor`, `pve_linstor_controller_ha: true` → `tasks/controller_ha.yml` | refuses to run if `linstor_db` does not exist |
 | promoter | `/etc/drbd-reactor.d/linstor_db.toml` | drbd-reactor is also the Prometheus exporter (`pve_monitoring`) |
 | DB ownership | `linstor-controller.service.d/homelab-db-owner.conf` | `chown` before start: the unit uses `DynamicUser`, its uid is a hash and could differ per node |
-| monitoring | `platform/observability/metrics/{scrapes,rules}/linstor.yaml` | all three nodes scraped; alerts on 0 or >1 active controllers |
+| VIP | `pve_linstor_controller_vip` (192.168.10.3) | last promoter entry, `ocf:heartbeat:IPaddr2` from `resource-agents`; follows the controller |
+| monitoring | `platform/observability/metrics/{scrapes,rules}/linstor.yaml` | scrapes the VIP only; ">1 controller" comes from node_exporter's systemd state, because a second controller never holds the VIP |
 
 Deliberate choices:
 - **Only `linstor_db` goes to the promoter.** Guest volumes stay with PVE's `ha-manager`; two

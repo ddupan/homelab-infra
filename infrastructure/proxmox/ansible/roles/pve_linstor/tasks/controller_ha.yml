@@ -67,6 +67,18 @@
 # stop-services-on-exit stays false (default) so restarting drbd-reactor never
 # stops the controller. No on-drbd-demote-failure action: PVE fencing is already
 # armed, and a second reboot trigger is not wanted.
+- name: Install the OCF agents for the controller VIP
+  # IPaddr2 also sends gratuitous ARP, so the LAN follows a failover at once.
+  ansible.builtin.apt:
+    name: resource-agents
+    state: present
+    install_recommends: false
+  register: _lin_ra_pkg
+  retries: 3
+  delay: 5
+  until: _lin_ra_pkg is succeeded
+  when: pve_linstor_controller_vip | length > 0
+
 - name: Promoter for the controller DB
   ansible.builtin.copy:
     dest: /etc/drbd-reactor.d/linstor_db.toml
@@ -75,7 +87,14 @@
       # Managed by Ansible (role pve_linstor).
       [[promoter]]
       [promoter.resources.{{ pve_linstor_db_resource }}]
-      start = ["var-lib-linstor.mount", "linstor-controller.service"]
+      start = [
+        "var-lib-linstor.mount",
+        "linstor-controller.service",
+      {% if pve_linstor_controller_vip | length > 0 %}
+        # Last, so the address only answers once the controller is up.
+        "ocf:heartbeat:IPaddr2 controller_vip ip={{ pve_linstor_controller_vip }} cidr_netmask={{ pve_linstor_controller_vip_prefix }}",
+      {% endif %}
+      ]
   notify: Restart drbd-reactor for LINSTOR HA
 
 - name: Read PVE storage config

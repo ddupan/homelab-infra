@@ -37,7 +37,7 @@ PR 号**；新发现的盲区直接追加。
 - [x] **P4** HA 事件：`vm:100` 迁移/重启要有通知 — `pve_ha_state`：HA 资源不在 started、fence/error
 - [x] **P5** LINSTOR / DRBD：controller `/metrics`（节点、volume、存储池容量、error report）+ 三节点
   drbd-reactor Prometheus 插件（连接状态、quorum、IO 挂起、out-of-sync、后端盘故障）
-  - controller HA（#295，2026-10-09）：linstor_db + drbd-reactor promoter；三节点抓取，告警"没有/多于一个活动 controller"
+  - controller HA（#295，2026-10-09）：linstor_db + drbd-reactor promoter；抓 VIP 192.168.10.3，告警"没有/多于一个活动 controller"（后者看 systemd 单元状态）
   - pve1 的 `ssd` 池只剩约 18%（告警阈值 15%）
 - [x] **P6** VyOS：内置 node/frr exporter（`vyos.yml`）、服务状态 textfile（`vyos-monitoring.yml`）、pg-prod HAProxy
   metrics（`shared-postgresql/proxy.yml`）、四个 TCP 入口与 DN42 DNS 探测。VyOS 远不止路由：pg-prod 生产库入口、

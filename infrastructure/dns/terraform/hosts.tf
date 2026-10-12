@@ -52,6 +52,15 @@ resource "powerdns_record" "pve2_a" {
   records = ["192.168.10.7"]
 }
 
+# VIP that follows the LINSTOR controller (drbd-reactor promoter, IPaddr2).
+resource "powerdns_record" "linstor_controller_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "linstor-controller.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.3"]
+}
+
 resource "powerdns_record" "pve3_a" {
   zone    = powerdns_zone.lab.name
   name    = "pve3.lab.ddupan.top."

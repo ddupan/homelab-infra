@@ -27,6 +27,12 @@ pve_linstor_db_resource: linstor_db
 pve_linstor_db_size: 200M
 # Tiny (the H2 DB was 956K in 2026-10) and latency-sensitive: SSD, all three nodes.
 pve_linstor_db_pool: "{{ pve_linstor_ssd_pool }}"
+# Optional floating address that follows the controller (the promoter brings it up
+# last, via ocf:heartbeat:IPaddr2). Gives monitoring one stable target instead of
+# scraping all three nodes and logging connection-refused from the two idle ones.
+# Empty = no VIP. Prefix is the LAN's; IPaddr2 picks the NIC from the route.
+pve_linstor_controller_vip: ""
+pve_linstor_controller_vip_prefix: 24
 
 # --- Storage pools ---
 # SSD = VM disks (fast). Built from the space the installer left free beyond the

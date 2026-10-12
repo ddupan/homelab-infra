@@ -140,12 +140,10 @@ tests:
 - name: 恰好一个 controller：不告警
   interval: 1m
   input_series:
-  - series: up{job="linstor",instance="192.168.10.4:3370"}
+  - series: up{job="linstor",instance="192.168.10.3:3370"}
     values: 1x8
-  - series: up{job="linstor",instance="192.168.10.7:3370"}
-    values: '0x8'
-  - series: up{job="linstor",instance="192.168.10.9:3370"}
-    values: '0x8'
+  - series: node_systemd_unit_state{job="node-exporter",instance="192.168.10.7:9100",name="linstor-controller.service",state="active",type="notify"}
+    values: 1x8
   alert_rule_test:
   - eval_time: 7m
     alertname: LinstorNoActiveController
@@ -156,12 +154,8 @@ tests:
 - name: 故障转移中短暂没有 controller 不告警，持续 5 分钟才告警
   interval: 1m
   input_series:
-  - series: up{job="linstor",instance="192.168.10.4:3370"}
+  - series: up{job="linstor",instance="192.168.10.3:3370"}
     values: 1 0x9
-  - series: up{job="linstor",instance="192.168.10.7:3370"}
-    values: '0x10'
-  - series: up{job="linstor",instance="192.168.10.9:3370"}
-    values: '0x10'
   alert_rule_test:
   - eval_time: 4m
     alertname: LinstorNoActiveController
@@ -170,20 +164,22 @@ tests:
     alertname: LinstorNoActiveController
     exp_alerts:
     - exp_labels:
+        job: linstor
+        instance: 192.168.10.3:3370
         severity: critical
       exp_annotations:
         summary: 没有任何节点在运行 LINSTOR controller
-        description: 已有 DRBD 卷照常读写，但 PVE 无法新建/迁移/删除卷。drbd-reactorctl status linstor_db （任一节点）；journalctl -u drbd-reactor；看 linstor_db 是否失去 quorum（DrbdNoQuorum）。
+        description: 已有 DRBD 卷照常读写，但 PVE 无法新建/迁移/删除卷。drbd-reactorctl status linstor_db （任一节点）；journalctl -u drbd-reactor；看 linstor_db 是否失去 quorum（DrbdNoQuorum）。 抓的是 VIP 192.168.10.3:3370：controller 在跑而 VIP 没起来也会触发（ip -br a）。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-- name: 两个 controller 同时在线
+- name: 两个 controller 同时在线（第二个不持有 VIP，只能从 systemd 看到）
   interval: 1m
   input_series:
-  - series: up{job="linstor",instance="192.168.10.4:3370"}
+  - series: up{job="linstor",instance="192.168.10.3:3370"}
     values: 1x5
-  - series: up{job="linstor",instance="192.168.10.7:3370"}
+  - series: node_systemd_unit_state{job="node-exporter",instance="192.168.10.4:9100",name="linstor-controller.service",state="active",type="notify"}
     values: 1x5
-  - series: up{job="linstor",instance="192.168.10.9:3370"}
-    values: '0x5'
+  - series: node_systemd_unit_state{job="node-exporter",instance="192.168.10.7:9100",name="linstor-controller.service",state="active",type="notify"}
+    values: 1x5
   alert_rule_test:
   - eval_time: 3m
     alertname: LinstorMultipleControllers
