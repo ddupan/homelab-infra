@@ -94,7 +94,11 @@ superuser 与复制角色查不到，只能直连。
 **不走池、直连 5432 的：** 迁移与 `pg_dump`/`pg_restore`、Ayatori 管理连接、Patroni/备份/exporter，
 以及依赖会话状态（LISTEN/NOTIFY、会话级 advisory lock、`SET` 不带 `LOCAL`）或长期占住连接的客户端
 （backstage：events 用 LISTEN，knex 按插件各自建池）——这类改为收紧自身池大小。
-transaction 模式下命名预编译语句可用（`max_prepared_statements` 默认 200）。
+transaction 模式下命名预编译语句可用（`max_prepared_statements` 默认 200）。**未命名语句跨 Sync 不可用**：
+Go 的 **lib/pq**（Gitea 等）先发 Parse("")+Describe+Sync、再另发 Bind+Execute+Sync，PgBouncer 在两次 Sync
+之间会换服务端连接，Bind 落到别的客户端的语句上（参数个数不符报 08P01；恰好相符则用错参数执行别的语句）。
+2026-10-13 Gitea 经池 80 秒即出现，已改直连并整库重灌。已确认可用：pgx（命名语句，e5renew）、psycopg 3
+与 libpq 的 PQexecParams（Parse/Bind/Execute 同一 Sync，research-auto）。新客户端接入池前先查驱动的协议用法。
 
 部署：`site.yml`（写入 HBA/ident）→ `pooler.yml` → `proxy.yml` → `controller.yml`（续签程序副本
 带上池的重载）。`tests/pooler_integration.py` 用真实模板在临时容器中验证认证透传、拒绝 superuser/

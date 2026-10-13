@@ -29,11 +29,11 @@ gitea:
     auth:
       AUTO_REGISTER: true
     database:
-      # pg-prod（Ayatori 租户，database.yaml）。HOST/NAME/USER/PASSWD/SSL_MODE 全部经下面的
-      # additionalConfigFromEnvs 从 gitea-pgprod 取，此文件不含连接信息。不设 SCHEMA：设了之后
-      # Gitea 每个新连接都执行会话级 set_config('search_path', ...)，经 transaction 模式的连接池会
-      # 残留并在复用的服务端连接上越叠越长；默认 search_path 本来就落到 public。init 容器只对 PVC 上
-      # 已有的 app.ini 做 edit-ini（不删键），所以要显式置空才能去掉旧的 SCHEMA = public。
+      # pg-prod（Ayatori 租户，database.yaml），直连 5432：lib/pq 与 transaction 模式的连接池不兼容（见
+      # database.yaml）。HOST/NAME/USER/PASSWD/SSL_MODE 全部经下面的 additionalConfigFromEnvs 从
+      # gitea-pgprod 取，此文件不含连接信息。SCHEMA 置空：设了之后 Gitea 每个新连接都执行会话级
+      # set_config('search_path', ...)，而默认 search_path 本来就落到 public；init 容器只对 PVC 上已有的
+      # app.ini 做 edit-ini（不删键），所以要显式置空才能去掉旧的 SCHEMA = public。
       DB_TYPE: postgres
       SCHEMA: ""
     queue:
