@@ -44,6 +44,15 @@ samba_ad_service_accounts:
   - name: svc-poweradmin
     password: "{{ vault_poweradmin_bind_password }}"
     description: "Poweradmin LDAP bind: looks up the login user, then binds as them (read-only)"
+  # bao_path instead of password: the play generates the password on creation and keeps it only in Bao, where the
+  # consumer's ExternalSecret reads it (username = UPN). Nothing to copy by hand, nothing to rotate in two places.
+  - name: svc-iam-login
+    bao_path: k8s/iam-login-ldap
+    description: "iam-login: reads users and groups when they are not signing in (read-only)"
+
+# Where bao_path accounts keep their passwords. The play needs VAULT_TOKEN with create/read on those paths.
+samba_ad_bao_url: https://bao.lab.ddupan.top:8200
+samba_ad_bao_kv_mount: kv
 
 # --- Groups used for RBAC by downstream apps ---
 # NOTE: PVE renames synced groups to "<name>-<realm>", so platform-admins becomes

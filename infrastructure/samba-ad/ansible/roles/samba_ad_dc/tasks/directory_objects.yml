@@ -4,6 +4,90 @@
 # the since-retired Authelia), which means a DC rebuild would silently lose every
 # app's ability to bind.
 
+# --- Passwords of bao_path accounts live only in Bao ------------------------------
+# Absent in Bao + absent in AD = a new account: generate, store in Bao FIRST, then create, so a failed create is
+# simply retried with the stored value. Present in AD but absent in Bao is refused: the password cannot be read
+# back from AD, and generating a new one would leave Bao and AD disagreeing.
+- name: Read Bao-held service-account passwords
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ samba_ad_bao_url }}"
+    engine_mount_point: "{{ samba_ad_bao_kv_mount }}"
+    path: "{{ item.bao_path }}"
+    auth_method: token
+  loop: "{{ _svc_bao_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    _svc_bao_accounts: "{{ samba_ad_service_accounts | default([]) | selectattr('bao_path', 'defined') | list }}"
+  delegate_to: localhost
+  become: false
+  register: _svc_bao
+  failed_when: false    # "not there yet" is expected; a missing token shows up as "exists but not in Bao" below
+  check_mode: false
+  no_log: true
+
+- name: Check which Bao-held accounts already exist in AD
+  ansible.builtin.command:
+    argv: [samba-tool, user, show, "{{ item.item.name }}", --attributes=sAMAccountName]
+  loop: "{{ _svc_bao.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  register: _svc_existing
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Refuse an existing account whose password Bao does not hold
+  ansible.builtin.fail:
+    msg: >-
+      {{ item.0.item.name }} exists in AD but {{ samba_ad_bao_kv_mount }}/{{ item.0.item.bao_path }} has no
+      password (missing, or VAULT_TOKEN cannot read it). To rotate: set a new password with
+      `samba-tool user setpassword`, write it there as username/password, then re-run.
+  loop: "{{ _svc_bao.results | zip(_svc_existing.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item.name }}"
+  when: item.1.rc == 0 and item.0.secret is not defined
+
+- name: Generate and store passwords for new Bao-held accounts
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ samba_ad_bao_url }}"
+    engine_mount_point: "{{ samba_ad_bao_kv_mount }}"
+    path: "{{ item.item.bao_path }}"
+    auth_method: token
+    data:
+      username: "{{ item.item.name }}@{{ samba_ad_realm | lower }}"
+      password: "{{ lookup('ansible.builtin.password', '/dev/null', length=48, chars=['ascii_letters', 'digits']) }}"
+  loop: "{{ _svc_bao.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.secret is not defined and not ansible_check_mode
+  delegate_to: localhost
+  become: false
+  no_log: true
+
+- name: Read them back for account creation
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ samba_ad_bao_url }}"
+    engine_mount_point: "{{ samba_ad_bao_kv_mount }}"
+    path: "{{ item.item.bao_path }}"
+    auth_method: token
+  loop: "{{ _svc_bao.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  delegate_to: localhost
+  become: false
+  register: _svc_bao_final
+  failed_when: false    # in check mode a new account has nothing stored yet; creation is skipped there anyway
+  check_mode: false
+  no_log: true
+
+- name: Collect Bao-held passwords
+  ansible.builtin.set_fact:
+    _svc_bao_passwords: >-
+      {{ dict(_svc_bao_final.results | map(attribute='item.item.name')
+         | zip(_svc_bao_final.results | map(attribute='secret', default={}) | map(attribute='password', default=''))) }}
+  no_log: true
+
 - name: Create service accounts
   ansible.builtin.command:
     argv:
@@ -11,7 +95,7 @@
       - user
       - create
       - "{{ item.name }}"
-      - "{{ item.password }}"
+      - "{{ item.password if item.password is defined else _svc_bao_passwords[item.name] }}"
       - "--description={{ item.description | default('') }}"
   loop: "{{ samba_ad_service_accounts | default([]) }}"
   loop_control:
