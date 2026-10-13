@@ -29,13 +29,13 @@ gitea:
     auth:
       AUTO_REGISTER: true
     database:
+      # pg-prod（Ayatori 租户，database.yaml）。HOST/NAME/USER/PASSWD/SSL_MODE 全部经下面的
+      # additionalConfigFromEnvs 从 gitea-pgprod 取，此文件不含连接信息。不设 SCHEMA：设了之后
+      # Gitea 每个新连接都执行会话级 set_config('search_path', ...)，经 transaction 模式的连接池会
+      # 残留并在复用的服务端连接上越叠越长；默认 search_path 本来就落到 public。init 容器只对 PVC 上
+      # 已有的 app.ini 做 edit-ini（不删键），所以要显式置空才能去掉旧的 SCHEMA = public。
       DB_TYPE: postgres
-      HOST: shared-postgresql.shared-db.svc.cluster.local:5432
-      NAME: gitea
-      USER: gitea
-      # PASSWD is deliberately absent — it arrives via additionalConfigFromEnvs
-      # below, so this file carries no credential and stays in git.
-      SCHEMA: public
+      SCHEMA: ""
     queue:
       TYPE: database
       QUEUE_TYPE: database
@@ -70,11 +70,11 @@ gitea:
       ENABLE_AUTO_REGISTRATION: true
       USERNAME: preferred_username
       UPDATE_AVATAR: true
-  # The DB password, injected as an env var rather than written into this file.
-  # Gitea's env-to-ini step turns GITEA__DATABASE__PASSWD into `[database] PASSWD`,
-  # so the rendered app.ini is identical to hardcoding it — but the credential
-  # lives only in the `gitea-db` Secret (see secret.example.yaml), and this file
-  # stays in git.
+  # The DB connection, injected as env vars rather than written into this file.
+  # Gitea's env-to-ini step turns GITEA__DATABASE__* into `[database] *`, so the
+  # rendered app.ini is identical to hardcoding it — but the credential lives only
+  # in the `gitea-pgprod` Secret (Ayatori via OpenBao, database.yaml), and this
+  # file stays in git.
   #
   # Next step for rotation: `gitea.extraEnvSourceFile` reads an env file written
   # by an OpenBao agent-injector sidecar, which is the route to credentials from
@@ -82,12 +82,31 @@ gitea:
   # once at startup, so rotation needs a restart — static roles suit it better
   # than short-TTL dynamic credentials.
   additionalConfigFromEnvs:
+    - name: GITEA__DATABASE__HOST
+      valueFrom:
+        secretKeyRef:
+          name: gitea-pgprod
+          key: host
+    - name: GITEA__DATABASE__NAME
+      valueFrom:
+        secretKeyRef:
+          name: gitea-pgprod
+          key: database
+    - name: GITEA__DATABASE__USER
+      valueFrom:
+        secretKeyRef:
+          name: gitea-pgprod
+          key: username
     - name: GITEA__DATABASE__PASSWD
       valueFrom:
         secretKeyRef:
-          name: gitea-db
+          name: gitea-pgprod
           key: password
-
+    - name: GITEA__DATABASE__SSL_MODE
+      valueFrom:
+        secretKeyRef:
+          name: gitea-pgprod
+          key: sslmode
   oauth:
     # iam-login (AD password + passkey). This is login source ID 3, formerly `hydra`:
     # Gitea links accounts by (source ID, sub), and the chart's init container matches
@@ -120,3 +139,22 @@ valkey-cluster:
 
 valkey:
   enabled: false
+# lib/pq（Gitea 的驱动）读 libpq 环境变量；SSL_MODE=verify-full 时用它校验 pg-prod 证书。
+# deployment.env 进 init 与主容器：configure-gitea（init）也连库，跑 `gitea migrate`。
+deployment:
+  env:
+    - name: PGSSLROOTCERT
+      value: /etc/internal-ca/ca.pem
+# 内部 CA，trust-manager 分发（platform/trust-manager/bundle）。
+extraVolumes:
+  - name: internal-ca
+    configMap:
+      name: internal-ca
+extraInitVolumeMounts:
+  - name: internal-ca
+    mountPath: /etc/internal-ca
+    readOnly: true
+extraContainerVolumeMounts:
+  - name: internal-ca
+    mountPath: /etc/internal-ca
+    readOnly: true

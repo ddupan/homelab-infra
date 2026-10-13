@@ -1,6 +1,6 @@
 # Gitea
 
-Gitea 使用外部 CloudNativePG 数据库和现有 `gitea-shared-storage` RWO PVC，入口由
+Gitea 使用 pg-prod（k3s 外的 Patroni，Ayatori 租户 `gitea`）和现有 `gitea-shared-storage` RWO PVC，入口由
 Envoy Gateway HTTPRoute 提供。Helm chart 自带的无 class Ingress 暂时保留以确保
 首次接管零变化；清理该 Ingress 与升级 chart 必须使用后续独立 PR。
 
@@ -13,7 +13,10 @@ Envoy Gateway HTTPRoute 提供。Helm chart 自带的无 class Ingress 暂时保
 live diff 仍只有不常驻的 test hook Pod。子 Kustomization 和集群 root 均保持
 `prune: false`。
 
-数据库密码已经由 External Secrets Operator 从 OpenBao 投射到 `gitea-db`。OIDC
+数据库连接（host/库/用户/密码/sslmode）由 Ayatori 交付到 OpenBao，经 `database.yaml` 同步为
+`gitea-pgprod`，以 `GITEA__DATABASE__*` 注入。经连接池 6432（Gitea 不用 advisory lock / LISTEN）；
+verify-full，lib/pq 经 `PGSSLROOTCERT` 读 trust-manager 的 `internal-ca`。2026-10-13 自 k3s 内
+CNPG（`shared-db`）迁入；旧的 `gitea-db`（`platform/external-secrets/`）随 CNPG 下线删除。OIDC
 client secret 仍是历史手工 Secret `gitea-oidc-secret`，本次接管只引用、不覆盖它；
 将剩余 Secret 迁移到 OpenBao 是独立的后续工作。
 

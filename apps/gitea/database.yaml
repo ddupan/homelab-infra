@@ -1,7 +1,7 @@
 # pg-prod 上的数据库由 Ayatori 供应（../../clusters/ayatori-prod/gitea.yaml），凭据只交付到 OpenBao。
 # 本 namespace 以自己的 SA 登录 bao：gitea-database role（../../infrastructure/openbao/terraform/
 # ayatori-database-consumers.tf）只能读这一份凭据，共享的 ClusterSecretStore 无需读取所有租户。
-# 生成的 Secret 在切换前不被任何工作负载引用。
+# gitea-values.yaml 经 additionalConfigFromEnvs 读取 gitea-pgprod（2026-10-13 自 CNPG 迁入）。
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -45,13 +45,13 @@ spec:
     creationPolicy: Owner
     template:
       data:
-        host: '{{ .host }}'
-        # 连接池入口（PgBouncer，transaction 模式）；租户凭据里的 port 是直连的 5432。
-        port: '6432'
+        # Gitea 的 [database] HOST 是 host:port。连接池入口（PgBouncer，transaction 模式）6432；
+        # Gitea 不用 advisory lock / LISTEN（见 gitea-values.yaml），租户凭据里的 port 是直连的 5432。
+        host: '{{ .host }}:6432'
         database: '{{ .database }}'
         username: '{{ .username }}'
         password: '{{ .password }}'
-        # verify-full：服务端证书由内部 CA 签发，CA 用 trust-manager 分发的 ConfigMap internal-ca（ca.pem）。
+        # verify-full：服务端证书由内部 CA 签发；lib/pq 经 PGSSLROOTCERT 读 ConfigMap internal-ca。
         sslmode: '{{ .sslmode }}'
   dataFrom:
     - extract:
