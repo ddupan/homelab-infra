@@ -98,7 +98,11 @@ transaction 模式下命名预编译语句可用（`max_prepared_statements` 默
 Go 的 **lib/pq**（Gitea 等）先发 Parse("")+Describe+Sync、再另发 Bind+Execute+Sync，PgBouncer 在两次 Sync
 之间会换服务端连接，Bind 落到别的客户端的语句上（参数个数不符报 08P01；恰好相符则用错参数执行别的语句）。
 2026-10-13 Gitea 经池 80 秒即出现，已改直连并整库重灌。已确认可用：pgx（命名语句，e5renew）、psycopg 3
-与 libpq 的 PQexecParams（Parse/Bind/Execute 同一 Sync，research-auto）。新客户端接入池前先查驱动的协议用法。
+与 libpq 的 PQexecParams（Parse/Bind/Execute 同一 Sync，research-auto）、pgjdbc（iam-login）。
+新客户端接入池前先做并发验证：一次性命令测不出来（Gitea 演练就漏了）。当天的压测（32 个客户端压到 5 条
+服务端连接、逐条校验结果）：pgjdbc 42.7.13 + HikariCP 525k 次 0 错；lib/pq v1.12.3 约一半 08P01；
+lib/pq 加 DSN 参数 `binary_parameters=yes`（单次往返）0 错——但它把 `[]byte` 参数改为二进制格式发送，
+对 jsonb 等列不安全，Gitea 未采用。
 
 部署：`site.yml`（写入 HBA/ident）→ `pooler.yml` → `proxy.yml` → `controller.yml`（续签程序副本
 带上池的重载）。`tests/pooler_integration.py` 用真实模板在临时容器中验证认证透传、拒绝 superuser/

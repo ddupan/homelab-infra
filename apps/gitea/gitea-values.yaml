@@ -36,6 +36,8 @@ gitea:
       # app.ini 做 edit-ini（不删键），所以要显式置空才能去掉旧的 SCHEMA = public。
       DB_TYPE: postgres
       SCHEMA: ""
+      # 直连不经池，用 Gitea 自己的上限护住 pg-prod 的 max_connections=80（默认 0 = 不限）。
+      MAX_OPEN_CONNS: 10
     queue:
       TYPE: database
       QUEUE_TYPE: database
