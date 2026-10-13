@@ -1,0 +1,14 @@
+# SPIRE server 的 datastore（注册条目、已证明节点），自 CNPG shared-db 迁入。
+# 注意恢复顺序：pg-prod 证书续签依赖 SPIRE→Bao，而 SPIRE 启动依赖 pg-prod；pg 只用本地证书运行
+# （60 天有效、剩 14 天续签），故仅 SPIRE 连续宕机超过约 46 天才会互锁。
+# 凭据由 homelab k3s 中该 namespace 自己的身份从 OpenBao 读取（参照 apps/iam-login/database.yaml）。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire-server
+---
+apiVersion: database.ayatori.ddupan.top/v1alpha1
+kind: PostgreSQLTenant
+metadata: {name: spire-server, namespace: spire-server}
+spec:
+  provision: {instanceRef: {name: homelab-prod}, database: spire, loginRole: spire}
