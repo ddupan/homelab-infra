@@ -394,8 +394,10 @@ sudo k3s kubectl -n spire-system logs daemonset/spire-spiffe-csi-driver \
 ### Server 无法连接 PostgreSQL
 
 ```bash
-sudo k3s kubectl -n shared-db get cluster shared-postgresql
-sudo k3s kubectl -n spire-server get secret spire-postgresql \
+# pg-prod 主库与入口（Patroni；pg-prod.lab.ddupan.top:5432 → VyOS → 当前 primary）
+infrastructure/shared-postgresql/switchover.py
+sudo k3s kubectl -n spire-server get externalsecret spire-server-pgprod
+sudo k3s kubectl -n spire-server get secret spire-server-pgprod \
   -o go-template='{{range $k, $_ := .data}}{{$k}}{{"\n"}}{{end}}'
 sudo k3s kubectl -n spire-server logs statefulset/spire-server \
   -c spire-server --tail=100
@@ -416,7 +418,7 @@ SPIRE 会自动轮换 X.509 CA 与 JWT signing key；OIDC Provider 从 Workload 
 仅恢复 PostgreSQL 而丢失 PVC，不等于恢复 SPIRE。签名密钥丢失会使既有 SVID/JWKS
 信任链失效。恢复顺序：
 
-1. 恢复共享 PostgreSQL；
+1. 恢复 pg-prod（`infrastructure/shared-postgresql/`；其证书续签依赖 SPIRE，见 README 恢复顺序）；
 2. 恢复 signing-key PVC；
 3. 启动 SPIRE Server；
 4. 确认 bundle/JWKS 后启动或恢复 Agent；

@@ -36,21 +36,23 @@ Agent 使用；独立的 `sandbox-kata` profile 复用同一 kubeconfig，但启
 
 ## PostgreSQL bootstrap
 
-SPIRE registration datastore 使用共享 CloudNativePG：
+SPIRE registration datastore 使用 k3s 外的 pg-prod（Patroni），由 Ayatori 供应
+（`clusters/ayatori-prod/spire-server.yaml`）：
 
 ```text
-host:     shared-postgresql-rw.shared-db.svc.cluster.local:5432
+host:     pg-prod.lab.ddupan.top:5432（直连，verify-full）
 database: spire
 role:     spire
 ```
 
-数据库与 role 当前是手工创建的临时 bootstrap。密码只存在于
-`spire-server/spire-postgresql` Secret 的 `password` key 中，不提交到 Git。
-在 PostgreSQL tenant operator/DBaaS 接管前，不得删除该 Secret 或重置数据库
-role 密码。
+密码由 Ayatori 交付到 OpenBao，经 `database.yaml` 同步为 `spire-server/spire-server-pgprod`
+的 `password` key（`spire-server.dataStore.sql.externalSecret`）。**不走 PgBouncer 连接池**：
+SPIRE 的驱动是 lib/pq（jinzhu/gorm），其未命名语句跨两次 Sync，与 transaction 模式不兼容
+（见 `infrastructure/shared-postgresql/README.md`「连接池」）。2026-10-13 自 k3s 内 CNPG 迁入。
 
-后续声明式管理必须保持这一 Secret 接口，或者在同一个变更中更新
-`spire-server.dataStore.sql.externalSecret`，避免数据库凭据出现两个写入方。
+**恢复顺序**：pg-prod 的服务器证书由 `renew-certificates.yml` 经 SPIRE→Bao 续签，而 SPIRE
+Server 启动又需要 pg-prod。pg-prod 运行只用本地证书（60 天，剩 14 天续签），所以只有 SPIRE
+连续停摆约 46 天才会互锁；届时以 Bao OIDC 人工登录续签 PG 证书即可解开。
 
 PostgreSQL保存 registration state；SPIRE Server 的 disk KeyManager 仍使用一个
 `1Gi`、`localpv-zfs-ceph` PVC 保存 trust-domain signing keys。数据库备份不能替代

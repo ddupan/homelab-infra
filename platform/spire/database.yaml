@@ -1,7 +1,7 @@
 # pg-prod 上的数据库由 Ayatori 供应（../../clusters/ayatori-prod/spire-server.yaml），凭据只交付到 OpenBao。
 # 本 namespace 以自己的 SA 登录 bao：spire-server-database role（../../infrastructure/openbao/terraform/
 # ayatori-database-consumers.tf）只能读这一份凭据，共享的 ClusterSecretStore 无需读取所有租户。
-# 生成的 Secret 在切换前不被任何工作负载引用。
+# spire-server 的 datastore 密码取自这里（values.yaml dataStore.sql.externalSecret；2026-10-13 自 CNPG 迁入）。
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -46,8 +46,9 @@ spec:
     template:
       data:
         host: '{{ .host }}'
-        # 连接池入口（PgBouncer，transaction 模式）；租户凭据里的 port 是直连的 5432。
-        port: '6432'
+        # 直连租户端口，不走连接池：SPIRE 的驱动是 lib/pq（见 values.yaml dataStore.sql）。
+        # chart 只从这里取 password；host/port 在 values.yaml。
+        port: '{{ .port }}'
         database: '{{ .database }}'
         username: '{{ .username }}'
         password: '{{ .password }}'
