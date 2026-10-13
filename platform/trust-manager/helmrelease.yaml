@@ -1,0 +1,41 @@
+# trust-manager：把内部 CA 从一份源文件分发到各 namespace（bundle/），取代各目录各自拷贝的副本。
+# trust namespace 是 cert-manager（源 ConfigMap 必须在那里），与 jetstack HelmRepository 同 namespace。
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: trust-manager
+  namespace: cert-manager
+spec:
+  chart:
+    spec:
+      chart: trust-manager
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+      version: v0.25.0
+  driftDetection:
+    mode: enabled
+  install:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: trust-manager
+  targetNamespace: cert-manager
+  timeout: 10m
+  upgrade:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  values:
+    crds:
+      enabled: true
+    app:
+      trust:
+        namespace: cert-manager
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {memory: 128Mi}

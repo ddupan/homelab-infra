@@ -46,9 +46,9 @@ spec:
     creationPolicy: Owner
     template:
       data:
-        # sslmode is verify-full; the server cert is issued by the internal CA (internal-ca.pem,
+        # sslmode is verify-full; the server cert is issued by the internal CA (ConfigMap internal-ca from trust-manager,
         # public). pgjdbc has no hostaddr, so the host name resolves through the DC.
-        SPRING_DATASOURCE_URL: 'jdbc:postgresql://{{ .host }}:{{ .port }}/{{ .database }}?sslmode={{ .sslmode }}&sslrootcert=/config/internal-ca.pem'
+        SPRING_DATASOURCE_URL: 'jdbc:postgresql://{{ .host }}:{{ .port }}/{{ .database }}?sslmode={{ .sslmode }}&sslrootcert=/etc/internal-ca/ca.pem'
         SPRING_DATASOURCE_USERNAME: '{{ .username }}'
         SPRING_DATASOURCE_PASSWORD: '{{ .password }}'
   dataFrom:

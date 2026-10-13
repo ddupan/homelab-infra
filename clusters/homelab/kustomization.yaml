@@ -4,6 +4,7 @@ resources:
   - flux-system
   - namespaces/gitops-canary.yaml
   - apps/cert-manager.yaml
+  - apps/trust-manager.yaml
   - apps/envoy-gateway.yaml
   - apps/external-secrets.yaml
   - apps/gitea.yaml

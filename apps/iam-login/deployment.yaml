@@ -56,6 +56,8 @@ spec:
               drop: [ALL]
           volumeMounts:
             - { name: config, mountPath: /config, readOnly: true }
+            # 内部 CA（trust-manager 分发），pgjdbc 以 sslrootcert 校验 pg-prod。
+            - { name: internal-ca, mountPath: /etc/internal-ca, readOnly: true }
             - { name: secrets, mountPath: /run/secrets/iam, readOnly: true }
             # Tomcat's work directory.
             - { name: tmp, mountPath: /tmp }
@@ -69,6 +71,8 @@ spec:
       volumes:
         - name: config
           configMap: { name: iam-login-config }
+        - name: internal-ca
+          configMap: { name: internal-ca }
         - name: secrets
           secret:
             secretName: iam-login

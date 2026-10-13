@@ -39,7 +39,8 @@ spec:
     extraConfigmapMounts:
       - name: bao-ca
         mountPath: /etc/bao-ca
-        configMap: bao-ca
+        # 由 trust-manager 分发（platform/trust-manager/bundle）。
+        configMap: internal-ca
         readOnly: true
         defaultMode: 420
     config:

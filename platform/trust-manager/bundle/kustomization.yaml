@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# 单独一个 Flux Kustomization：Bundle CRD 由 trust-manager chart 安装，必须等它就绪（dependsOn）。
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: internal-ca-source
+    namespace: cert-manager
+    files:
+      - ca.pem=internal-ca.pem
+resources:
+  - bundle.yaml

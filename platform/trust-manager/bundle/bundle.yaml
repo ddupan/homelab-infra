@@ -1,0 +1,17 @@
+# 内部 CA（OpenBao pki，"ddupan.top Internal CA"，有效期到 2036-07-21）在仓库里唯一的一份是
+# internal-ca.pem；trust-manager 把它分发为每个 namespace 的 ConfigMap internal-ca（键 ca.pem）。
+# 集群外（主机上的 psql 等）也直接用这个文件。来源：curl -s https://bao.lab.ddupan.top:8200/v1/pki/ca/pem
+# 不设 namespaceSelector：是公开证书，发到所有 namespace 省得给每个 namespace 打标签。
+# 换 CA 时只改 internal-ca.pem；先追加新 CA、等所有服务端证书换签后再移除旧的。
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: internal-ca
+spec:
+  sources:
+    - configMap:
+        name: internal-ca-source
+        key: ca.pem
+  target:
+    configMap:
+      key: ca.pem
