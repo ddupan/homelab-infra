@@ -4,7 +4,7 @@
 开发与生产共用 laptop，但使用独立 OS 用户、数据集、端口与配置。没有部署 Pigsty 全栈。
 
 **2026-09-25 已上线新生产主从、独立开发实例、稳定入口与本地备份。**
-现有 CNPG 和应用数据未迁移。Ayatori 按维护者决定沿用独立控制面规划，本轮只备齐接入材料，
+k3s 内原 CNPG（`shared-db`）上的应用已于 2026-10-13 全部迁入，CNPG 随即退役（`archive/cnpg-shared-postgresql/RETIRED.md`）。Ayatori 按维护者决定沿用独立控制面规划，本轮只备齐接入材料，
 未向现有 k3s 部署 Ayatori 或 Instance CR，也不能宣称 Instance Ready。
 
 ## 入口与拓扑
@@ -73,7 +73,7 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
    向 Patroni 发 HUP、对 pending 成员 `patronictl restart --pending`（primary 原位重启，不 failover，
    写入短暂中断）或重启 dev；随后在可写实例创建监控角色与扩展并安装 exporter。不需要 Bao。
 10. Ayatori 已接入（Instance、管理凭据同步由 Ayatori 部署 role 与 `infrastructure/ayatori/ansible` 管理，
-    数据库经 `clusters/ayatori-<env>/` 申请）；CNPG 迁移另行按应用验收。
+    数据库经 `clusters/ayatori-<env>/` 申请）；原 CNPG 上的应用已全部迁入（见上）。
 
 普通 `site.yml` 不代表所有配置已在线激活；尚未实现通用参数变更的 rolling restart。
 专用 `renew-certificates.yml` 只处理证书，60 天有效期、剩余不足 14 天续签；逐主机检查服务，
@@ -135,7 +135,7 @@ infrastructure/shared-postgresql/switchover.py --run    # 执行并等待候选�
 独立的 dev 实例当前不备份。异地备份按维护者决定后置；本地 PVE 仓库不是异地或离线副本。
 
 `tests/live_restore.py --run` 从真实仓库恢复到新临时目录，用私有 Unix socket 验证恢复实例可写与
-Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复及接管旧 CNPG 不由此脚本自动执行。
+Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复不由此脚本自动执行。
 
 ## 监控与验收
 

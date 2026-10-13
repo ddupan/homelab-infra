@@ -456,10 +456,8 @@ apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
   name: shared-postgresql
-  description: Shared PostgreSQL (CNPG in shared-db; new pg-prod/pg-dev off-cluster)
+  description: Shared PostgreSQL — pg-prod / pg-dev (Patroni + PgBouncer, off-cluster); k3s CNPG retired 2026-10-13
   annotations:
-    backstage.io/kubernetes-namespace: shared-db
-    backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/shared-postgresql/
 spec:
   type: database

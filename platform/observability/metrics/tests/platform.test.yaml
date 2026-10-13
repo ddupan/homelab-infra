@@ -98,31 +98,6 @@ tests:
         summary: Secret 同步 app/credentials 未就绪
         description: 检查 ExternalSecret 状态及 provider 权限、网络；不要输出 Secret 内容。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
-- name: CNPG 聚合数据库连接并对齐实例限额
-  interval: 1m
-  input_series:
-  - series: cnpg_backends_total{job="cnpg",namespace="db",pod="pg-1",datname="a"}
-    values: 50x30
-  - series: cnpg_backends_total{job="cnpg",namespace="db",pod="pg-1",datname="b"}
-    values: 40x30
-  - series: cnpg_pg_settings_setting{job="cnpg",namespace="db",pod="pg-1",name="max_connections"}
-    values: 100x30
-  alert_rule_test:
-  - eval_time: 9m
-    alertname: CnpgConnectionsHigh
-    exp_alerts: []
-  - eval_time: 11m
-    alertname: CnpgConnectionsHigh
-    exp_alerts:
-    - exp_labels:
-        job: cnpg
-        namespace: db
-        pod: pg-1
-        severity: warning
-      exp_annotations:
-        summary: CNPG pg-1 连接使用率超过 80%
-        description: 检查连接池、空闲连接和连接泄漏，不直接提高 max_connections。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
 - name: SeaweedFS 磁盘分母忽略 type 标签
   interval: 1m
   input_series:

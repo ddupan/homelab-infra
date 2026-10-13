@@ -1,9 +1,10 @@
 # 现有 bucket 全部纳管。prevent_destroy：从这里删掉一行不应连带删除数据。
 # imported_buckets 是纳管前已存在的 bucket，只对它们做 import；新 bucket 加到
 # local.buckets 由 Terraform 创建（对不存在的对象 import 会失败）。
+# archive：退役系统的一次性加密存档（例如 archive/cnpg-shared-postgresql/RETIRED.md），不是备份目标。
 locals {
   imported_buckets = toset(["public", "research", "research-data", "tfstate", "zot"])
-  buckets          = setunion(local.imported_buckets, ["ci-cache", "techdocs", "terraform-registry"])
+  buckets          = setunion(local.imported_buckets, ["archive", "ci-cache", "techdocs", "terraform-registry"])
 }
 
 resource "aws_s3_bucket" "this" {
