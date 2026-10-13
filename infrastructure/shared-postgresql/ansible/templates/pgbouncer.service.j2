@@ -1,0 +1,23 @@
+[Unit]
+Description=PostgreSQL {{ pg_instance }} connection pooler
+After=homelab-postgresql-{{ pg_instance }}.service
+[Service]
+# 以实例 OS 用户运行：要进 0700 的实例 socket 目录、读 0640 的 TLS 私钥，并经 peer 映射成
+# auth_user。与 exporter 相同，这不是隔离边界——被攻破即等同实例属主；暴露面限于内网监听地址。
+User={{ pg_profile.user }}
+Group={{ pg_profile.user }}
+Type=notify
+ExecStart=/usr/sbin/pgbouncer {{ pg_config_dir }}/pgbouncer.ini
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=2048
+InaccessiblePaths={{ pg_parent_dir }}
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+MemoryMax=64M
+[Install]
+WantedBy=multi-user.target

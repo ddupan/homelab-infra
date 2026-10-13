@@ -33,6 +33,12 @@
     argv: [systemctl, kill, --kill-whom=main, --signal=HUP, "homelab-postgresql-{{ pg_instance }}.service"]
   when: pg_certificates_changed
   changed_when: true
+# PgBouncer 用同一张服务器证书；SIGHUP 重载 TLS 配置，不断开已有连接。尚未部署池的主机上为空操作。
+- name: 重载使用同一证书的连接池
+  ansible.builtin.command:
+    argv: [systemctl, try-reload-or-restart, homelab-pgbouncer-prod.service]
+  when: pg_certificates_changed and pg_instance == 'prod'
+  changed_when: true
 - name: 检查重载后的本机 SQL 可用
   ansible.builtin.command:
     argv:

@@ -209,6 +209,29 @@ spec:
         - 10.60.0.13:8080      # opensandbox API
         - 10.60.0.1:5432       # sandbox PostgreSQL
 ---
+# 连接池（infrastructure/shared-postgresql/ansible/pooler.yml）。直接探成员而不是 VyOS 的 :6432：
+# HAProxy 只看 Patroni /primary，主库上的 PgBouncer 挂了它照样转发，探入口只能证明 HAProxy 在听。
+# standby 上的池平时空闲，但 failover 后立刻接流量，所以两个都要在。
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: shared-postgresql-pooler
+  namespace: monitoring
+spec:
+  jobName: probe-shared-postgresql-pooler
+  module: tcp_connect
+  interval: 60s
+  scrapeTimeout: 15s
+  prober:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: pg-pooler
+      static:
+        - 192.168.10.127:6432  # pg-laptop
+        - 10.60.0.20:6432      # pg-pve1
+---
 # DN42 解析：经 VyOS pdns-recursor → wg42 隧道 → DN42 delegation server。
 # 同时验证了 pdns-recursor、wg42 与经 oci-amd 的路由。
 apiVersion: monitoring.coreos.com/v1

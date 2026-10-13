@@ -55,3 +55,17 @@ pg_repo_path: /var/lib/homelab-pgbackrest
 pg_monitor_user: homelab_monitor
 # 升级只改版本；安装包与同版本官方 sha256sums.txt 一起下载校验，不写死摘要。
 pg_exporter_version: 0.20.1
+# 连接池：每个 prod 成员一个 PgBouncer，经本机 socket 连本机实例；VyOS 的 pg-prod:6432 跟随 /primary。
+# 起因：CNPG 迁入后各应用自带连接池（backstage ~22、spire 20…）会把 max_connections=80 吃光，
+# 而 MemoryMax=1G 不允许简单调大。账号经 auth_query 从 pg_authid 查（SCRAM 透传），Ayatori 新建的
+# 角色无需配置即可用；superuser 与复制角色查不到，只能走 5432 直连。
+# 需要会话级特性（LISTEN/NOTIFY、会话 advisory lock）或长期占满连接的客户端（backstage）不走池，
+# 直连 5432 并收紧自身池；迁移、pg_dump、Ayatori 管理同样直连。
+# 版本固定理由同 pgBackRest：两成员行为必须一致，平时 apt upgrade 不动它。
+pg_pgbouncer_version: 1.26.0-4.pgdg24.04+1
+pg_pooler_user: homelab_pooler
+pg_pooler:
+  port: 6432
+  # 每个（库, 角色）对的服务端连接上限；每个租户一库一角色，总占用 ≈ 租户数 × 该值。
+  default_pool_size: 5
+  max_client_conn: 500

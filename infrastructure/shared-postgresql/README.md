@@ -82,6 +82,25 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 `/opt/homelab-postgresql-controller`，由 root 管理，以本机开发身份取短期 token。
 续签依赖现有 SPIRE（在 k3s）和 Bao；数据库与 etcd 的正常运行仅用本地证书，不实时依赖 k3s。
 
+### 连接池（PgBouncer）
+
+应用默认连 **`pg-prod.ad.ddupan.top:6432`**（VyOS → 当前 primary 上的 PgBouncer → 本机 socket），
+`sslmode=verify-full` 与租户凭据不变，只换端口。每个 prod 成员一个 `homelab-pgbouncer-prod`，
+transaction 模式，每（库, 角色）对最多 `pg_pooler.default_pool_size` 条服务端连接（group_vars）。
+账号不落文件：`auth_query` 经无密码的 `homelab_pooler`（peer + ident 映射）调用 SECURITY DEFINER
+函数 `homelab_pooler.user_lookup` 取 SCRAM 秘密并透传登录，所以 Ayatori 新建的租户角色无需任何配置；
+superuser 与复制角色查不到，只能直连。
+
+**不走池、直连 5432 的：** 迁移与 `pg_dump`/`pg_restore`、Ayatori 管理连接、Patroni/备份/exporter，
+以及依赖会话状态（LISTEN/NOTIFY、会话级 advisory lock、`SET` 不带 `LOCAL`）或长期占住连接的客户端
+（backstage：events 用 LISTEN，knex 按插件各自建池）——这类改为收紧自身池大小。
+transaction 模式下命名预编译语句可用（`max_prepared_statements` 默认 200）。
+
+部署：`site.yml`（写入 HBA/ident）→ `pooler.yml` → `proxy.yml` → `controller.yml`（续签程序副本
+带上池的重载）。`tests/pooler_integration.py` 用真实模板在临时容器中验证认证透传、拒绝 superuser/
+复制角色、预编译语句与连接复用。告警：`SharedPostgresPoolerDown`（直接探两个成员的 `:6432`，
+因为 HAProxy 只看 Patroni，不会摘掉坏掉的池）。
+
 ### 计划内切换主库（含 laptop 重启后回切）
 
 laptop 重启、或停掉 `homelab-postgresql-prod` 时，Patroni 会自动把主库切到 pg-pve1（HDD），

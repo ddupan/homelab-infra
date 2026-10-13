@@ -1,0 +1,170 @@
+---
+# 连接池：在每个 prod 成员上激活 PgBouncer 所需的 HBA/ident、在可写实例建 auth_user 与查询函数，
+# 再安装并启动 PgBouncer。HBA 模板先由 site.yml 写入；本 play 只向 Patroni 发 HUP（reload，不重启），
+# 不需要 Bao。入口另由 proxy.yml 发布。重复执行应为 changed=0。
+- name: 激活 PgBouncer 所需的 HBA 与 ident 映射
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars: &pooler_vars
+    pg_instance: prod
+    pg_profile: "{{ pg_profiles.prod }}"
+    pg_config_dir: "{{ pg_config_root }}/prod"
+    pg_parent_dir: "{{ pg_data_root }}/prod"
+    pg_socket_dir: /run/homelab-postgresql-prod
+    pg_psql: ["{{ pg_bin_dir }}/psql", -X, -At, -v, ON_ERROR_STOP=1, -h, /run/homelab-postgresql-prod,
+              -p, "{{ pg_profiles.prod.port | string }}", -d, postgres]
+  tasks:
+    # 与 monitoring-activate 相同：Patroni 只在 reload 时把本地配置写进数据目录，文件视图即可说明是否已接收。
+    - name: 读取 HBA 与 ident 的激活状态
+      ansible.builtin.command:
+        argv: "{{ pg_psql + ['-c', pg_pooler_hba_check] }}"
+      vars:
+        pg_pooler_hba_check: >-
+          SELECT EXISTS (SELECT 1 FROM pg_ident_file_mappings WHERE map_name = 'pooler' AND error IS NULL)
+          AND EXISTS (SELECT 1 FROM pg_hba_file_rules WHERE type = 'local' AND user_name = '{"{{ pg_pooler_user }}"}'
+                      AND auth_method = 'peer' AND error IS NULL)
+          AND EXISTS (SELECT 1 FROM pg_hba_file_rules WHERE type = 'local' AND database = '{all}'
+                      AND user_name = '{all}' AND auth_method = 'scram-sha-256' AND error IS NULL)
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      changed_when: false
+      check_mode: false
+      register: pg_pooler_hba
+    - name: 让 Patroni 接收新的本地配置（reload，不重启）
+      ansible.builtin.command:
+        argv: [systemctl, kill, --kill-whom=main, --signal=HUP, homelab-postgresql-prod.service]
+      when: pg_pooler_hba.stdout != 't'
+      changed_when: true
+    - name: 等待 Patroni 写出新配置
+      ansible.builtin.command:
+        argv: "{{ pg_pooler_hba.cmd }}"
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      when: pg_pooler_hba.stdout != 't' and not ansible_check_mode
+      changed_when: false
+      register: pg_pooler_hba_after
+      retries: 10
+      delay: 3
+      until: pg_pooler_hba_after.stdout == 't'
+
+- name: 在可写实例建 auth_user 与查询函数（standby 经复制获得）
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  vars:
+    <<: *pooler_vars
+    # 照 PgBouncer 文档的安全写法：SECURITY DEFINER + 固定 search_path，过期账号返回 NULL。
+    # 额外排除 superuser 与复制角色：它们只能直连 5432，池不代其登录。
+    pg_pooler_lookup_body: |
+
+      BEGIN
+          SELECT rolname, CASE WHEN rolvaliduntil < now() THEN NULL ELSE rolpassword END
+          FROM pg_authid
+          WHERE rolname = i_username AND rolcanlogin AND NOT rolsuper AND NOT rolreplication
+          INTO uname, phash;
+          RETURN;
+      END;
+  tasks:
+    - name: 检查角色与函数是否符合声明
+      ansible.builtin.command:
+        argv: "{{ pg_psql }}"
+        stdin: |
+          SELECT pg_is_in_recovery(),
+          COALESCE((SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb
+                    AND NOT rolreplication AND NOT rolbypassrls AND rolconnlimit = 5 AND rolpassword IS NULL
+                    FROM pg_authid WHERE rolname = '{{ pg_pooler_user }}'), false)
+          AND COALESCE((SELECT prosecdef AND prosrc = $body${{ pg_pooler_lookup_body }}$body$
+                        AND has_function_privilege('{{ pg_pooler_user }}', p.oid, 'EXECUTE')
+                        AND NOT has_function_privilege('public', p.oid, 'EXECUTE')
+                        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                        WHERE n.nspname = '{{ pg_pooler_user }}' AND p.proname = 'user_lookup'), false);
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      changed_when: false
+      check_mode: false
+      register: pg_pooler_role
+    - name: 创建或修正 auth_user（无密码，仅能经本地 ident 映射登录）与查询函数
+      ansible.builtin.command:
+        argv: "{{ pg_psql }}"
+        stdin: |
+          SELECT 'CREATE ROLE {{ pg_pooler_user }}'
+          WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ pg_pooler_user }}') \gexec
+          ALTER ROLE {{ pg_pooler_user }} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
+            CONNECTION LIMIT 5 PASSWORD NULL;
+          CREATE SCHEMA IF NOT EXISTS {{ pg_pooler_user }};
+          REVOKE ALL ON SCHEMA {{ pg_pooler_user }} FROM PUBLIC;
+          GRANT USAGE ON SCHEMA {{ pg_pooler_user }} TO {{ pg_pooler_user }};
+          CREATE OR REPLACE FUNCTION {{ pg_pooler_user }}.user_lookup(IN i_username text, OUT uname text, OUT phash text)
+          RETURNS record AS $body${{ pg_pooler_lookup_body }}$body$ LANGUAGE plpgsql
+            SECURITY DEFINER SET search_path = pg_catalog, pg_temp;
+          REVOKE ALL ON FUNCTION {{ pg_pooler_user }}.user_lookup(text) FROM PUBLIC;
+          GRANT EXECUTE ON FUNCTION {{ pg_pooler_user }}.user_lookup(text) TO {{ pg_pooler_user }};
+      become: true
+      become_user: "{{ pg_profile.user }}"
+      when: pg_pooler_role.stdout == 'f|f'
+      changed_when: true
+
+- name: 安装并启动 PgBouncer
+  hosts: pg_hosts
+  become: true
+  gather_facts: false
+  vars: *pooler_vars
+  tasks:
+    - name: 安装固定版本的 PgBouncer
+      ansible.builtin.apt:
+        name: "pgbouncer={{ pg_pgbouncer_version }}"
+        state: present
+        install_recommends: false
+        allow_change_held_packages: true
+      register: pg_pooler_package
+      retries: 5
+      delay: 10
+      until: pg_pooler_package is succeeded
+    - name: 阻止 apt upgrade 单独升级 PgBouncer
+      ansible.builtin.dpkg_selections:
+        name: pgbouncer
+        selection: hold
+      # check 模式不安装，dpkg 里还没有这个包。
+      when: not (ansible_check_mode and pg_pooler_package is changed)
+    # 发行版自带实例用 /etc/pgbouncer、监听 localhost，不受本 play 管理；停掉避免两个池并存。
+    - name: 停用发行版默认 PgBouncer 实例
+      ansible.builtin.systemd_service:
+        name: pgbouncer.service
+        enabled: false
+        state: stopped
+      when: not (ansible_check_mode and pg_pooler_package is changed)
+    - name: 写入 PgBouncer 配置（不含秘密）
+      ansible.builtin.template:
+        src: pgbouncer.ini.j2
+        dest: "{{ pg_config_dir }}/pgbouncer.ini"
+        owner: root
+        group: "{{ pg_profile.user }}"
+        mode: '0640'
+      register: pg_pooler_config
+    - name: 安装 PgBouncer 服务
+      ansible.builtin.template:
+        src: pgbouncer.service.j2
+        dest: /etc/systemd/system/homelab-pgbouncer-prod.service
+        mode: '0644'
+      register: pg_pooler_unit
+    # 配置变更用 reload：已有客户端连接不断开；unit 变更才需要重启。
+    - name: 启用 PgBouncer
+      ansible.builtin.systemd_service:
+        name: homelab-pgbouncer-prod.service
+        daemon_reload: "{{ pg_pooler_unit is changed }}"
+        enabled: true
+        state: "{{ 'restarted' if pg_pooler_unit is changed else ('reloaded' if pg_pooler_config is changed else 'started') }}"
+      when: not (ansible_check_mode and pg_pooler_unit is changed)
+    # 只证明监听与 TLS 握手；认证与透传在首个租户切换时用真实凭据验收（见 README）。
+    - name: 检查 PgBouncer 已监听
+      ansible.builtin.command:
+        argv: ["{{ pg_bin_dir }}/pg_isready", -h, "{{ pg_address }}", -p, "{{ pg_pooler.port | string }}"]
+      changed_when: false
+      when: not ansible_check_mode
+      register: pg_pooler_ready
+      retries: 10
+      delay: 2
+      until: pg_pooler_ready.rc == 0
