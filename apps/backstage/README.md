@@ -7,12 +7,14 @@ OCI digest 固定镜像。
 ## 外部前置
 
 - OpenBao `kv/k8s/backstage` 必须包含以下与容器环境变量同名的字段：
-  `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`POSTGRES_PASSWORD`、`GITEA_TOKEN`。
+  `BACKEND_SECRET`、`AUTH_SESSION_SECRET`、`GITEA_TOKEN`（其中的旧 `POSTGRES_PASSWORD` 已不再使用，被 Deployment 显式覆盖）。
   OIDC 客户端不在此路径：Deployment 的 `env` 从 `backstage-sso` Secret 取值（旧 Authelia 键已于 2026-10-11 删除）。
 - OpenBao `kv/k8s/techdocs-s3-reader` 提供 TechDocs 只读 S3 凭据，投射为
   `TECHDOCS_S3_ACCESS_KEY_ID` / `TECHDOCS_S3_SECRET_ACCESS_KEY`。
-- PostgreSQL 需要在共享集群中预先创建由 `backstage` 角色拥有的 `backstage`
-  数据库；密码必须与 OpenBao 中的 `POSTGRES_PASSWORD` 一致。
+- PostgreSQL：pg-prod 上的 `backstage` 库由 Ayatori 供应（`clusters/ayatori-prod/backstage.yaml`），凭据经
+  `database.yaml` 同步为 `backstage-pgprod`。**直连 5432、不走连接池**（events 用 LISTEN/NOTIFY）；TLS 为
+  verify-full（`PGSSLMODE` + `NODE_EXTRA_CA_CERTS`，app-config 无需 ssl 配置），knex 池由 `APP_CONFIG_*` 收紧。
+  2026-10-13 自 k3s 内 CNPG（`shared-db`）以 `pg_dump`/`pg_restore --no-owner` 迁入。
 - 登录走 iam-login（`sso.ddupan.top`，`AUTH_OIDC_METADATA_URL`）。客户端由 `apps/iam-login/terraform/clients.tf`
   注册，回调 `https://backstage.lab.ddupan.top/api/auth/oidc/handler/frame`；secret 由 Terraform 写入
   `kv/k8s/backstage-sso`，经 `sso-external-secret.yaml` 同步为 `backstage-sso`。

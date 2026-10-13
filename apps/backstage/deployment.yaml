@@ -53,14 +53,49 @@ spec:
                 secretKeyRef:
                   name: backstage-sso
                   key: client_secret
+            # pg-prod（Ayatori 租户，database.yaml）。直连 5432 不走连接池，原因见 database.yaml。
+            # POSTGRES_PASSWORD 在这里显式给出，覆盖 envFrom 的 backstage Secret 中的旧 CNPG 密码。
             - name: POSTGRES_HOST
-              value: shared-postgresql-rw.shared-db.svc.cluster.local
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: host
             - name: POSTGRES_PORT
-              value: "5432"
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: port
             - name: POSTGRES_USER
-              value: backstage
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: password
             - name: POSTGRES_DATABASE
-              value: backstage
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: database
+            # app-config 没有 ssl 配置：node-postgres 此时读 PGSSLMODE（verify-full → 启用 TLS 并校验证书链与
+            # 主机名），内部 CA 经 NODE_EXTRA_CA_CERTS 加入 Node 信任库。不给 CA 时连接以
+            # SELF_SIGNED_CERT_IN_CHAIN 失败（2026-10-13 实测），即确实在校验。
+            - name: PGSSLMODE
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-pgprod
+                  key: sslmode
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/internal-ca/ca.pem
+            # 每个插件（pluginDivisionMode: schema）各一个 knex 池；在 CNPG 上空闲时共占约 22 个连接。
+            # min 0 让空闲连接被回收，max 限制峰值，pg-prod 的 max_connections 只有 80。
+            - name: APP_CONFIG_backend_database_knexConfig_pool_min
+              value: "0"
+            - name: APP_CONFIG_backend_database_knexConfig_pool_max
+              value: "3"
             - name: GITEA_HOST
               value: git.ddupan.top
           envFrom:
@@ -101,6 +136,13 @@ spec:
           volumeMounts:
             - mountPath: /tmp
               name: tmp
+            - mountPath: /etc/internal-ca
+              name: internal-ca
+              readOnly: true
       volumes:
         - emptyDir: {}
           name: tmp
+        # trust-manager 分发（platform/trust-manager/bundle）。
+        - name: internal-ca
+          configMap:
+            name: internal-ca
