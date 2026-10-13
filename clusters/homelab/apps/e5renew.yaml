@@ -1,0 +1,17 @@
+# 只同步 e5renew 的 pg-prod 凭据（apps/e5renew）；应用本体仍由 helm CLI 部署，Flux 不接管。
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: e5renew
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: external-secrets
+  interval: 10m
+  path: ./apps/e5renew
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 5m
+  wait: true

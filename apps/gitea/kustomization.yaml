@@ -20,3 +20,4 @@ resources:
   - helmrelease.yaml
   - httproute.yaml
   - sso-external-secret.yaml
+  - database.yaml

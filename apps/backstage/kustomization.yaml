@@ -10,3 +10,4 @@ resources:
   - service.yaml
   - networkpolicy.yaml
   - httproute.yaml
+  - database.yaml

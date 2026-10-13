@@ -9,3 +9,4 @@ resources:
   - service.yaml
   - api-deployment.yaml
   - worker-deployment.yaml
+  - database.yaml
