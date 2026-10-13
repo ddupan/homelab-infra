@@ -32,6 +32,15 @@ spec:
           labels: {severity: warning, service: shared-postgresql}
           annotations:
             summary: '共享 PG replica {{ $labels.member }} 没有流复制'
+        - alert: SharedPostgresPoolerDown
+          expr: probe_success{probe_group="pg-pooler"} == 0
+          for: 2m
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: '共享 PG 连接池 {{ $labels.instance }} 不可达'
+            description: >-
+              该成员是 primary 时，pg-prod:6432 的连接全部失败（HAProxy 只看 Patroni，不会摘除它）。
+              systemctl status homelab-pgbouncer-prod；journalctl -u homelab-pgbouncer-prod。
         - alert: SharedPostgresProcessDown
           expr: patroni_postgres_running{job="shared-postgresql-patroni"} == 0
           for: 1m

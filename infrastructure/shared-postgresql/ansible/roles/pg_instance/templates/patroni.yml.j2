@@ -82,6 +82,10 @@ postgresql:
     - local all {{ pg_profile.user }} peer
     - local replication {{ pg_profile.user }} peer
     - local replication replicator scram-sha-256
+    # PgBouncer（以实例 OS 用户运行）：auth_user 经 peer 映射登录；业务连接经本机 socket 以
+    # 客户端自己的 SCRAM 秘密透传登录。
+    - local all {{ pg_pooler_user }} peer map=pooler
+    - local all all scram-sha-256
 {% for address in pg_replication_addresses %}
     - hostssl replication replicator {{ address }} scram-sha-256
     - hostssl all {{ pg_profile.user }} {{ address }} scram-sha-256
@@ -94,6 +98,7 @@ postgresql:
   # 只有实例 OS 用户（exporter 运行身份）可映射为监控角色。
   pg_ident:
     - monitor {{ pg_profile.user }} {{ pg_monitor_user }}
+    - pooler {{ pg_profile.user }} {{ pg_pooler_user }}
   remove_data_directory_on_rewind_failure: false
   remove_data_directory_on_diverged_timelines: false
 watchdog:

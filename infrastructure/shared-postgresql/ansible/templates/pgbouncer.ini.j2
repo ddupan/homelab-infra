@@ -1,0 +1,31 @@
+; 由 pooler.yml 管理。账号不落文件：auth_query 经 auth_user 从实例查 SCRAM 秘密，客户端 SCRAM 通过后
+; 用同一秘密透传登录服务端（要求库定义里不写 user=）。
+[databases]
+* = host={{ pg_socket_dir }} port={{ pg_profile.port }}
+
+[pgbouncer]
+listen_addr = {{ pg_address }}
+listen_port = {{ pg_pooler.port }}
+; 不开 Unix socket：只服务 HAProxy 转来的 TCP，本机进程直接连实例 socket。
+unix_socket_dir =
+auth_type = scram-sha-256
+auth_user = {{ pg_pooler_user }}
+auth_dbname = postgres
+auth_query = SELECT uname, phash FROM {{ pg_pooler_user }}.user_lookup($1)
+; transaction 模式才真正复用服务端连接；需要会话特性的客户端直连 5432（见 group_vars）。
+pool_mode = transaction
+default_pool_size = {{ pg_pooler.default_pool_size }}
+min_pool_size = 0
+max_client_conn = {{ pg_pooler.max_client_conn }}
+server_idle_timeout = 60
+; pgjdbc 启动时发送；不忽略则 JDBC 客户端被拒绝。
+ignore_startup_parameters = extra_float_digits
+; 与实例相同的证书（SAN 含 pg-prod 名字），客户端照旧 verify-full；续签后 renew-certificates.yml 重载。
+client_tls_sslmode = require
+client_tls_key_file = {{ pg_config_dir }}/server.key
+client_tls_cert_file = {{ pg_config_dir }}/server.crt
+client_tls_ca_file = {{ pg_config_dir }}/ca.crt
+logfile =
+syslog = 0
+log_connections = 0
+log_disconnections = 0
