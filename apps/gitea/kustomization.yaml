@@ -10,10 +10,6 @@ generatorOptions:
     reconcile.fluxcd.io/watch: Enabled
 
 configMapGenerator:
-  - name: pgprod-ca
-    namespace: gitea
-    files:
-      - ca.crt=internal-ca.pem
   - name: gitea-values
     namespace: gitea
     files:

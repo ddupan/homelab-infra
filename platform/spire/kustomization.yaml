@@ -5,10 +5,6 @@ generatorOptions:
   labels:
     reconcile.fluxcd.io/watch: Enabled
 configMapGenerator:
-  - name: pgprod-ca
-    namespace: spire-server
-    files:
-      - ca.crt=internal-ca.pem
   - name: spire-values
     namespace: spire-mgmt
     files:

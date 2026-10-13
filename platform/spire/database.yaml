@@ -1,7 +1,7 @@
 # pg-prod 上的数据库由 Ayatori 供应（../../clusters/ayatori-prod/spire-server.yaml），凭据只交付到 OpenBao。
 # 本 namespace 以自己的 SA 登录 bao：spire-server-database role（../../infrastructure/openbao/terraform/
 # ayatori-database-consumers.tf）只能读这一份凭据，共享的 ClusterSecretStore 无需读取所有租户。
-# 生成的 spire-server-pgprod 与 CA ConfigMap pgprod-ca 在切换前不被任何工作负载引用。
+# 生成的 Secret 在切换前不被任何工作负载引用。
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -51,7 +51,7 @@ spec:
         database: '{{ .database }}'
         username: '{{ .username }}'
         password: '{{ .password }}'
-        # verify-full：服务端证书由内部 CA 签发，CA 在 ConfigMap pgprod-ca（公开证书）。
+        # verify-full：服务端证书由内部 CA 签发，CA 用 trust-manager 分发的 ConfigMap internal-ca（ca.pem）。
         sslmode: '{{ .sslmode }}'
   dataFrom:
     - extract:
