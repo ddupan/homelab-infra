@@ -23,8 +23,17 @@ spec:
           envFrom:
             - configMapRef:
                 name: research-auto-config
-            - secretRef:
-                name: research-auto-bootstrap-secret
+          env:
+            # yoyo 迁移（DDL）以租户角色直连 5432，不经连接池；不再需要 superuser。
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: research-auto-pgprod
+                  key: DATABASE_MIGRATE_URL
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /etc/internal-ca
+              readOnly: true
       containers:
         - name: worker
           image: ghcr.io/panxiao81/research-auto:sha-6852101
@@ -38,6 +47,9 @@ spec:
           volumeMounts:
             - name: github-copilot-auth
               mountPath: /home/appuser/.config/litellm/github_copilot
+            - name: internal-ca
+              mountPath: /etc/internal-ca
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -45,7 +57,17 @@ spec:
             limits:
               cpu: 1000m
               memory: 2Gi
+          env:
+            # pg-prod 连接池 6432；覆盖 envFrom research-auto-secret 里指向旧 CNPG 的同名键。
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: research-auto-pgprod
+                  key: DATABASE_URL
       volumes:
         - name: github-copilot-auth
           persistentVolumeClaim:
             claimName: research-auto-github-copilot-auth
+        - name: internal-ca
+          configMap:
+            name: internal-ca

@@ -1,5 +1,5 @@
-# research-auto 的数据库。旧 DATABASE_URL 指向 CNPG 的 postgres 库，那里没有它的数据，
-# 因此是新建空库，表由应用自己创建。
+# research-auto 的数据库。原先与 Keycloak 遗留表混在 CNPG 的 postgres 库 public schema 里；
+# 2026-10-13 只把它自己的 18 张表（含 yoyo 迁移记录）连同 pgcrypto、set_updated_at 迁入。
 # 凭据由 homelab k3s 中该 namespace 自己的身份从 OpenBao 读取（参照 apps/iam-login/database.yaml）。
 apiVersion: v1
 kind: Namespace
