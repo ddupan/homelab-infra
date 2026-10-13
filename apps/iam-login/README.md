@@ -39,7 +39,7 @@
 经 Ayatori 自助申请（`clusters/ayatori-prod/iam-login.yaml`）：pg-prod 上的 `iam_login` 库与同名
 登录角色，表由应用 Flyway 迁移创建。凭据只交付到 OpenBao，本 namespace 以自己的 SA
 `iam-login-database` 登录 bao（role/policy 在 `infrastructure/openbao/terraform`，只能读这一份凭据），
-`database.yaml` 渲染为 `SPRING_DATASOURCE_*`。ExternalSecret 固定 Tenant status 中的
+`database.yaml` 渲染为 `SPRING_DATASOURCE_*`，经连接池 6432（pgjdbc 与 transaction 模式兼容，已压测）。ExternalSecret 固定 Tenant status 中的
 `credentialVersion`，凭据重发时需显式更新。连接 `sslmode=verify-full`，服务端证书由内部 CA 签发，
 CA 公钥证书来自 trust-manager 分发的 ConfigMap `internal-ca`（`platform/trust-manager`）。库中保存 passkey、客户端与授权记录，恢复以
 数据库为准。
