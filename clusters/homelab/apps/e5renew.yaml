@@ -1,4 +1,4 @@
-# 只同步 e5renew 的 pg-prod 凭据（apps/e5renew）；应用本体仍由 helm CLI 部署，Flux 不接管。
+# e5renew：凭据（ESO）与 HelmRelease（chart 来自应用仓库）。
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
