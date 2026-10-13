@@ -1,0 +1,13 @@
+# research-auto 的数据库。旧 DATABASE_URL 指向 CNPG 的 postgres 库，那里没有它的数据，
+# 因此是新建空库，表由应用自己创建。
+# 凭据由 homelab k3s 中该 namespace 自己的身份从 OpenBao 读取（参照 apps/iam-login/database.yaml）。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: research-auto
+---
+apiVersion: database.ayatori.ddupan.top/v1alpha1
+kind: PostgreSQLTenant
+metadata: {name: research-auto, namespace: research-auto}
+spec:
+  provision: {instanceRef: {name: homelab-prod}, database: research_auto, loginRole: research_auto}

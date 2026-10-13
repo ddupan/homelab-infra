@@ -1,0 +1,12 @@
+# Gitea（git.ddupan.top）的数据库，自 CNPG shared-db 迁入；表由 Gitea 自己迁移维护。
+# 凭据由 homelab k3s 中该 namespace 自己的身份从 OpenBao 读取（参照 apps/iam-login/database.yaml）。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitea
+---
+apiVersion: database.ayatori.ddupan.top/v1alpha1
+kind: PostgreSQLTenant
+metadata: {name: gitea, namespace: gitea}
+spec:
+  provision: {instanceRef: {name: homelab-prod}, database: gitea, loginRole: gitea}
