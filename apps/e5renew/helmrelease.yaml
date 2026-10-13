@@ -1,0 +1,84 @@
+# e5renew 的 chart 在应用自己的仓库（helm/e5renew）。此前由 helm CLI 部署（release e5renew，rev 28）；
+# 同名 release 由 helm-controller 接管升级。凭据不进 values：existingSecret 指向 database.yaml 的 ESO Secret，
+# chart 自己的 e5renew-secret（含明文 DSN 与 Azure secret）随首次升级删除。
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: e5renew
+  namespace: e5renew
+spec:
+  interval: 1h
+  # 固定到 commit：chart 改动经 homelab PR 进入，而不是随应用仓库 master 漂移。
+  ref:
+    branch: master
+    commit: 1a930a54aa8b54dff7051e03c26411070a4427be  # panxiao81/e5renew#31
+  timeout: 60s
+  url: https://github.com/panxiao81/e5renew.git
+  ignore: |
+    /*
+    !/helm/
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: e5renew
+  namespace: e5renew
+spec:
+  chart:
+    spec:
+      chart: ./helm/e5renew
+      interval: 1h
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: e5renew
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: e5renew
+  targetNamespace: e5renew
+  timeout: 10m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  values:
+    image:
+      repository: ghcr.io/panxiao81/e5renew
+      tag: v0.1.3
+      pullPolicy: Always
+    existingSecret: e5renew
+    migrations:
+      dsnKey: database-migrate-dsn
+    extraVolumes:
+      # trust-manager 分发（platform/trust-manager/bundle）。
+      - name: internal-ca
+        configMap:
+          name: internal-ca
+    extraVolumeMounts:
+      - name: internal-ca
+        mountPath: /etc/internal-ca
+        readOnly: true
+    config:
+      database:
+        engine: postgres
+        # 只是 E5RENEW_DATABASE_PORT；postgres 时代码不读它（端口在 DSN 里），保持与 helm CLI 时期一致。
+        port: 5432
+      azuread:
+        redirectUri: https://e5renew.ddupan.top/oauth2/callback
+      userToken:
+        redirectUri: http://e5renew.ddupan.top/oauth2/user-token-callback
+      otel:
+        enableMetrics: false
+        enableStdout: false
+        enableTracing: false
+    mysql:
+      enabled: false
+    postgres:
+      enabled: false
+    postgresql:
+      enabled: false

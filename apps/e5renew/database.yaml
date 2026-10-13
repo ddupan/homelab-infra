@@ -1,7 +1,6 @@
 # pg-prod 上的数据库由 Ayatori 供应（../../clusters/ayatori-prod/e5renew.yaml），凭据只交付到 OpenBao。
 # 本 namespace 以自己的 SA 登录 bao：e5renew-database role（../../infrastructure/openbao/terraform/
 # ayatori-database-consumers.tf）只能读这一份凭据，共享的 ClusterSecretStore 无需读取所有租户。
-# 生成的 Secret 在切换前不被任何工作负载引用。
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -28,12 +27,13 @@ spec:
           serviceAccountRef:
             name: 'e5renew-database'
 ---
-# Reads the latest version: only Ayatori writes this path, and every version it writes is usable.
-# Pods pick up a re-issued credential on restart.
+# 应用要的整份 Secret（chart 的 existingSecret；键同 chart 的 templates/secret.yaml）：数据库来自 Ayatori 交付
+# （本 namespace 的 SecretStore），Azure 与加密配置来自 kv/k8s/e5renew（共享 ClusterSecretStore，2026-10-13
+# 自 helm values 迁入）。Ayatori 路径读最新版本：只有 Ayatori 写它，每个版本都可用；Pod 重启时生效。
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: e5renew-pgprod
+  name: e5renew
   namespace: e5renew
 spec:
   refreshInterval: 1h
@@ -41,18 +41,28 @@ spec:
     kind: SecretStore
     name: ayatori-prod
   target:
-    name: e5renew-pgprod
+    name: e5renew
     creationPolicy: Owner
     template:
       data:
-        host: '{{ .host }}'
-        # 连接池入口（PgBouncer，transaction 模式）；租户凭据里的 port 是直连的 5432。
-        port: '6432'
-        database: '{{ .database }}'
-        username: '{{ .username }}'
-        password: '{{ .password }}'
-        # verify-full：服务端证书由内部 CA 签发，CA 用 trust-manager 分发的 ConfigMap internal-ca（ca.pem）。
-        sslmode: '{{ .sslmode }}'
+        # 应用走连接池 6432（PgBouncer，transaction 模式）；pgx 的命名预编译语句在池上可用。
+        # verify-full：CA 是 trust-manager 分发的 ConfigMap internal-ca，由 HelmRelease 挂到 /etc/internal-ca。
+        database-dsn: "host={{ .host }} port=6432 dbname={{ .database }} user={{ .username }} password='{{ .password | replace `\\` `\\\\` | replace `'` `\\'` }}' sslmode={{ .sslmode }} sslrootcert=/etc/internal-ca/ca.pem"
+        # 迁移 Job（golang-migrate）持有会话级 advisory lock，不能经 transaction 模式的池，直连租户端口。
+        database-migrate-dsn: "host={{ .host }} port={{ .port }} dbname={{ .database }} user={{ .username }} password='{{ .password | replace `\\` `\\\\` | replace `'` `\\'` }}' sslmode={{ .sslmode }} sslrootcert=/etc/internal-ca/ca.pem"
+        azuread-tenant: '{{ .azuread_tenant }}'
+        azuread-client-id: '{{ .azuread_client_id }}'
+        azuread-client-secret: '{{ .azuread_client_secret }}'
+        usertoken-tenant: '{{ .usertoken_tenant }}'
+        usertoken-client-id: '{{ .usertoken_client_id }}'
+        usertoken-client-secret: '{{ .usertoken_client_secret }}'
+        encryption-key: '{{ .encryption_key }}'
   dataFrom:
     - extract:
         key: ayatori/prod/applications/f05cbf75-e4d1-47c7-a4af-9fa2e7f7e2f5
+    - extract:
+        key: k8s/e5renew
+      sourceRef:
+        storeRef:
+          kind: ClusterSecretStore
+          name: openbao
