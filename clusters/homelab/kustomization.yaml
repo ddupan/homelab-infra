@@ -19,6 +19,7 @@ resources:
   - apps/nexus.yaml
   - apps/smtp-relay.yaml
   - apps/research-auto.yaml
+  - apps/e5renew.yaml
   - apps/seaweedfs.yaml
   - apps/iam-login.yaml
   - apps/poweradmin.yaml
