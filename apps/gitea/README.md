@@ -14,7 +14,8 @@ live diff 仍只有不常驻的 test hook Pod。子 Kustomization 和集群 root
 `prune: false`。
 
 数据库连接（host/库/用户/密码/sslmode）由 Ayatori 交付到 OpenBao，经 `database.yaml` 同步为
-`gitea-pgprod`，以 `GITEA__DATABASE__*` 注入。经连接池 6432（Gitea 不用 advisory lock / LISTEN）；
+`gitea-pgprod`，以 `GITEA__DATABASE__*` 注入。**直连 5432，不走连接池**：lib/pq 的未命名预编译语句跨两次
+Sync，与 transaction 模式的 PgBouncer 不兼容（2026-10-13 实际出错，见 `database.yaml`）；
 verify-full，lib/pq 经 `PGSSLROOTCERT` 读 trust-manager 的 `internal-ca`。2026-10-13 自 k3s 内
 CNPG（`shared-db`）迁入；旧的 `gitea-db`（`platform/external-secrets/`）随 CNPG 下线删除。OIDC
 client secret 仍是历史手工 Secret `gitea-oidc-secret`，本次接管只引用、不覆盖它；

@@ -45,9 +45,12 @@ spec:
     creationPolicy: Owner
     template:
       data:
-        # Gitea 的 [database] HOST 是 host:port。连接池入口（PgBouncer，transaction 模式）6432；
-        # Gitea 不用 advisory lock / LISTEN（见 gitea-values.yaml），租户凭据里的 port 是直连的 5432。
-        host: '{{ .host }}:6432'
+        # Gitea 的 [database] HOST 是 host:port。**直连租户端口（5432），不走连接池**：Gitea 的驱动 lib/pq
+        # 执行带参数的查询时先发 Parse(未命名)+Describe+Sync，再另发 Bind+Execute+Sync。transaction 模式的
+        # PgBouncer 在两次 Sync 之间可能换服务端连接，Bind 就落到别的客户端的未命名语句上：2026-10-13 经池
+        # 运行的 80 秒里出现 "bind message supplies N parameters, but prepared statement \"\" requires M"、参数
+        # 被绑到错误语句（bigint ← "ayatori"）；个数恰好对上时会用错参数执行别的语句。当时已整库重灌。
+        host: '{{ .host }}:{{ .port }}'
         database: '{{ .database }}'
         username: '{{ .username }}'
         password: '{{ .password }}'
