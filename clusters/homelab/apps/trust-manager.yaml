@@ -1,0 +1,35 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: trust-manager
+  namespace: flux-system
+spec:
+  # 使用 cert-manager 的 jetstack HelmRepository 与 namespace。
+  dependsOn:
+    - name: cert-manager
+  interval: 10m
+  path: ./platform/trust-manager
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: internal-ca
+  namespace: flux-system
+spec:
+  # Bundle CRD 来自 trust-manager chart；wait 保证 HelmRelease 就绪后才应用。
+  dependsOn:
+    - name: trust-manager
+  interval: 10m
+  path: ./platform/trust-manager/bundle
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 3m
+  wait: true

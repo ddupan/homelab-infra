@@ -13,4 +13,3 @@ configMapGenerator:
     namespace: iam-login
     files:
       - application.yaml
-      - internal-ca.pem

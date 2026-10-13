@@ -27,8 +27,8 @@ and external-dns deletes only records it holds a TXT marker for.
 
 ## Login
 
-- **LDAP against AD** (`ldaps://dc1.ad.ddupan.top`, verified with the bao CA in
-  `bao-ca.yaml`). The search filter admits **direct** members of `platform-admins`
+- **LDAP against AD** (`ldaps://dc1.ad.ddupan.top`, verified with the bao CA, the
+  `internal-ca` ConfigMap distributed by `platform/trust-manager`). The search filter admits **direct** members of `platform-admins`
   only. That group and the `svc-poweradmin` bind account are in
   `infrastructure/samba-ad/ansible/group_vars/all/vars.yml`.
 - **4.4 cannot auto-provision LDAP users (4.5 can).** Each person needs a local

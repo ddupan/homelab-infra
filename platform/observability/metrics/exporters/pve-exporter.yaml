@@ -95,7 +95,7 @@ spec:
       volumes:
         - name: bao-ca
           configMap:
-            name: bao-ca
+            name: internal-ca
         - name: tmp
           emptyDir: {}
 ---

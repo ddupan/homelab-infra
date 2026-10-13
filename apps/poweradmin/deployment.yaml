@@ -116,4 +116,4 @@ spec:
             claimName: poweradmin-db
         - name: bao-ca
           configMap:
-            name: bao-ca
+            name: internal-ca

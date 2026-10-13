@@ -24,11 +24,11 @@ laptop ZFS 使用 recordsize=16K、lz4、atime=off。预算不是容量或 SLA �
 现场版本为 PostgreSQL 18.6、Patroni 4.1.5、pgBackRest 2.59.1。
 
 客户端必须使用自己的业务凭据及 `sslmode=verify-full`。本轮仅建立 Ayatori 非 superuser
-管理账号（CREATEDB/CREATEROLE），未交付普通应用账号。公开中央 CA 位于 `ca.crt`。
+管理账号（CREATEDB/CREATEROLE），未交付普通应用账号。公开中央 CA 位于 `platform/trust-manager/bundle/internal-ca.pem`（仓库唯一一份，集群内由 trust-manager 分发）。
 例如，在已获管理身份的受控终端用交互密码提示验证，不在命令行填写密码：
 
 ```bash
-psql 'host=pg-prod.ad.ddupan.top hostaddr=192.168.10.2 port=5432 dbname=postgres user=ayatori sslmode=verify-full sslrootcert=ca.crt' -W
+psql 'host=pg-prod.ad.ddupan.top hostaddr=192.168.10.2 port=5432 dbname=postgres user=ayatori sslmode=verify-full sslrootcert=../../platform/trust-manager/bundle/internal-ca.pem' -W
 ```
 
 生产采用异步复制，自动切换可能损失未复制的已提交事务；最大候选落后阈值 1 MiB 不是精确 RPO。
