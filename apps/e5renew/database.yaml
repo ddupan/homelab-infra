@@ -28,8 +28,9 @@ spec:
             name: 'e5renew-database'
 ---
 # 应用要的整份 Secret（chart 的 existingSecret；键同 chart 的 templates/secret.yaml）：数据库来自 Ayatori 交付
-# （本 namespace 的 SecretStore），Azure 与加密配置来自 kv/k8s/e5renew（共享 ClusterSecretStore，2026-10-13
-# 自 helm values 迁入）。Ayatori 路径读最新版本：只有 Ayatori 写它，每个版本都可用；Pod 重启时生效。
+# （本 namespace 的 SecretStore）；Entra 应用凭据来自 kv/k8s/e5renew-azuread（由 terraform/ 签发与轮换）；
+# 加密密钥来自 kv/k8s/e5renew（应用自有，不归 Terraform）。都读最新版本；env 只在 Pod 启动时读取，
+# 凭据轮换后需要重启（见 README）。
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -50,16 +51,23 @@ spec:
         database-dsn: "host={{ .host }} port=6432 dbname={{ .database }} user={{ .username }} password='{{ .password | replace `\\` `\\\\` | replace `'` `\\'` }}' sslmode={{ .sslmode }} sslrootcert=/etc/internal-ca/ca.pem"
         # 迁移 Job（golang-migrate）持有会话级 advisory lock，不能经 transaction 模式的池，直连租户端口。
         database-migrate-dsn: "host={{ .host }} port={{ .port }} dbname={{ .database }} user={{ .username }} password='{{ .password | replace `\\` `\\\\` | replace `'` `\\'` }}' sslmode={{ .sslmode }} sslrootcert=/etc/internal-ca/ca.pem"
-        azuread-tenant: '{{ .azuread_tenant }}'
-        azuread-client-id: '{{ .azuread_client_id }}'
-        azuread-client-secret: '{{ .azuread_client_secret }}'
-        usertoken-tenant: '{{ .usertoken_tenant }}'
-        usertoken-client-id: '{{ .usertoken_client_id }}'
-        usertoken-client-secret: '{{ .usertoken_client_secret }}'
+        # usertoken-* 与 azuread-* 是同一个 Entra 应用（v0.1.3 不读 usertoken-*，chart 仍要求这些键存在）。
+        azuread-tenant: '{{ .tenant_id }}'
+        azuread-client-id: '{{ .client_id }}'
+        azuread-client-secret: '{{ .client_secret }}'
+        usertoken-tenant: '{{ .tenant_id }}'
+        usertoken-client-id: '{{ .client_id }}'
+        usertoken-client-secret: '{{ .client_secret }}'
         encryption-key: '{{ .encryption_key }}'
   dataFrom:
     - extract:
         key: ayatori/prod/applications/f05cbf75-e4d1-47c7-a4af-9fa2e7f7e2f5
+    - extract:
+        key: k8s/e5renew-azuread
+      sourceRef:
+        storeRef:
+          kind: ClusterSecretStore
+          name: openbao
     - extract:
         key: k8s/e5renew
       sourceRef:
