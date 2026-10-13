@@ -6,3 +6,4 @@ collections:
   - name: ansible.windows        # win_dns_client, win_feature, win_command, win_reboot
   - name: community.windows      # extra Windows modules
   - name: microsoft.ad           # membership (AD domain join) — replaces win_domain_membership
+  - name: community.hashi_vault  # vault_kv2_get/write: passwords of bao_path service accounts
