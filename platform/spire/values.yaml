@@ -131,16 +131,21 @@ spire-server:
     sql:
       databaseType: postgres
       databaseName: spire
-      host: shared-postgresql-rw.shared-db.svc.cluster.local
+      # pg-prod (Ayatori tenant spire, database.yaml), DIRECT 5432 — not the PgBouncer pool: SPIRE's datastore is
+      # jinzhu/gorm on lib/pq, whose unnamed statements span two Syncs and break under transaction pooling
+      # (Gitea hit it 2026-10-13; see infrastructure/shared-postgresql/README.md). verify-full against the
+      # internal CA (trust-manager ConfigMap internal-ca, mounted below).
+      host: pg-prod.lab.ddupan.top
       port: 5432
       username: spire
       options:
-        - sslmode: require
+        - sslmode: verify-full
+      rootCAPath: /etc/internal-ca/ca.pem
       externalSecret:
         enabled: true
-        name: spire-postgresql
+        name: spire-server-pgprod
         key: password
-      maxOpenConns: 20
+      maxOpenConns: 10
       maxIdleConns: 2
       connMaxLifetime: 30m
   controllerManager:
@@ -154,6 +159,14 @@ spire-server:
         test-keys:
           enabled: false
 
+  extraVolumes:
+    - name: internal-ca
+      configMap:
+        name: internal-ca
+  extraVolumeMounts:
+    - name: internal-ca
+      mountPath: /etc/internal-ca
+      readOnly: true
 spire-agent:
   server:
     # Keep the Agent endpoint aligned with spire-server.service.port. The
