@@ -30,6 +30,12 @@
 | `signing_key` | PKCS#8 PEM RSA 签名私钥 | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
 | `truststore` | base64 PKCS#12：JDK 标准 cacerts **加**内部 `ddupan.top Internal CA`（JVM 全局生效，只放内部 CA 会让 Let's Encrypt 站点如 spire-oidc 握手失败） | `keytool -importkeystore` 自 cacerts，再 `-importcert` 内部 CA，口令 `changeit` |
 
+## 秘密：`kv/k8s/iam-login-ldap`
+
+AD 只读服务账号 `svc-iam-login`（`username` 为 UPN，`password`），由 samba-ad 的 play 建账号时生成并写入，
+不要手工改（见 `infrastructure/samba-ad`）。渲染为 `SPRING_LDAP_USERNAME/PASSWORD`，用于 Boot 的 LDAP 连接：
+健康检查，以及用户不在场时读目录（refresh 时确认账号仍存在且未禁用）。用户登录仍以用户自己的凭据 bind。
+
 签名密钥丢失会使已签发 token 失效，所有 RP 需重新登录，但不影响账号关联；不要随部署重新生成。
 轮换：新密钥放在 `signing-keys` 首位并保留旧密钥，旧 token 全部过期后再移除（见 iam-login
 `docs/authorization-server.md`）。

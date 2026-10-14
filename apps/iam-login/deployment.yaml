@@ -36,9 +36,11 @@ spec:
             # The feature set the binary was built with (iam-login application-prod.yaml).
             - name: SPRING_PROFILES_ACTIVE
               value: prod
-          # SPRING_DATASOURCE_URL/USERNAME/PASSWORD, rendered from the Ayatori credential.
+          # SPRING_DATASOURCE_URL/USERNAME/PASSWORD, rendered from the Ayatori credential;
+          # SPRING_LDAP_USERNAME/PASSWORD, the read-only AD service account.
           envFrom:
             - secretRef: { name: iam-login-db }
+            - secretRef: { name: iam-login-ldap }
           ports:
             - name: http
               containerPort: 8080
