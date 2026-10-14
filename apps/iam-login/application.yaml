@@ -1,8 +1,8 @@
 # Environment VALUES only. Which features exist (iam.*.enabled) is fixed when the native image is
 # built (iam-login's application-prod.yaml, activated by SPRING_PROFILES_ACTIVE=prod in
 # deployment.yaml); setting them here would be ignored, and iam-login refuses to start on a mismatch.
-# The signing key and LDAPS truststore come from kv/k8s/iam-login (external-secret.yaml); the
-# datasource comes from Ayatori (database.yaml).
+# The signing key and LDAPS truststore come from kv/k8s/iam-login, the LDAP service account from
+# kv/k8s/iam-login-ldap (external-secret.yaml); the datasource comes from Ayatori (database.yaml).
 iam:
   ad:
     domain: ad.ddupan.top
@@ -32,8 +32,8 @@ iam:
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-apply
         - spiffe://ddupan.top/dev/panxiao81
 spring:
-  # AD over LDAPS through Boot's ContextSource; connection defaults ship in the app's own
-  # application.yaml. Overall /actuator/health includes this connection.
+  # AD over LDAPS through Boot's ContextSource, bound as svc-iam-login (SPRING_LDAP_USERNAME/PASSWORD);
+  # connection defaults ship in the app's own application.yaml. Overall /actuator/health includes it.
   ldap:
     urls: ldaps://dc1.ad.ddupan.top:636
     base: DC=ad,DC=ddupan,DC=top
