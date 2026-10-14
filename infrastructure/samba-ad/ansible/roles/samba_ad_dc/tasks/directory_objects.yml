@@ -101,7 +101,8 @@
   loop_control:
     label: "{{ item.name }}"
   register: _svc_create
-  changed_when: "'created successfully' in (_svc_create.stdout | default(''))"
+  # Samba 4.x says "User '<name>' added successfully"; older releases said "created".
+  changed_when: "(_svc_create.stdout | default('')) is search('(added|created) successfully')"
   failed_when:
     - _svc_create.rc != 0
     - "'already exists' not in (_svc_create.stdout | default('') + _svc_create.stderr | default(''))"
