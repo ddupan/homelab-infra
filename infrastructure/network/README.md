@@ -4,8 +4,7 @@ LAN 是一台傻瓜交换机下的扁平二层（192.168.10.0/24），上面有�
 它们各自的职责、地址怎么划、AS 怎么分，新网段、新 VIP、新 BGP 邻居都按这里来。
 地址与 AS 的数据在 [`ipam.yml`](ipam.yml)，由 `infrastructure/dns/generate.py` 校验。
 
-**范围只有 IPv4。** 节点都没有 IPv6 接入，本规划也没有为 IPv6 设计路由；`ipam.yml` 里的
-IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接入 IPv6 时单独规划。
+**IPv4 是完整规划；IPv6 只有暂定方向（见文末），未实施。** WAN 没有 IPv6 接入。
 
 ## 路由职责
 
@@ -128,6 +127,26 @@ PDNS_API_KEY=$(bao kv get -field=api_key kv/k8s/powerdns) \
 没有 key 时直接失败，不退回只读文件——只看文件正是 etcd-pve1/2（10.60.0.20/21）部署后对
 IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预留，单人操作下可接受。
 
+## IPv6（暂定方向，未实施）
+
+WAN 没有 IPv6，因此 IPv6 只在内部使用，地址取本站 dn42 ULA `fdd0:98df:15b0::/48`：
+
+- **每个二层一个 /64，SLAAC。** LAN、labnet、retronet 各从 /48 切一个 /64，登记进 `ipam.yml`。
+  不要求主机改内核参数：主机照常接收 RA、自动配地址和默认路由。
+- **内部路由器（VyOS，将来的 `homelab_router`）是唯一的 IPv6 网关。** 它在各网段发 RA 并作为
+  默认路由器；IX 在 LAN 上不得再以默认路由器身份发 RA（router lifetime 0 或关闭 RA）。
+- **网关只放行内部与 NAIST，其余一律拒绝。** 目的为 `fdd0:98df:15b0::/48`、dn42（`fd00::/8`）
+  正常路由；NAIST 的 `2001:df3:540::/48` 经 laptop tun0；其余目的地址用 `unreachable` 路由
+  （或 nftables `reject`）**立即回 ICMPv6 不可达**，不得静默丢弃——静默丢弃会让连接卡在
+  SYN-SENT，正是现在 `.NET`/`pwsh` 挂住的原因。
+- **公网目的仍走 IPv4。** 只有 ULA 源地址时，RFC 6724 / glibc 默认表因标签不匹配优先选 IPv4；
+  个别直接尝试 IPv6 的程序会立刻收到不可达并回落。需在主要发行版上实测一次。
+- **NAIST 只认它分给 laptop 的地址。** 其他主机用 ULA 访问 NAIST IPv6 需要 laptop 做 NPTv6；
+  若只有 laptop 自己需要，就不做，网关对 NAIST 段也直接拒绝。
+- **开启了 forwarding 的主机（laptop、k3s 节点、docker 宿主）默认不收 RA**（`accept_ra` 在
+  forwarding=1 时视为 0）。这些主机本来就由 Ansible/Chef 管理，统一设 `accept_ra=2`，
+  不是逐台手改。
+
 ## 与规划不符的现状（迁移清单，未执行）
 
 1. **OSPF 退休，改为 BGP。** 现在 VyOS 以 OSPF 向 IX/laptop 发 labnet、retronet 明细、
@@ -144,3 +163,6 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
    172.18/172.19，下一个自动网络就是 172.20.0.0/16，与 dn42 路由重叠。在 laptop 的
    `daemon.json` 设 `default-address-pools`，指向一个登记过的 host-local block。
 6. ~~ayatori-dev/prod LXC 在 LAN~~：它们在 laptop 的 Incus 上，只能接 LAN，符合规划，不迁移。
+7. **IX 在 LAN 上发 RA**（`ipv6 nd ra other-config-flag`、DHCPv6 server）。在 IPv6 方向落地前
+   不动；落地时改为不再充当默认路由器。laptop 上"有 v6 默认路由却没有全局地址"的现象见
+   仓库根 CLAUDE.md，与此一并处理。
