@@ -70,7 +70,7 @@ else:
 try:
     generate.next_free(BASE, "10.62.1.0/24", AD)
 except ValueError as exc:
-    assert "allocated by ayatori-dev" in str(exc), exc
+    assert "allocated by ayatori-loadbalancer-dev" in str(exc), exc
 else:
     raise AssertionError("expected VIP pool to refuse manual allocation")
 print("ipam ok")

@@ -42,7 +42,9 @@ IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接
   新网段不撞上它们——它们一旦和路由前缀重叠，那台主机就会把流量送进本地网桥。
 
 `prefixes` 是可以分配静态地址的网段，必须落在 `lan` 或 `internal` block 内；带 `allocator`
-的网段由该系统自行分配（VIP 由 Ayatori 的 IPAddress 对象分配），`--next-free` 拒绝。
+的网段由该系统自行分配，`--next-free` 拒绝。VIP 段是 LoadBalancer 专用的：只有 LB
+controller 从中分配（IPAddress 对象），其他用途（包括将来 Ayatori 给主机分地址）另划网段，
+不与它共用。
 
 **新基础设施主机放 labnet**（etcd 已是如此），不放 LAN。
 
