@@ -1,6 +1,6 @@
 # 网络规划
 
-LAN 是一台傻瓜交换机下的扁平二层（192.168.10.0/24），上面有三个路由 speaker。本文定下
+LAN 是一台傻瓜交换机下的扁平二层（192.168.10.0/24），上面有三台路由器。本文定下
 它们各自的职责、地址怎么划、AS 怎么分，新网段、新 VIP、新 BGP 邻居都按这里来。
 地址与 AS 的数据在 [`ipam.yml`](ipam.yml)，由 `infrastructure/dns/generate.py` 校验。
 
@@ -11,22 +11,30 @@ IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接
 
 | 设备 | 职责 | 不做什么 |
 |---|---|---|
-| NEC IX（192.168.10.1，AS65000） | 出口、LAN 默认网关与 DHCP；OSPF `originate-default` | 不承载内部服务路由，不直接和业务主机建 BGP |
-| VyOS（VM 100，192.168.10.2） | 内部路由核心：SDN VNet 网关、VIP（LB 主机经 BGP 宣告）、dn42/OCI overlay；把这些注入 OSPF | 不再新增 HAProxy 服务或手工 VIP |
-| laptop FRR（192.168.10.127，AS65001） | OSPF speaker；向 IX 宣告 NAIST 前缀（既有特例） | 不扩展成新的路由角色 |
+| NEC IX（192.168.10.1，AS65000） | 出口、LAN 默认网关与 DHCP；BGP 只与路由器建邻居，按邻居过滤入方向 | 不承载内部服务路由，不直接和业务主机建 BGP |
+| VyOS（VM 100，192.168.10.2，对内 AS65002） | 内部路由核心：SDN VNet 网关、VIP（LB 主机经 BGP 宣告）、dn42/OCI overlay；只向 IX 宣告汇总 | 不再新增 HAProxy 服务或手工 VIP |
+| laptop FRR（192.168.10.127，AS65001） | 向 IX 宣告 NAIST 前缀（既有特例） | 不扩展成新的路由角色 |
+
+**路由协议只用 BGP，OSPF 退休。** 三台路由器在同一个二层上，去 VyOS 后面只有一条路，OSPF
+的拓扑计算与切换无从发挥；BGP 则让将来的第二台路由器只需再建一个 IX 邻居就能冗余，不必依赖
+VRRP。IX 只支持 2 字节 AS（不宣告 4-byte AS capability），所以 VyOS 对内邻居一律以
+`local-as 65002 no-prepend replace-as` 出现，dn42 的 4242421811 只留在 dn42/OCI 边界。
 
 约束与取舍：
 
 - **IX 的路由预算是个位数。** 它性能有限，只收汇总前缀：内部地址、外部 overlay、NAIST；
-  不收单个服务的 /32，VIP 增删不应改变它的路由表。目标是内部地址只剩 `10.60.0.0/14` 一条
-  （见迁移清单）。
+  不收单个服务的 /32，VIP 增删不应改变它的路由表。VyOS 只宣告 `10.60.0.0/14`、
+  `10.0.0.0/24`（OCI）、`172.20.0.0/14`（dn42）三条汇总，IX 的入方向过滤只放行这三条；
+  laptop 只放行 NAIST 两条。
 - **LAN 主机访问内部地址多绕一跳，接受。** 普通 LAN 主机的网关是 IX，去程 IX → VyOS，
   回程 VyOS 直接回 LAN。不为此把 LAN 设备的网关改成 VyOS。
 - **因此 IX 与 VyOS 都不得对 LAN↔内部地址的流量做状态过滤。** 上述来回路径不对称，
   stateful 过滤只看到单向，会丢包。2026-10-15 核对：IX 的 LAN 口没有 `ip filter`/SPI，VyOS
   未配置 firewall。将来 retronet 的防火墙策略只限定在 retronet 出口方向。
-- **VyOS 是内部地址的单点。** 它只有 PVE HA 重启（约 1–3 分钟）；内部服务越多越关键，
-  第二台 VyOS + VRRP 是已知风险，计划处理。
+- **VyOS 是内部地址的单点。** 它只有 PVE HA 重启（约 1–3 分钟）；内部服务越多越关键。
+  第二台路由器与 IX 再建一个 BGP 邻居、宣告同样的汇总即可冗余，是已知风险，计划处理。
+  VyOS 宕机时汇总被撤回，IX 会把去内部地址的包按默认路由送往 ISP；可在 IX 上加高管理距离
+  的 null 路由兜底（待确认 IX 支持）。
 
 ## 不做 overlay
 
@@ -78,17 +86,18 @@ VIP 不受此限：它是经 BGP 宣告的路由，不在任何二层上，所�
 
 `ipam.yml` 的 `asns` 是登记表，不得重复。私有 AS 按用途分段：65000–65099 既有路由器，
 65100–65199 Ayatori LoadBalancer（每个环境一个 AS，同环境主机共用）。
-VyOS 的 BGP 实例使用 dn42 的 4242421811，内部邻居都是 eBGP。
+VyOS 的 BGP 实例使用 dn42 的 4242421811；对 IX、LB 主机等内部邻居以 `local-as` 显示为 65002，
+内部邻居都是 eBGP。
 
 LB 主机接入 VyOS：
 
-- **环境由 AS 区分，不由主机地址区分。** 每个环境一个 peer-group（remote-as 为该环境的 AS），
+- **环境由 AS 区分，不由主机地址区分。** 每个环境一个 peer-group（remote-as 为该环境的 AS，
+  VyOS 侧 local-as 65002），
   入方向只收该环境 VIP 段内的 /32；LB 主机地址照常从 labnet `--next-free` 分配。
 - **邻居是静态的，每台 LB 主机一行。** 不用 dynamic neighbor：listen range 覆盖 labnet 时，
   任何 labnet 主机（包括跑不可信负载的 sandbox 节点）都能报上 LB 的 AS 劫持 VIP；TCP-MD5
   又要在 LB 节点上放共享密钥。加 LB 主机是低频操作，改一次 VyOS 可以接受。
-- VyOS 把 VIP 段按环境汇总（`aggregate-address … summary-only`）后再注入 OSPF，IX 每个环境
-  只多一条路由。
+- VIP 明细只留在 VyOS 上，不向 IX 宣告：`10.60.0.0/14` 汇总已经覆盖 VIP 段。
 
 ## IPAM
 
@@ -118,13 +127,16 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
 
 ## 与规划不符的现状（迁移清单，未执行）
 
-1. **IX 收到内部明细。** labnet、retronet 以 intra-area 网络进 area 0，另有 VyOS 上的
-   10.60.0.13/32（sandbox K3s API）。收敛成一条 `10.60.0.0/14` 需要 VyOS 成为 ABR
-   （SDN 接口进非骨干 area，`area range` 汇总）；VIP 用 BGP `aggregate-address` 后再注入。
+1. **OSPF 退休，改为 BGP。** 现在 VyOS 以 OSPF 向 IX/laptop 发 labnet、retronet 明细、
+   10.60.0.13/32 与 OCI/dn42 外部路由，IX 以 OSPF 下发默认路由。零中断顺序：IX 与 VyOS
+   （local-as 65002）建 BGP 邻居并加入方向过滤，VyOS 宣告三条汇总 → 确认 IX 与 laptop 已从
+   BGP 学到（eBGP AD 20 优于 OSPF 110）→ 依次删除 VyOS、IX、laptop 上的 OSPF。laptop 经
+   IX 学到的路由若下一跳被改写成 IX，再给 laptop 与 VyOS 单独建邻居。
 2. **VyOS 上的 HAProxy 服务**：sandbox-postgresql（10.60.0.1:5432）、sandbox-k3s-api 与
    opensandbox-api（10.60.0.13）。LoadBalancer 上线后迁走，删除 10.60.0.13/32。
 3. **pg-prod 解析到 VyOS（192.168.10.2）。** 随上一条一起改为 VIP。
-4. **IX 的 laptop 邻居未过滤。** 补按邻居的入方向 prefix 过滤（只收 NAIST 两条）。
+4. **IX 的 laptop 邻居未过滤。** 补按邻居的入方向 prefix 过滤（只收 NAIST 两条），与第 1 条
+   一起做。
 5. **docker 自动分配会撞 dn42。** docker 默认地址池含 172.17–172.31，laptop 已自动用到
    172.18/172.19，下一个自动网络就是 172.20.0.0/16，与 dn42 路由重叠。在 laptop 的
    `daemon.json` 设 `default-address-pools`，指向一个登记过的 host-local block。

@@ -47,8 +47,9 @@ homelab_ipam:
   # 所有 BGP speaker 的 AS。私有 AS 从 65000 起，按用途分段：65000–65099 既有路由器，
   # 65100–65199 Ayatori LoadBalancer。
   asns:
-    - { asn: 65000, owner: ix2215, description: "NEC IX；唯一邻居 laptop，未过滤" }
+    - { asn: 65000, owner: ix2215, description: "NEC IX；只支持 2 字节 AS" }
     - { asn: 65001, owner: laptop, description: "laptop FRR，向 IX 宣告 NAIST 前缀" }
-    - { asn: 4242421811, owner: vyos-rtr, description: "dn42；VyOS 与 OCI 共用，LB 以 eBGP 接入" }
+    - { asn: 65002, owner: vyos-rtr, description: "VyOS 对内邻居（IX、LB）的 local-as；IX 只支持 2 字节 AS" }
+    - { asn: 4242421811, owner: vyos-rtr, description: "dn42；VyOS 与 OCI 共用，只用于 dn42/OCI 边界" }
     - { asn: 65100, owner: loadbalancer-prod, description: "Prod LB 主机共用" }
     - { asn: 65101, owner: loadbalancer-dev, description: "Dev LB 主机共用" }
