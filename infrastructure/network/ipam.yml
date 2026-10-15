@@ -10,8 +10,8 @@ homelab_ipam:
     - { prefix: 10.0.0.0/24, role: external, description: "OCI VCN，经 VyOS wg42 注入 OSPF" }
     - { prefix: 10.1.72.0/24, role: external, description: "IX WAN 侧（ISP）" }
     - { prefix: 100.64.0.0/10, role: external, description: "Tailscale；laptop 是唯一 subnet router" }
-    - { prefix: 163.221.0.0/16, role: external, description: "NAIST，经 laptop tun0；laptop AS65001 宣告给 IX" }
-    - { prefix: 192.218.128.0/23, role: external, description: "NAIST，同上" }
+    - { prefix: 163.221.0.0/16, role: external, description: "NAIST（AS131158），经 laptop tun0；laptop AS65001 宣告给 IX" }
+    - { prefix: 192.218.128.0/23, role: external, description: "NAIST，同上；与 AS131158 公网宣告一致" }
     - { prefix: 172.20.0.0/14, role: external, description: "dn42 IPv4，经 VyOS 注入 OSPF" }
     - { prefix: fd00::/8, role: external, description: "dn42 IPv6（ULA）" }
     # 本站在 dn42 里的分配，嵌在上面的外部前缀内。
