@@ -37,6 +37,7 @@ VXLAN/EVPN 这类 overlay 在这里太重：多一套控制面（EVPN 的 BGP）
 - 服务地址不绑定在某个二层上：用 L3 解决，VIP 由 LB 主机经 BGP 宣告。
 - 租户隔离、跨站点二层迁移：没有这个需求。
 
+VLAN ID 记在 `ipam.yml` 对应网段的 `vlan` 字段，校验不得重复；4094 个对 homelab 足够。
 出现 VLAN 和路由都解决不了的需求再重新评估。
 
 ## 地址

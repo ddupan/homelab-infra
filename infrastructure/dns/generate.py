@@ -79,6 +79,9 @@ def allocations(data: dict, records: list[dict]) -> dict:
     for net in prefixes:
         if not any(net.subnet_of(block) for block, role in blocks if role in ("lan", "internal")):
             raise ValueError(f"prefix {net} is outside every lan/internal block")
+    vlans = [p["vlan"] for p in ipam["prefixes"] if "vlan" in p]
+    if len(vlans) != len(set(vlans)):
+        raise ValueError(f"duplicate VLAN in {vlans}")
     asns = [a["asn"] for a in ipam["asns"]]
     if len(asns) != len(set(asns)):
         raise ValueError(f"duplicate ASN in {asns}")
