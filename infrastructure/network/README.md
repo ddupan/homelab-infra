@@ -4,6 +4,9 @@ LAN 是一台傻瓜交换机下的扁平二层（192.168.10.0/24），上面有�
 它们各自的职责、地址怎么划、AS 怎么分，新网段、新 VIP、新 BGP 邻居都按这里来。
 地址与 AS 的数据在 [`ipam.yml`](ipam.yml)，由 `infrastructure/dns/generate.py` 校验。
 
+**范围只有 IPv4。** 节点都没有 IPv6 接入，本规划也没有为 IPv6 设计路由；`ipam.yml` 里的
+IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接入 IPv6 时单独规划。
+
 ## 路由职责
 
 | 设备 | 职责 | 不做什么 |
