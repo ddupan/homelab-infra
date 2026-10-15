@@ -10,6 +10,9 @@ iam:
     # Passkeys are bound to this RP ID: changing it orphans every registered passkey.
     rp-id: sso.ddupan.top
     origin: https://sso.ddupan.top
+  totp:
+    # The name authenticator apps list accounts under; changing it affects only apps set up afterwards.
+    issuer: ddupan
   authorization-server:
     # The issuer is part of every RP's configuration; changing it means migrating every RP.
     issuer: https://sso.ddupan.top

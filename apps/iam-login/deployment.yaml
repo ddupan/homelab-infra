@@ -36,6 +36,10 @@ spec:
             # The feature set the binary was built with (iam-login application-prod.yaml).
             - name: SPRING_PROFILES_ACTIVE
               value: prod
+            # iam.totp.key. Replacing it makes every set-up authenticator app unusable.
+            - name: IAM_TOTP_KEY
+              valueFrom:
+                secretKeyRef: { name: iam-login, key: totp-key }
           # SPRING_DATASOURCE_URL/USERNAME/PASSWORD, rendered from the Ayatori credential;
           # SPRING_LDAP_USERNAME/PASSWORD, the read-only AD service account.
           envFrom:
