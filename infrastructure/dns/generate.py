@@ -67,10 +67,14 @@ def allocations(data: dict, records: list[dict]) -> dict:
     ipam = data["homelab_ipam"]
     blocks = [(ipaddress.ip_network(b["prefix"]), b["role"]) for b in ipam["blocks"]]
     prefixes = [ipaddress.ip_network(p["prefix"]) for p in ipam["prefixes"]]
+    # Only our own allocation inside external space (dn42) may nest.
+    nested = {(inner, outer) for inner, inner_role in blocks for outer, role in blocks
+              if inner_role == "dn42" and role == "external"
+              and inner.version == outer.version and inner.subnet_of(outer)}
     for nets in ([net for net, _ in blocks], prefixes):
         for i, net in enumerate(nets):
             for other in nets[i + 1:]:
-                if net.overlaps(other):
+                if net.overlaps(other) and (net, other) not in nested and (other, net) not in nested:
                     raise ValueError(f"{net} overlaps {other}")
     for net in prefixes:
         if not any(net.subnet_of(block) for block, role in blocks if role in ("lan", "internal")):

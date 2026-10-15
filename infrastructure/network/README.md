@@ -33,6 +33,8 @@ LAN 是一台傻瓜交换机下的扁平二层（192.168.10.0/24），上面有�
 - `internal`：10.60.0.0/14，VyOS 后面的一切。已用 10.60.0.0/24 labnet、10.61.0.0/24
   retronet、10.62.0.0/24 Prod VIP、10.62.1.0/24 Dev VIP；新 VNet 或 VIP 池从剩余空间取。
 - `external`：经路由引入、不归我们分配的前缀（OCI、ISP 侧、Tailscale、NAIST、dn42）。
+- `dn42`：本站在 dn42 的分配（172.21.111.160/27、fdd0:98df:15b0::/48），唯一允许嵌在
+  external block 里的占位。
 - `host-local`：只在某台主机内部存在的网段（k3s Pod/Service、docker、libvirt）。列出来是为了
   新网段不撞上它们——它们一旦和路由前缀重叠，那台主机就会把流量送进本地网桥。
 

@@ -44,6 +44,8 @@ rejects(lambda d, _: d["homelab_ipam"]["prefixes"].append(
     {"prefix": "10.60.0.128/25"}), "overlaps")                         # 与 labnet 重叠
 rejects(lambda d, _: d["homelab_ipam"]["blocks"].append(
     {"prefix": "172.20.0.0/16", "role": "host-local"}), "overlaps")    # docker 网络撞 dn42
+rejects(lambda d, _: d["homelab_ipam"]["blocks"].append(
+    {"prefix": "10.60.0.0/16", "role": "host-local"}), "overlaps")     # 只有 external 允许嵌套
 rejects(lambda d, _: d["homelab_ipam"]["asns"].append({"asn": 65000}), "duplicate ASN")
 # lab 区记录从 pdns 读入（live），与 AD 记录同样校验。
 try:
