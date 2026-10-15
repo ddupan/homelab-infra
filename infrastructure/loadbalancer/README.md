@@ -31,8 +31,8 @@ Cinc（`homelab_loadbalancer` cookbook）负责，`lb_*` 配置段与 VIP 宣告
 2. **Cinc converge**（首次会做 SPIRE enrollment，同样需要 `BAO_TOKEN`）：
    ```bash
    cd infrastructure/chef/ansible
-   ansible-playbook converge.yml --check -l 'lb-*'
-   ansible-playbook converge.yml -l 'lb-*'
+   ansible-playbook converge.yml --check -l 'lb-*,localhost'
+   ansible-playbook converge.yml -l 'lb-*,localhost'
    ```
 3. **VyOS 接入**：`LB-PROD`/`LB-DEV` peer-group 与每台主机的静态邻居（另行变更）。
 4. **OSPF→BGP 切换**（网络规划迁移清单第 1 条）：在此之前 IX 没有 10.62 的路由，LAN 访问不到 VIP。
