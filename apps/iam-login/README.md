@@ -29,6 +29,7 @@
 |---|---|---|
 | `signing_key` | PKCS#8 PEM RSA 签名私钥 | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
 | `truststore` | base64 PKCS#12：JDK 标准 cacerts **加**内部 `ddupan.top Internal CA`（JVM 全局生效，只放内部 CA 会让 Let's Encrypt 站点如 spire-oidc 握手失败） | `keytool -importkeystore` 自 cacerts，再 `-importcert` 内部 CA，口令 `changeit` |
+| `totp_key` | base64 32 字节随机数，加密数据库里的验证器 App 密钥（`IAM_TOTP_KEY`）。**更换或丢失会让所有已设置的验证器 App 失效**，用户需改用 Passkey 或由管理员重置 | `openssl rand -base64 32`（2026-10-14 写入） |
 
 ## 秘密：`kv/k8s/iam-login-ldap`
 
