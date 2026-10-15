@@ -19,3 +19,23 @@ spec:
     labels:
       node: etcd-pve2
     interval: 30s
+  - targets:
+    - lb-prod-1.lab.ddupan.top:9100
+    labels:
+      node: lb-prod-1
+    interval: 30s
+  - targets:
+    - lb-prod-2.lab.ddupan.top:9100
+    labels:
+      node: lb-prod-2
+    interval: 30s
+  - targets:
+    - lb-dev-1.lab.ddupan.top:9100
+    labels:
+      node: lb-dev-1
+    interval: 30s
+  - targets:
+    - lb-dev-2.lab.ddupan.top:9100
+    labels:
+      node: lb-dev-2
+    interval: 30s

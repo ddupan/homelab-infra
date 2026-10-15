@@ -1,0 +1,18 @@
+---
+# 主机无状态：节点配置由 Cinc 重建，lb_* 段由 Ayatori 重新收敛，所以根盘放本地存储，
+# 不用 DRBD 复制。
+lb_lxc_template_name: debian-13-standard_13.6-1_amd64.tar.zst
+lb_lxc_template_storage: laptop
+lb_lxc_storage: local-lvm
+lb_lxc_disk_gb: 4
+lb_lxc_cores: 1
+lb_lxc_memory: 512
+lb_lxc_bridge: labnet
+lb_lxc_gateway: 10.60.0.1
+lb_lxc_nameserver: 192.168.10.5
+lb_lxc_searchdomain: lab.ddupan.top
+lb_lxc_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+lb_bao_url: https://bao.lab.ddupan.top:8200
+lb_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
+lb_pdns_zone_url: http://192.168.10.127:8053/api/v1/servers/localhost/zones/lab.ddupan.top.

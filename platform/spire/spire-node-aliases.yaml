@@ -27,3 +27,55 @@ spec:
   spiffeID: spiffe://ddupan.top/node/etcd-pve2
   selectors:
     - x509pop:subject:cn:etcd-pve2.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-lb-prod-1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/lb-prod-1
+  selectors:
+    - x509pop:subject:cn:lb-prod-1.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-lb-prod-2
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/lb-prod-2
+  selectors:
+    - x509pop:subject:cn:lb-prod-2.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-lb-dev-1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/lb-dev-1
+  selectors:
+    - x509pop:subject:cn:lb-dev-1.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-lb-dev-2
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/lb-dev-2
+  selectors:
+    - x509pop:subject:cn:lb-dev-2.lab.ddupan.top
