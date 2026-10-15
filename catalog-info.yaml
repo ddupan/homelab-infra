@@ -194,6 +194,9 @@ spec:
   owner: user:default/panxiao81
   lifecycle: production
   system: identity
+  # Declared in the iam-login repository's own catalog-info.yaml, from its docs/openapi.yaml.
+  providesApis:
+    - api:iam-management
   dependsOn:
     - component:samba-ad
     - component:spire
