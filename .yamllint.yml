@@ -43,7 +43,7 @@ rules:
   comments-indentation: disable
 
   # Disabled deliberately, not as a cop-out: codex-proxy/config/models.yaml and
-  # infrastructure/dns/records.yml column-align flow mappings
+  # infrastructure/network/ipam.yml column-align flow mappings
   #   - { reasoningEffort: low,    description: "..." }
   # which is more readable for tabular data. These two rules produced 268 of 293
   # findings, all of it that alignment. Real hygiene rules below stay ON.
