@@ -77,8 +77,18 @@ VIP 不受此限：它是经 BGP 宣告的路由，不在任何二层上，所�
 ## AS
 
 `ipam.yml` 的 `asns` 是登记表，不得重复。私有 AS 按用途分段：65000–65099 既有路由器，
-65100–65199 Ayatori LoadBalancer（每个环境一个 AS，同环境主机共用，VyOS 按邻居过滤前缀）。
+65100–65199 Ayatori LoadBalancer（每个环境一个 AS，同环境主机共用）。
 VyOS 的 BGP 实例使用 dn42 的 4242421811，内部邻居都是 eBGP。
+
+LB 主机接入 VyOS：
+
+- **环境由 AS 区分，不由主机地址区分。** 每个环境一个 peer-group（remote-as 为该环境的 AS），
+  入方向只收该环境 VIP 段内的 /32；LB 主机地址照常从 labnet `--next-free` 分配。
+- **邻居是静态的，每台 LB 主机一行。** 不用 dynamic neighbor：listen range 覆盖 labnet 时，
+  任何 labnet 主机（包括跑不可信负载的 sandbox 节点）都能报上 LB 的 AS 劫持 VIP；TCP-MD5
+  又要在 LB 节点上放共享密钥。加 LB 主机是低频操作，改一次 VyOS 可以接受。
+- VyOS 把 VIP 段按环境汇总（`aggregate-address … summary-only`）后再注入 OSPF，IX 每个环境
+  只多一条路由。
 
 ## IPAM
 
