@@ -32,7 +32,8 @@ VRRP。IX 只支持 2 字节 AS（不宣告 4-byte AS capability），所以 VyO
   stateful 过滤只看到单向，会丢包。2026-10-15 核对：IX 的 LAN 口没有 `ip filter`/SPI，VyOS
   未配置 firewall。将来 retronet 的防火墙策略只限定在 retronet 出口方向。
 - **VyOS 是内部地址的单点。** 它只有 PVE HA 重启（约 1–3 分钟）；内部服务越多越关键。
-  第二台路由器与 IX 再建一个 BGP 邻居、宣告同样的汇总即可冗余，是已知风险，计划处理。
+  第二台路由器与 IX 再建一个 BGP 邻居、宣告同样的汇总即可冗余，是已知风险，计划处理；
+  届时按 [router.md](router.md) 的设计用 Debian + FRR 搭两台，VyOS 退役。
   VyOS 宕机时汇总被撤回，IX 会把去内部地址的包按默认路由送往 ISP；可在 IX 上加高管理距离
   的 null 路由兜底（待确认 IX 支持）。
 
