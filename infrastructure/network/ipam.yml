@@ -35,6 +35,8 @@ homelab_ipam:
   ranges:
     - { start: 192.168.10.128, end: 192.168.10.250, description: "NEC IX DHCP 地址池（2026-09-14 起）" }
     - { start: 192.168.10.251, end: 192.168.10.254, description: "用户确认预留；扫描无响应不代表空闲" }
+    - { start: 10.60.0.100, end: 10.60.0.200, description: "VyOS labnet DHCP 地址池" }
+    - { start: 10.61.0.100, end: 10.61.0.200, description: "VyOS retronet DHCP 地址池" }
   addresses:
     - { address: 192.168.10.1, name: ix2215, description: "NEC IX：网关、DHCP、DNS proxy" }
     - { address: 192.168.10.2, name: vyos-rtr, description: "VyOS LAN 侧（pg-prod 也解析到这里）" }

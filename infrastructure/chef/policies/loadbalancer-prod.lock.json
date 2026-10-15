@@ -1,0 +1,77 @@
+{
+  "revision_id": "91f07b3f940fbb8bf780aa4ad2150f55715411190966f332e3f2c676b21e9ea9",
+  "name": "loadbalancer-prod",
+  "run_list": [
+    "recipe[homelab_base::default]",
+    "recipe[homelab_loadbalancer::default]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_base": {
+      "version": "0.4.0",
+      "identifier": "0544d22a1f4c6ac6e750b64c3c922f12e5c1ad9e",
+      "dotted_decimal_identifier": "1483044324068458.55986379230559378.51758210592158",
+      "cache_key": "homelab_base-291c30faa33b2b8ddaf18a5ed44d895b194e0d98",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "291c30faa33b2b8ddaf18a5ed44d895b194e0d98",
+        "tag": "v0.4.0",
+        "rel": "cookbooks/homelab_base"
+      }
+    },
+    "homelab_loadbalancer": {
+      "version": "0.2.0",
+      "identifier": "12defc69368931f47a280cf73863ad51437e3088",
+      "dotted_decimal_identifier": "5311725259098417.68814206752208995.190564536299656",
+      "cache_key": "homelab_loadbalancer-291c30faa33b2b8ddaf18a5ed44d895b194e0d98",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "291c30faa33b2b8ddaf18a5ed44d895b194e0d98",
+        "tag": "v0.4.0",
+        "rel": "cookbooks/homelab_loadbalancer"
+      }
+    }
+  },
+  "default_attributes": {
+    "homelab_loadbalancer": {
+      "environment": "prod",
+      "dataplaneapi": {
+        "password_hash": "$6$A7APG0w/Kx2eRx0v$w6DF3h6tmiX0D/Oh41eLewRjh3AdYeRUw4d2T6832YSR/FMgqiDIL3PKGN9.d0cSTMDujDdFxtvppjU5vV56E0"
+      },
+      "bgp": {
+        "local_as": 65100,
+        "neighbors": {
+          "10.60.0.1": 65002
+        },
+        "vip_pool": "10.62.0.0/24"
+      }
+    }
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ],
+      [
+        "homelab_loadbalancer",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_base (0.4.0)": [
+
+      ],
+      "homelab_loadbalancer (0.2.0)": [
+
+      ]
+    }
+  }
+}

@@ -1,0 +1,216 @@
+---
+# 只创建已声明且尚不存在的 LXC；不接管未知 VMID，不改运行中容器的配置。
+# 与 infrastructure/etcd/ansible/lxc.yml 同一套做法，区别是一台 PVE 可承载多台 LB，
+# 所以以 LB 主机为 inventory、委派给它的 PVE 节点执行。
+- name: 创建 LoadBalancer LXC
+  hosts: loadbalancer
+  gather_facts: false
+  vars:
+    lb_template: "{{ lb_lxc_template_storage }}:vztmpl/{{ lb_lxc_template_name }}"
+    lb_ip: "{{ lb_address.split('/')[0] }}"
+  tasks:
+    # 模板在共享 NFS 上，下载一次即可；WAN 不稳，带重试。
+    - name: 列出已有模板
+      ansible.builtin.command:
+        argv: [pveam, list, "{{ lb_lxc_template_storage }}"]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_templates
+      changed_when: false
+      check_mode: false
+      run_once: true
+
+    - name: 下载 Debian 13 模板
+      ansible.builtin.command:
+        argv: [pveam, download, "{{ lb_lxc_template_storage }}", "{{ lb_lxc_template_name }}"]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_template_download
+      retries: 5
+      delay: 10
+      until: lb_template_download.rc == 0
+      changed_when: true
+      run_once: true
+      when: lb_template not in lb_templates.stdout
+
+    - name: 读取全局资源，避免 VMID 在其他节点已占用
+      ansible.builtin.command:
+        argv: [pvesh, get, /cluster/resources, --type, vm, --output-format, json]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_resources
+      changed_when: false
+      check_mode: false
+
+    - name: 保存同号资源
+      ansible.builtin.set_fact:
+        lb_existing: "{{ lb_resources.stdout | from_json | selectattr('vmid', 'equalto', lb_vmid) | list }}"
+
+    - name: 拒绝接管未知资源
+      ansible.builtin.assert:
+        that:
+          - >-
+            lb_existing | length == 0 or
+            (lb_existing[0].type == 'lxc' and lb_existing[0].name == inventory_hostname
+             and 'loadbalancer' in (lb_existing[0].tags | default('')))
+
+    - name: 新建无特权 LXC
+      when: lb_existing | length == 0 and not ansible_check_mode
+      delegate_to: "{{ lb_pve }}"
+      block:
+        - name: 暂存 SSH 公钥
+          ansible.builtin.copy:
+            content: "{{ lb_lxc_pubkey }}\n"
+            dest: "/run/{{ inventory_hostname }}-bootstrap.pub"
+            mode: '0600'
+        - name: 创建声明的容器
+          ansible.builtin.command:
+            argv:
+              - pct
+              - create
+              - "{{ lb_vmid }}"
+              - "{{ lb_template }}"
+              - --hostname
+              - "{{ inventory_hostname }}"
+              - --unprivileged
+              - '1'
+              # Debian 13 的 systemd 在无特权容器里需要 nesting，否则沙箱化的服务启动失败。
+              - --features
+              - nesting=1
+              - --cores
+              - "{{ lb_lxc_cores }}"
+              - --memory
+              - "{{ lb_lxc_memory }}"
+              - --swap
+              - '0'
+              - --rootfs
+              - "{{ lb_lxc_storage }}:{{ lb_lxc_disk_gb }}"
+              - --net0
+              - "name=eth0,bridge={{ lb_lxc_bridge }},ip={{ lb_address }},gw={{ lb_lxc_gateway }},type=veth"
+              - --nameserver
+              - "{{ lb_lxc_nameserver }}"
+              - --searchdomain
+              - "{{ lb_lxc_searchdomain }}"
+              - --ssh-public-keys
+              - "/run/{{ inventory_hostname }}-bootstrap.pub"
+              - --onboot
+              - '1'
+              - --tags
+              - ansible;loadbalancer
+          changed_when: true
+      always:
+        - name: 删除暂存公钥
+          ansible.builtin.file:
+            path: "/run/{{ inventory_hostname }}-bootstrap.pub"
+            state: absent
+
+    - name: 读取容器配置
+      ansible.builtin.command:
+        argv: [pct, config, "{{ lb_vmid }}"]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_config
+      changed_when: false
+      when: not ansible_check_mode or lb_existing | length > 0
+
+    - name: 配置漂移先报错，不直接改运行中的网络/资源
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('ip=' ~ lb_address ~ ',') in lb_config.stdout or
+            ('ip=' ~ lb_address ~ '\n') in lb_config.stdout
+          - "('bridge=' ~ lb_lxc_bridge ~ ',') in lb_config.stdout"
+          - "'unprivileged: 1' in lb_config.stdout"
+          - "'nesting=1' in lb_config.stdout"
+          - "('memory: ' ~ lb_lxc_memory) in lb_config.stdout"
+          - "('rootfs: ' ~ lb_lxc_storage ~ ':') in lb_config.stdout"
+      when: lb_config is not skipped
+
+    - name: 读取容器运行状态
+      ansible.builtin.command:
+        argv: [pct, status, "{{ lb_vmid }}"]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_status
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: 启动容器
+      ansible.builtin.command:
+        argv: [pct, start, "{{ lb_vmid }}"]
+      delegate_to: "{{ lb_pve }}"
+      changed_when: true
+      when: not ansible_check_mode and 'running' not in lb_status.stdout
+
+    - name: 通过可信宿主机取得容器 SSH 公钥
+      ansible.builtin.command:
+        argv: [pct, exec, "{{ lb_vmid }}", --, cat, /etc/ssh/ssh_host_ed25519_key.pub]
+      delegate_to: "{{ lb_pve }}"
+      register: lb_hostkey
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: lb_hostkey.rc == 0
+      when: not ansible_check_mode
+
+    # 按 lab 名记录：converge.yml 以 DNS 名连接。
+    - name: 保存经宿主机验证的 SSH host key
+      ansible.builtin.known_hosts:
+        name: "{{ inventory_hostname }}.lab.ddupan.top"
+        key: "{{ inventory_hostname }}.lab.ddupan.top,{{ lb_ip }} {{ lb_hostkey.stdout }}"
+      delegate_to: localhost
+      when: not ansible_check_mode
+
+    # 创建者自己注册 DNS：lab zone 才是已用地址的完整集合，IPAM 的 --next-free 从这里读。
+    - name: 读取 PowerDNS API key
+      ansible.builtin.uri:
+        url: "{{ lb_bao_url }}/v1/kv/data/k8s/powerdns"
+        headers:
+          X-Vault-Token: "{{ lb_bao_token }}"
+      delegate_to: localhost
+      register: lb_pdns_secret
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    - name: 读取 lab zone
+      ansible.builtin.uri:
+        url: "{{ lb_pdns_zone_url }}"
+        headers:
+          X-API-Key: "{{ lb_pdns_secret.json.data.data.api_key }}"
+      delegate_to: localhost
+      register: lb_pdns_zone
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    - name: 计算本主机的 A 记录差异
+      ansible.builtin.set_fact:
+        lb_dns_name: "{{ inventory_hostname }}.{{ lb_pdns_zone.json.name }}"
+        lb_dns_current: >-
+          {{ lb_pdns_zone.json.rrsets
+             | selectattr('name', 'equalto', inventory_hostname ~ '.' ~ lb_pdns_zone.json.name)
+             | selectattr('type', 'equalto', 'A')
+             | map(attribute='records') | flatten | map(attribute='content') | list }}
+
+    - name: 注册 A 记录
+      ansible.builtin.uri:
+        url: "{{ lb_pdns_zone_url }}"
+        method: PATCH
+        headers:
+          X-API-Key: "{{ lb_pdns_secret.json.data.data.api_key }}"
+        body_format: json
+        body:
+          rrsets:
+            - name: "{{ lb_dns_name }}"
+              type: A
+              ttl: 300
+              changetype: REPLACE
+              records: [{content: "{{ lb_ip }}", disabled: false}]
+              comments: [{content: "owner: infrastructure/loadbalancer/ansible/lxc.yml", account: ansible}]
+        status_code: 204
+      delegate_to: localhost
+      no_log: true
+      changed_when: true
+      when: lb_dns_current != [lb_ip] and not ansible_check_mode
+
+    - name: Check 模式下报告将注册的记录
+      ansible.builtin.debug:
+        msg: "将注册 {{ lb_dns_name }} A {{ lb_ip }}（当前 {{ lb_dns_current }}）"
+      changed_when: true
+      when: lb_dns_current != [lb_ip] and ansible_check_mode
