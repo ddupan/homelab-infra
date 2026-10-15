@@ -32,7 +32,7 @@ IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接
 
 `ipam.yml` 的 `blocks` 是顶层占位，彼此不得重叠：
 
-- `lan`：192.168.10.0/24。只放接入与出口设备（路由器、AP、PC、laptop 本身）。
+- `lan`：192.168.10.0/24，IX 网关的扁平二层。
 - `internal`：10.60.0.0/14，VyOS 后面的一切。已用 10.60.0.0/24 labnet、10.61.0.0/24
   retronet、10.62.0.0/24 Prod VIP、10.62.1.0/24 Dev VIP；新 VNet 或 VIP 池从剩余空间取。
 - `external`：经路由引入、不归我们分配的前缀（OCI、ISP 侧、Tailscale、NAIST、dn42）。
@@ -43,10 +43,24 @@ IPv6 前缀只是占位登记（dn42 的 v6 只在 VyOS 的 wg42 上）。要接
 
 `prefixes` 是可以分配静态地址的网段，必须落在 `lan` 或 `internal` block 内；带 `allocator`
 的网段由该系统自行分配，`--next-free` 拒绝。VIP 段是 LoadBalancer 专用的：只有 LB
-controller 从中分配（IPAddress 对象），其他用途（包括将来 Ayatori 给主机分地址）另划网段，
-不与它共用。
+controller 从中分配（IPAddress 对象），其他用途不与它共用。
 
-**新基础设施主机放 labnet**（etcd 已是如此），不放 LAN。
+### 主机地址跟着接入的二层走
+
+没有真正的 vnet，主机只能用它所接网段的地址，不能任意分配：
+
+| 主机在哪 | 能接的网段 | 网关 |
+|---|---|---|
+| PVE 集群 | SDN VNet（labnet、retronet） | VyOS |
+| PVE 集群 | LAN（vmbr0 不打 tag） | IX |
+| PVE 之外（laptop 的 Incus/libvirt 等） | 只有 LAN（br0） | IX |
+
+VIP 不受此限：它是经 BGP 宣告的路由，不在任何二层上，所以可以从 internal 剩余空间划段。
+将来 Ayatori 给主机分地址，地址池也只能是某个网段内的一段（`ranges`），不是独立前缀。
+
+放置规则：**PVE 上的基础设施主机放 labnet**（etcd、LB 已是如此）；PVE 之外的主机只能放 LAN。
+另一条可选路：傻瓜交换机透传 802.1Q tag（2026-07-25 实测），laptop 可以在 br0 上加 VLAN 100
+直接接入 labnet，但目前没有这样做，也不在本规划内。
 
 ## AS
 
@@ -92,5 +106,4 @@ IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预�
 5. **docker 自动分配会撞 dn42。** docker 默认地址池含 172.17–172.31，laptop 已自动用到
    172.18/172.19，下一个自动网络就是 172.20.0.0/16，与 dn42 路由重叠。在 laptop 的
    `daemon.json` 设 `default-address-pools`，指向一个登记过的 host-local block。
-6. **ayatori-dev/prod LXC 在 LAN（192.168.10.11/12）。** 不符合"基础设施主机放 labnet"，
-   随下一次重建迁移，不单独动。
+6. ~~ayatori-dev/prod LXC 在 LAN~~：它们在 laptop 的 Incus 上，只能接 LAN，符合规划，不迁移。

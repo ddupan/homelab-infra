@@ -30,7 +30,7 @@ homelab_ipam:
     - { prefix: 192.168.10.0/24, description: "LAN，一台傻瓜交换机下的扁平二层；OSPF area 0" }
     - { prefix: 10.60.0.0/24, vlan: 100, description: "PVE SDN VNet labnet，网关在 vyos eth1；基础设施主机放这里" }
     - { prefix: 10.61.0.0/24, vlan: 110, description: "PVE SDN VNet retronet，网关在 vyos eth2" }
-    - { prefix: 10.62.0.0/24, allocator: ayatori-loadbalancer-prod, description: "LoadBalancer 专用 VIP（Prod），LB 主机经 BGP 宣告给 VyOS" }
+    - { prefix: 10.62.0.0/24, allocator: ayatori-loadbalancer-prod, description: "LoadBalancer 专用 VIP（Prod），经 BGP 宣告" }
     - { prefix: 10.62.1.0/24, allocator: ayatori-loadbalancer-dev, description: "LoadBalancer 专用 VIP（Dev）" }
   ranges:
     - { start: 192.168.10.128, end: 192.168.10.250, description: "NEC IX DHCP 地址池（2026-09-14 起）" }
