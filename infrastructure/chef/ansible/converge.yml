@@ -3,8 +3,11 @@
 # archive; Cinc does the configuring. There is no Cinc Server and nothing applies
 # automatically; the node's own timer only why-runs (homelab_base drift_check).
 #
-#   ansible-playbook converge.yml --check -l <host>   why-run (preview; changes nothing)
-#   ansible-playbook converge.yml -l <host>           apply
+#   ansible-playbook converge.yml --check -l '<host>,localhost'   why-run (preview; changes nothing)
+#   ansible-playbook converge.yml -l '<host>,localhost'           apply
+#
+# localhost must be in the limit: the first play exports the archives there, and a
+# limit that drops it leaves the converge play without them.
 #
 # `changed` means Cinc updated (or in --check, would update) something, so a second
 # apply reporting changed=0 is the same acceptance test as everywhere else.

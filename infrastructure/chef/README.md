@@ -22,9 +22,12 @@ cookbook 代码在 [homelab-cookbooks](https://git.ddupan.top/panxiao81/homelab-
 
 ```bash
 cd infrastructure/chef/ansible
-ansible-playbook converge.yml --check -l etcd-pve1.lab.ddupan.top   # why-run，不改动
-ansible-playbook converge.yml -l etcd-pve1.lab.ddupan.top           # apply
+ansible-playbook converge.yml --check -l 'etcd-pve1.lab.ddupan.top,localhost'   # why-run，不改动
+ansible-playbook converge.yml -l 'etcd-pve1.lab.ddupan.top,localhost'           # apply
 ```
+
+`-l` 必须带上 `localhost`：第一个 play 在 laptop 上导出 policy 归档，被 limit 排除时它
+不运行，后面的 play 会因找不到归档失败。
 
 更新 lock（升级 cookbook = 改 policy 里的 tag，然后提交 lock）：
 
