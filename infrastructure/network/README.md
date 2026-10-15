@@ -35,7 +35,7 @@ VRRP。IX 只支持 2 字节 AS（不宣告 4-byte AS capability），所以 VyO
   第二台路由器与 IX 再建一个 BGP 邻居、宣告同样的汇总即可冗余，是已知风险，计划处理；
   届时按 [router.md](router.md) 的设计用 Debian + FRR 搭两台，VyOS 退役。
   VyOS 宕机时汇总被撤回，IX 会把去内部地址的包按默认路由送往 ISP；可在 IX 上加高管理距离
-  的 null 路由兜底（待确认 IX 支持）。
+  的 null 路由兜底（`ip route 10.60.0.0/14 Null0.0 distance <n>`）。
 
 ## 不做 overlay
 

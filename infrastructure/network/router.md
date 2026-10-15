@@ -41,7 +41,7 @@ HA 重启只会和它抢。
 
 - **对 IX：** 两台各与 IX 建 eBGP（对内 AS 各自一个私有 AS 或共用 65002），宣告相同的三条汇总；
   IX 开 `multipath` 或主备均可。一台宕机，BGP 撤路由，IX 切到另一台，不需要 VRRP。
-  IX 是否支持 BFD 未确认；不支持就把 hold timer 调小。
+  加 BFD 缩短检测时间（IX 应该支持，命令位置待确认）；否则把 hold timer 调小。
 - **对 VNet 主机：** 主机的网关是固定地址（10.60.0.1、10.61.0.1），只能靠 VRRP 漂移。
   两台在各 VNet 接口上跑 keepalived，虚拟地址即现在的网关地址，主机侧无需改动。
 - **对 LB 主机：** 每台 LB 主机与两台路由器都建邻居，任一路由器在，VIP 就可达。
@@ -68,7 +68,8 @@ HA 重启只会和它抢。
 
 ## 未决
 
-- IX 是否支持 BFD；null 路由能否带管理距离。
+- IX 上 BFD 的配置位置（不在配置模式顶层、`ip` 下或 BGP neighbor 选项里）。
 - 两台路由器对 IX 用同一个 AS 还是各自一个：共用便于 IX 侧过滤写一份，各自便于排障。
-- frr-reload.py 对 BGP 配置的变更是否都能热应用（个别改动需要 `clear bgp`），需要在 Kitchen
-  里覆盖。
+
+已确认：IX 支持 `ip route … Null0.0 distance <n>`（高管理距离兜底路由可行）；FRR 用
+`frr-reload.py` 热应用配置，只有改会话参数（timers、capability）时需要对该邻居软复位。
