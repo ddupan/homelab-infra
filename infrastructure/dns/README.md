@@ -1,8 +1,8 @@
 # DNS 声明与权威边界
 
 记录跟着它的 owner 走：谁创建资源，谁在自己的代码里注册名字；没有母资源的主机手动注册。
-`records.yml` 原是 AD DNS 时代的统一清单，现在只剩 split horizon（生成到 Blocky 与 CoreDNS）
-和地址池（IPAM）：
+`records.yml` 原是 AD DNS 时代的统一清单，现在只剩 split horizon（生成到 Blocky 与 CoreDNS）；
+地址池已移到 `../network/ipam.yml`：
 
 | 视图 | 权威或递归服务 | 配置方式 |
 |---|---|---|
@@ -38,27 +38,8 @@ uv run infrastructure/dns/generate.py --check
 
 ## 地址分配（IPAM）
 
-IPAM 只维护**地址池**；"哪个地址被谁占用"以 DNS 为准。
-
-- `homelab_ipam`（本文件）：网段、DHCP 池与预留段（`ranges`，单个租约不归 IPAM 管），
-  以及没有 A 记录的地址（`addresses`：路由器、网关、自行向 AD 注册的域成员、AP、laptop）。
-- 已占用集合 = 上述 `addresses` + samba-ad `group_vars/all/dns.yml` 的 AD 记录 +
-  **`lab.ddupan.top` 里实际存在的 A 记录**。资源由创建者自己注册 DNS（incus Terraform、`etcd/ansible/lxc.yml`、external-dns、
-  Poweradmin），不回写本文件；`--next-free` 运行时从 PowerDNS API 读取 zone。
-
-校验对两类记录相同：地址必须落在某个网段内、不得落在 `ranges` 内、`addresses` 不得重复；
-同一 IP 被多个名字引用时（ingress、路由器），必须在 `addresses` 声明归属。`test_ipam.py`
-覆盖这些拒绝路径。`--check`（CI）只校验文件，不访问 PowerDNS，因此不检查 lab 区。
-
-分配新静态地址：
-
-```bash
-PDNS_API_KEY=$(bao kv get -field=api_key kv/k8s/powerdns) \
-  uv run infrastructure/dns/generate.py --next-free 10.60.0.0/24
-```
-
-没有 key 时直接失败，不退回只读文件——只看文件正是 etcd-pve1/2（10.60.0.20/21）部署后对
-IPAM 不可见的原因。分配之后立即注册 DNS：两步之间没有预留，单人操作下可接受。
+地址规划与 IPAM 见 [`../network/README.md`](../network/README.md)；`generate.py` 仍在这里，
+生成 DNS 时一并校验 `../network/ipam.yml`。
 
 ## 安全边界
 

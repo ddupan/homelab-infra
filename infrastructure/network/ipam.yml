@@ -1,0 +1,55 @@
+---
+# 地址规划。规则与路由职责见 README.md；由 infrastructure/dns/generate.py 校验。
+# 已占用的单个地址以 DNS 为准（创建者自行注册），这里只放 DNS 表达不了的部分。
+homelab_ipam:
+  # 顶层占位：本地网段、外部经路由引入的前缀、主机内部网段，互不重叠。
+  # 新网段先在这里找位置，避免再次撞上 docker、k3s 或外部前缀。
+  blocks:
+    - { prefix: 192.168.10.0/24, role: lan, description: "LAN：IX 网关，只放接入与出口设备" }
+    - { prefix: 10.60.0.0/14, role: internal, description: "VyOS 后面的内部地址；目标是 IX 只收这一条汇总" }
+    - { prefix: 10.0.0.0/24, role: external, description: "OCI VCN，经 VyOS wg42 注入 OSPF" }
+    - { prefix: 10.1.72.0/24, role: external, description: "IX WAN 侧（ISP）" }
+    - { prefix: 100.64.0.0/10, role: external, description: "Tailscale；laptop 是唯一 subnet router" }
+    - { prefix: 163.221.0.0/16, role: external, description: "NAIST（AS131158），经 laptop tun0；laptop AS65001 宣告给 IX" }
+    - { prefix: 192.218.128.0/23, role: external, description: "NAIST，同上；与 AS131158 公网宣告一致" }
+    - { prefix: 172.20.0.0/14, role: external, description: "dn42 IPv4，经 VyOS 注入 OSPF" }
+    - { prefix: fd00::/8, role: external, description: "dn42 IPv6（ULA）" }
+    # 本站在 dn42 里的分配，嵌在上面的外部前缀内。
+    - { prefix: 172.21.111.160/27, role: dn42, description: "本站 dn42 IPv4；VyOS 172.21.111.161" }
+    - { prefix: fdd0:98df:15b0::/48, role: dn42, description: "本站 dn42 IPv6" }
+    - { prefix: 10.42.0.0/16, role: host-local, description: "k3s Pod CIDR（laptop、sandbox 各自本地）" }
+    - { prefix: 10.43.0.0/16, role: host-local, description: "k3s Service CIDR" }
+    - { prefix: 172.17.0.0/16, role: host-local, description: "laptop docker0" }
+    - { prefix: 172.18.0.0/15, role: host-local, description: "laptop docker compose 网络（自动分配）" }
+    - { prefix: 172.28.0.0/16, role: host-local, description: "laptop docker compose 网络（显式指定）" }
+    - { prefix: 192.168.100.0/24, role: host-local, description: "laptop libvirt virbr1" }
+    - { prefix: 192.168.122.0/24, role: host-local, description: "laptop libvirt virbr0" }
+  # 可分配静态地址的网段，必须落在 lan 或 internal block 内。allocator 非空的网段由该系统
+  # 自行分配，--next-free 拒绝。
+  prefixes:
+    - { prefix: 192.168.10.0/24, description: "LAN，一台傻瓜交换机下的扁平二层；OSPF area 0" }
+    - { prefix: 10.60.0.0/24, vlan: 100, description: "PVE SDN VNet labnet，网关在 vyos eth1；基础设施主机放这里" }
+    - { prefix: 10.61.0.0/24, vlan: 110, description: "PVE SDN VNet retronet，网关在 vyos eth2" }
+    - { prefix: 10.62.0.0/24, allocator: ayatori-loadbalancer-prod, description: "LoadBalancer 专用 VIP（Prod），经 BGP 宣告" }
+    - { prefix: 10.62.1.0/24, allocator: ayatori-loadbalancer-dev, description: "LoadBalancer 专用 VIP（Dev）" }
+  ranges:
+    - { start: 192.168.10.128, end: 192.168.10.250, description: "NEC IX DHCP 地址池（2026-09-14 起）" }
+    - { start: 192.168.10.251, end: 192.168.10.254, description: "用户确认预留；扫描无响应不代表空闲" }
+  addresses:
+    - { address: 192.168.10.1, name: ix2215, description: "NEC IX：网关、DHCP、DNS proxy" }
+    - { address: 192.168.10.2, name: vyos-rtr, description: "VyOS LAN 侧（pg-prod 也解析到这里）" }
+    - { address: 192.168.10.5, name: dc1, description: "Samba AD DC，自行注册 DNS" }
+    - { address: 192.168.10.6, name: winadmin, description: "Windows 管理机，域成员" }
+    - { address: 192.168.10.10, name: ap-buffalo, description: "无线 AP" }
+    - { address: 192.168.10.127, name: laptop, description: "k3s/NFS/libvirt；Envoy ingress 也在这里" }
+    - { address: 10.60.0.1, name: vyos-rtr-labnet, description: "labnet 网关" }
+    - { address: 10.61.0.1, name: vyos-rtr-retronet, description: "retronet 网关" }
+  # 所有 BGP speaker 的 AS。私有 AS 从 65000 起，按用途分段：65000–65099 既有路由器，
+  # 65100–65199 Ayatori LoadBalancer。
+  asns:
+    - { asn: 65000, owner: ix2215, description: "NEC IX；只支持 2 字节 AS" }
+    - { asn: 65001, owner: laptop, description: "laptop FRR，向 IX 宣告 NAIST 前缀" }
+    - { asn: 65002, owner: vyos-rtr, description: "VyOS 对内邻居（IX、LB）的 local-as；IX 只支持 2 字节 AS" }
+    - { asn: 4242421811, owner: vyos-rtr, description: "dn42；VyOS 与 OCI 共用，只用于 dn42/OCI 边界" }
+    - { asn: 65100, owner: loadbalancer-prod, description: "Prod LB 主机共用" }
+    - { asn: 65101, owner: loadbalancer-dev, description: "Dev LB 主机共用" }

@@ -238,7 +238,7 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
 - `platform/cert-manager/` — two ClusterIssuers: `letsencrypt` (DNS-01 via Cloudflare) and
   `bao-acme` (OpenBao internal PKI). One `*.ad.ddupan.top` wildcard serves every LAN
   service, deliberately, so per-host names stay out of Certificate Transparency logs.
-- **IPAM keeps only address pools** (`homelab_ipam` in `infrastructure/dns/records.yml`); the
+- **IPAM keeps only address pools** (`infrastructure/network/ipam.yml`; plan and routing roles in its README); the
   used set is **DNS** — creators register their own names in `lab.ddupan.top`, and
   `generate.py --next-free <prefix>` reads the live zone (needs `PDNS_API_KEY`).
   NetBox was evaluated and retired 2026-10-04:
