@@ -141,8 +141,9 @@ WAN 没有 IPv6，因此 IPv6 只在内部使用，地址取本站 dn42 ULA `fdd
   SYN-SENT，正是现在 `.NET`/`pwsh` 挂住的原因。
 - **公网目的仍走 IPv4。** 只有 ULA 源地址时，RFC 6724 / glibc 默认表因标签不匹配优先选 IPv4；
   个别直接尝试 IPv6 的程序会立刻收到不可达并回落。需在主要发行版上实测一次。
-- **NAIST 只认它分给 laptop 的地址。** 其他主机用 ULA 访问 NAIST IPv6 需要 laptop 做 NPTv6；
-  若只有 laptop 自己需要，就不做，网关对 NAIST 段也直接拒绝。
+- **NAIST 只认它分给 laptop 的地址。** VPN 只给 laptop 一个地址而不是一段前缀，NPTv6 要求
+  两侧前缀等长、1:1 映射，做不了；其他主机用 ULA 访问 NAIST IPv6 需要 laptop 在 tun0 出口做
+  NAT66（nftables masquerade）。若只有 laptop 自己需要，就不做，网关对 NAIST 段也直接拒绝。
 - **开启了 forwarding 的主机（laptop、k3s 节点、docker 宿主）默认不收 RA**（`accept_ra` 在
   forwarding=1 时视为 0）。这些主机本来就由 Ansible/Chef 管理，统一设 `accept_ra=2`，
   不是逐台手改。
