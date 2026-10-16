@@ -30,11 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+
       - name: Bootstrap uv
         # Pin the tool for reproducibility; PyPI also avoids another setup action.
         run: |
-          python3 -m pip install --user --break-system-packages \
-            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install yamllint
