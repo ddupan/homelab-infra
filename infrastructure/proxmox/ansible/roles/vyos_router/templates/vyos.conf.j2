@@ -35,6 +35,10 @@ set protocols static route 0.0.0.0/0 next-hop {{ vyos_lan_gateway }}
 {# --- BGP to the NEC IX: summaries out, nothing in --- #}
 {% for a in vyos_ix_aggregates %}
 set protocols bgp address-family ipv4-unicast aggregate-address {{ a }}
+{# The aggregate alone installs a blackhole: a withdrawn VIP would make clients wait
+   for a timeout. The reject route (distance 1, beats the aggregate's 200) answers ICMP
+   unreachable instead; connected subnets and VIP /32s are more specific and still win. #}
+set protocols static route {{ a }} reject
 {% endfor %}
 {% for p in vyos_ix_export %}
 set policy prefix-list IX-OUT rule {{ loop.index * 10 }} action 'permit'
@@ -52,6 +56,10 @@ set protocols bgp neighbor {{ vyos_ix_neighbor }} address-family ipv4-unicast pr
 set protocols bgp neighbor {{ vyos_ix_neighbor }} address-family ipv4-unicast prefix-list export 'IX-OUT'
 
 {# --- BGP to the LoadBalancer hosts: VIP /32s in, nothing out --- #}
+{# ECMP across the LB hosts of one environment: every host announces the same VIP, and
+   without this only one path is installed. Hosts of an environment share one AS, so no
+   as-path multipath-relax is needed. #}
+set protocols bgp address-family ipv4-unicast maximum-paths ebgp {{ vyos_lb_maximum_paths }}
 set policy prefix-list LB-OUT rule 10 action 'deny'
 set policy prefix-list LB-OUT rule 10 prefix '0.0.0.0/0'
 set policy prefix-list LB-OUT rule 10 le '32'
