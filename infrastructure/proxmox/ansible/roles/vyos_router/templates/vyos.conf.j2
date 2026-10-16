@@ -56,6 +56,10 @@ set protocols bgp neighbor {{ vyos_ix_neighbor }} address-family ipv4-unicast pr
 set protocols bgp neighbor {{ vyos_ix_neighbor }} address-family ipv4-unicast prefix-list export 'IX-OUT'
 
 {# --- BGP to the LoadBalancer hosts: VIP /32s in, nothing out --- #}
+{# ECMP across the LB hosts of one environment: every host announces the same VIP, and
+   without this only one path is installed. Hosts of an environment share one AS, so no
+   as-path multipath-relax is needed. #}
+set protocols bgp address-family ipv4-unicast maximum-paths ebgp {{ vyos_lb_maximum_paths }}
 set policy prefix-list LB-OUT rule 10 action 'deny'
 set policy prefix-list LB-OUT rule 10 prefix '0.0.0.0/0'
 set policy prefix-list LB-OUT rule 10 le '32'

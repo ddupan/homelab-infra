@@ -96,6 +96,7 @@ vyos_frr_exporter_port: 9342
 # BGP 实例本身（system-as 4242421811）归 infrastructure/oci/ansible/vyos.yml；
 # 内部邻居以 local-as 65002 出现，因为 IX 只支持 2 字节 AS。
 vyos_bgp_internal_local_as: 65002
+vyos_lb_maximum_paths: 4      # >= LB hosts per environment
 vyos_lb_peer_groups:
   - name: LB-PROD
     remote_as: 65100
