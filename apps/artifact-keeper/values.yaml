@@ -19,6 +19,9 @@ backend:
     # 空格分隔（split_whitespace）；官方文档示例写的逗号是错的，会变成一个 scope。
     OIDC_SCOPES: openid profile email groups
     OIDC_ADMIN_GROUP: platform-admins
+    # 后端的 SSRF 防护拒绝解析到私有地址的出站目标；sso.ddupan.top 在 LAN 解析到 Envoy Gateway
+    # （192.168.10.127），不放行则启动时 OIDC 校验失败、进程退出。只放这一个地址，不用 SSO_ALLOW_PRIVATE_IPS。
+    AK_SSRF_ALLOW_PRIVATE_CIDRS: 192.168.10.127/32
   environmentSecrets:
     - name: S3_ACCESS_KEY_ID
       secretKeyRef: {name: artifact-keeper-s3, key: S3_ACCESS_KEY_ID}
