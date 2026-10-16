@@ -22,10 +22,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+          ansible: 'true'
+
       - name: Bootstrap uv
         run: |
-          python3 -m pip install --user --break-system-packages \
-            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "ANSIBLE_COLLECTIONS_PATH=$HOME/.ansible/collections" >> "$GITHUB_ENV"
 
@@ -72,10 +76,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+
       - name: Install ansible-core
         run: |
-          python3 -m pip install --user --break-system-packages \
-            --index-url https://pypi.org/simple --quiet uv==0.11.7
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           export PATH="$HOME/.local/bin:$PATH"
           uv tool install ansible-core --quiet
 
