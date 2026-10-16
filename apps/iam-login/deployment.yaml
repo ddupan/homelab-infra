@@ -26,7 +26,7 @@ spec:
       containers:
         - name: iam-login
           # Tag = iam-login commit on main, pushed by its CI after the native browser test.
-          image: zot.lab.ddupan.top/iam/iam-login:a96e97fe39143f2cd185fa9095f949a681803996
+          image: zot.lab.ddupan.top/iam/iam-login:87e85ec02094353c66700c2b84fdf35de115d7d3
           args:
             # The DC's LDAPS cert is signed by the internal CA, not a public one.
             - -Djavax.net.ssl.trustStore=/run/secrets/iam/truststore.p12
