@@ -12,12 +12,23 @@ backend:
     S3_BUCKET: artifact-keeper
     S3_ENDPOINT: https://s3.lab.ddupan.top
     S3_REGION: us-east-1
+    # iam-login 登录；启动时按这些变量建立/对齐 OIDC provider，OIDC_ADMIN_GROUP 以环境为准。
+    OIDC_NAME: iam-login
+    OIDC_ISSUER: https://sso.ddupan.top
+    OIDC_REDIRECT_URI: https://artifacts.lab.ddupan.top/api/v1/auth/oidc/callback
+    # 空格分隔（split_whitespace）；官方文档示例写的逗号是错的，会变成一个 scope。
+    OIDC_SCOPES: openid profile email groups
+    OIDC_ADMIN_GROUP: platform-admins
   environmentSecrets:
     - name: S3_ACCESS_KEY_ID
       secretKeyRef: {name: artifact-keeper-s3, key: S3_ACCESS_KEY_ID}
     - name: S3_SECRET_ACCESS_KEY
       secretKeyRef: {name: artifact-keeper-s3, key: S3_SECRET_ACCESS_KEY}
-    # 只在首次启动创建管理员时读取；登录后按提示改密码，之后改由 iam-login OIDC。
+    - name: OIDC_CLIENT_ID
+      secretKeyRef: {name: artifact-keeper-sso, key: client_id}
+    - name: OIDC_CLIENT_SECRET
+      secretKeyRef: {name: artifact-keeper-sso, key: client_secret}
+    # 只在首次启动创建管理员时读取；日常登录走 iam-login，本地 admin 留作 break-glass。
     - name: INITIAL_ADMIN_PASSWORD
       secretKeyRef: {name: artifact-keeper-secrets, key: INITIAL_ADMIN_PASSWORD}
   # 制品在 S3，/data 下只剩插件与备份目录，不需要 PVC。

@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - database.yaml
   - external-secret.yaml
+  - sso-external-secret.yaml
   - gitrepository.yaml
   - helmrelease.yaml
   - networkpolicy.yaml
