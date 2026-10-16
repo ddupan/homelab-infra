@@ -139,7 +139,7 @@ resource "homelab_oidc_client" "incus" {
 resource "homelab_oidc_client" "artifact_keeper" {
   id            = "artifact-keeper"
   name          = "Artifact Keeper"
-  redirect_uris = ["https://artifacts.lab.ddupan.top/api/v1/auth/oidc/callback"]
+  redirect_uris = ["https://artifacts.lab.ddupan.top/api/v1/auth/sso/oidc/callback"]
   scopes        = ["openid", "profile", "email", "groups"]
 }
 

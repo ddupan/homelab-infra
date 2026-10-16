@@ -15,7 +15,9 @@ backend:
     # iam-login 登录；启动时按这些变量建立/对齐 OIDC provider，OIDC_ADMIN_GROUP 以环境为准。
     OIDC_NAME: iam-login
     OIDC_ISSUER: https://sso.ddupan.top
-    OIDC_REDIRECT_URI: https://artifacts.lab.ddupan.top/api/v1/auth/oidc/callback
+    # 后端实际路由是 /api/v1/auth/sso/oidc/callback；官方文档写的 /api/v1/auth/oidc/callback 不存在，
+    # 落到需认证的兜底路由，返回 401 + WWW-Authenticate: Basic（浏览器弹 basic auth 框）。
+    OIDC_REDIRECT_URI: https://artifacts.lab.ddupan.top/api/v1/auth/sso/oidc/callback
     # 空格分隔（split_whitespace）；官方文档示例写的逗号是错的，会变成一个 scope。
     OIDC_SCOPES: openid profile email groups
     OIDC_ADMIN_GROUP: platform-admins
