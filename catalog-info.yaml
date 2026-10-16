@@ -243,7 +243,7 @@ metadata:
     backstage.io/kubernetes-label-selector: "!backstage.io/none"
     backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/nexus/
   links:
-    - url: https://nexus.ad.ddupan.top
+    - url: https://nexus.lab.ddupan.top
       title: Nexus
       icon: dashboard
 spec:

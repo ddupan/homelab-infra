@@ -68,8 +68,12 @@ resource "sonatyperepo_system_anonymous_access" "ci" {
 }
 
 resource "sonatyperepo_security_realms" "active" {
+  # Order matters: local first, so the Terraform admin never depends on the DC.
+  # This list replaces the active set; a realm enabled by hand and missing here is
+  # switched off on the next apply.
   active = [
     "NexusAuthenticatingRealm",
+    "LdapRealm",
     "OciBearerToken",
   ]
 }
