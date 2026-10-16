@@ -100,3 +100,20 @@ vyos_sandbox_k3s_servers:
 vyos_monitoring_listen_address: "192.168.10.2"
 vyos_node_exporter_port: 9100
 vyos_frr_exporter_port: 9342
+
+# Ayatori LoadBalancer 主机的 BGP 邻居（infrastructure/network/README.md「AS」）。
+# 环境由 AS 区分：每个环境一个 peer-group，入方向只收该环境 VIP 段内的 /32。
+# 邻居是静态的，每台 LB 一行：listen range 会让任何 labnet 主机报上 LB 的 AS 就能
+# 劫持 VIP。gobgpd 只主动连（port -1），所以 VyOS 侧 passive，不去连一个不监听的端口。
+# BGP 实例本身（system-as 4242421811）归 infrastructure/oci/ansible/vyos.yml；
+# 内部邻居以 local-as 65002 出现，因为 IX 只支持 2 字节 AS。
+vyos_bgp_internal_local_as: 65002
+vyos_lb_peer_groups:
+  - name: LB-PROD
+    remote_as: 65100
+    vip_pool: "10.62.0.0/24"
+    neighbors: ["10.60.0.30", "10.60.0.31"]   # lb-prod-1, lb-prod-2
+  - name: LB-DEV
+    remote_as: 65101
+    vip_pool: "10.62.1.0/24"
+    neighbors: ["10.60.0.32", "10.60.0.33"]   # lb-dev-1, lb-dev-2
