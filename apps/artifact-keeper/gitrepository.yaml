@@ -1,0 +1,15 @@
+# chart 没有发布到 Helm 仓库，只在 artifact-keeper-iac 的 main 上（tag 停在 v1.4.x），所以按 commit 钉。
+# 升级：换 commit，同时核对 values.yaml 里两个镜像的 tag@digest。
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: artifact-keeper-iac
+  namespace: artifact-keeper
+spec:
+  interval: 1h
+  ref:
+    commit: 070a53015bfb52db144476a2fa369fec287a2453 # chart 1.9.28
+  url: https://github.com/artifact-keeper/artifact-keeper-iac.git
+  ignore: |
+    /*
+    !/charts/artifact-keeper/

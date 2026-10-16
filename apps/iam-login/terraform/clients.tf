@@ -134,3 +134,21 @@ resource "homelab_oidc_client" "incus" {
   device_authorization = true
   audiences            = ["https://incus.lab.ddupan.top", "https://incus.ad.ddupan.top"]
 }
+
+# artifact-keeper's env-bootstrapped OIDC provider (apps/artifact-keeper/values.yaml). It sends PKCE by default.
+resource "homelab_oidc_client" "artifact_keeper" {
+  id            = "artifact-keeper"
+  name          = "Artifact Keeper"
+  redirect_uris = ["https://artifacts.lab.ddupan.top/api/v1/auth/oidc/callback"]
+  scopes        = ["openid", "profile", "email", "groups"]
+}
+
+# Read by apps/artifact-keeper/sso-external-secret.yaml.
+resource "vault_kv_secret_v2" "artifact_keeper" {
+  mount = "kv"
+  name  = "k8s/artifact-keeper-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.artifact_keeper.id
+    client_secret = homelab_oidc_client.artifact_keeper.secret
+  })
+}
