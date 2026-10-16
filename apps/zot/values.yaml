@@ -278,7 +278,8 @@ httproute:
   # the bearer realm/service above are already on the lab name: a client follows
   # the realm URL and echoes service back, so pushes via the ad name still work
   # and nothing new depends on the ad name.
-  # The reader route (reader-values.yaml) inherits these parentRefs.
+  # zot / zot.lab（原 zot-reader 的拉取域名）也挂在这里：匿名拉取经 oci-token-server
+  # 拿 pull token，一个实例同时服务拉取和推送。
   parentRefs:
   - name: eg
     namespace: envoy-gateway-system
@@ -289,6 +290,8 @@ httproute:
   hostnames:
   - zot-push.ad.ddupan.top
   - zot-push.lab.ddupan.top
+  - zot.ad.ddupan.top
+  - zot.lab.ddupan.top
   rules:
   - matches:
     - path:
