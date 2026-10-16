@@ -168,8 +168,8 @@ WAN 没有 IPv6，因此 IPv6 只在内部使用，地址取本站 dn42 ULA `fdd
    65002），VyOS 只发三条汇总（`IX-OUT`）、不收（`IX-IN`，默认路由仍是静态）；IX 侧
    `distribute-list vyos-in in` 只收这三条。laptop 经 IX 学到汇总，下一跳保持 192.168.10.2
    （IX 不改写第三方下一跳），所以无需与 VyOS 单独建邻居。VyOS、IX、laptop 上的 OSPF 已删除。
-   已知代价：VyOS 自身的 dn42 段 172.21.111.160/27 只由 OCI 学来的 172.20.0.0/14 覆盖，
-   OCI 会话断开时 LAN 也到不了它。
+   VyOS 自身的 dn42 段 172.21.111.160/27 不单独宣告，由 OCI 学来的 172.20.0.0/14 覆盖：
+   OCI 是去 dn42 的唯一出口，会话断开时这个段本来就没有意义，随汇总一起撤回是对的。
 2. **VyOS 上的 HAProxy 服务**：sandbox-postgresql（10.60.0.1:5432）、sandbox-k3s-api 与
    opensandbox-api（10.60.0.13）。LoadBalancer 上线后迁走，删除 10.60.0.13/32。
 3. **pg-prod 解析到 VyOS（192.168.10.2）。** 随上一条一起改为 VIP。
