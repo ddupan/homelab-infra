@@ -1,0 +1,20 @@
+{
+  "providers": [
+    {
+      "name": "iam-login",
+      "provider_type": "generic",
+      "issuer_url": "https://sso.ddupan.top",
+      "audience": "artifact-keeper",
+      "key_source": "discovery",
+      "is_enabled": true,
+      "mappings": [
+        {
+          "name": "dev-panxiao81",
+          "priority": 100,
+          "claim_filters": {"sub": "dev-panxiao81"},
+          "is_enabled": true
+        }
+      ]
+    }
+  ]
+}
