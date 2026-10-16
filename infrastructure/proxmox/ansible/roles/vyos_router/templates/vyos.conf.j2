@@ -5,9 +5,9 @@
 set system host-name {{ vyos_router_hostname }}
 set system name-server {{ vyos_nameserver }}
 
-{# --- LAN leg: OSPF peer with the NEC IX --- #}
+{# --- LAN leg: BGP peer with the NEC IX --- #}
 set interfaces ethernet {{ vyos_lan_interface }} address {{ vyos_lan_address }}
-set interfaces ethernet {{ vyos_lan_interface }} description 'LAN / OSPF to NEC IX'
+set interfaces ethernet {{ vyos_lan_interface }} description 'LAN / BGP to NEC IX'
 
 {# --- SDN legs: gateways for the PVE VNets --- #}
 {% for i in vyos_sdn_interfaces %}
@@ -29,19 +29,8 @@ set load-balancing haproxy backend opensandbox-api server {{ server.name }} port
 set load-balancing haproxy backend opensandbox-api server {{ server.name }} check
 {% endfor %}
 
-{# --- default route out; OSPF carries the rest --- #}
+{# --- default route out; BGP to the IX carries the rest --- #}
 set protocols static route 0.0.0.0/0 next-hop {{ vyos_lan_gateway }}
-
-{# --- OSPF: intra-area, NOT redistribute connected --- #}
-set protocols ospf parameters router-id {{ vyos_ospf_router_id }}
-{% for n in vyos_ospf_networks %}
-set protocols ospf area {{ vyos_ospf_area }} network {{ n }}
-{% endfor %}
-{% for i in vyos_sdn_interfaces %}
-set protocols ospf area {{ vyos_ospf_area }} network {{ i.network }}
-{# passive: advertise the subnet, but never try to peer with guests on it #}
-set protocols ospf interface {{ i.iface }} passive
-{% endfor %}
 
 {# --- BGP to the NEC IX: summaries out, nothing in --- #}
 {% for a in vyos_ix_aggregates %}

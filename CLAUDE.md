@@ -137,7 +137,7 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   suspect DNS search-domain fallout before the service itself.
 - The Proxmox cluster is **almost entirely HA-free** and holds nothing critical; guests are
   disposable. **One exception (2026-07-26): `vm:100` (`vyos-rtr`) is an HA resource**, because
-  it gateways both SDN VNets and speaks OSPF. Consequence to remember: **fencing is now armed
+  it gateways both SDN VNets and speaks BGP to the IX. Consequence to remember: **fencing is now armed
   cluster-wide**, so a node losing quorum self-reboots — and corosync has a single ring on the
   flat 1G LAN. See `infrastructure/proxmox/README-ha.md`; the watchdog is still `softdog` (cannot fence a
   frozen kernel) until each node is rebooted or hand-swapped.
