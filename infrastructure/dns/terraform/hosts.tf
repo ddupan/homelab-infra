@@ -127,3 +127,15 @@ resource "powerdns_record" "nats_a" {
   ttl     = 300
   records = ["192.168.10.127"]
 }
+
+# SPIRE's SPIFFE Bundle Endpoint behind the Gateway's TLS passthrough listener
+# (platform/spire/tlsroute.yaml). Belongs with that TLSRoute, but external-dns 0.23
+# watches TLSRoute only as gateway.networking.k8s.io/v1, which this cluster does not
+# serve (v1alpha2 only); move it to external-dns once it does.
+resource "powerdns_record" "spire_bundle_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "spire-bundle.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.127"]
+}

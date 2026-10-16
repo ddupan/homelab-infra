@@ -1,0 +1,19 @@
+# The SPIFFE Bundle Endpoint, passed through to SPIRE, which terminates TLS with its own WebPKI
+# cert (certificate.yaml). Not the chart's federation.gatewayAPI: it renders TLSRoute as
+# gateway.networking.k8s.io/v1, and this cluster serves TLSRoute only as v1alpha2.
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: spire-bundle
+  namespace: spire-server
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: tls-spire-bundle
+  hostnames:
+    - spire-bundle.lab.ddupan.top
+  rules:
+    - backendRefs:
+        - name: spire-server
+          port: 8444

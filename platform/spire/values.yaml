@@ -167,6 +167,23 @@ spire-server:
     - name: internal-ca
       mountPath: /etc/internal-ca
       readOnly: true
+  # SPIFFE Bundle Endpoint (WebPKI) for relying parties that verify SVIDs without being in the
+  # trust domain: iam-login's JWT-SVID client authentication (draft-ietf-oauth-spiffe-client-auth
+  # §6.1 requires the https_web profile). Served at https://spire-bundle.lab.ddupan.top through an
+  # Envoy TLS passthrough listener (tlsroute.yaml), with its own Let's Encrypt cert (certificate.yaml).
+  # ⚠ Port 8444, not the chart's 8443: the Service is a LoadBalancer on 192.168.10.127, where
+  # Incus already listens on 8443 and kube-proxy's DNAT would silently take it over. The bundle
+  # is public key material, so its also being reachable on .127:8444 is harmless.
+  federation:
+    enabled: true
+    bundleEndpoint:
+      port: 8444
+    tls:
+      spire:
+        enabled: false
+      externalSecret:
+        enabled: true
+        secretName: spire-bundle-tls
 spire-agent:
   server:
     # Keep the Agent endpoint aligned with spire-server.service.port. The

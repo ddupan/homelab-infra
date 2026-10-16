@@ -21,3 +21,4 @@ resources:
   - iam-build-ci-publish.yaml
   - spire-node-aliases.yaml
   - database.yaml
+  - tlsroute.yaml

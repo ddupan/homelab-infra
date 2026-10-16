@@ -34,6 +34,14 @@ iam:
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-plan
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-apply
         - spiffe://ddupan.top/dev/panxiao81
+  # Machines authenticate at the token endpoint with a JWT-SVID (draft-ietf-oauth-spiffe-client-auth;
+  # iam-login docs/spiffe-client-auth.md). Keys come only from the trust domain's SPIFFE Bundle
+  # Endpoint (platform/spire), never from the SVID's iss. Unrelated to clients.spiffe above, which
+  # admits SVIDs as bearer tokens on the client-management API.
+  spiffe:
+    trust-domains:
+      - name: ddupan.top
+        bundle-endpoint: https://spire-bundle.lab.ddupan.top
 spring:
   # AD over LDAPS through Boot's ContextSource, bound as svc-iam-login (SPRING_LDAP_USERNAME/PASSWORD);
   # connection defaults ship in the app's own application.yaml. Overall /actuator/health includes it.
