@@ -1,0 +1,25 @@
+# Serving cert of the SPIFFE Bundle Endpoint (values.yaml spire-server.federation). SPIRE terminates
+# TLS itself (the Gateway only passes it through), so the cert must live in this namespace.
+# Deliberately NOT a copy of the *.lab.ddupan.top wildcard: that would put the key for every lab
+# service in this namespace. The cost is this one hostname in Certificate Transparency logs.
+# SPIRE re-reads the files every fileSyncInterval (1h), so renewals need no restart.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: spire-bundle
+  namespace: spire-server
+spec:
+  secretName: spire-bundle-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: spire-bundle.lab.ddupan.top
+  dnsNames:
+    - spire-bundle.lab.ddupan.top
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d; the WAN is unreliable
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
