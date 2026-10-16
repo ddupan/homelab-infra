@@ -1,0 +1,45 @@
+# 每次代理下载都往 proxy_download_statistics 插一行，后端不做保留期清理（只在删仓库时删）。
+# 保留 90 天：须长于缓存淘汰策略的 no_downloads_days（30 天，repositories.sh），那个判断要读窗口内的行。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: artifact-keeper-stats-retention
+  namespace: artifact-keeper
+spec:
+  schedule: "15 4 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: psql
+              image: docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+              command: [psql, "$(DATABASE_URL)", -v, ON_ERROR_STOP=1, -c]
+              args:
+                - DELETE FROM proxy_download_statistics WHERE downloaded_at < now() - interval '90 days'
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef: {name: artifact-keeper-db, key: DATABASE_URL}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {memory: 64Mi}
+              volumeMounts:
+                - {name: internal-ca, mountPath: /etc/internal-ca, readOnly: true}
+          volumes:
+            - name: internal-ca
+              configMap: {name: internal-ca}
