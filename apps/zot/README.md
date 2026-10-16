@@ -98,6 +98,16 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
 的临时 `DOCKER_CONFIG`，结束后删除；不要开启 shell tracing，不要打印 token，
 不要把 token 放进命令参数。token 接口不会延长 SVID 有效期。
 
+### Web UI 与 iam-login 登录
+
+`https://zot.lab.ddupan.top/` 是 zot 自带 UI（`ui` + `search` 扩展），用 iam-login 登录
+（`http.auth.openid`，客户端见 `apps/iam-login/terraform/clients.tf` 的 `zot`，凭据由
+ExternalSecret `zot-sso` 渲染成 `credentialsFile`）。用户名取 `preferred_username`，组取
+`groups`；`platform-admins` 组为 `adminPolicy`（可在 UI 删除），其他已登录用户按各仓库
+`defaultPolicy` 只读。浏览器会话与 CLI 认证互不影响：bearer.oidc 与 openid 同时启用需要
+v2.1.22（#4243）。会话密钥未固定，zot 重启后需要重新登录。search 的元数据库在 emptyDir，
+启动时从 S3 重建。
+
 ### 匿名 pull token（单实例过渡中）
 
 `zot` 实例同时服务匿名拉取与鉴权推送，`zot.lab`/`zot.ad` 的路由已从 `zot-reader` 移过来：
