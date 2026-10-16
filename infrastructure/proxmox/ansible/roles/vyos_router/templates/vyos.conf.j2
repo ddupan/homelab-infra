@@ -43,6 +43,25 @@ set protocols ospf area {{ vyos_ospf_area }} network {{ i.network }}
 set protocols ospf interface {{ i.iface }} passive
 {% endfor %}
 
+{# --- BGP to the LoadBalancer hosts: VIP /32s in, nothing out --- #}
+set policy prefix-list LB-OUT rule 10 action 'deny'
+set policy prefix-list LB-OUT rule 10 prefix '0.0.0.0/0'
+set policy prefix-list LB-OUT rule 10 le '32'
+{% for g in vyos_lb_peer_groups %}
+set policy prefix-list {{ g.name }}-IN rule 10 action 'permit'
+set policy prefix-list {{ g.name }}-IN rule 10 prefix '{{ g.vip_pool }}'
+set policy prefix-list {{ g.name }}-IN rule 10 ge '32'
+set policy prefix-list {{ g.name }}-IN rule 10 le '32'
+set protocols bgp peer-group {{ g.name }} remote-as '{{ g.remote_as }}'
+set protocols bgp peer-group {{ g.name }} local-as {{ vyos_bgp_internal_local_as }} no-prepend replace-as
+set protocols bgp peer-group {{ g.name }} passive
+set protocols bgp peer-group {{ g.name }} address-family ipv4-unicast prefix-list import '{{ g.name }}-IN'
+set protocols bgp peer-group {{ g.name }} address-family ipv4-unicast prefix-list export 'LB-OUT'
+{% for n in g.neighbors %}
+set protocols bgp neighbor {{ n }} peer-group '{{ g.name }}'
+{% endfor %}
+{% endfor %}
+
 {# --- K3s PostgreSQL datastore: fixed endpoint, explicitly selected primary --- #}
 set load-balancing haproxy service sandbox-postgresql listen-address {{ vyos_postgresql_listen_address }}
 set load-balancing haproxy service sandbox-postgresql port {{ vyos_postgresql_port }}
