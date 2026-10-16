@@ -1,5 +1,5 @@
 {
-  "revision_id": "1c016971982bd81030125f3333c5ecac92ede992b9342299819ce7a51be44cba",
+  "revision_id": "3f3d280ec5db38c49ffae08f6fd4c3276bce83f3b0c29b5d92dbb36859236c4f",
   "name": "loadbalancer-dev",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -13,25 +13,25 @@
       "version": "0.4.1",
       "identifier": "3a65d86d1e9d71946064042c4cee825b54f9dd6b",
       "dotted_decimal_identifier": "16437528867282289.41764279236185326.143328779296107",
-      "cache_key": "homelab_base-f2393d6e6d71a100e212c3e48b467ba4297aeb89",
+      "cache_key": "homelab_base-b7feb9f11ddf58aeff8a7929ef7931d4f7b37a12",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "f2393d6e6d71a100e212c3e48b467ba4297aeb89",
-        "tag": "v0.4.1",
+        "revision": "b7feb9f11ddf58aeff8a7929ef7931d4f7b37a12",
+        "tag": "v0.4.2",
         "rel": "cookbooks/homelab_base"
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.2.0",
-      "identifier": "12defc69368931f47a280cf73863ad51437e3088",
-      "dotted_decimal_identifier": "5311725259098417.68814206752208995.190564536299656",
-      "cache_key": "homelab_loadbalancer-f2393d6e6d71a100e212c3e48b467ba4297aeb89",
+      "version": "0.2.1",
+      "identifier": "853fe26b0e3f24003ebd2666bcd8ea276d23f155",
+      "dotted_decimal_identifier": "37506413593771812.68982114008280.257455055696213",
+      "cache_key": "homelab_loadbalancer-b7feb9f11ddf58aeff8a7929ef7931d4f7b37a12",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "f2393d6e6d71a100e212c3e48b467ba4297aeb89",
-        "tag": "v0.4.1",
+        "revision": "b7feb9f11ddf58aeff8a7929ef7931d4f7b37a12",
+        "tag": "v0.4.2",
         "rel": "cookbooks/homelab_loadbalancer"
       }
     }
@@ -69,7 +69,7 @@
       "homelab_base (0.4.1)": [
 
       ],
-      "homelab_loadbalancer (0.2.0)": [
+      "homelab_loadbalancer (0.2.1)": [
 
       ]
     }
