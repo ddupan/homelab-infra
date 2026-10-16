@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 建 CI 下载缓存用的 remote 仓库（Go / PyPI / Galaxy / Maven / Gradle 插件 / npm / Docker Hub），已存在（409）即跳过。
+# 建 CI 下载缓存用的 remote 仓库（Go / PyPI / Galaxy / Maven / Gradle 插件 / npm / Terraform / Docker Hub），已存在（409）即跳过。
 # 用法：./repositories.sh；token（admin scope）默认取 OpenBao kv/infra/artifact-keeper 的 api_token，
 # 也可用 AK_TOKEN 覆盖。Docker Hub 账号取同一路径的 dockerhub_username / dockerhub_token。
 # 只建不改：仓库建好后改 upstream 等属性请在 UI 里做。缓存淘汰策略（文件末尾）每次按这里覆盖。
@@ -40,6 +40,8 @@ create maven-central maven https://repo1.maven.org/maven2
 # Gradle 插件解析（plugins {} 块）；插件 marker 在这里，实际 jar 多数重定向回 Maven Central。
 create gradle-plugins maven https://plugins.gradle.org/m2
 create npm-proxy npm https://registry.npmjs.org
+# Provider Network Mirror（客户端经 TF_CLI_CONFIG_FILE 指向 /terraform/terraform-proxy/）。
+create terraform-proxy terraform https://registry.terraform.io
 create docker-hub docker https://registry-1.docker.io
 
 # 匿名拉取按出口 IP 限流，全 lab 共用一个 IP；账号只需读公开镜像。每次都覆盖写，换 token 后重跑即可。
@@ -53,7 +55,7 @@ echo "docker-hub: upstream auth set"
 # 缓存淘汰：30 天没被下载的条目连对象带目录行删掉；上游没了的旧版本也会随之丢失，可接受。
 # proxy cache 只认显式指派的 Remote 仓库（applies_to_all 的全局策略会跳过它），所以列出所有 key。
 # 软删除后的物理清理由后端每小时的 storage GC 完成。
-ids=$(for key in go-proxy pypi-proxy galaxy-proxy maven-central gradle-plugins npm-proxy docker-hub; do
+ids=$(for key in go-proxy pypi-proxy galaxy-proxy maven-central gradle-plugins npm-proxy terraform-proxy docker-hub; do
   ok "$key" "$(api GET "repositories/$key")" | jq -r .id
 done | jq -Rsc 'split("\n") | map(select(. != ""))')
 policy=$(jq -nc --argjson ids "$ids" '{
