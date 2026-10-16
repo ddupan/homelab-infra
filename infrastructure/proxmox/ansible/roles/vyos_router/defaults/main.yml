@@ -117,3 +117,13 @@ vyos_lb_peer_groups:
     remote_as: 65101
     vip_pool: "10.62.1.0/24"
     neighbors: ["10.60.0.32", "10.60.0.33"]   # lb-dev-1, lb-dev-2
+
+# BGP to the NEC IX (replaces OSPF; infrastructure/network/README.md 迁移清单第 1 条).
+# The IX only gets summaries: its route budget is single digits. 10.60.0.0/14 is an
+# aggregate (labnet, retronet, the VIP pools); the other two come from OCI over iBGP.
+# Nothing is imported: VyOS keeps its static default to the IX, which is all it needs.
+# No BFD on the IX, so short timers instead; the hold time negotiates to the lower side.
+vyos_ix_neighbor: "192.168.10.1"
+vyos_ix_remote_as: 65000
+vyos_ix_aggregates: ["10.60.0.0/14"]
+vyos_ix_export: ["10.60.0.0/14", "10.0.0.0/24", "172.20.0.0/14"]
