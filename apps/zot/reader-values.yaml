@@ -1,5 +1,6 @@
 # 叠加于共用 values.yaml；同一镜像、S3、Secret、安全设置，无制品副本。
 # 无 Bearer middleware，仅 anonymousPolicy=read；关闭 GC 避免多个实例清理共享存储。
+# 已不挂路由，待观察后删除。
 configFiles:
   config.json: |
     {
@@ -40,26 +41,6 @@ configFiles:
         "level": "info"
       }
     }
+# 拉取域名已移到主实例（values.yaml）；reader 不再对外，随后整体删除。
 httproute:
-  hostnames:
-  - zot.ad.ddupan.top
-  - zot.lab.ddupan.top
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /v2/
-      method: GET
-    - path:
-        type: PathPrefix
-        value: /v2/
-      method: HEAD
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        remove:
-        - Cookie
-        - Authorization
-    timeouts:
-      request: 900s
-      backendRequest: 900s
+  enabled: false

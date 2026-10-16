@@ -1,7 +1,8 @@
 # zot OCI Registry
 
-内网匿名拉取入口为 `https://zot.lab.ddupan.top`，SPIRE 鉴权推送入口为
-`https://zot-push.lab.ddupan.top`。使用官方 Helm chart `0.1.124`，运行
+拉取用 `https://zot.lab.ddupan.top`（匿名），推送用 `https://zot-push.lab.ddupan.top`
+（SPIRE 鉴权）；两个域名现在都指向同一个 `zot` 实例，匿名拉取见下文「匿名 pull token」。
+`zot-reader` 已不挂路由，观察后删除。使用官方 Helm chart `0.1.124`，运行
 zot `v2.1.21`，镜像固定到官方 linux/amd64 digest。
 
 ## 当前工作状态（2026-09-16 核验）
@@ -99,7 +100,7 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
 
 ### 匿名 pull token（单实例过渡中）
 
-`zot-push` 本身也支持匿名拉取，目标是下掉 `zot-reader`、只留一个实例：
+`zot` 实例同时服务匿名拉取与鉴权推送，`zot.lab`/`zot.ad` 的路由已从 `zot-reader` 移过来：
 
 - 客户端无凭据时按 Bearer challenge 向 `/zot/auth/token` 要 token；zot 认不出凭据，
   经 `upstreamTokenEndpoint` 转发给集群内的 `oci-token-server`
