@@ -16,6 +16,13 @@ data:
       shutdown_timeout: 1m
       hooks:
         job_started: /usr/local/libexec/gitea-job-started
+      # 依赖下载走 artifact-keeper 的匿名 pull-through 缓存（apps/artifact-keeper/repositories.sh）。
+      envs:
+        GOPROXY: https://artifacts.lab.ddupan.top/go/go-proxy
+        GOPRIVATE: git.ddupan.top
+        PIP_INDEX_URL: https://artifacts.lab.ddupan.top/pypi/pypi-proxy/simple/
+        UV_DEFAULT_INDEX: https://artifacts.lab.ddupan.top/pypi/pypi-proxy/simple/
+        ANSIBLE_GALAXY_SERVER: https://artifacts.lab.ddupan.top/ansible/galaxy-proxy
     cache:
       s3:
         endpoint: https://s3.lab.ddupan.top
