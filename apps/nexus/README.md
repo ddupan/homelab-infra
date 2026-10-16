@@ -3,7 +3,7 @@
 本目录声明一个 Nexus Repository Community Edition POC，用来验证一次性 CI runner 通过
 网络服务复用 Ansible Galaxy、Go Modules 与 OCI/BuildKit 缓存。Nexus 固定为 `3.96.1`，
 镜像固定到官方 multi-arch index digest；LAN 入口为
-`https://nexus.ad.ddupan.top`。
+`https://nexus.lab.ddupan.top`（旧名 `nexus.ad.ddupan.top` 仍由同一 HTTPRoute 服务，新配置一律用 lab 名）。
 
 ## POC 边界
 
@@ -16,11 +16,9 @@
 - 前面不加任何登录代理；它会破坏 Go、Ansible 与 OCI 非浏览器客户端。
 - 现有 zot 保持不变。Nexus 完成 OCI、BuildKit cache 和恢复验收前不得迁移或删除 zot。
 
-Terraform provider 创建 `ansible-public`、`go-public`、最小匿名权限与 OCI Bearer Token
-Realm。Nexus 3.94 才加入的原生 OCI repository 已有 REST API，但当前锁定的 community
-provider 尚未暴露 OCI resource；`terraform/reconcile-oci.sh` 因此根据 3.96.1 实例 Swagger
-固定的 JSON schema，幂等调和 `oci-hosted`、`oci-proxy` 与 `oci-public`。不得绕过该入口在
-UI 中创建无人管理的长期 repository。
+Terraform 管理全部 repository（含 OCI）、匿名权限、realm 与 AD 登录。不得在 UI 中创建
+无人管理的长期 repository 或手工开关 realm：`security_realms` 是整份替换，UI 里启用而
+HCL 里没有的 realm 会在下一次 apply 被关掉。
 
 ## 部署
 
@@ -53,42 +51,47 @@ DNS 期望状态已加入 `infrastructure/samba-ad/ansible/group_vars/all/dns.ym
 Terraform 管理账号的密码存入 OpenBao **`kv/infra/terraform/nexus` 的 `nexus_password`**
 （唯一一份；轮换密码只改这里）。Terraform CD（`.gitea/workflows/terraform.yml`）把该路径
 的每个 key 注入为 `TF_VAR_<key>`；`nexus_url`、`nexus_username` 在 `versions.tf` 有默认值。
-本地运行或执行 `reconcile-oci.sh` 时自行导出：
+本地运行时自行导出：
 
 ```text
-TF_VAR_nexus_url=https://nexus.ad.ddupan.top
+TF_VAR_nexus_url=https://nexus.lab.ddupan.top
 TF_VAR_nexus_username=admin
 TF_VAR_nexus_password=<kv/infra/terraform/nexus 的 nexus_password>
 ```
 
-⚠ CD 只运行 Terraform，**不运行 `reconcile-oci.sh`**：OCI repository 的漂移不会出现在 PR
-评论里，修改 `oci/` 后仍需手工 `--check` / `--apply`。
+`terraform/` 使用 `sonatype-nexus-community/sonatyperepo` 1.19.3（1.18 起有 OCI resource，
+此前由已退役的 `reconcile-oci.sh` 调和；三个 OCI repository 以 `import` 块接管），当前声明：
 
-`terraform/` 使用 `sonatype-nexus-community/sonatyperepo` 1.17.0，当前声明：
-
-- `ansible-galaxy-proxy` → `https://galaxy.ansible.com`
-- `ansible-public` group
-- `go-proxy` → `https://proxy.golang.org`
-- `go-public` group
+- `ansible-galaxy-proxy` → `https://galaxy.ansible.com`，`ansible-public` group
+- `go-proxy` → `https://proxy.golang.org`，`go-public` group
+- `oci-proxy` → Docker Hub（认证拉取，见下），`oci-public` group，`oci-hosted`
+- LDAP 连接 `ad`、`LdapRealm`、内部 CA 进 Nexus truststore、`platform-admins` → `nx-admin`
 
 provider credential 不写入 HCL 或 tfvars。Nexus 已由 POC 转为正式使用；state 自 2026-10-04 起
 位于 SeaweedFS S3 `tfstate/nexus/terraform.tfstate`（`backend.tf`），与其他 root 相同，使用
 Bao `kv/k8s/seaweedfs-s3` 中受限的 `terraform` 身份，以 `AWS_ACCESS_KEY_ID` /
-`AWS_SECRET_ACCESS_KEY` 环境变量注入。迁移前的本地 state 已删除，迁移后 plan 无变更。
-不再使用本地 state。离线验证命令：
+`AWS_SECRET_ACCESS_KEY` 环境变量注入。离线验证命令：
 
 ```bash
 terraform -chdir=apps/nexus/terraform init -backend=false
 terraform -chdir=apps/nexus/terraform validate
 ```
 
-先以 `--check` 查看 OCI repository 漂移，再明确 apply；脚本只从上述环境变量取得凭据，
-用临时 `0600` netrc 调用 REST API，退出时删除：
+### Docker Hub 认证
 
-```bash
-apps/nexus/terraform/reconcile-oci.sh --check
-apps/nexus/terraform/reconcile-oci.sh --apply
-```
+Docker Hub 对匿名拉取按出口 IP 限流，整个 lab 共用一个出口；被限流时 `oci-proxy` 对已缓存的
+镜像也返回 404（2026-10-16 CI 因此失败）。所以 `oci-proxy` 以一个 Docker Hub 账号拉取：
+`kv/infra/terraform/nexus` 的 `dockerhub_username` 与 `dockerhub_token`（Personal Access Token，
+权限 **Public Repo Read-only**）。轮换只改这里，下一次 apply 生效。
+
+### AD 登录
+
+Nexus CE 没有 OIDC，管理员经 LDAPS（`dc1.ad.ddupan.top:636`，以内部 CA 校验主机名）用 AD
+账号登录。只有 `platform-admins` 成员能登录（`user_ldap_filter`），该组经动态组映射为
+`nx-admin`。绑定账号 `svc-nexus` 由 samba-ad 的 `samba_ad_service_accounts` 创建，密码由
+play 生成、只存于 `kv/infra/nexus-ldap`（`username`/`password`），`tf.py` 把它交给
+Terraform。play 整份覆盖写该路径，所以不能放进 `kv/infra/terraform/nexus`。本地管理员
+`admin` 保留给 Terraform 并兼作 break-glass，realm 顺序上本地在前，DC 不可用时不影响它。
 
 Terraform 同时把内置 `anonymous` 用户从默认的全仓库 `nx-anonymous` 角色收窄到
 `ansible-public`、其返回制品 URL 使用的 `ansible-galaxy-proxy`、`go-public`，以及
@@ -112,7 +115,7 @@ Terraform 同时把内置 `anonymous` 用户从默认的全仓库 `nx-anonymous`
 server_list = nexus
 
 [galaxy_server.nexus]
-url = https://nexus.ad.ddupan.top/repository/ansible-public/
+url = https://nexus.lab.ddupan.top/repository/ansible-public/
 ```
 
 ```bash
@@ -123,15 +126,15 @@ ansible-galaxy collection install -r collections/requirements.yml \
 Go POC 使用：
 
 ```bash
-GOPROXY=https://nexus.ad.ddupan.top/repository/go-public/ go mod download
+GOPROXY=https://nexus.lab.ddupan.top/repository/go-public/ go mod download
 ```
 
 私有 `git.ddupan.top/*` module 的 `GOPRIVATE`、凭据与是否允许 `direct` fallback 在实际
 workflow 中单独决定；不要让私有 module path 意外发往公共 proxy。
 
 OCI 使用 path-based routing：匿名公共拉取地址形如
-`nexus.ad.ddupan.top/oci-public/library/alpine:3.22`，认证写入地址形如
-`nexus.ad.ddupan.top/oci-hosted/<namespace>/<image>:<tag>`。2026-09-20 现场验收结果：
+`nexus.lab.ddupan.top/oci-public/library/alpine:3.22`，认证写入地址形如
+`nexus.lab.ddupan.top/oci-hosted/<namespace>/<image>:<tag>`。2026-09-20 现场验收结果：
 
 - `oci-public` 匿名代理拉取 Alpine 冷缓存 4.75 秒、热缓存 0.80 秒，digest 一致；
 - `oci-hosted` 认证 push/pull 成功，匿名 pull 返回 401；

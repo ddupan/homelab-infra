@@ -49,6 +49,10 @@ samba_ad_service_accounts:
   - name: svc-iam-login
     bao_path: k8s/iam-login-ldap
     description: "iam-login: reads users and groups when they are not signing in (read-only)"
+  # Nexus CE LDAP realm (apps/nexus/terraform/ldap.tf); tf.py hands it to Terraform.
+  - name: svc-nexus
+    bao_path: infra/nexus-ldap
+    description: "Nexus LDAP realm bind: looks up platform-admins logins (read-only)"
 
 # Where bao_path accounts keep their passwords. The play needs VAULT_TOKEN with create/read on those paths.
 samba_ad_bao_url: https://bao.lab.ddupan.top:8200

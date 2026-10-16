@@ -65,6 +65,15 @@ def run(root, args):
     if name in ('dns', 'incus'):
         env['PDNS_API_KEY'] = bao_kv('k8s/powerdns')['api_key']
 
+    # svc-nexus 的密码由 samba-ad play 生成，只存一份在 kv/infra/nexus-ldap
+    # （play 整份覆盖写该路径，不能与 kv/infra/terraform/nexus 共用）。
+    if name == 'nexus':
+        bind = bao_kv('infra/nexus-ldap')
+        if not bind:
+            raise SystemExit('kv/infra/nexus-ldap 不存在：先运行 samba-ad provision-dc.yml --tags accounts。')
+        env['TF_VAR_ldap_bind_username'] = bind['username']
+        env['TF_VAR_ldap_bind_password'] = bind['password']
+
     if name != 'incus':
         return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
 

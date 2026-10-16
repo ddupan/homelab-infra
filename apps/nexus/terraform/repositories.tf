@@ -9,6 +9,12 @@ locals {
     time_to_live = 60
   }
 
+  oci_path_routing = {
+    v1_enabled       = false
+    force_basic_auth = false
+    path_enabled     = true
+  }
+
   repository_storage = {
     blob_store_name                = "default"
     strict_content_type_validation = true

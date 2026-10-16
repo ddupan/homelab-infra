@@ -26,7 +26,7 @@ spec:
         # 总 health 含 LDAP（Boot 的 ContextSource 连 dc1 LDAPS），目录不可用时也会告警。
         - https://sso.ddupan.top/actuator/health
         - https://grafana.lab.ddupan.top/api/health
-        - https://nexus.ad.ddupan.top/service/rest/v1/status
+        - https://nexus.lab.ddupan.top/service/rest/v1/status
         - https://dns.ad.ddupan.top/login
         - https://s3.ad.ddupan.top/status
         - https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
