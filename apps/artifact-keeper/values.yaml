@@ -24,6 +24,8 @@ backend:
     # 后端的 SSRF 防护拒绝解析到私有地址的出站目标；sso.ddupan.top 在 LAN 解析到 Envoy Gateway
     # （192.168.10.127），不放行则启动时 OIDC 校验失败、进程退出。只放这一个地址，不用 SSO_ALLOW_PRIVATE_IPS。
     AK_SSRF_ALLOW_PRIVATE_CIDRS: 192.168.10.127/32
+    # dockerd 的 registry-mirrors 请求 /v2/<image>/...，不带仓库 key；落到这个 remote（repositories.sh）。
+    AK_DEFAULT_DOCKER_MIRROR_REPO: docker-hub
   environmentSecrets:
     - name: S3_ACCESS_KEY_ID
       secretKeyRef: {name: artifact-keeper-s3, key: S3_ACCESS_KEY_ID}

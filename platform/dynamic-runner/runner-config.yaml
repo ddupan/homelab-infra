@@ -23,6 +23,8 @@ data:
         PIP_INDEX_URL: https://artifacts.lab.ddupan.top/pypi/pypi-proxy/simple/
         UV_DEFAULT_INDEX: https://artifacts.lab.ddupan.top/pypi/pypi-proxy/simple/
         ANSIBLE_GALAXY_SERVER: https://artifacts.lab.ddupan.top/ansible/galaxy-proxy
+        # scripts/setup-job-docker 写进 dockerd 的 registry-mirrors，publish-image 写进 BuildKit 配置。
+        DOCKER_REGISTRY_MIRROR: https://artifacts.lab.ddupan.top
     cache:
       s3:
         endpoint: https://s3.lab.ddupan.top
