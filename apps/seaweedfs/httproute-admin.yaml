@@ -1,0 +1,40 @@
+# SeaweedFS admin UI on the LAN. `weed admin` has no login of its own (allowInsecureBind in values.yaml),
+# so the gateway does it: securitypolicy-admin.yaml puts iam-login OIDC in front of this route.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: seaweedfs-admin
+  namespace: seaweedfs
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - seaweedfs-admin.lab.ddupan.top
+  rules:
+    - backendRefs:
+        - name: seaweedfs-admin
+          port: 23646
+---
+# /health stays outside the login so the blackbox probe can tell "admin down" from "not logged in". A separate
+# route rather than a rule, because the SecurityPolicy applies to a whole route.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: seaweedfs-admin-health
+  namespace: seaweedfs
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - seaweedfs-admin.lab.ddupan.top
+  rules:
+    - matches:
+        - path: {type: Exact, value: /health}
+      backendRefs:
+        - name: seaweedfs-admin
+          port: 23646

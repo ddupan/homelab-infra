@@ -146,6 +146,26 @@ resource "homelab_oidc_client" "artifact_keeper" {
   token_endpoint_auth_method = "client_secret_post"
 }
 
+# The gateway's login for the SeaweedFS admin UI (apps/seaweedfs/securitypolicy-admin.yaml). Envoy's oauth2 filter
+# sends PKCE, and the client secret only in the form body.
+resource "homelab_oidc_client" "seaweedfs_admin" {
+  id                         = "seaweedfs-admin"
+  name                       = "SeaweedFS 管理"
+  redirect_uris              = ["https://seaweedfs-admin.lab.ddupan.top/oauth2/callback"]
+  scopes                     = ["openid", "profile", "groups"]
+  token_endpoint_auth_method = "client_secret_post"
+}
+
+# Read by apps/seaweedfs/sso-external-secret.yaml.
+resource "vault_kv_secret_v2" "seaweedfs_admin" {
+  mount = "kv"
+  name  = "k8s/seaweedfs-admin-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.seaweedfs_admin.id
+    client_secret = homelab_oidc_client.seaweedfs_admin.secret
+  })
+}
+
 # Read by apps/artifact-keeper/sso-external-secret.yaml.
 resource "vault_kv_secret_v2" "artifact_keeper" {
   mount = "kv"
