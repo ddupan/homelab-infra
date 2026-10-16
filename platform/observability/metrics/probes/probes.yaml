@@ -30,6 +30,7 @@ spec:
         - https://dns.ad.ddupan.top/login
         - https://s3.ad.ddupan.top/status
         - https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
+        - https://spire-bundle.lab.ddupan.top/
         - https://zot.ad.ddupan.top/v2/
         - https://bao.lab.ddupan.top:8200/v1/sys/health
         # lab.ddupan.top：同一批服务的新域名，经 PowerDNS + external-dns 解析，与 *.ad 走 dc1 是两条

@@ -93,6 +93,26 @@ spec:
     # back down the tunnel into this same cluster. The repo is what you need during
     # an incident, so it must not depend on the WAN. Cert:
     # ../cert-manager/certificate-git-ddupan.yaml; route: ../../apps/gitea/httproute.yaml.
+    # TLS :443 passthrough for SPIRE's SPIFFE Bundle Endpoint. SPIRE terminates TLS itself
+    # (https_web profile, its own cert for this one name), so this listener holds no cert.
+    # The exact hostname wins over the *.lab.ddupan.top listener by SNI.
+    # Route: ../spire/tlsroute.yaml.
+    - name: tls-spire-bundle
+      protocol: TLS
+      port: 443
+      hostname: "spire-bundle.lab.ddupan.top"
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: spire-server
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: TLSRoute
+
     - name: https-git
       protocol: HTTPS
       port: 443
