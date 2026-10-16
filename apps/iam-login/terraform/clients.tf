@@ -146,6 +146,26 @@ resource "homelab_oidc_client" "artifact_keeper" {
   token_endpoint_auth_method = "client_secret_post"
 }
 
+# zot's web UI login (apps/zot/values.yaml, http.auth.openid). zot sends PKCE only when it has no client
+# secret, so with a secret it sends none; it authenticates with client_secret_basic.
+resource "homelab_oidc_client" "zot" {
+  id            = "zot"
+  name          = "zot"
+  redirect_uris = ["https://zot.lab.ddupan.top/zot/auth/callback/oidc"]
+  scopes        = ["openid", "profile", "email", "groups"]
+  pkce_required = false
+}
+
+# Read by apps/zot/external-secret.yaml (zot-sso).
+resource "vault_kv_secret_v2" "zot" {
+  mount = "kv"
+  name  = "k8s/zot-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.zot.id
+    client_secret = homelab_oidc_client.zot.secret
+  })
+}
+
 # The gateway's login for the SeaweedFS admin UI (apps/seaweedfs/securitypolicy-admin.yaml). Envoy's oauth2 filter
 # sends PKCE, and the client secret only in the form body.
 resource "homelab_oidc_client" "seaweedfs_admin" {
