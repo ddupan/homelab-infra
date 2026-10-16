@@ -1,10 +1,10 @@
-# 官方 chart 0.1.124 / zot v2.1.21；制品与 manifests 保存在 SeaweedFS S3。
+# 官方 chart 0.1.124 / zot v2.1.22（bearer.oidc 与浏览器 openid 登录可同时启用，#4243）；制品与 manifests 保存在 SeaweedFS S3。
 # persistence=false 仅保留 chart 的 emptyDir，不创建 PVC。
 # 首期关闭跨仓库 dedupe，不额外引入 Redis/DynamoDB 持久缓存。
 replicaCount: 1
 image:
   repository: ghcr.io/project-zot/zot
-  tag: v2.1.21@sha256:8258443838e95989c13c891f78a02bc1c391b5a00591ffef24cb8c17cde28038
+  tag: v2.1.22@sha256:46f688dc26315a35a247e1784368829e66a67bf91de94c7d8d1645044fac1d5b
 persistence: false
 strategy:
   type: Recreate
@@ -56,11 +56,26 @@ configFiles:
       "http": {
         "address": "0.0.0.0",
         "port": "5000",
-        "externalUrl": "https://zot-push.lab.ddupan.top",
+        "externalUrl": "https://zot.lab.ddupan.top",
         "compat": [
           "docker2s2"
         ],
         "auth": {
+          "secureSession": true,
+          "openid": {
+            "providers": {
+              "oidc": {
+                "name": "iam-login",
+                "issuer": "https://sso.ddupan.top",
+                "credentialsFile": "/etc/zot-sso/credentials.json",
+                "scopes": ["openid", "profile", "email", "groups"],
+                "claimMapping": {
+                  "username": "preferred_username",
+                  "groups": "groups"
+                }
+              }
+            }
+          },
           "bearer": {
             "realm": "https://zot-push.lab.ddupan.top/zot/auth/token",
             "service": "zot-push.lab.ddupan.top",
@@ -90,6 +105,10 @@ configFiles:
           }
         },
         "accessControl": {
+          "adminPolicy": {
+            "groups": ["platform-admins"],
+            "actions": ["read", "create", "update", "delete"]
+          },
           "repositories": {
             "panxiao81/backstage": {
               "policies": [
@@ -214,6 +233,14 @@ configFiles:
           }
         }
       },
+      "extensions": {
+        "search": {
+          "enable": true
+        },
+        "ui": {
+          "enable": true
+        }
+      },
       "log": {
         "level": "info"
       }
@@ -261,11 +288,19 @@ extraVolumes:
     secretName: zot-token-verify
     # Secret 缺失时不阻塞 reader 启动（匿名拉取入口）；zot 本身读不到公钥会直接退出。
     optional: true
+# iam-login 客户端凭据（openid credentialsFile），同上 optional。
+- name: sso
+  secret:
+    secretName: zot-sso
+    optional: true
 extraVolumeMounts:
 - name: tmp
   mountPath: /tmp
 - name: token-verify
   mountPath: /etc/zot-token
+  readOnly: true
+- name: sso
+  mountPath: /etc/zot-sso
   readOnly: true
 startupProbe:
   initialDelaySeconds: 5
@@ -292,14 +327,13 @@ httproute:
   - zot-push.lab.ddupan.top
   - zot.ad.ddupan.top
   - zot.lab.ddupan.top
+  # web UI（/home、静态资源）、登录回调（/zot/auth/*）、搜索（/v2/_zot/ext/search）都要放行，
+  # 所以整站转发；鉴权由 zot 自己做。
   rules:
   - matches:
     - path:
         type: PathPrefix
-        value: /v2/
-    - path:
-        type: Exact
-        value: /zot/auth/token
+        value: /
     timeouts:
       request: 900s
       backendRequest: 900s
