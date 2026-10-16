@@ -111,13 +111,25 @@
 - name: Make service-account passwords non-expiring
   # A bind account whose password silently expires takes the dependent app down
   # with it, with no obvious cause. These are long random secrets in vault.yml.
-  ansible.builtin.command:
-    cmd: "samba-tool user setexpiry {{ item.name }} --noexpiry"
+  # Only when not already so (DONT_EXPIRE_PASSWORD 0x10000 set, accountExpires
+  # 0/never); setexpiry itself always succeeds, which would make every run "changed".
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      attrs=$(samba-tool user show {{ item.name | quote }} --attributes=userAccountControl,accountExpires)
+      uac=$(printf '%s\n' "$attrs" | sed -n 's/^userAccountControl: //p')
+      exp=$(printf '%s\n' "$attrs" | sed -n 's/^accountExpires: //p')
+      if [ $((uac & 0x10000)) -ne 0 ] && { [ "$exp" = 0 ] || [ "$exp" = 9223372036854775807 ]; }; then
+        exit 0
+      fi
+      samba-tool user setexpiry {{ item.name | quote }} --noexpiry >/dev/null
+      echo set
+    executable: /bin/bash
   loop: "{{ samba_ad_service_accounts | default([]) }}"
   loop_control:
     label: "{{ item.name }}"
   register: _svc_expiry
-  changed_when: _svc_expiry.rc == 0
+  changed_when: _svc_expiry.stdout == 'set'
 
 - name: Create RBAC groups
   ansible.builtin.command:
