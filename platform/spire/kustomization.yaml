@@ -16,6 +16,7 @@ resources:
   - helmrelease-crds.yaml
   - helmrelease.yaml
   - httproute.yaml
+  - certificate.yaml
   - local-development-identity.yaml
   - iam-build-ci-publish.yaml
   - spire-node-aliases.yaml
