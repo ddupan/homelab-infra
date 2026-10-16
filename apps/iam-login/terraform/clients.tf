@@ -155,3 +155,12 @@ resource "vault_kv_secret_v2" "artifact_keeper" {
     client_secret = homelab_oidc_client.artifact_keeper.secret
   })
 }
+
+# The local development identity, exchanging its JWT-SVID for a token Artifact Keeper's CI OIDC provider accepts
+# (apps/artifact-keeper/ci-oidc). Proves the chain end to end before any CI job uses it; its AK mapping grants nothing.
+resource "homelab_machine_client" "dev_panxiao81" {
+  id        = "dev-panxiao81"
+  name      = "本机开发身份"
+  spiffe_id = "spiffe://ddupan.top/dev/panxiao81"
+  audiences = ["artifact-keeper"]
+}
