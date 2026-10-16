@@ -141,6 +141,9 @@ resource "homelab_oidc_client" "artifact_keeper" {
   name          = "Artifact Keeper"
   redirect_uris = ["https://artifacts.lab.ddupan.top/api/v1/auth/sso/oidc/callback"]
   scopes        = ["openid", "profile", "email", "groups"]
+  # Its code exchange sends client_id and secret only in the form (sso.rs), never Basic; with Basic alone
+  # registered, iam-login refused the exchange and artifact-keeper reported a missing id_token as a 500.
+  token_endpoint_auth_method = "client_secret_post"
 }
 
 # Read by apps/artifact-keeper/sso-external-secret.yaml.
