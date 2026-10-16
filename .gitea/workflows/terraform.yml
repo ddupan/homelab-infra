@@ -38,6 +38,9 @@ jobs:
     runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          terraform: 'true'
       - uses: hashicorp/setup-terraform@v3
 
       - name: fmt and validate
@@ -61,6 +64,9 @@ jobs:
     runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          terraform: 'true'
       - uses: hashicorp/setup-terraform@v3
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
@@ -109,6 +115,9 @@ jobs:
     runs-on: [self-hosted, pod]
     steps:
       - uses: actions/checkout@v4
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          terraform: 'true'
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.15.8
