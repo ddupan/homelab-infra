@@ -8,6 +8,7 @@ resources:
   - gitrepository.yaml
   - helmrelease.yaml
   - networkpolicy.yaml
+  - backendtrafficpolicy.yaml
 generatorOptions:
   disableNameSuffixHash: true
   labels:
