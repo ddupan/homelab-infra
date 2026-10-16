@@ -6,7 +6,7 @@ unchanged: no HA, guests disposable.
 | | |
 |---|---|
 | resource | `vm:100` (`vyos-rtr`), `state started`, `max_restart 3`, `max_relocate 2` |
-| why | it is the gateway for **both** SDN VNets and an OSPF speaker; losing it takes `labnet` + `retronet` offline (the main LAN is unaffected — the NEC IX is its gateway) |
+| why | it is the gateway for **both** SDN VNets and the BGP peer that announces them to the IX; losing it takes `labnet` + `retronet` offline (the main LAN is unaffected — the NEC IX is its gateway) |
 | storage | `pve-rg` (DRBD, place-count 2): `pve1` + `pve2` hold **UpToDate diskful** replicas, `pve3` attaches **diskless** — so it can start on any node |
 | codified | `ansible/roles/pve_ha` + `ansible/ha.yml` (separate from `site.yml`, like `cluster.yml`) |
 

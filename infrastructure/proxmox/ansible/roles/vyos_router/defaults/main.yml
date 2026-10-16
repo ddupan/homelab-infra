@@ -1,5 +1,5 @@
 ---
-# VyOS router VM (VM 100) — gateway for the PVE SDN VNets, OSPF peer to the NEC IX.
+# VyOS router VM (VM 100) — gateway for the PVE SDN VNets, BGP peer to the NEC IX.
 #
 # HOW THIS IS MANAGED — and why not the obvious way:
 # We drive `vyos.vyos.vyos_config` with explicit `set` lines from a template,
@@ -14,8 +14,7 @@
 
 vyos_router_hostname: vyos-rtr
 
-# LAN leg — OSPF adjacency with the NEC IX (and the laptop, which is also an
-# OSPF speaker on this segment).
+# LAN leg — eBGP to the NEC IX; the laptop learns our summaries through the IX.
 vyos_lan_interface: eth0
 vyos_lan_address: "192.168.10.2/24"
 vyos_lan_gateway: "192.168.10.1"
@@ -23,8 +22,7 @@ vyos_lan_gateway: "192.168.10.1"
 vyos_nameserver: "192.168.10.5"
 vyos_dhcp_nameserver: "192.168.10.5"     # the Samba DC — see the flaky-WAN notes
 
-# SDN legs. `vnet` is the PVE VNet the NIC is attached to; `passive` keeps OSPF
-# from trying to form adjacencies with guests on these segments.
+# SDN legs. `vnet` is the PVE VNet the NIC is attached to.
 # `dhcp.subnet_id` MUST be unique across the whole dhcp-server config (VyOS 1.4+
 # requires it explicitly). Ranges deliberately start at .100 so .2-.99 stay free
 # for anything that wants a static address inside a VNet.
@@ -61,16 +59,6 @@ vyos_sdn_interfaces:
       # PRECONDITION: the WINS service must actually be installed and running on
       # retro-pdc -- an unanswering wins-server option is worse than the old one.
       wins: "10.61.0.5"
-
-# OSPF. The SDN subnets are declared as INTRA-AREA networks, deliberately.
-# Do NOT switch this to `redistribute connected`: that advertises every connected
-# interface (so any future NIC leaks automatically) and injects E2 routes whose
-# metric does not accumulate path cost. Verified on the IX: the same prefix went
-# from `O E2 ... [110/20]` to `O ... [110/2]` after this change.
-vyos_ospf_router_id: "192.168.10.2"
-vyos_ospf_area: "0"
-vyos_ospf_networks:
-  - "192.168.10.0/24"
 
 # Stable K3s datastore endpoint. Only the declared writable primary is present
 # in the backend; PostgreSQL health checks must never be treated as promotion.

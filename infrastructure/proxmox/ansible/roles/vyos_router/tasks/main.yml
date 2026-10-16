@@ -20,6 +20,21 @@
     "set load-balancing haproxy backend sandbox-postgresql-primary health-check 'pgsql'"
     in _vyos_running_commands.stdout[0]
 
+# OSPF was replaced by BGP to the IX (infrastructure/network/README.md). The set-lines
+# template cannot delete a node, so retire it here, once, together with the route-maps
+# that only fed it (their `set` lines lived in infrastructure/oci's vyos-site template).
+- name: Retire OSPF
+  vyos.vyos.vyos_config:
+    lines:
+      - delete protocols ospf
+      - delete policy route-map OCI-TO-OSPF
+      - delete policy route-map DN42-TO-OSPF
+      - delete policy prefix-list OCI-TO-OSPF
+      - delete policy prefix-list DN42-TO-OSPF
+    save: true
+    comment: Retire OSPF (replaced by BGP to the IX)
+  when: "'set protocols ospf ' in _vyos_running_commands.stdout[0]"
+
 - name: Render the desired configuration
   ansible.builtin.set_fact:
     _vyos_lines: >-
@@ -56,19 +71,18 @@
 - name: Collect operational state
   vyos.vyos.vyos_command:
     commands:
-      - show ip ospf neighbor
+      - show bgp ipv4 neighbors {{ vyos_ix_neighbor }}
       - show interfaces
   register: _vyos_state
   changed_when: false
 
-- name: Assert OSPF adjacency with the upstream router is Full
+- name: Assert the BGP session with the IX is Established
   ansible.builtin.assert:
-    that: "'Full' in _vyos_state.stdout[0] and vyos_lan_gateway in _vyos_state.stdout[0]"
+    that: "'BGP state = Established' in _vyos_state.stdout[0]"
     fail_msg: >-
-      No Full OSPF adjacency with {{ vyos_lan_gateway }}. The SDN subnets are
-      NOT being advertised, so nothing can reach them.
-      Neighbors seen:\n{{ _vyos_state.stdout[0] }}
-    success_msg: "OSPF adjacency with {{ vyos_lan_gateway }} is Full"
+      BGP to {{ vyos_ix_neighbor }} is not Established. The IX and the LAN have
+      no route to labnet, retronet, the VIPs or OCI.
+    success_msg: "BGP to {{ vyos_ix_neighbor }} is Established"
 
 - name: Assert each SDN gateway address is actually live
   ansible.builtin.assert:
@@ -83,4 +97,4 @@
 
 - name: Report
   ansible.builtin.debug:
-    msg: "{{ _vyos_state.stdout[0].splitlines() | select('search', 'Full') | list }}"
+    msg: "{{ _vyos_state.stdout[0].splitlines() | select('search', 'BGP state') | list }}"

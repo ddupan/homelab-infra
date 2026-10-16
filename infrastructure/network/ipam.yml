@@ -7,12 +7,12 @@ homelab_ipam:
   blocks:
     - { prefix: 192.168.10.0/24, role: lan, description: "LAN：IX 网关，只放接入与出口设备" }
     - { prefix: 10.60.0.0/14, role: internal, description: "VyOS 后面的内部地址；目标是 IX 只收这一条汇总" }
-    - { prefix: 10.0.0.0/24, role: external, description: "OCI VCN，经 VyOS wg42 注入 OSPF" }
+    - { prefix: 10.0.0.0/24, role: external, description: "OCI VCN，经 VyOS wg42 学来，以汇总经 BGP 发给 IX" }
     - { prefix: 10.1.72.0/24, role: external, description: "IX WAN 侧（ISP）" }
     - { prefix: 100.64.0.0/10, role: external, description: "Tailscale；laptop 是唯一 subnet router" }
     - { prefix: 163.221.0.0/16, role: external, description: "NAIST（AS131158），经 laptop tun0；laptop AS65001 宣告给 IX" }
     - { prefix: 192.218.128.0/23, role: external, description: "NAIST，同上；与 AS131158 公网宣告一致" }
-    - { prefix: 172.20.0.0/14, role: external, description: "dn42 IPv4，经 VyOS 注入 OSPF" }
+    - { prefix: 172.20.0.0/14, role: external, description: "dn42 IPv4，经 VyOS 以 BGP 发给 IX" }
     - { prefix: fd00::/8, role: external, description: "dn42 IPv6（ULA）" }
     # 本站在 dn42 里的分配，嵌在上面的外部前缀内。
     - { prefix: 172.21.111.160/27, role: dn42, description: "本站 dn42 IPv4；VyOS 172.21.111.161" }
@@ -27,7 +27,7 @@ homelab_ipam:
   # 可分配静态地址的网段，必须落在 lan 或 internal block 内。allocator 非空的网段由该系统
   # 自行分配，--next-free 拒绝。
   prefixes:
-    - { prefix: 192.168.10.0/24, description: "LAN，一台傻瓜交换机下的扁平二层；OSPF area 0" }
+    - { prefix: 192.168.10.0/24, description: "LAN，一台傻瓜交换机下的扁平二层；IX、VyOS、laptop 之间跑 eBGP" }
     - { prefix: 10.60.0.0/24, vlan: 100, description: "PVE SDN VNet labnet，网关在 vyos eth1；基础设施主机放这里" }
     - { prefix: 10.61.0.0/24, vlan: 110, description: "PVE SDN VNet retronet，网关在 vyos eth2" }
     - { prefix: 10.62.0.0/24, allocator: ayatori-loadbalancer-prod, description: "LoadBalancer 专用 VIP（Prod），经 BGP 宣告" }
