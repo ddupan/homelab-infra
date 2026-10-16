@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - database.yaml
+  - external-secret.yaml
+  - gitrepository.yaml
+  - helmrelease.yaml
+  - networkpolicy.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    reconcile.fluxcd.io/watch: Enabled
+configMapGenerator:
+  - name: artifact-keeper-values
+    namespace: artifact-keeper
+    files:
+      - values.yaml=values.yaml

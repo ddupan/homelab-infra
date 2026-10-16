@@ -1,0 +1,42 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: artifact-keeper
+  namespace: artifact-keeper
+spec:
+  chart:
+    spec:
+      chart: ./charts/artifact-keeper
+      interval: 1h
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: artifact-keeper-iac
+  releaseName: artifact-keeper
+  interval: 30m
+  timeout: 10m
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: artifact-keeper-values
+  # chart 没有 extraVolumes；内部 CA 只能在渲染后补进去（DATABASE_URL 的 sslrootcert 指向这里）。
+  postRenderers:
+    - kustomize:
+        patches:
+          - target: {kind: Deployment, name: artifact-keeper-backend}
+            patch: |
+              - op: add
+                path: /spec/template/spec/volumes/-
+                value: {name: internal-ca, configMap: {name: internal-ca}}
+              - op: add
+                path: /spec/template/spec/containers/0/volumeMounts/-
+                value: {name: internal-ca, mountPath: /etc/internal-ca, readOnly: true}

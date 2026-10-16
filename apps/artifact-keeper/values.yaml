@@ -1,0 +1,64 @@
+# 只用作 CI 的 pull-through 缓存（Go/PyPI/Ansible Galaxy remote 仓库），替代 Nexus CE。
+# chart 自带的 PG/OpenSearch/Trivy/DependencyTrack 全关：元数据在 pg-prod（Ayatori tenant），
+# 制品在 SeaweedFS；OpenSearch 在后端是可选的，不设 OPENSEARCH_URL 即不启用搜索索引。
+backend:
+  image:
+    # Galaxy remote 的修复（#4626）在 1.11.0；chart 默认的 1.10.2 不含。
+    tag: "1.11.0@sha256:0e5aa79875aa74909793f863bc06af6843feefd4346c88097a782e7345b29974"
+  env:
+    RUST_LOG: info
+    ENVIRONMENT: production
+    STORAGE_BACKEND: s3
+    S3_BUCKET: artifact-keeper
+    S3_ENDPOINT: https://s3.lab.ddupan.top
+    S3_REGION: us-east-1
+  environmentSecrets:
+    - name: S3_ACCESS_KEY_ID
+      secretKeyRef: {name: artifact-keeper-s3, key: S3_ACCESS_KEY_ID}
+    - name: S3_SECRET_ACCESS_KEY
+      secretKeyRef: {name: artifact-keeper-s3, key: S3_SECRET_ACCESS_KEY}
+    # 只在首次启动创建管理员时读取；登录后按提示改密码，之后改由 iam-login OIDC。
+    - name: INITIAL_ADMIN_PASSWORD
+      secretKeyRef: {name: artifact-keeper-secrets, key: INITIAL_ADMIN_PASSWORD}
+  # 制品在 S3，/data 下只剩插件与备份目录，不需要 PVC。
+  persistence:
+    enabled: false
+  # Trivy 关闭，不需要扫描工作区 PVC。
+  scanWorkspace:
+    enabled: false
+  # namespace 是 restricted PSS；chart 默认缺 seccompProfile，与默认值合并后补上。
+  podSecurityContext:
+    seccompProfile: {type: RuntimeDefault}
+
+web:
+  podSecurityContext:
+    seccompProfile: {type: RuntimeDefault}
+  image:
+    tag: "1.11.0@sha256:2ab52779fbd938afa7a1d4a0861ad56025d84984e39a537534ff97ed6bb7aeec"
+
+secrets:
+  # JWT_SECRET 来自 external-secret.yaml 的 Password 生成器。
+  existingSecret: artifact-keeper-secrets
+
+externalDatabase:
+  existingSecret: artifact-keeper-db
+  existingSecretKey: DATABASE_URL
+
+postgres: {enabled: false}
+opensearch: {enabled: false}
+trivy: {enabled: false}
+scannerAdapter: {enabled: false}
+dependencyTrack: {enabled: false}
+
+ingress: {enabled: false}
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - artifacts.lab.ddupan.top
+
+# chart 的 NetworkPolicy 按 ingress-nginx 写死了入口，这里只放行 Envoy（networkpolicy.yaml）。
+networkPolicy: {enabled: false}

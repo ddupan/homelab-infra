@@ -1,0 +1,53 @@
+# pg-prod 上的数据库由 Ayatori 供应（../../clusters/ayatori-prod/artifact-keeper.yaml），凭据只交付到 OpenBao。
+# 本 namespace 以自己的 SA 登录 bao：artifact-keeper-database role（../../infrastructure/openbao/terraform/
+# ayatori-database-consumers.tf）只能读这一份凭据，共享的 ClusterSecretStore 无需读取所有租户。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: artifact-keeper-database
+  namespace: artifact-keeper
+# Used only by ESO to log in to bao; nothing mounts its token.
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: ayatori-prod
+  namespace: artifact-keeper
+spec:
+  provider:
+    vault:
+      server: 'https://bao.lab.ddupan.top:8200'
+      path: 'kv'
+      version: 'v2'
+      auth:
+        kubernetes:
+          mountPath: 'kubernetes'
+          role: 'artifact-keeper-database'
+          serviceAccountRef:
+            name: 'artifact-keeper-database'
+---
+# Reads the latest version: only Ayatori writes this path, and every version it writes is usable.
+# Pods pick up a re-issued credential on restart.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: artifact-keeper-db
+  namespace: artifact-keeper
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: ayatori-prod
+  target:
+    name: artifact-keeper-db
+    creationPolicy: Owner
+    template:
+      data:
+        # 直连 5432 而不走 PgBouncer：sqlx 默认按连接缓存具名预处理语句，transaction pooling 会把
+        # 它们打散到别的 server 连接上（同 lib/pq 的 08P01 问题，见 infrastructure/shared-postgresql/README.md）。
+        # verify-full：服务端证书由内部 CA 签发；CA 由 HelmRelease 的 postRenderer 挂到 /etc/internal-ca。
+        DATABASE_URL: 'postgres://{{ .username }}:{{ .password | urlquery }}@{{ .host }}:5432/{{ .database }}?sslmode={{ .sslmode }}&sslrootcert=/etc/internal-ca/ca.pem'
+  dataFrom:
+    - extract:
+        key: ayatori/prod/applications/d4a890b8-7a34-4108-aa24-e94eb4127939

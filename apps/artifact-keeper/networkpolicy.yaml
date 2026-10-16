@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: artifact-keeper-ingress
+  namespace: artifact-keeper
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: artifact-keeper
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+          podSelector:
+            matchLabels:
+              gateway.envoyproxy.io/owning-gateway-name: eg
+              gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+      ports:
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 3000}
+    # web 的 Next.js 服务端经 BACKEND_URL 回调后端。
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: artifact-keeper
+      ports:
+        - {protocol: TCP, port: 8080}

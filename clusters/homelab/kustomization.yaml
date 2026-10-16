@@ -18,6 +18,7 @@ resources:
   - apps/observability.yaml
   - apps/zot.yaml
   - apps/nexus.yaml
+  - apps/artifact-keeper.yaml
   - apps/smtp-relay.yaml
   - apps/research-auto.yaml
   - apps/e5renew.yaml
