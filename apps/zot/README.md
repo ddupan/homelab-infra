@@ -97,6 +97,26 @@ zot `v2.1.21` 的 OIDC Bearer middleware 会在授权阶段之前拒绝无 token
 的临时 `DOCKER_CONFIG`，结束后删除；不要开启 shell tracing，不要打印 token，
 不要把 token 放进命令参数。token 接口不会延长 SVID 有效期。
 
+### 匿名 pull token（单实例过渡中）
+
+`zot-push` 本身也支持匿名拉取，目标是下掉 `zot-reader`、只留一个实例：
+
+- 客户端无凭据时按 Bearer challenge 向 `/zot/auth/token` 要 token；zot 认不出凭据，
+  经 `upstreamTokenEndpoint` 转发给集群内的 `oci-token-server`
+  （[github.com/panxiao81/oci-token-server](https://github.com/panxiao81/oci-token-server)，
+  `token-server.yaml`），拿回只含 `repository:<name>:pull` 的 Ed25519 签名 token，
+  zot 用 `bearer.cert` 验证。JWT-SVID 仍由 zot 本地校验，不经过 token server。
+- 签名密钥在 Bao `kv/k8s/zot-token-server`（`private_key` PKCS#8 PEM、`public_key`
+  PKIX PEM），分别同步成 `zot-token-signing`（只给 token server）和
+  `zot-token-verify`（只给 zot）。zot 只认一把公钥，轮换时写入新密钥对后同时重启
+  `oci-token-server` 与 `zot`；token TTL 5 分钟，影响仅限正在进行的拉取。
+- 转发走集群内明文 HTTP（`allowInsecureHttp`）。正常请求不带凭据；带了 zot 认不出的
+  凭据（如输错的密码）也会原样转发，NetworkPolicy 只允许 `zot` 实例访问 token server。
+- token server 镜像在 ghcr.io，不从 zot 拉取，避免启动时的循环依赖。
+
+本机实测（zot v2.1.21）：docker、containerd、podman 匿名拉取成功，匿名推送 401，
+JWT-SVID 推送不受影响。
+
 同一仓库在两个入口使用相同路径和 tag/digest，例如 CI 推送到
 `zot-push.lab.ddupan.top/team/image:tag`，部署时使用
 `zot.lab.ddupan.top/team/image:tag`；无需在两个仓库间复制。

@@ -64,6 +64,12 @@ configFiles:
           "bearer": {
             "realm": "https://zot-push.lab.ddupan.top/zot/auth/token",
             "service": "zot-push.lab.ddupan.top",
+            "cert": "/etc/zot-token/public_key",
+            "upstreamTokenEndpoint": {
+              "realm": "http://oci-token-server.zot.svc.cluster.local:8080/token",
+              "service": "zot-push.lab.ddupan.top",
+              "allowInsecureHttp": true
+            },
             "oidc": [
               {
                 "issuer": "https://spire-oidc.lab.ddupan.top",
@@ -249,9 +255,18 @@ extraVolumes:
 - name: tmp
   emptyDir:
     sizeLimit: 128Mi
+# oci-token-server 的公钥（bearer.cert）。reader 也继承，但它的配置不引用。
+- name: token-verify
+  secret:
+    secretName: zot-token-verify
+    # Secret 缺失时不阻塞 reader 启动（匿名拉取入口）；zot 本身读不到公钥会直接退出。
+    optional: true
 extraVolumeMounts:
 - name: tmp
   mountPath: /tmp
+- name: token-verify
+  mountPath: /etc/zot-token
+  readOnly: true
 startupProbe:
   initialDelaySeconds: 5
   periodSeconds: 5
