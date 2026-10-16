@@ -1,0 +1,15 @@
+# 冷缓存时后端要先把上游文件整个拉完才响应（Go 工具链 zip 约 75MB、大的 docker layer），
+# 超过 Envoy 默认 15s 请求超时会 504。chart 的 HTTPRoute 不支持 timeouts，这里按路由放宽，同 zot 的 900s。
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: artifact-keeper
+  namespace: artifact-keeper
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: artifact-keeper
+  timeout:
+    http:
+      requestTimeout: 900s

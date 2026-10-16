@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 建 CI 下载缓存用的 remote 仓库（Go / PyPI / Galaxy / Maven / Gradle 插件 / Docker Hub），已存在（409）即跳过。
+# 建 CI 下载缓存用的 remote 仓库（Go / PyPI / Galaxy / Maven / Gradle 插件 / npm / Docker Hub），已存在（409）即跳过。
 # 用法：./repositories.sh；token（admin scope）默认取 OpenBao kv/infra/artifact-keeper 的 api_token，
 # 也可用 AK_TOKEN 覆盖。Docker Hub 账号取同一路径的 dockerhub_username / dockerhub_token。
 # 只建不改：仓库建好后改 upstream 等属性请在 UI 里做。
@@ -31,6 +31,7 @@ create galaxy-proxy ansible https://galaxy.ansible.com
 create maven-central maven https://repo1.maven.org/maven2
 # Gradle 插件解析（plugins {} 块）；插件 marker 在这里，实际 jar 多数重定向回 Maven Central。
 create gradle-plugins maven https://plugins.gradle.org/m2
+create npm-proxy npm https://registry.npmjs.org
 create docker-hub docker https://registry-1.docker.io
 
 # 匿名拉取按出口 IP 限流，全 lab 共用一个 IP；账号只需读公开镜像。每次都覆盖写，换 token 后重跑即可。
