@@ -6,6 +6,10 @@ resources:
   - helmrelease.yaml
   - httproute-s3.yaml
   - httproute-terraform-registry.yaml
+  - httproute-admin.yaml
+  - securitypolicy-admin.yaml
+  - sso-external-secret.yaml
+  - networkpolicy-admin.yaml
 generatorOptions:
   disableNameSuffixHash: true
   labels:

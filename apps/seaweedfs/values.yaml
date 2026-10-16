@@ -66,21 +66,14 @@ s3:
 admin:
   enabled: true
   replicas: 1
-  # ponytail: keeps the pre-4.46 behaviour — no admin auth, reachable from the tailnet and from
-  # any pod in the cluster. `weed admin` >= 4.46 refuses a non-loopback bind without this. Upgrade
-  # path: admin.secret.existingSecret fed by ESO from Bao.
+  # `weed admin` has no login of its own; >= 4.46 refuses a non-loopback bind without this. The login
+  # is the gateway's (securitypolicy-admin.yaml), and networkpolicy-admin.yaml keeps the UI port from
+  # being reached around it.
   allowInsecureBind: true
   data:
     type: emptyDir
   logs:
     type: emptyDir
+  # The tailnet ingress had no login in front of it; the UI is now httproute-admin.yaml.
   ingress:
-    enabled: true
-    className: tailscale
-    host: seaweedfs-admin
-    path: /
-    pathType: Prefix
-    annotations: {}
-    tls:
-      - hosts:
-          - seaweedfs-admin
+    enabled: false

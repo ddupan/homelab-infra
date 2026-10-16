@@ -1,0 +1,29 @@
+# The admin UI's only login is at the gateway, so its HTTP port takes traffic from Envoy alone; any other pod
+# reaching it would skip the login. gRPC (33646) is for workers and stays open within the namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: seaweedfs-admin
+  namespace: seaweedfs
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: seaweedfs
+      app.kubernetes.io/component: admin
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+          podSelector:
+            matchLabels:
+              gateway.envoyproxy.io/owning-gateway-name: eg
+              gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+      ports:
+        - {protocol: TCP, port: 23646}
+    - from:
+        - podSelector: {}
+      ports:
+        - {protocol: TCP, port: 33646}
