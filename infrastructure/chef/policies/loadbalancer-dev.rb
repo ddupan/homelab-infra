@@ -6,7 +6,7 @@ run_list 'homelab_base::default', 'homelab_loadbalancer::default'
 %w(homelab_base homelab_loadbalancer).each do |name|
   cookbook name,
            git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-           tag: 'v0.4.3',
+           tag: 'v0.4.4',
            rel: "cookbooks/#{name}"
 end
 
