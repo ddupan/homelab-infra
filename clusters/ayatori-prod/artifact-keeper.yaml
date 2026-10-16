@@ -1,0 +1,13 @@
+# artifact-keeper 的元数据库（仓库、制品索引、下载统计）；制品本体在 SeaweedFS 的
+# artifact-keeper bucket（apps/seaweedfs/terraform/artifact-keeper.tf）。表由应用自己的
+# sqlx 迁移维护；凭据由 homelab k3s 中 artifact-keeper 自己的身份从 OpenBao 读取。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: artifact-keeper
+---
+apiVersion: database.ayatori.ddupan.top/v1alpha1
+kind: PostgreSQLTenant
+metadata: {name: artifact-keeper, namespace: artifact-keeper}
+spec:
+  provision: {instanceRef: {name: homelab-prod}, database: artifact_keeper, loginRole: artifact_keeper}
