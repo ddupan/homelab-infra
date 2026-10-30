@@ -139,3 +139,13 @@ resource "powerdns_record" "spire_bundle_a" {
   ttl     = 300
   records = ["192.168.10.127"]
 }
+
+# Droidian phone (Xperia 5 II) on WiFi; static outside the IX DHCP pool so the
+# k3s node-ip pinned on it and the planned TEE-backed seal endpoint stay put.
+resource "powerdns_record" "pdx206jp_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "pdx206jp.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.13"]
+}
