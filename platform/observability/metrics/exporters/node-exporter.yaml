@@ -48,7 +48,9 @@ spec:
               cpu: 25m
               memory: 32Mi
             limits:
-              cpu: 200m
+              # systemd collector 遍历笔记本上 ~1800 个 unit，200m 下被限流到 19s，
+              # 超过抓取超时 → NodeExporterUnavailable（2026-10-30）。1 核时约 2–3s。
+              cpu: "1"
               memory: 128Mi
           volumeMounts:
             - { name: proc, mountPath: /host/proc, readOnly: true }

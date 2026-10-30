@@ -59,11 +59,18 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
+          # 冷启动在 500m 限额下要 90s 以上（笔记本负载高时更久），超过 liveness 的约 75s，
+          # 重启后会被反复杀掉、永远起不来（2026-10-30）。startupProbe 给足 5 分钟后再交给 liveness。
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
-            initialDelaySeconds: 15
             periodSeconds: 20
           resources:
             requests:
