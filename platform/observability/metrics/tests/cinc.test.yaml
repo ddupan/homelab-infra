@@ -24,6 +24,15 @@ tests:
   - eval_time: 10m
     alertname: CincDriftDetected
     exp_alerts: []
+- name: dev 节点漂移不告警
+  interval: 1m
+  input_series:
+  - series: homelab_cinc_resources_updated{job="node-exporter",node="lb-dev-1",mode="drift"}
+    values: 2x10
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CincDriftDetected
+    exp_alerts: []
 - name: 运行失败
   interval: 1m
   input_series:

@@ -13,8 +13,9 @@ spec:
       rules:
         # mode="drift" is only the daily timer; a manual why-run preview of a new
         # policy (mode="why-run") is expected to differ and does not alert.
+        # Dev nodes (*-dev-*) are changed by hand on purpose; drift there is not news.
         - alert: CincDriftDetected
-          expr: homelab_cinc_resources_updated{mode="drift"} > 0
+          expr: homelab_cinc_resources_updated{mode="drift",node!~".+-dev-.+"} > 0
           for: 5m
           labels: {severity: warning, service: cinc}
           annotations:
