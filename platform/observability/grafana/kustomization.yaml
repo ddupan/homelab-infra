@@ -226,6 +226,42 @@ configMapGenerator:
       grafana_dashboard: '1'
     annotations:
       grafana_folder: Observability
+- name: grafana-dashboard-envoy-proxy
+  namespace: monitoring
+  files:
+  - envoy-proxy.json=dashboards/envoy-proxy.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-cloudflared
+  namespace: monitoring
+  files:
+  - cloudflared.json=dashboards/cloudflared.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-blocky
+  namespace: monitoring
+  files:
+  - blocky.json=dashboards/blocky.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-victoriatraces
+  namespace: monitoring
+  files:
+  - victoriatraces.json=dashboards/victoriatraces.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
 resources:
 - helmrelease.yaml
 - httproute.yaml
