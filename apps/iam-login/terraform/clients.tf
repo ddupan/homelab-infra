@@ -167,13 +167,13 @@ resource "vault_kv_secret_v2" "zot" {
 }
 
 # The gateway's login for the SeaweedFS admin UI (apps/seaweedfs/securitypolicy-admin.yaml). Envoy's oauth2 filter
-# sends PKCE, and the client secret only in the form body.
+# sends PKCE. With the endpoints spelled out in the policy (no discovery), Envoy Gateway sends the client secret as
+# HTTP Basic, so the client uses the default client_secret_basic.
 resource "homelab_oidc_client" "seaweedfs_admin" {
-  id                         = "seaweedfs-admin"
-  name                       = "SeaweedFS 管理"
-  redirect_uris              = ["https://seaweedfs-admin.lab.ddupan.top/oauth2/callback"]
-  scopes                     = ["openid", "profile", "groups"]
-  token_endpoint_auth_method = "client_secret_post"
+  id            = "seaweedfs-admin"
+  name          = "SeaweedFS 管理"
+  redirect_uris = ["https://seaweedfs-admin.lab.ddupan.top/oauth2/callback"]
+  scopes        = ["openid", "profile", "groups"]
 }
 
 # Read by apps/seaweedfs/sso-external-secret.yaml.

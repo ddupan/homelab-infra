@@ -1,7 +1,7 @@
 # Login for the admin UI at the gateway: Envoy runs the OIDC code flow against iam-login, then checks the access
 # token it stored in a cookie. Signing in alone is not enough; the token's groups claim must name platform-admins.
-# The client is registered in apps/iam-login/terraform/clients.tf. Envoy's oauth2 filter sends the client secret in
-# the form body, so the client is registered as client_secret_post.
+# The client is registered in apps/iam-login/terraform/clients.tf. Without discovery Envoy Gateway sends the client
+# secret as HTTP Basic, so the client is client_secret_basic.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
