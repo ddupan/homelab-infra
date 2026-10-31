@@ -15,6 +15,10 @@ Server 的 `join_token` node attestor（`../values.yaml`）。token 一次性、
 join token 的 Agent **不能重新证明**（`Can re-attest: false`）：它用当前 SVID（约 1 小时）自行续期，
 主机停机超过 SVID 有效期，或 Agent 丢失 `/var/lib/spire-agent`（重装、重建 LXC），都无法再证明：重新生成 token、启动 Agent，
 并把新的 Agent ID 更新到所有以它为 parent 的 ClusterStaticEntry。
+2026-10-18 pve1 被 LINSTOR 驱逐后 LXC 停机，就是这样失效的（CI 发布报 `/run/spire-agent/agent.sock` 不存在）。
+重新证明前先用 `spire-server bundle show` 刷新 `/etc/spire-agent/bootstrap-bundle.pem`：Server CA 轮换后，
+旧 bundle 会让证明报 `certificate signed by unknown authority`。在 `pct exec` 里调用要写全路径
+`/usr/local/bin/spire-agent`，那里的 PATH 不含 `/usr/local/bin`。
 
 ## 安装
 
