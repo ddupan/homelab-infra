@@ -123,6 +123,6 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 ## 10. 收尾（P3）
 
 - [ ] **Z1** 每个告警配 runbook 链接（`annotations.runbook_url`）
-- [ ] **Z2** Grafana 总览看板：每台主机/每个入口一个红绿格
+- [x] **Z2** Grafana 总览看板：每台主机/每个入口一个红绿格（`grafana/dashboards/overview.json`，Grafana 首页；主机取 `up`、入口取 `probe_success`，新加探测自动出现）
 - [x] **Z3** `grafana-oidc` Secret 纳入 OpenBao/ESO（改为 iam-login 客户端 `grafana-sso`，由 Terraform 写入 bao）
 - [ ] **Z4** 定期复查本清单（新服务上线时，把"加探测+告警"列入上线检查项）

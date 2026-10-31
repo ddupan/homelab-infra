@@ -209,7 +209,8 @@ cd grafana && ./helm.sh && cd ..
   `${DS_*}` import inputs; the source id/revision is kept in each board's `description`.
   Boards are grouped into Grafana folders by the `grafana_folder` annotation set there.
   Still without a board: SPIRE (no upstream board), otel-collector (it exports only queue
-  metrics — no receiver/exporter counters to chart), and the per-host overview (COVERAGE Z2).
+  metrics — no receiver/exporter counters to chart).
+  `overview.json` (the home dashboard, COVERAGE Z2) is hand-written, not imported.
   The Blocky board's enable/disable buttons are left unwired (`$blocky_url`): the API is
   unauthenticated, and Grafana viewers should not be able to switch off DNS filtering.
 - Wire real Alertmanager receivers in `metrics/vmalertmanager.yaml` (email via
