@@ -203,12 +203,12 @@ cd grafana && ./helm.sh && cd ..
 
 ## Follow-ups
 
-- Dashboards: the VictoriaMetrics single-node board is migrated to
-  `grafana/dashboards/victoriametrics.json`; `grafana/dashboards/apply.sh` loads it via
-  the Grafana sidecar. (The old `vmagent.json`/`vmalert.json` were empty dirs Docker
-  auto-created, not real boards.) Add the canonical ones by dropping their JSON in
-  `grafana/dashboards/` and re-running the script — vmagent (gnetId 12683),
-  vmalert (14950), node-exporter (1860), cAdvisor now that those exporters exist.
+- Dashboards: `grafana/dashboards/*.json`, each listed in `grafana/kustomization.yaml` as a
+  sidecar ConfigMap (Flux-managed). Upstream boards are pulled with
+  `grafana/dashboards/import.py <gnetId> <revision> <name>`, which also rewires grafana.com's
+  `${DS_*}` import inputs; the source id/revision is kept in each board's `description`.
+  Still without a board: Flux, cert-manager, Envoy Gateway, ESO, CoreDNS, LINSTOR/DRBD,
+  SeaweedFS, PVE, vmagent (12683), vmalert (14950), VictoriaLogs, OpenBao, FRR.
 - Wire real Alertmanager receivers in `metrics/vmalertmanager.yaml` (email via
   `../../apps/smtp-relay/`), replacing the ported `blackhole`.
 - 旧 Compose 监控栈已于 2026-09-16 按维护者要求清理：原先已无容器，本次移除

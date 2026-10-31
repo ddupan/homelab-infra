@@ -24,6 +24,62 @@ configMapGenerator:
     options:
       labels:
         grafana_dashboard: "1"
+  - name: grafana-dashboard-node-exporter
+    namespace: monitoring
+    files:
+      - node-exporter.json=dashboards/node-exporter.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-k8s-global
+    namespace: monitoring
+    files:
+      - k8s-global.json=dashboards/k8s-global.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-k8s-nodes
+    namespace: monitoring
+    files:
+      - k8s-nodes.json=dashboards/k8s-nodes.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-k8s-pods
+    namespace: monitoring
+    files:
+      - k8s-pods.json=dashboards/k8s-pods.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-postgresql
+    namespace: monitoring
+    files:
+      - postgresql.json=dashboards/postgresql.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-etcd
+    namespace: monitoring
+    files:
+      - etcd.json=dashboards/etcd.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-blackbox
+    namespace: monitoring
+    files:
+      - blackbox.json=dashboards/blackbox.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: grafana-dashboard-haproxy
+    namespace: monitoring
+    files:
+      - haproxy.json=dashboards/haproxy.json
+    options:
+      labels:
+        grafana_dashboard: "1"
 resources:
   - helmrelease.yaml
   - httproute.yaml

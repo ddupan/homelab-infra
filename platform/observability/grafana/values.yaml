@@ -10,7 +10,8 @@ plugins:
   - victoriametrics-logs-datasource
 
 # --- Dashboard sidecar: auto-loads any ConfigMap labeled grafana_dashboard=1 in the
-# namespace. Migrated boards live in ./dashboards and are applied by ./dashboards/apply.sh ---
+# namespace. Boards live in ./dashboards (upstream ones via ./dashboards/import.py) and are
+# turned into ConfigMaps by kustomization.yaml ---
 sidecar:
   dashboards:
     enabled: true
@@ -104,5 +105,4 @@ grafana.ini:
     role_attribute_strict: false
     use_pkce: true
 
-# Dashboards are loaded by the sidecar (above) from ConfigMaps created by
-# ./dashboards/apply.sh. Drop more JSON into ./dashboards and re-run that script.
+# Dashboards are loaded by the sidecar (above); see kustomization.yaml.
