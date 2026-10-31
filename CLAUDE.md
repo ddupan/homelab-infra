@@ -237,7 +237,9 @@ recovered, so `.vault_pass.gpg` is the authoritative recovery path.
   mapping must do it itself as an OIDC client of iam-login. An app with **no login at all** (e.g.
   `weed admin`) gets one at the gateway instead: an Envoy Gateway `SecurityPolicy` with `oidc` against
   iam-login plus a `groups` claim rule, and a NetworkPolicy so the port is reachable only from Envoy —
-  copy `apps/seaweedfs/securitypolicy-admin.yaml`. No oauth2-proxy.
+  copy `apps/seaweedfs/securitypolicy-admin.yaml`. No oauth2-proxy. ⚠ Keep its explicit
+  `authorizationEndpoint`/`tokenEndpoint`: without them EG fetches discovery once, never retries, and a
+  failed fetch silently drops the OIDC filter (policy `Accepted=False`, users see "Jwt is missing").
 - `platform/cert-manager/` — two ClusterIssuers: `letsencrypt` (DNS-01 via Cloudflare) and
   `bao-acme` (OpenBao internal PKI). One `*.ad.ddupan.top` wildcard serves every LAN
   service, deliberately, so per-host names stay out of Certificate Transparency logs.

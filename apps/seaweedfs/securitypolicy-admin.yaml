@@ -13,8 +13,13 @@ spec:
       kind: HTTPRoute
       name: seaweedfs-admin
   oidc:
+    # Endpoints spelled out so Envoy Gateway does not fetch discovery: it fetches once per translation and never
+    # retries, and on 2026-10-31 an EOF (sso restarting) dropped the OIDC filter while the JWT check stayed, leaving
+    # every request at "Jwt is missing" with no redirect to sign in.
     provider:
       issuer: https://sso.ddupan.top
+      authorizationEndpoint: https://sso.ddupan.top/oauth2/authorize
+      tokenEndpoint: https://sso.ddupan.top/oauth2/token
     clientID: seaweedfs-admin
     clientSecret:
       name: seaweedfs-admin-sso
