@@ -26,6 +26,10 @@ backend:
     AK_SSRF_ALLOW_PRIVATE_CIDRS: 192.168.10.127/32
     # dockerd 的 registry-mirrors 请求 /v2/<image>/...，不带仓库 key；落到这个 remote（repositories.sh）。
     AK_DEFAULT_DOCKER_MIRROR_REPO: docker-hub
+    # sqlx 池默认 max 50 / min 5，直连 pg-prod:5432（max_connections=80，见 database.yaml 为何不走池）
+    # 时一家就吃掉六成，挤占其它租户。pull-through 缓存的并发远低于此；空闲连接 600 s 后释放。
+    DATABASE_MAX_CONNECTIONS: "10"
+    DATABASE_MIN_CONNECTIONS: "1"
   environmentSecrets:
     - name: S3_ACCESS_KEY_ID
       secretKeyRef: {name: artifact-keeper-s3, key: S3_ACCESS_KEY_ID}
