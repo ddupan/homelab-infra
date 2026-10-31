@@ -21,6 +21,7 @@ After adding a new file, list it in ../kustomization.yaml.
 """
 import argparse
 import json
+import re
 import shlex
 import sys
 import time
@@ -59,9 +60,43 @@ board = json.loads(raw)
 variables = board.setdefault("templating", {}).setdefault("list", [])
 existing = {v.get("name") for v in variables}
 for inp in board.pop("__inputs", []):
-    if inp.get("type") == "datasource" and inp["name"] not in existing:
-        variables.insert(0, {"name": inp["name"], "label": inp.get("label"), "type": "datasource",
+    # Grafana only interpolates \w+ names: an input like DS_PROMETHEUS-DEV can never resolve,
+    # so its variable gets a sanitized name and the refs are repointed below.
+    name = re.sub(r"\W", "_", inp["name"])
+    if inp.get("type") == "datasource" and name not in existing:
+        variables.insert(0, {"name": name, "label": inp.get("label"), "type": "datasource",
                              "query": inp["pluginId"], "hide": 2})
+        existing.add(name)
+
+# Repoint every datasource ref that is not a resolvable variable (`${DS_X-Y}`, or a literal
+# uid such as "prometheus" from the author's instance) at the board's Prometheus variable.
+ds_var = next((v["name"] for v in variables
+               if v.get("type") == "datasource" and v.get("query") == "prometheus"), None)
+BUILTIN = {"-- Grafana --", "grafana", "-- Mixed --", "-- Dashboard --"}
+
+
+def resolvable(ref):
+    return ref in BUILTIN or bool(re.fullmatch(r"\$\{?\w+\}?", ref))
+
+
+def repoint(node):
+    if isinstance(node, list):
+        for item in node:
+            repoint(item)
+    elif isinstance(node, dict):
+        ds = node.get("datasource")
+        if isinstance(ds, str) and not resolvable(ds):
+            node["datasource"] = {"type": "prometheus", "uid": f"${{{ds_var}}}"}
+        elif (isinstance(ds, dict) and ds.get("type") in (None, "prometheus")
+              and isinstance(ds.get("uid"), str) and not resolvable(ds["uid"])):
+            ds["uid"] = f"${{{ds_var}}}"
+        for key, value in node.items():
+            if key != "datasource":
+                repoint(value)
+
+
+if ds_var:
+    repoint(board)
 
 for spec in args.var:
     name, options = spec.split("=", 1)
