@@ -27,7 +27,7 @@ import time
 import urllib.request
 
 ap = argparse.ArgumentParser()
-ap.add_argument("gnet_id")
+ap.add_argument("gnet_id", help="grafana.com id, or a full https:// URL")
 ap.add_argument("revision")
 ap.add_argument("name")
 ap.add_argument("--var", action="append", default=[], metavar="NAME=OPTIONS")
@@ -35,7 +35,10 @@ ap.add_argument("--sub", action="append", nargs=2, default=[], metavar=("OLD", "
 ap.add_argument("--default", action="append", default=[], metavar="NAME=VALUE")
 args = ap.parse_args()
 
-url = f"https://grafana.com/api/dashboards/{args.gnet_id}/revisions/{args.revision}/download"
+# A full URL (e.g. a project's own board on GitHub, pinned to a commit) is taken as is;
+# REVISION is then only recorded.
+url = (args.gnet_id if args.gnet_id.startswith("https://")
+       else f"https://grafana.com/api/dashboards/{args.gnet_id}/revisions/{args.revision}/download")
 for attempt in range(5):  # the WAN drops at random
     try:
         raw = urllib.request.urlopen(url, timeout=30).read().decode()
@@ -82,7 +85,8 @@ board.pop("__requires", None)
 board.pop("__elements", None)
 board["id"] = None
 board["uid"] = args.name
-board["description"] = (f"grafana.com/grafana/dashboards/{args.gnet_id} — imported with: "
+board["description"] = ((args.gnet_id if args.gnet_id.startswith("https://")
+                         else f"grafana.com/grafana/dashboards/{args.gnet_id}") + " — imported with: "
                         + shlex.join(["./import.py", *sys.argv[1:]]))
 with open(f"{args.name}.json", "w") as f:
     json.dump(board, f, indent=2, ensure_ascii=False)

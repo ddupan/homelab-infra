@@ -3,84 +3,273 @@ kind: Kustomization
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
-  - name: grafana-values
-    namespace: monitoring
-    files:
-      - values.yaml=values.yaml
-    options:
-      labels:
-        reconcile.fluxcd.io/watch: Enabled
-  - name: grafana-dashboard-victoriametrics
-    namespace: monitoring
-    files:
-      - victoriametrics.json=dashboards/victoriametrics.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-homelab-memory
-    namespace: monitoring
-    files:
-      - homelab-memory.json=dashboards/homelab-memory.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-node-exporter
-    namespace: monitoring
-    files:
-      - node-exporter.json=dashboards/node-exporter.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-k8s-global
-    namespace: monitoring
-    files:
-      - k8s-global.json=dashboards/k8s-global.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-k8s-nodes
-    namespace: monitoring
-    files:
-      - k8s-nodes.json=dashboards/k8s-nodes.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-k8s-pods
-    namespace: monitoring
-    files:
-      - k8s-pods.json=dashboards/k8s-pods.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-postgresql
-    namespace: monitoring
-    files:
-      - postgresql.json=dashboards/postgresql.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-etcd
-    namespace: monitoring
-    files:
-      - etcd.json=dashboards/etcd.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-blackbox
-    namespace: monitoring
-    files:
-      - blackbox.json=dashboards/blackbox.json
-    options:
-      labels:
-        grafana_dashboard: "1"
-  - name: grafana-dashboard-haproxy
-    namespace: monitoring
-    files:
-      - haproxy.json=dashboards/haproxy.json
-    options:
-      labels:
-        grafana_dashboard: "1"
+- name: grafana-values
+  namespace: monitoring
+  files:
+  - values.yaml=values.yaml
+  options:
+    labels:
+      reconcile.fluxcd.io/watch: Enabled
+- name: grafana-dashboard-node-exporter
+  namespace: monitoring
+  files:
+  - node-exporter.json=dashboards/node-exporter.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Hosts
+- name: grafana-dashboard-homelab-memory
+  namespace: monitoring
+  files:
+  - homelab-memory.json=dashboards/homelab-memory.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Hosts
+- name: grafana-dashboard-proxmox
+  namespace: monitoring
+  files:
+  - proxmox.json=dashboards/proxmox.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Hosts
+- name: grafana-dashboard-k8s-global
+  namespace: monitoring
+  files:
+  - k8s-global.json=dashboards/k8s-global.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-k8s-nodes
+  namespace: monitoring
+  files:
+  - k8s-nodes.json=dashboards/k8s-nodes.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-k8s-pods
+  namespace: monitoring
+  files:
+  - k8s-pods.json=dashboards/k8s-pods.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-coredns
+  namespace: monitoring
+  files:
+  - coredns.json=dashboards/coredns.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-flux-cluster
+  namespace: monitoring
+  files:
+  - flux-cluster.json=dashboards/flux-cluster.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-flux-control-plane
+  namespace: monitoring
+  files:
+  - flux-control-plane.json=dashboards/flux-control-plane.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-cert-manager
+  namespace: monitoring
+  files:
+  - cert-manager.json=dashboards/cert-manager.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-external-secrets
+  namespace: monitoring
+  files:
+  - external-secrets.json=dashboards/external-secrets.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-envoy-gateway
+  namespace: monitoring
+  files:
+  - envoy-gateway.json=dashboards/envoy-gateway.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-postgresql
+  namespace: monitoring
+  files:
+  - postgresql.json=dashboards/postgresql.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-etcd
+  namespace: monitoring
+  files:
+  - etcd.json=dashboards/etcd.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-haproxy
+  namespace: monitoring
+  files:
+  - haproxy.json=dashboards/haproxy.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-linstor
+  namespace: monitoring
+  files:
+  - linstor.json=dashboards/linstor.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-seaweedfs
+  namespace: monitoring
+  files:
+  - seaweedfs.json=dashboards/seaweedfs.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-openbao
+  namespace: monitoring
+  files:
+  - openbao.json=dashboards/openbao.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Data
+- name: grafana-dashboard-blackbox
+  namespace: monitoring
+  files:
+  - blackbox.json=dashboards/blackbox.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-frr
+  namespace: monitoring
+  files:
+  - frr.json=dashboards/frr.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-victoriametrics
+  namespace: monitoring
+  files:
+  - victoriametrics.json=dashboards/victoriametrics.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
+- name: grafana-dashboard-vmagent
+  namespace: monitoring
+  files:
+  - vmagent.json=dashboards/vmagent.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
+- name: grafana-dashboard-vmalert
+  namespace: monitoring
+  files:
+  - vmalert.json=dashboards/vmalert.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
+- name: grafana-dashboard-victorialogs
+  namespace: monitoring
+  files:
+  - victorialogs.json=dashboards/victorialogs.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
+- name: grafana-dashboard-envoy-proxy
+  namespace: monitoring
+  files:
+  - envoy-proxy.json=dashboards/envoy-proxy.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Kubernetes
+- name: grafana-dashboard-cloudflared
+  namespace: monitoring
+  files:
+  - cloudflared.json=dashboards/cloudflared.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-blocky
+  namespace: monitoring
+  files:
+  - blocky.json=dashboards/blocky.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Network
+- name: grafana-dashboard-victoriatraces
+  namespace: monitoring
+  files:
+  - victoriatraces.json=dashboards/victoriatraces.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: Observability
+- name: grafana-dashboard-overview
+  namespace: monitoring
+  files:
+  - overview.json=dashboards/overview.json
+  options:
+    labels:
+      grafana_dashboard: '1'
 resources:
-  - helmrelease.yaml
-  - httproute.yaml
-  - sso-external-secret.yaml
+- helmrelease.yaml
+- httproute.yaml
+- sso-external-secret.yaml

@@ -78,6 +78,9 @@ envValueFrom:
       key: client_secret
 
 grafana.ini:
+  dashboards:
+    # 首页即总览（COVERAGE Z2）。sidecar 把没有 grafana_folder 注解的看板写在目录根下。
+    default_home_dashboard_path: /tmp/dashboards/overview.json
   server:
     root_url: "https://grafana.lab.ddupan.top"   # 与 iam-login 客户端的 redirect_uri 一致
   auth:
