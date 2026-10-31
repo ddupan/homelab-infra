@@ -13,3 +13,54 @@ spec:
   timeout:
     http:
       requestTimeout: 900s
+---
+# 后端代理 sum.golang.org / proxy.golang.org 时不缓存 sumdb、不重试，上游超时写死（读 30s），WAN 一抖
+# 就回 502（"Failed to reach checksum database"），go 随即失败；1.11.0 没有可调参数。Go 模块代理的
+# 请求全是幂等 GET，单独给它一条路由在网关上重试。前缀比 chart 路由的 /go 长，按最长前缀优先匹配。
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: artifact-keeper-go
+  namespace: artifact-keeper
+spec:
+  hostnames:
+    - artifacts.lab.ddupan.top
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /go/go-proxy/
+      backendRefs:
+        - name: artifact-keeper-backend
+          port: 8080
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: artifact-keeper-go
+  namespace: artifact-keeper
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: artifact-keeper-go
+  # 策略按路由生效，上面那份的放宽超时不覆盖这里。
+  timeout:
+    http:
+      requestTimeout: 900s
+  retry:
+    numRetries: 3
+    retryOn:
+      # 502/503 是后端连不上上游；reset/connect-failure 覆盖后端 Pod 滚动更新。
+      httpStatusCodes: [502, 503]
+      triggers: [retriable-status-codes, reset, connect-failure]
+    perRetry:
+      backOff:
+        baseInterval: 1s
+        maxInterval: 10s
