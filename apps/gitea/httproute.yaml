@@ -30,7 +30,13 @@ spec:
   hostnames:
     - git.ddupan.top
   rules:
-    - backendRefs:
+    # Envoy's default 15s request timeout cuts git smart-HTTP: a partial clone of the
+    # 32MB gitea-dynamic-runner repo builds its blob packfile for ~16s and got 504
+    # (Renovate, 2026-11-01). Same fix as zot's route.
+    - timeouts:
+        request: 600s
+        backendRequest: 600s
+      backendRefs:
         # Same Service the Cloudflare tunnel targets, so both paths terminate in
         # exactly one place.
         - name: gitea-http
