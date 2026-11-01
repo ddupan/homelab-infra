@@ -2,16 +2,69 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "ignorePaths": ["archive/**"],
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 15,
   "flux": {
     "managerFilePatterns": ["/(^|/)(apps|platform|clusters)/.+\\.ya?ml$/"]
   },
   "kubernetes": {
     "managerFilePatterns": ["/(^|/)(apps|platform)/.+\\.ya?ml$/"]
   },
+  "customManagers": [
+    {
+      "description": "Versions Renovate cannot see on its own (e.g. an image tag inside HelmRelease values): put `# renovate: datasource=<ds> depName=<name>` on the line above.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\S+:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"]
+    }
+  ],
   "packageRules": [
     {
       "description": "Flux image automation owns this digest (platform/flux-image-automation); two writers would fight.",
       "matchPackageNames": ["zot.ad.ddupan.top/panxiao81/backstage"],
+      "enabled": false
+    },
+    {
+      "description": "One PR for all provider bumps: CI plans every root on each PR anyway, so splitting only multiplies runs.",
+      "matchDatasources": ["terraform-provider"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "terraform providers"
+    },
+    {
+      "matchManagers": ["ansible-galaxy", "pip_requirements"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "ansible"
+    },
+    {
+      "matchFileNames": ["platform/observability/**", "platform/sandbox-monitoring/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "observability"
+    },
+    {
+      "description": "Sandbox is disposable; opensandbox execd/task-executor/chart must move together anyway.",
+      "matchFileNames": ["platform/sandbox-*/**", "infrastructure/sandbox-cluster/**", "clusters/sandbox/**"],
+      "groupName": "sandbox"
+    },
+    {
+      "description": "Same chart in both clusters; keep them on one version.",
+      "matchPackageNames": ["external-secrets"],
+      "groupName": "external-secrets"
+    },
+    {
+      "description": "CLI is pinned to match local terraform: a newer CLI rewrites state that an older local binary then cannot read. Upgrade both together.",
+      "matchPackageNames": ["hashicorp/terraform"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Sidecar must follow the bao server (openbao_version, Ansible, checksum-pinned). Approve here as the signal to upgrade both.",
+      "matchPackageNames": ["quay.io/openbao/openbao"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "A PostgreSQL major cannot open the previous major's data directory; needs a dump/restore, not a tag bump.",
+      "matchFileNames": ["apps/litellm-gateway/**"],
+      "matchPackageNames": ["postgres", "docker.io/library/postgres"],
+      "matchUpdateTypes": ["major"],
       "enabled": false
     }
   ]
