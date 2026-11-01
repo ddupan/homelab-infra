@@ -27,7 +27,9 @@ metadata:
   name: cloudflared
   namespace: cloudflared
 spec:
-  replicas: 1
+  # Two connectors on one tunnel: Cloudflare balances across them, so a rollout
+  # (now that Renovate bumps the pin) never takes the public ingress down.
+  replicas: 2
   selector:
     matchLabels:
       app: cloudflared
@@ -38,9 +40,9 @@ spec:
     spec:
       containers:
         - name: cloudflared
-          # NOTE: :latest on the public ingress. Pinning is desirable but a wrong
-          # pin is worse than an unpinned upgrade here; left as-is deliberately.
-          image: cloudflare/cloudflared:latest
+          # Pinned so Renovate can track it. `:latest` with IfNotPresent never pulled
+          # again: it sat on 2026.2.0 for eight months (found 2026-11-01).
+          image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
           command:
             - cloudflared
             - tunnel
@@ -53,6 +55,13 @@ spec:
             # rules from the Cloudflare API. A --config pointing at a file that
             # no longer exists would be a hard startup error.
             - run
+          # /ready turns 200 only once the connector has registered with the edge,
+          # so a rollout waits for the new pod to carry traffic before killing the old.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            periodSeconds: 10
           env:
             - name: TUNNEL_TOKEN
               valueFrom:

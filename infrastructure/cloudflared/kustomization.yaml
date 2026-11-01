@@ -1,0 +1,6 @@
+# Explicit list: without it Flux would apply every YAML here, including the
+# placeholder Secret in secret.example.yaml (the real one comes from ESO).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cloudflared.yaml
