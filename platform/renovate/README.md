@@ -32,6 +32,11 @@ kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user generate-access-
 for r in homelab-infra homelab-cookbooks iam-login ...; do
   tea api -X PUT "/repos/panxiao81/$r/collaborators/renovate-bot" -d '{"permission":"write"}'
 done
+
+# 4. GitHub read-only token (fine-grained, public repos, no permissions), typed not echoed:
+read -rsp 'GitHub token: ' t && [ -n "$t" ] && printf %s "$t" | bao kv patch kv/k8s/renovate github_com_token=-
 ```
 
-Trigger a run without waiting: `kubectl -n renovate create job --from=cronjob/renovate renovate-manual`.
+Trigger a run without waiting: `kubectl -n renovate create job --from=cronjob/renovate renovate-manual`
+— only when no `renovate-*` job is running. `concurrencyPolicy: Forbid` does not cover a manual
+job, and two runs race on the same branches (`reference already exists`, `repository-changed`).
