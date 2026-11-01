@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: renovate
+  namespace: renovate
+spec:
+  # Hourly; a run is a few minutes per repo. Forbid so a slow run is never doubled.
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3000
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 12021
+            runAsGroup: 0
+            fsGroup: 0
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: renovate
+              image: ghcr.io/renovatebot/renovate:44.171.1@sha256:6fffb26e606488bf674f2d9400fc3fc6b2a0243a0c22a4a4d22e422ee44934c5
+              env:
+                - {name: RENOVATE_CONFIG_FILE, value: /config/config.js}
+                - {name: LOG_LEVEL, value: info}
+              envFrom:
+                - secretRef: {name: renovate}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: [ALL]}
+              resources:
+                requests: {cpu: 100m, memory: 512Mi}
+                limits: {cpu: "1", memory: 2Gi}
+              volumeMounts:
+                - {name: config, mountPath: /config, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: config
+              configMap: {name: renovate-config}
+            # Clones and runtime-installed tools (binarySource=install) land here.
+            - name: tmp
+              emptyDir: {sizeLimit: 5Gi}
