@@ -24,7 +24,7 @@ kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user create \
 kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user generate-access-token \
   --username renovate-bot --token-name renovate --raw \
   --scopes write:repository,write:issue,read:user,read:organization \
-  | bao kv put kv/k8s/renovate token=-
+  | tr -d '\n' | bao kv put kv/k8s/renovate token=-   # --raw ends with a newline; `token=-` would keep it
 
 # 3. Scope: write collaborator on each repo it should manage (never ayatori).
 for r in homelab-infra homelab-cookbooks iam-login ...; do
