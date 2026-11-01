@@ -21,6 +21,8 @@ kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user create \
   --random-password --random-password-length 40 --must-change-password=false --restricted >/dev/null
 
 # 2. Token straight into Bao — never echoed. Scopes per Renovate's Gitea platform docs.
+#    pipefail: without it a failed generate still writes an EMPTY token to Bao.
+set -o pipefail
 kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user generate-access-token \
   --username renovate-bot --token-name renovate --raw \
   --scopes write:repository,write:issue,read:user,read:organization \
