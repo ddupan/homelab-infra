@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "ignorePaths": ["archive/**"],
+  "flux": {
+    "managerFilePatterns": ["/(^|/)(apps|platform|clusters)/.+\\.ya?ml$/"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["/(^|/)(apps|platform)/.+\\.ya?ml$/"]
+  },
+  "packageRules": [
+    {
+      "description": "Flux image automation owns this digest (platform/flux-image-automation); two writers would fight.",
+      "matchPackageNames": ["zot.ad.ddupan.top/panxiao81/backstage"],
+      "enabled": false
+    }
+  ]
+}
