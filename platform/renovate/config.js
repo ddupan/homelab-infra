@@ -13,6 +13,9 @@ module.exports = {
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
     extends: ['config:recommended'],
   },
+  // Our own hosts (e.g. the terraform.lab.ddupan.top provider registry) resolve to LAN
+  // addresses; Renovate is moving to blocking internal hosts by default.
+  hostRules: [{ matchHost: 'ddupan.top', allowInternal: true }],
   // Every PR runs CI on the laptop, which is already the bottleneck.
   prHourlyLimit: 2,
   prConcurrentLimit: 5,
