@@ -18,4 +18,4 @@ jobs:
       - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
         with:
           pypi: 'true'
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/security-scan@feat/security-scan
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/security-scan@4264c6e1232f97125aa98a2244c63ddee6d82a30
