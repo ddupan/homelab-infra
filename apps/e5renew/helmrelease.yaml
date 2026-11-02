@@ -11,7 +11,7 @@ spec:
   # 固定到 commit：chart 改动经 homelab PR 进入，而不是随应用仓库 master 漂移。
   ref:
     branch: master
-    commit: 1a930a54aa8b54dff7051e03c26411070a4427be  # panxiao81/e5renew#31
+    commit: 8d067f2ffb03a895dff7de6bd01b10f72e04fe46  # panxiao81/e5renew#31
   timeout: 60s
   url: https://github.com/panxiao81/e5renew.git
   ignore: |
