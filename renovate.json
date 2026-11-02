@@ -2,17 +2,73 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "ignorePaths": ["archive/**"],
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 15,
   "flux": {
     "managerFilePatterns": ["/(^|/)(apps|platform|clusters)/.+\\.ya?ml$/"]
   },
   "kubernetes": {
     "managerFilePatterns": ["/(^|/)(apps|platform)/.+\\.ya?ml$/"]
   },
+  "customManagers": [
+    {
+      "description": "Versions Renovate cannot see on its own (e.g. an image tag inside HelmRelease values): put `# renovate: datasource=<ds> depName=<name>` on the line above.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\S+:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"]
+    }
+  ],
   "packageRules": [
     {
       "description": "Flux image automation owns this digest (platform/flux-image-automation); two writers would fight.",
       "matchPackageNames": ["zot.ad.ddupan.top/panxiao81/backstage"],
       "enabled": false
+    },
+    {
+      "description": "One PR for all provider bumps: CI plans every root on each PR anyway, so splitting only multiplies runs.",
+      "matchDatasources": ["terraform-provider"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "terraform providers"
+    },
+    {
+      "matchManagers": ["ansible-galaxy", "pip_requirements"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "ansible"
+    },
+    {
+      "matchFileNames": ["platform/observability/**", "platform/sandbox-monitoring/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "observability"
+    },
+    {
+      "description": "Sandbox is disposable; opensandbox execd/task-executor/chart must move together anyway.",
+      "matchFileNames": ["platform/sandbox-*/**", "infrastructure/sandbox-cluster/**", "clusters/sandbox/**"],
+      "groupName": "sandbox"
+    },
+    {
+      "description": "Same chart in both clusters; keep them on one version.",
+      "matchPackageNames": ["external-secrets"],
+      "groupName": "external-secrets"
+    },
+    {
+      "description": "CLI is pinned to match local terraform: a newer CLI rewrites state that an older local binary then cannot read. Upgrade both together.",
+      "matchPackageNames": ["hashicorp/terraform"],
+      "commitMessageSuffix": "(需手动步骤)",
+      "prBodyNotes": ["⚠️ **合并前**：本地 terraform 先升到同一版本。CI 用新 CLI 写过的 state，本地旧版本读不了。"]
+    },
+    {
+      "description": "Sidecar must follow the bao server (openbao_version, Ansible, checksum-pinned). The PR carries the steps; nothing merges itself.",
+      "matchPackageNames": ["quay.io/openbao/openbao"],
+      "commitMessageSuffix": "(需手动步骤)",
+      "prBodyNotes": ["⚠️ **这只是 vmagent 的 sidecar。** 先用 Ansible 升 bao 服务器（`infrastructure/openbao/ansible/group_vars/all/vars.yml` 的 `openbao_version` 与 `openbao_download_checksum`），再合并本 PR。"]
+    },
+    {
+      "description": "A PostgreSQL major cannot open the previous major's data directory; needs a dump/restore, not a tag bump. The PR says so; merging it alone breaks the database.",
+      "matchFileNames": ["apps/litellm-gateway/**"],
+      "matchPackageNames": ["postgres", "docker.io/library/postgres"],
+      "matchUpdateTypes": ["major"],
+      "commitMessageSuffix": "(需手动步骤)",
+      "prBodyNotes": ["⚠️ **不能直接合并**：PostgreSQL 新大版本打不开旧数据目录。先 `pg_dumpall` 备份，换新版本和空数据卷后恢复，再合并；或者关掉本 PR 保持旧版本。"]
     }
   ]
 }
