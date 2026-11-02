@@ -29,7 +29,7 @@ spec:
       terminationGracePeriodSeconds: 120
       containers:
         - name: nexus
-          image: docker.io/sonatype/nexus3:3.96.1@sha256:56142f13432cf072e017aebb2025f201e42ae36ff40bb82618c702504c61f7dd
+          image: docker.io/sonatype/nexus3:3.97.3@sha256:4b9a0efb605808c15927c751107b3f3308ae306c4b22715c96bf9bbabbb0e736
           imagePullPolicy: IfNotPresent
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
