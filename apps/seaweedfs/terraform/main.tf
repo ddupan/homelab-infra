@@ -3,7 +3,7 @@ terraform {
   required_providers {
     # aws_iam_user 需要 SeaweedFS >= 4.48：更早版本的 GetUser 不返回 Arn，provider 会超时。
     aws   = { source = "hashicorp/aws", version = "~> 6.0" }
-    vault = { source = "hashicorp/vault", version = "~> 4.0" }
+    vault = { source = "hashicorp/vault", version = "~> 5.0" }
   }
 }
 

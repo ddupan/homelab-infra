@@ -11,7 +11,7 @@ terraform {
     # the vault_* resources to openbao_*.
     vault = {
       source  = "hashicorp/vault"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
   }
 }

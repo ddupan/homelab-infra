@@ -11,7 +11,7 @@ terraform {
     # Client secrets go straight to bao for the apps' ExternalSecrets; CD's ci-terraform token covers kv.
     vault = {
       source  = "hashicorp/vault"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
   }
 }
