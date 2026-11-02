@@ -35,7 +35,7 @@ spec:
     image:
       rootless: true
       # renovate: datasource=docker depName=docker.gitea.com/gitea
-      tag: "28.1.0"
+      tag: "28.3.0"
   valuesFrom:
     - kind: ConfigMap
       name: gitea-values
