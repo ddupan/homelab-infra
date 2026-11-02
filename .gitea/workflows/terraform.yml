@@ -53,7 +53,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
-          terraform_version: 1.15.8
+          terraform_version: v1.17.1
           terraform_wrapper: false
       - name: fmt and validate
         # 重试同 init：provider 走 WAN 镜像，会随机失败。
@@ -117,7 +117,7 @@ jobs:
           terraform: 'true'
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.8
+          terraform_version: v1.17.1
           terraform_wrapper: false
       - name: fmt and validate
         # 重试同 init：provider 走 WAN 镜像，会随机失败。
