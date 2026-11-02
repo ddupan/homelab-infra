@@ -8,3 +8,21 @@ spec:
   backendTLS:
     minVersion: '1.2'
     maxVersion: '1.3'
+  # EG 默认 readiness 超时 1s、失败 1 次即摘除。laptop 负载尖峰时（2026-11-01 15:22，load≈35）
+  # /ready 慢了一拍，Envoy 被判未就绪，LoadBalancer 撤掉 192.168.10.127，整个 LAN 入口
+  # connection refused。放宽到 3s × 3 次，过载时多扛 ~15s 而不是立刻断。
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: envoy
+                      readinessProbe:
+                        timeoutSeconds: 3
+                        failureThreshold: 3
