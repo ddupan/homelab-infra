@@ -1,8 +1,10 @@
-# Executors request their full CPU limit so the scheduler places them by real
-# CPU: sandbox1 (4 CPU, its PVE host shared with iam-spike-build) fits one,
-# sandbox2 (8 CPU, ~2.6 CPU already requested by OpenSandbox, the controller
-# and the cache) fits two. POD_CAPACITY must not exceed what fits, or the
-# extra Pod stays Pending and its task fails after the handoff deadline.
+# Executors request 1 CPU but may burst to 2: jobs mostly wait on network and
+# disk, so CPU is deliberately overcommitted (contention only slows jobs down,
+# it never kills them). By request, sandbox1 (4 CPU, its PVE host shared with
+# iam-spike-build) fits three and sandbox2 (8 CPU, ~2.6 CPU already requested
+# by OpenSandbox, the controller and the cache) fits five. POD_CAPACITY must
+# not exceed what fits, or the extra Pod stays Pending and its task fails after
+# the handoff deadline.
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -15,5 +17,5 @@ spec:
         cpu: "2"
         memory: 3Gi
       defaultRequest:
-        cpu: "2"
+        cpu: "1"
         memory: 1Gi

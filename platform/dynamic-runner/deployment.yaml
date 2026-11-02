@@ -43,10 +43,11 @@ spec:
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
-            # Members of the pod pool (with pod-sandbox) and the vm pool, each
-            # fetching from Gitea with its own registration; no scheduler or NATS.
+            # Member of the vm pool only, fetching from Gitea with its own
+            # registration. Pod jobs run on sandbox (pod-sandbox) to keep CI
+            # load off the laptop; the POD_* settings stay for a quick rollback.
             - name: COMPONENTS
-              value: kubernetes-worker,opensandbox-worker
+              value: opensandbox-worker
             - name: TASK_SOURCE
               value: gitea
             - name: GITEA_INSTANCE_URL
