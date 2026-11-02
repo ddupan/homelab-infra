@@ -4,7 +4,7 @@
 replicaCount: 1
 image:
   repository: ghcr.io/project-zot/zot
-  tag: v2.1.22@sha256:46f688dc26315a35a247e1784368829e66a67bf91de94c7d8d1645044fac1d5b
+  tag: v2.1.23@sha256:c17bdd6ee6217e0af5640694a719fea2f1006e69d60d593bac1d55de3d29265c
 persistence: false
 strategy:
   type: Recreate
