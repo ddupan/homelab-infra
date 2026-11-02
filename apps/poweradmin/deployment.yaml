@@ -30,7 +30,7 @@ spec:
       containers:
         - name: poweradmin
           # >= 4.2.5/4.3.4/4.4.0 required: earlier releases have an OIDC account-takeover bug.
-          image: poweradmin/poweradmin:4.4.1
+          image: poweradmin/poweradmin:4.5.1
           env:
             - name: DB_TYPE
               value: sqlite
