@@ -12,7 +12,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: spiffe-hardened
-      version: 0.30.2
+      version: 0.30.4
   dependsOn:
     - name: spire-crds
       namespace: spire-mgmt

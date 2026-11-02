@@ -31,7 +31,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: task-executor-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.1.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.2.0
           command: [/bin/sh, -c]
           args:
             - cp /workspace/server /opt/opensandbox/task-executor && chmod 0755 /opt/opensandbox/task-executor
@@ -39,7 +39,7 @@ spec:
             - name: opensandbox-bin
               mountPath: /opt/opensandbox
         - name: execd-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.22
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.1.0
           command: [/bin/sh, -c]
           args:
             - cp ./execd /opt/opensandbox/execd && cp ./bootstrap.sh /opt/opensandbox/bootstrap.sh && chmod 0755 /opt/opensandbox/execd /opt/opensandbox/bootstrap.sh
@@ -91,7 +91,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.15.3@sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff
+          image: ghcr.io/spiffe/spire-agent:1.15.5@sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481
           args: [-config, /run/spire/config/agent.conf]
           securityContext:
             allowPrivilegeEscalation: false
@@ -169,7 +169,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: task-executor-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.1.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.2.0
           command: [/bin/sh, -c]
           args:
             - cp /workspace/server /opt/opensandbox/task-executor && chmod 0755 /opt/opensandbox/task-executor
@@ -177,7 +177,7 @@ spec:
             - name: opensandbox-bin
               mountPath: /opt/opensandbox
         - name: execd-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.22
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.1.0
           command: [/bin/sh, -c]
           args:
             - cp ./execd /opt/opensandbox/execd && cp ./bootstrap.sh /opt/opensandbox/bootstrap.sh && chmod 0755 /opt/opensandbox/execd /opt/opensandbox/bootstrap.sh
@@ -228,7 +228,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.15.3@sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff
+          image: ghcr.io/spiffe/spire-agent:1.15.5@sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481
           args: [-config, /run/spire/config/agent.conf]
           securityContext:
             allowPrivilegeEscalation: false
@@ -249,7 +249,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: docker
-          image: docker.io/library/docker:29.1.5-dind
+          image: docker.io/library/docker:29.9.2-dind
           command: [/bin/sh, -c]
           args:
             - test -e /dev/kmsg || mknod /dev/kmsg c 1 11; exec dockerd --host=unix:///run/docker/docker.sock --group=2000 --storage-driver=overlay2
