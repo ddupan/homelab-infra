@@ -4,7 +4,10 @@
 replicaCount: 1
 image:
   repository: ghcr.io/project-zot/zot
-  tag: v2.1.23@sha256:c17bdd6ee6217e0af5640694a719fea2f1006e69d60d593bac1d55de3d29265c
+  # Index digest, not a per-platform one. The image ships freebsd/amd64 next to linux/amd64,
+  # and Renovate, updating a platform digest, matched on architecture only and pinned the
+  # FreeBSD build: exit 139 on start, zot down (2026-11-02). With the index the node picks.
+  tag: v2.1.23@sha256:9d3de83ac2099e6f4843045b4c9b65b7e8baf40f92d28f54906dee9d4d390fd7
 persistence: false
 strategy:
   type: Recreate
