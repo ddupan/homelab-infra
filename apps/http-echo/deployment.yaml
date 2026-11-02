@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: http-echo
-          image: hashicorp/http-echo:0.2.3
+          image: hashicorp/http-echo:1.0.0
           args:
             - '-text=hello from flux gitops canary'
           ports:
