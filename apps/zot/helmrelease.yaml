@@ -7,7 +7,7 @@ spec:
   chart:
     spec:
       chart: zot
-      version: 0.1.124
+      version: 0.1.130
       interval: 1h
       sourceRef:
         kind: HelmRepository
