@@ -1,0 +1,6 @@
+# 自定义本文件会替换 semgrep 的默认忽略列表，所以 tests/ 要自己写回来。
+:include .gitignore
+tests/
+
+# 退役服务，不再部署也不再修（与 renovate.json 的 ignorePaths 一致）。
+archive/

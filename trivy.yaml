@@ -1,0 +1,5 @@
+# security-scan（ci-actions）的仓库级设置。archive/ 是退役服务，不再部署也不再修
+# （与 renovate.json 的 ignorePaths 一致）。
+scan:
+  skip-dirs:
+    - archive
