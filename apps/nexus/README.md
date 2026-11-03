@@ -64,7 +64,8 @@ TF_VAR_nexus_password=<kv/infra/terraform/nexus 的 nexus_password>
 
 - `ansible-galaxy-proxy` → `https://galaxy.ansible.com`，`ansible-public` group
 - `go-proxy` → `https://proxy.golang.org`，`go-public` group
-- `oci-proxy` → Docker Hub（认证拉取，见下），`oci-public` group，`oci-hosted`
+- `oci-proxy` → Docker Hub（认证拉取，见下）、`oci-proxy-ghcr` → ghcr.io、`oci-proxy-k8s` → registry.k8s.io，
+  组成 `oci-public` group（按此顺序）；`oci-hosted`
 - LDAP 连接 `ad`、`LdapRealm`、内部 CA 进 Nexus truststore、`platform-admins` → `nx-admin`
 
 provider credential 不写入 HCL 或 tfvars。Nexus 已由 POC 转为正式使用；state 自 2026-10-04 起
