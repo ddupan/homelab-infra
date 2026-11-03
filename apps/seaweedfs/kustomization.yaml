@@ -9,6 +9,7 @@ resources:
   - httproute-admin.yaml
   - securitypolicy-admin.yaml
   - sso-external-secret.yaml
+  - s3-config-external-secret.yaml
   - networkpolicy-admin.yaml
 generatorOptions:
   disableNameSuffixHash: true

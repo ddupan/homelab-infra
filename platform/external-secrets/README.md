@@ -15,6 +15,6 @@ HelmRelease；合并后已确认 source Ready、release 仍为 revision 1，三�
 不变且零重启。第二阶段只移除 `suspend`，允许 Flux 修正 Helm stored ownership 并
 启用 drift detection；chart、values 和子 Kustomization 的 `prune: false` 均不变。
 
-`clustersecretstore.yaml` 和 `externalsecrets.yaml` 是现有 secret delivery intent，
-本阶段故意不把它们加入该 Kustomization，避免在 Helm release 接管时同时扩大 Flux
-ownership。Helm 接管稳定后再单独审计、纳管这些对象。
+`ClusterSecretStore/openbao` 由本 Kustomization 管理（2026-11-03 纳入；此前手工 apply，
+纳入前 `kubectl diff` 确认 spec 一致）。各 ExternalSecret 放在使用方自己的目录里，随其
+Kustomization 部署。

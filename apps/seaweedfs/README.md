@@ -49,7 +49,7 @@
 Bao `kv/k8s/zot-s3` 的 `access_key` / `secret_key`，同时供 zot consumer 和
 SeaweedFS 服务端使用。
 
-[ExternalSecret 模板](../../platform/external-secrets/externalsecrets.yaml) 保留
+[ExternalSecret 模板](s3-config-external-secret.yaml) 保留
 `kv/k8s/seaweedfs-s3` 的原有身份及其他配置，再追加 zot 身份与限定 bucket 的权限。
 基础配置当前版本不保存 zot AK/SK；旧 KV 版本历史仍保留。新增其他身份时使用
 KV compare-and-set 保留已有内容，不覆盖 Terraform 或其他应用的 AK/SK。
