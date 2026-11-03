@@ -41,8 +41,15 @@ data:
           processors: [memory_limiter, batch]
           exporters: [otlphttp/victoriatraces]
       telemetry:
+        # `metrics.address` is gone in newer collectors (0.164 refuses to start with it);
+        # `readers` is the replacement and is also accepted by 0.119.
         metrics:
-          address: 0.0.0.0:8888
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
 ---
 apiVersion: apps/v1
 kind: Deployment
