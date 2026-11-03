@@ -11,4 +11,5 @@ resources:
   - iam-login.yaml
   - research-auto.yaml
   - sandbox-k8s.yaml
+  - sandbox-postgresql.yaml
   - spire-server.yaml

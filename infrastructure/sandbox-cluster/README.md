@@ -57,7 +57,8 @@ K3s 使用外部 PostgreSQL（sandbox1、sandbox2 各一个成员），由 Patro
 DCS 是共享三成员 etcd（`infrastructure/etcd`），账号 `patroni-pg-sandbox` 只能读写
 `/homelab/patroni/pg-sandbox/`；两节点本身没有仲裁，第三票来自 etcd。
 
-VyOS 在 labnet gateway `10.60.0.1:5432` 提供固定 TCP 入口，backend 含两个成员，
+固定入口是 Ayatori LoadBalancer `sandbox/postgresql`（`clusters/ayatori-prod/sandbox-postgresql.yaml`），
+K3s 经 `pg-sandbox.lab.ddupan.top`（指向 LB Hostname 的 CNAME）连接。backend 含两个成员，
 以 Patroni REST `GET :8008/primary` 做健康检查，只有 leader 返回 200。切换后 K3s
 重连即到新主，无需改配置。REST 的写操作（switchover、restart）只接受成员自身地址。
 

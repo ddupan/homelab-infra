@@ -1,0 +1,26 @@
+# sandbox k3s 的 datastore 入口（Patroni pg-sandbox），自 VyOS HAProxy（10.60.0.1:5432）迁入。
+# 客户端用 pg-sandbox.lab.ddupan.top，它是指向本 LB Hostname 的 CNAME（infrastructure/dns/terraform/hosts.tf）。
+# 只把流量给答 /primary 200 的成员；成员被判失败时断开它的已有连接，旧主上的会话不会继续写。
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: Backend
+metadata: {name: postgresql, namespace: sandbox}
+spec:
+  endpoints:
+    - {address: 10.60.0.11, port: 5432}
+    - {address: 10.60.0.12, port: 5432}
+  healthCheck:
+    type: HTTP
+    port: 8008
+    path: /primary
+    # 与 VyOS 上的 inter 2s 相当：切主后约 6s 内转到新主。
+    interval: 2s
+    timeout: 1s
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+---
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: LoadBalancer
+metadata: {name: postgresql, namespace: sandbox}
+spec:
+  ports:
+    - {name: postgresql, port: 5432, backendRef: {name: postgresql}}

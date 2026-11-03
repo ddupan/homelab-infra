@@ -30,7 +30,7 @@ sandbox_base_packages:
 
 sandbox_postgresql_version: 16
 sandbox_postgresql_data_dir: /var/lib/postgresql/{{ sandbox_postgresql_version }}/main
-sandbox_postgresql_lb_address: 10.60.0.1
+sandbox_postgresql_lb_address: pg-sandbox.lab.ddupan.top
 sandbox_postgresql_database: k3s
 sandbox_postgresql_user: k3s
 sandbox_postgresql_replication_user: k3s_replication
