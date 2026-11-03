@@ -1,0 +1,90 @@
+{
+  "revision_id": "4e306a892c40fc2ddabb3c914c991304687b8db2dbfb3a769c86440d0e73df53",
+  "name": "ayatori-dev",
+  "run_list": [
+    "recipe[homelab_ayatori::adopt]",
+    "recipe[homelab_base::default]",
+    "recipe[homelab_ayatori::default]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_ayatori": {
+      "version": "0.1.0",
+      "identifier": "30c892a555648656248947dbe71da877052859a2",
+      "dotted_decimal_identifier": "13731331046728838.24247020031829789.185229141105058",
+      "cache_key": "homelab_ayatori-15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+        "branch": "feat/homelab-ayatori",
+        "rel": "cookbooks/homelab_ayatori"
+      }
+    },
+    "homelab_base": {
+      "version": "0.4.4",
+      "identifier": "996830448fc36d8a26246d0e9fbb0238e7c2afb8",
+      "dotted_decimal_identifier": "43180227954721645.38885484676423611.2443429719992",
+      "cache_key": "homelab_base-15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+        "branch": "feat/homelab-ayatori",
+        "rel": "cookbooks/homelab_base"
+      }
+    }
+  },
+  "default_attributes": {
+    "homelab_ayatori": {
+      "environment": "dev",
+      "release": "v0.3.0-rc.1",
+      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:2299a3033e64f65f31d48994d0576a03dcd928da6d54b035b3684e41b6c00d33",
+      "postgresql_instance": {
+        "name": "homelab-dev",
+        "host": "pg-dev.lab.ddupan.top",
+        "hostaddr": "192.168.10.127",
+        "port": 5433
+      },
+      "gitops": {
+        "url": "https://git.ddupan.top/panxiao81/homelab-infra.git",
+        "path": "./clusters/ayatori-dev"
+      },
+      "loadbalancer": {
+        "address_pool": "10.62.1.0/24",
+        "dns": {
+          "url": "http://192.168.10.127:8053",
+          "zone": "dev-lb.lab.ddupan.top"
+        }
+      }
+    }
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_ayatori",
+        ">= 0.0.0"
+      ],
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_ayatori (0.1.0)": [
+        [
+          "homelab_base",
+          ">= 0.0.0"
+        ]
+      ],
+      "homelab_base (0.4.4)": [
+
+      ]
+    }
+  }
+}
