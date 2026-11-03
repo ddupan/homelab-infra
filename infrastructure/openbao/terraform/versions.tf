@@ -1,14 +1,12 @@
 terraform {
   required_version = ">= 1.5"
   required_providers {
-    # NOTE: this targets OpenBao, but uses the HASHICORP VAULT provider.
-    # The native `openbao/openbao` provider is published to the OpenTofu
-    # registry, NOT registry.terraform.io, so it cannot be resolved by the
-    # HashiCorp `terraform` CLI in use here ("provider registry
-    # registry.terraform.io does not have a provider named openbao/openbao").
-    # OpenBao is API-compatible with Vault, so this provider drives it fine.
-    # If this repo ever switches to `tofu`, swap to openbao/openbao and rename
-    # the vault_* resources to openbao_*.
+    # NOTE: this targets OpenBao, but uses the HASHICORP VAULT provider: OpenBao has no
+    # provider of its own yet (checked 2026-11-03 — nothing on registry.opentofu.org or in the
+    # openbao GitHub org). RFC "Dedicated OpenTofu/Terraform provider" (openbao/openbao#3720,
+    # accepted 2026-09) plans a low-divergence fork of this provider, published to BOTH the
+    # Terraform and OpenTofu registries with the same vault_* resource names; switching will
+    # then be a source change plus `terraform state replace-provider`, no tofu migration.
     vault = {
       source  = "hashicorp/vault"
       version = "~> 5.0"
