@@ -38,6 +38,22 @@ resource "sonatyperepo_privilege_repository_view" "anonymous_oci_proxy" {
   repository  = "oci-proxy"
 }
 
+resource "sonatyperepo_privilege_repository_view" "anonymous_oci_ghcr" {
+  name        = "ci-anonymous-oci-ghcr-read"
+  description = "Anonymous read access to the ghcr.io OCI proxy member"
+  actions     = ["BROWSE", "READ"]
+  format      = "oci"
+  repository  = sonatyperepo_repository_oci_proxy.ghcr.name
+}
+
+resource "sonatyperepo_privilege_repository_view" "anonymous_oci_k8s" {
+  name        = "ci-anonymous-oci-k8s-read"
+  description = "Anonymous read access to the registry.k8s.io OCI proxy member"
+  actions     = ["BROWSE", "READ"]
+  format      = "oci"
+  repository  = sonatyperepo_repository_oci_proxy.k8s.name
+}
+
 resource "sonatyperepo_role" "anonymous_ci" {
   id          = "ci-anonymous-read"
   name        = "CI anonymous read"
@@ -48,6 +64,8 @@ resource "sonatyperepo_role" "anonymous_ci" {
     sonatyperepo_privilege_repository_view.anonymous_go.name,
     sonatyperepo_privilege_repository_view.anonymous_oci_public.name,
     sonatyperepo_privilege_repository_view.anonymous_oci_proxy.name,
+    sonatyperepo_privilege_repository_view.anonymous_oci_ghcr.name,
+    sonatyperepo_privilege_repository_view.anonymous_oci_k8s.name,
   ]
   roles = []
 }

@@ -45,11 +45,61 @@ resource "sonatyperepo_repository_oci_proxy" "docker_hub" {
   cosign  = { enforcement = "NONE" }
 }
 
+# ghcr.io 与 registry.k8s.io：CI 的 pod runner 不能直连它们（homelab-cookbooks 的 homelab_ayatori
+# Kitchen 要拉 ESO、Flux、kube-state-metrics），经 oci-public 组拉取。镜像都按 digest 引用，
+# 组内成员同名镜像不会混淆。匿名拉取不限流，不需要账号。
+resource "sonatyperepo_repository_oci_proxy" "ghcr" {
+  name   = "oci-proxy-ghcr"
+  online = true
+
+  http_client    = local.proxy_http_client
+  negative_cache = local.proxy_negative_cache
+  proxy = {
+    remote_url       = "https://ghcr.io"
+    content_max_age  = 1440
+    metadata_max_age = 60
+  }
+  oci = local.oci_path_routing
+  oci_proxy = {
+    index_type                  = "REGISTRY"
+    cache_foreign_layers        = false
+    foreign_layer_url_whitelist = []
+  }
+  storage = local.repository_storage
+  cosign  = { enforcement = "NONE" }
+}
+
+resource "sonatyperepo_repository_oci_proxy" "k8s" {
+  name   = "oci-proxy-k8s"
+  online = true
+
+  http_client    = local.proxy_http_client
+  negative_cache = local.proxy_negative_cache
+  proxy = {
+    remote_url       = "https://registry.k8s.io"
+    content_max_age  = 1440
+    metadata_max_age = 60
+  }
+  oci = local.oci_path_routing
+  oci_proxy = {
+    index_type                  = "REGISTRY"
+    cache_foreign_layers        = false
+    foreign_layer_url_whitelist = []
+  }
+  storage = local.repository_storage
+  cosign  = { enforcement = "NONE" }
+}
+
 resource "sonatyperepo_repository_oci_group" "public" {
   name   = "oci-public"
   online = true
 
-  group   = { member_names = [sonatyperepo_repository_oci_proxy.docker_hub.name] }
+  # Docker Hub 在前：没有 registry 前缀的镜像一直从这里来。
+  group = { member_names = [
+    sonatyperepo_repository_oci_proxy.docker_hub.name,
+    sonatyperepo_repository_oci_proxy.ghcr.name,
+    sonatyperepo_repository_oci_proxy.k8s.name,
+  ] }
   oci     = local.oci_path_routing
   storage = local.repository_storage
   cosign  = { enforcement = "NONE" }
