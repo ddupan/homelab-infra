@@ -50,7 +50,7 @@ OpenBao kv/k8s/zot-s3 ────┘                 → 完整 s3.config
 使用 ESO v2 模板追加 zot 身份。两个 Kubernetes Secret 都是自动生成的消费副本，
 不手工编辑。Bao 的旧版本历史保留，回滚基础配置时模板也会替换其中的旧 zot 身份。
 
-专用 S3 身份只有 `Read:zot`、`Write:zot`、`List:zot`、`Tagging:zot`，不能读取
+专用 S3 身份只有 `Read:zot`、`Write:zot`、`List:zot`、`Tagging:zot`、`WriteAcp:zot`（distribution 驱动每次写都带 `x-amz-acl: private`，SeaweedFS 4.52 起要求 WriteAcp），不能读取
 Terraform 的 `tfstate` bucket。`kv/k8s/zot-s3` 的字段是 `access_key` 和
 `secret_key`。AK/SK 不进入 Git、Helm values 或 CI；这里仍是静态 S3 凭据，尚未
 接入 SPIRE/STS。

@@ -45,7 +45,7 @@
 ## zot 制品存储
 
 `zot` bucket 专用于 [zot Registry](../zot/README.md)，OCI 数据位于 `registry/`
-前缀。静态身份 `zot` 只有该 bucket 的 Read/Write/List/Tagging 权限，凭据唯一来源为
+前缀。静态身份 `zot` 只有该 bucket 的 Read/Write/List/Tagging/WriteAcp 权限（WriteAcp：zot 写入时带 `x-amz-acl: private`，4.52 起需要它），凭据唯一来源为
 Bao `kv/k8s/zot-s3` 的 `access_key` / `secret_key`，同时供 zot consumer 和
 SeaweedFS 服务端使用。
 
