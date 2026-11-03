@@ -73,6 +73,9 @@
       Type=simple
       User=postgres
       Group=postgres
+      # The cluster predates Patroni and is SQL_ASCII; psycopg3 then returns
+      # text as bytes (slot names fail to compare). UTF8 needs no conversion.
+      Environment=PGCLIENTENCODING=UTF8
       ExecStart=/opt/patroni/bin/patroni /etc/patroni/patroni.yml
       ExecReload=/bin/kill -HUP $MAINPID
       KillMode=process
@@ -91,6 +94,18 @@
     owner: postgres
     group: postgres
     mode: "0644"
+
+# Patroni renames the data directory's postgresql.conf to postgresql.base.conf
+# and includes it. Debian keeps its config in /etc, so there is none to rename
+# and Patroni fails to start PostgreSQL; an empty base file skips the rename.
+- name: Provide the base configuration Patroni includes
+  ansible.builtin.copy:
+    dest: "{{ sandbox_postgresql_data_dir }}/postgresql.base.conf"
+    content: ""
+    force: false
+    owner: postgres
+    group: postgres
+    mode: "0600"
 
 - name: Check for a PostgreSQL still run by the Debian unit
   ansible.builtin.command:
