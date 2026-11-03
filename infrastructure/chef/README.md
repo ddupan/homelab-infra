@@ -5,9 +5,16 @@ cookbook 代码在 [homelab-cookbooks](https://git.ddupan.top/panxiao81/homelab-
 
 ## 模型
 
-- **没有 Cinc Server，也不自动应用。** `converge.py` 在 PR 合并后手动执行：从已提交的 lock
-  导出 policy 归档，经 SSH 并行推到各节点跑 `cinc-client -z`，日志按主机前缀实时输出，最后
-  打印汇总表，任一节点失败即非零退出。配置本身由 Cinc 完成。
+- **没有 Cinc Server；CI 执行，合并即 apply**（`.gitea/workflows/chef.yml`，与 terraform 一样以
+  main 为期望状态）。PR 上对受影响的节点 why-run 并把汇总贴成评论；合并后对同一范围 apply。
+  范围按改动计算：policy 的 `.rb`/lock 只影响自己的节点，`converge.py`、inventory 和 workflow
+  影响全部节点，README、测试、`enroll.yml` 不触发收敛。也可以手动触发（workflow_dispatch，
+  可选 limit，默认只 why-run）。
+- `converge.py` 从已提交的 lock 导出 policy 归档，经 SSH 并行推到各节点跑 `cinc-client -z`，
+  日志按主机前缀实时输出，最后打印汇总表，任一节点失败即非零退出。配置本身由 Cinc 完成。
+- **CI 的 SSH**：每个 job 生成临时 key，用 SPIFFE 身份（role `ci-converge`）向 Bao 签 30 分钟证书，
+  principal 为 `root,panxiao81`，与 inventory 的登录用户一致。主机密钥来自 `known_hosts`
+  （加入时与操作者已信任的记录核对），不做 TOFU。**新节点要同时加进 `known_hosts`。**
 - **`--why-run` 不改动任何节点。** 汇总表的数字是 Cinc 更新了（或将会更新）的 resource 数，
   "第二次 apply 全部为 0" 仍是验收标准。
 - **节点只需要能 SSH 进去**：客户端缺失或版本不对时，执行器按 omnitruck 公布的 sha256 下载
@@ -66,7 +73,7 @@ Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<
 | lb-dev-1、lb-dev-2 | loadbalancer-dev | 待部署 |
 | ayatori-dev | ayatori-dev | 迁移中（原 infrastructure/ayatori/ansible） |
 
-新节点：加进 `ansible/inventory/hosts.yml`，并把 `<名字>:9100` 加进
+新节点：加进 `ansible/inventory/hosts.yml` 和 `known_hosts`，并把 `<名字>:9100` 加进
 `platform/observability/metrics/scrapes/cinc-nodes.yaml`。
 
 ## 陷阱与已知限制
