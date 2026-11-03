@@ -21,9 +21,14 @@ resource "vault_ssh_secret_backend_role" "ai_agent" {
 }
 
 # Cinc converge from CI (infrastructure/chef/): the executor SSHes to each node as
-# root, bootstraps cinc-client and runs the policy. A separate role from ai-agent so
-# CI can never sign for any other principal — ai-agent's "*" is acceptable for a
-# human-supervised agent, not for anything a pull request can trigger.
+# the inventory's user, bootstraps cinc-client and runs the policy. A separate role
+# from ai-agent so CI can never sign for any other principal — ai-agent's "*" is
+# acceptable for a human-supervised agent, not for anything a pull request can trigger.
+#
+# Principals mirror how Ansible already logs in: root on PVE-built hosts, panxiao81
+# (+ NOPASSWD sudo) on Incus instances, whose cloud-init sets disable_root and
+# PermitRootLogin no. Both are root-equivalent, so this widens nothing; the cost is that
+# CI logins on Incus hosts are logged as panxiao81.
 resource "vault_ssh_secret_backend_role" "ci_converge" {
   backend  = vault_mount.ssh_client_signer.path
   name     = "ci-converge"
@@ -31,7 +36,7 @@ resource "vault_ssh_secret_backend_role" "ci_converge" {
 
   allow_user_certificates = true
   default_user            = "root"
-  allowed_users           = "root"
+  allowed_users           = "root,panxiao81"
 
   # sshd checks validity only at authentication, so this bounds how long a run may
   # take to *start* its connections, not how long a converge may last.
