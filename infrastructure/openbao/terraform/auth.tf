@@ -36,7 +36,7 @@ resource "vault_auth_backend" "sandbox_kubernetes" {
 
 resource "vault_kubernetes_auth_backend_config" "sandbox" {
   backend              = vault_auth_backend.sandbox_kubernetes.path
-  kubernetes_host      = "https://10.60.0.13:6443"
+  kubernetes_host      = "https://sandbox-k8s.lab.ddupan.top:6443"
   kubernetes_ca_cert   = file("${path.module}/certs/sandbox-kubernetes-ca.crt")
   disable_local_ca_jwt = true
 
