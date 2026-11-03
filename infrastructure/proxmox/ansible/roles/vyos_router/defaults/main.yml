@@ -60,16 +60,6 @@ vyos_sdn_interfaces:
       # retro-pdc -- an unanswering wins-server option is worse than the old one.
       wins: "10.61.0.5"
 
-# Stable K3s datastore endpoint. Only the declared writable primary is present
-# in the backend; PostgreSQL health checks must never be treated as promotion.
-vyos_postgresql_listen_address: "10.60.0.1"
-vyos_postgresql_port: 5432
-# Patroni members; only the one answering GET /primary with 200 gets traffic.
-vyos_postgresql_servers:
-  - {name: sandbox1, address: 10.60.0.11}
-  - {name: sandbox2, address: 10.60.0.12}
-vyos_patroni_api_port: 8008
-
 # 内置 Prometheus exporter（COVERAGE P6）。只听 LAN 地址：VyOS 没有配置 firewall，
 # 绑 0.0.0.0 会把指标也暴露到 SDN 网段和 wg42。集群 vmagent 经 LAN 抓取
 # （platform/observability/metrics/scrapes/vyos.yaml）。端口显式写出，不依赖发行版默认值。

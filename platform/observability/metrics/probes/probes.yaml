@@ -210,7 +210,6 @@ spec:
         probe_group: vyos
       static:
         - 192.168.10.2:5432    # pg-prod（生产 PostgreSQL，homelab-pg-proxy）
-        - 10.60.0.1:5432       # sandbox PostgreSQL
 ---
 # Ayatori LoadBalancer 上的入口（clusters/ayatori-prod）。按客户端用的名字探，CNAME、VIP、
 # BGP 宣告和后端一起验证。
