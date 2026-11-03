@@ -1,5 +1,5 @@
 {
-  "revision_id": "4e306a892c40fc2ddabb3c914c991304687b8db2dbfb3a769c86440d0e73df53",
+  "revision_id": "fe76941c8ba3fb1c07e8d5f00bc8b755cd9d07060255649df077f6556ae90fce",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,15 +11,15 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.1.0",
-      "identifier": "30c892a555648656248947dbe71da877052859a2",
-      "dotted_decimal_identifier": "13731331046728838.24247020031829789.185229141105058",
-      "cache_key": "homelab_ayatori-15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+      "version": "0.1.2",
+      "identifier": "2f533bd1f6c93cfb41d36e3fb4ac85c75dad372b",
+      "dotted_decimal_identifier": "13320840296188220.70722595497948332.147091316619051",
+      "cache_key": "homelab_ayatori-d1e325ce374d787842517efece0477db578c0bb7",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
-        "branch": "feat/homelab-ayatori",
+        "revision": "d1e325ce374d787842517efece0477db578c0bb7",
+        "tag": "v0.4.9",
         "rel": "cookbooks/homelab_ayatori"
       }
     },
@@ -27,12 +27,12 @@
       "version": "0.4.4",
       "identifier": "996830448fc36d8a26246d0e9fbb0238e7c2afb8",
       "dotted_decimal_identifier": "43180227954721645.38885484676423611.2443429719992",
-      "cache_key": "homelab_base-15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
+      "cache_key": "homelab_base-d1e325ce374d787842517efece0477db578c0bb7",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "15b2921d2435e61fa81b32d65aec92a7ef5f0b71",
-        "branch": "feat/homelab-ayatori",
+        "revision": "d1e325ce374d787842517efece0477db578c0bb7",
+        "tag": "v0.4.9",
         "rel": "cookbooks/homelab_base"
       }
     }
@@ -76,7 +76,7 @@
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.1.0)": [
+      "homelab_ayatori (0.1.2)": [
         [
           "homelab_base",
           ">= 0.0.0"
