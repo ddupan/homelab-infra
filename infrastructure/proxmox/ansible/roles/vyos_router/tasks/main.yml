@@ -10,16 +10,6 @@
   register: _vyos_running_commands
   changed_when: false
 
-- name: Remove obsolete HAProxy PostgreSQL protocol check
-  vyos.vyos.vyos_config:
-    lines:
-      - delete load-balancing haproxy backend sandbox-postgresql-primary health-check
-    save: true
-    comment: Remove unsupported PostgreSQL protocol check
-  when: >-
-    "set load-balancing haproxy backend sandbox-postgresql-primary health-check 'pgsql'"
-    in _vyos_running_commands.stdout[0]
-
 # OSPF was replaced by BGP to the IX (infrastructure/network/README.md). The set-lines
 # template cannot delete a node, so retire it here, once, together with the route-maps
 # that only fed it (their `set` lines lived in infrastructure/oci's vyos-site template).
@@ -35,20 +25,16 @@
     comment: Retire OSPF (replaced by BGP to the IX)
   when: "'set protocols ospf ' in _vyos_running_commands.stdout[0]"
 
-# sandbox-k8s（K3s API 6443 与 OpenSandbox 8080）已迁到 Ayatori LoadBalancer
-# （clusters/ayatori-prod/sandbox-k8s.yaml），客户端经 sandbox-k8s.lab.ddupan.top 的 CNAME 访问。
-# set-lines 模板删不掉节点，在这里一次性撤掉 VyOS 上的入口与 10.60.0.13/32。
-- name: Retire the sandbox-k8s frontends
+# VyOS 不再承载 HAProxy 入口：sandbox-k8s 与 sandbox-postgresql 都已迁到 Ayatori LoadBalancer
+# （clusters/ayatori-prod/sandbox-*.yaml），pg-prod 是独立的 homelab-pg-proxy，不在 CLI 配置里。
+# set-lines 模板删不掉节点，在这里一次性撤掉整个 load-balancing haproxy。
+- name: Retire the VyOS HAProxy frontends
   vyos.vyos.vyos_config:
     lines:
-      - delete load-balancing haproxy service sandbox-k3s-api
-      - delete load-balancing haproxy backend sandbox-k3s-api
-      - delete load-balancing haproxy service opensandbox-api
-      - delete load-balancing haproxy backend opensandbox-api
-      - delete interfaces ethernet eth1 address '10.60.0.13/32'
+      - delete load-balancing haproxy
     save: true
-    comment: sandbox-k8s moved to Ayatori LoadBalancer
-  when: "'set load-balancing haproxy service sandbox-k3s-api ' in _vyos_running_commands.stdout[0]"
+    comment: HAProxy frontends moved to Ayatori LoadBalancer
+  when: "'set load-balancing haproxy ' in _vyos_running_commands.stdout[0]"
 
 - name: Render the desired configuration
   ansible.builtin.set_fact:
@@ -75,18 +61,6 @@
   # as a change. Report changed ONLY when commands were actually issued,
   # otherwise real drift is indistinguishable from a routine backup.
   changed_when: (_vyos_cfg.commands | default([]) | length) > 0
-
-# The pre-Patroni backend pointed at one fixed server named `primary`. Removed only
-# after the Patroni members are in, so the endpoint never has an empty backend.
-- name: Remove the fixed sandbox PostgreSQL primary
-  vyos.vyos.vyos_config:
-    lines:
-      - delete load-balancing haproxy backend sandbox-postgresql-primary server primary
-    save: true
-    comment: Sandbox PostgreSQL follows the Patroni leader
-  when: >-
-    "set load-balancing haproxy backend sandbox-postgresql-primary server primary"
-    in _vyos_running_commands.stdout[0]
 
 - name: Show what changed
   ansible.builtin.debug:

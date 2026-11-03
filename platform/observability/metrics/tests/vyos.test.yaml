@@ -91,7 +91,7 @@ tests:
         severity: critical
       exp_annotations:
         summary: VyOS 上 isc-kea-dhcp4-server.service 未运行
-        description: frr = OSPF/BGP；haproxy = sandbox k3s API 与 sandbox PG；homelab-pg-proxy = 生产 pg-prod； kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
+        description: frr = OSPF/BGP；homelab-pg-proxy = 生产 pg-prod； kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
   - eval_time: 3m
     alertname: VyosServiceDown
