@@ -47,4 +47,8 @@ services:
     environment:
       VLOGS_ENDPOINT: ${VLOGS_ENDPOINT}
       HOST_LABEL: ${HOST_LABEL}
+      # Newer Vector (0.61) no longer expands ${VAR} in config files unless told to, and then
+      # fails on the literal "${VLOGS_ENDPOINT}" as a URI. The only interpolated value is
+      # the endpoint, not a secret. Older versions ignore the variable.
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"
     restart: unless-stopped
