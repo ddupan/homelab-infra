@@ -22,6 +22,11 @@ holds **192.168.10.127** (k3s ServiceLB); routing is by `Host` header.
    `curl -s 'localhost:9115/probe?module=http_2xx&target=https://<host>/<path>' | grep probe_success`.
    **Removing** a service means deleting its probe line too, or the stale target alerts
    (Hydra, 2026-10-05).
+4. **a homepage tile** (if people open it in a browser): add `gethomepage.dev/*`
+   annotations to the HTTPRoute — copy one from `../../apps/poweradmin/httproute.yaml`.
+   `href` is required in practice: without it Homepage derives the URL from
+   `hostnames[0]` and `rules[0].matches[0]`, which is the old `ad` name on most routes
+   and crashes on routes with no `matches`. See `../../apps/homepage/README.md`.
 
 No certificate work: the `:443` listener already serves the `*.ad.ddupan.top` wildcard
 from `../cert-manager`.

@@ -1,0 +1,37 @@
+# Only what has no HTTPRoute of its own to annotate. Anything served through Envoy
+# Gateway is listed by annotating its HTTPRoute instead (see README.md).
+- 基础设施:
+    - Proxmox VE:
+        href: https://pve1.ad.ddupan.top:8006/
+        icon: proxmox.svg
+        description: PVE 集群
+    - PVE 软驱:
+        href: https://pve1.ad.ddupan.top:8088/
+        icon: mdi-floppy
+        description: 给复古虚拟机换软盘
+    - OpenBao:
+        href: https://bao.lab.ddupan.top:8200/ui/
+        icon: openbao.svg
+        description: 密钥与内部 CA
+    - Incus:
+        href: https://incus.lab.ddupan.top/
+        icon: incus.svg
+        description: LXC 与虚拟机
+    - netboot.xyz:
+        href: http://192.168.10.127:3000/
+        icon: netbootxyz.svg
+        description: 网络启动菜单
+# Helm-chart routes: their charts render the HTTPRoute, so they are listed here.
+- 应用:
+    - Artifact Keeper:
+        href: https://artifacts.lab.ddupan.top/
+        icon: mdi-package-variant
+        description: 制品仓库
+        namespace: artifact-keeper
+        podSelector: app.kubernetes.io/name=artifact-keeper,app.kubernetes.io/component=web
+    - zot:
+        href: https://zot.lab.ddupan.top/
+        icon: mdi-docker
+        description: OCI 镜像仓库
+        namespace: zot
+        podSelector: app.kubernetes.io/instance=zot

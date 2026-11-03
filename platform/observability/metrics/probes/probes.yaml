@@ -28,6 +28,7 @@ spec:
         - https://grafana.lab.ddupan.top/api/health
         - https://nexus.lab.ddupan.top/service/rest/v1/status
         - https://dns.ad.ddupan.top/login
+        - https://home.lab.ddupan.top/api/healthcheck
         - https://s3.ad.ddupan.top/status
         - https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
         - https://spire-bundle.lab.ddupan.top/

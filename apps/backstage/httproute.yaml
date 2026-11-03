@@ -3,6 +3,13 @@ kind: HTTPRoute
 metadata:
   name: backstage
   namespace: backstage
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Backstage"
+    gethomepage.dev/group: "应用"
+    gethomepage.dev/icon: "backstage.svg"
+    gethomepage.dev/description: "服务目录"
+    gethomepage.dev/href: "https://backstage.lab.ddupan.top/"
 spec:
   parentRefs:
     # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.

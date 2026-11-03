@@ -1,0 +1,4 @@
+mode: cluster
+# Ingresses here are inert (no Ingress controller since Contour); only HTTPRoutes count.
+ingress: false
+gateway: true

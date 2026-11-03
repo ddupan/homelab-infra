@@ -1,0 +1,10 @@
+title: Homelab
+language: zh-CN
+theme: dark
+headerStyle: clean
+hideVersion: true
+# Groups fill in from discovered HTTPRoutes and services.yaml; this only fixes the order.
+layout:
+  应用:
+  平台:
+  基础设施:

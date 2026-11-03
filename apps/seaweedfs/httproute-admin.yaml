@@ -6,6 +6,14 @@ kind: HTTPRoute
 metadata:
   name: seaweedfs-admin
   namespace: seaweedfs
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "SeaweedFS"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "seaweedfs.svg"
+    gethomepage.dev/description: "对象存储管理"
+    gethomepage.dev/href: "https://seaweedfs-admin.lab.ddupan.top/"
+    gethomepage.dev/pod-selector: "app.kubernetes.io/name=seaweedfs,app.kubernetes.io/component=admin"
 spec:
   parentRefs:
     - name: eg
