@@ -1,0 +1,33 @@
+# sandbox k3s 的入口，自 VyOS HAProxy（10.60.0.13）迁入。客户端只用 sandbox-k8s.lab.ddupan.top，
+# 它是指向本 LB Hostname（k8s.sandbox.lb.lab.ddupan.top）的 CNAME（infrastructure/dns/terraform/hosts.tf），
+# VIP 由 Ayatori 分配，不写死。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sandbox
+---
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: Backend
+metadata: {name: k3s-api, namespace: sandbox}
+spec:
+  endpoints:
+    - {address: 10.60.0.11, port: 6443}
+    - {address: 10.60.0.12, port: 6443}
+---
+# OpenSandbox server 的 NodePort。
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: Backend
+metadata: {name: opensandbox-api, namespace: sandbox}
+spec:
+  endpoints:
+    - {address: 10.60.0.11, port: 30080}
+    - {address: 10.60.0.12, port: 30080}
+---
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: LoadBalancer
+metadata: {name: k8s, namespace: sandbox}
+spec:
+  ports:
+    - {name: k3s-api, port: 6443, backendRef: {name: k3s-api}}
+    # 沙箱创建与命令执行是长请求；VyOS 上同样是 600s。
+    - {name: opensandbox-api, port: 8080, backendRef: {name: opensandbox-api}, idleTimeout: 10m}
