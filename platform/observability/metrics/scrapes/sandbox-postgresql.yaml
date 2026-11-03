@@ -1,0 +1,16 @@
+# sandbox K3s datastore 的 Patroni 成员（infrastructure/sandbox-cluster）；
+# 与 pg-prod 一样走 VyOS 路由访问 labnet。GET /metrics 不受 restapi allowlist 限制。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: sandbox-postgresql
+  namespace: monitoring
+spec:
+  jobName: sandbox-postgresql-patroni
+  targetEndpoints:
+    - targets: [10.60.0.11:8008]
+      labels: {cluster: pg-sandbox, member: sandbox1}
+      interval: 15s
+    - targets: [10.60.0.12:8008]
+      labels: {cluster: pg-sandbox, member: sandbox2}
+      interval: 15s
