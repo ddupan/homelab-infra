@@ -8,7 +8,7 @@ metadata:
 spec:
   interval: 1h
   ref:
-    commit: a728202f97ae75a32757005af78e3697874d8c1d # chart 1.9.28
+    commit: 31cb97ce38856d42b5247ec98297a41fda2d9f61 # chart 1.9.28
   url: https://github.com/artifact-keeper/artifact-keeper-iac.git
   ignore: |
     /*
