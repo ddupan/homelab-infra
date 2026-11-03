@@ -115,8 +115,7 @@ spec:
       annotations:
         summary: VyOS 入口 {{ $labels.instance }} 不可达
         description: >-
-          192.168.10.2:5432 = pg-prod；10.60.0.13:6443 = sandbox k3s API；10.60.0.13:8080 = opensandbox；
-          10.60.0.1:5432 = sandbox PG。进程在跑而端口不通，多半是监听地址丢了（10.60.0.13 是 eth1 的 /32）。
+          192.168.10.2:5432 = pg-prod；10.60.0.1:5432 = sandbox PG。进程在跑而端口不通，多半是监听地址丢了。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: Dn42DnsFailing
       expr: probe_success{probe_group="dn42"} == 0

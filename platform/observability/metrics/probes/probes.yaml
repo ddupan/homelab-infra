@@ -210,9 +210,29 @@ spec:
         probe_group: vyos
       static:
         - 192.168.10.2:5432    # pg-prod（生产 PostgreSQL，homelab-pg-proxy）
-        - 10.60.0.13:6443      # sandbox k3s API
-        - 10.60.0.13:8080      # opensandbox API
         - 10.60.0.1:5432       # sandbox PostgreSQL
+---
+# Ayatori LoadBalancer 上的入口（clusters/ayatori-prod）。按客户端用的名字探，CNAME、VIP、
+# BGP 宣告和后端一起验证。
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: ayatori-lb-entrypoints
+  namespace: monitoring
+spec:
+  jobName: probe-ayatori-lb-entrypoints
+  module: tcp_connect
+  interval: 60s
+  scrapeTimeout: 15s
+  prober:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: ayatori-lb
+      static:
+        - sandbox-k8s.lab.ddupan.top:6443   # sandbox k3s API
+        - sandbox-k8s.lab.ddupan.top:8080   # opensandbox API
 ---
 # 连接池（infrastructure/shared-postgresql/ansible/pooler.yml）。直接探成员而不是 VyOS 的 :6432：
 # HAProxy 只看 Patroni /primary，主库上的 PgBouncer 挂了它照样转发，探入口只能证明 HAProxy 在听。

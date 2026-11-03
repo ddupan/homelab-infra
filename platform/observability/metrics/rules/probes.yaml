@@ -21,6 +21,17 @@ spec:
           从集群内经 CoreDNS → Envoy 访问失败。probe_http_status_code 看返回码：502/503 是后端，
           404 多半是 HTTPRoute 丢了，0 是 DNS/连接/证书。同时有多个入口失败时先查 Envoy 和 DNS。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    - alert: AyatoriLbEntrypointDown
+      expr: probe_success{probe_group="ayatori-lb"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: Ayatori LB 入口 {{ $labels.instance }} 不可达
+        description: >-
+          先看 ayatori-prod 上对应 LoadBalancer 的 Programmed 与 status.hosts，再看 VyOS 是否经 BGP
+          学到 VIP（show ip route 10.62.0.0/24 longer-prefixes）；都正常则是后端本身。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     # 内部名字解析是一切的前提，且绝不能依赖 WAN；坏了基本等于全 lab 不可用。
     - alert: DnsResolutionFailing
       expr: probe_success{probe_group="dns"} == 0

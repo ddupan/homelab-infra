@@ -65,8 +65,7 @@ sandbox_k3s_datastore_endpoint: >-
 server_config_yaml: |
   datastore-endpoint: {{ sandbox_k3s_datastore_endpoint }}
   # 写成单行：k3s-ansible 只在同一行找到 api_endpoint 时才不覆盖 tls-san。
-  # 10.60.0.13 是迁移前仍在用的 VyOS VIP，迁走后删除。
-  tls-san: [sandbox-k8s.lab.ddupan.top, 10.60.0.13]
+  tls-san: [sandbox-k8s.lab.ddupan.top]
   disable:
     - servicelb
     - traefik
