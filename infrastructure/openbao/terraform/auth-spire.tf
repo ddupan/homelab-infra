@@ -125,3 +125,25 @@ resource "vault_jwt_auth_backend_role" "ci_terraform" {
   token_ttl     = 1800
   token_max_ttl = 3600
 }
+
+# Cinc converge CI (infrastructure/chef/): job keys converge-* (why-run on PRs, apply
+# on main). Only an SSH signer for root on the converged nodes; the policy archive is
+# built in the job and needs no secret. Like ci-terraform, anyone who can open a PR
+# here can run why-run as root on those nodes — revisit with a second committer.
+resource "vault_jwt_auth_backend_role" "ci_converge" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "ci-converge"
+  role_type = "jwt"
+
+  user_claim        = "sub"
+  bound_audiences   = ["openbao"]
+  bound_claims_type = "glob"
+  bound_claims = {
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/converge-*"
+  }
+
+  token_policies          = [vault_policy.ci_converge.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}

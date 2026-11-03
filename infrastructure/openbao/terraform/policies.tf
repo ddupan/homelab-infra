@@ -77,3 +77,8 @@ resource "vault_policy" "ci_terraform_registry_publisher" {
   name   = "ci-terraform-registry-publisher"
   policy = file("${path.module}/policies/ci-terraform-registry-publisher.hcl")
 }
+
+resource "vault_policy" "ci_converge" {
+  name   = "ci-converge"
+  policy = file("${path.module}/policies/ci-converge.hcl")
+}
