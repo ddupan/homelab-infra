@@ -312,6 +312,25 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
+  name: homepage
+  description: Deployed by Flux from apps/homepage
+  annotations:
+    backstage.io/kubernetes-namespace: homepage
+    backstage.io/kubernetes-label-selector: "!backstage.io/none"
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/homepage/
+  links:
+    - url: https://home.lab.ddupan.top
+      title: Homepage
+      icon: dashboard
+spec:
+  type: website
+  owner: user:default/panxiao81
+  lifecycle: production
+  system: applications
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
   name: poweradmin
   description: Deployed by Flux from apps/poweradmin
   annotations:

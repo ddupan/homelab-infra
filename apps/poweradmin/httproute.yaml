@@ -3,6 +3,13 @@ kind: HTTPRoute
 metadata:
   name: poweradmin
   namespace: poweradmin
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Poweradmin"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "powerdns.svg"
+    gethomepage.dev/description: "DNS 记录"
+    gethomepage.dev/href: "https://dns.lab.ddupan.top/"
 spec:
   parentRefs:
     - name: eg

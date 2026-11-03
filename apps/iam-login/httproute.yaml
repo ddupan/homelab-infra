@@ -5,6 +5,14 @@ kind: HTTPRoute
 metadata:
   name: iam-login
   namespace: iam-login
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "SSO"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "mdi-account-key"
+    gethomepage.dev/description: "账号与两步验证"
+    gethomepage.dev/href: "https://sso.ddupan.top/console"
+    gethomepage.dev/pod-selector: "app=iam-login"
 spec:
   parentRefs:
     - name: eg

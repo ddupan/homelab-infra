@@ -26,6 +26,7 @@ resources:
   - apps/seaweedfs.yaml
   - apps/iam-login.yaml
   - apps/poweradmin.yaml
+  - apps/homepage.yaml
   - apps/external-dns.yaml
   - apps/tailscale.yaml
   - apps/cloudflared.yaml

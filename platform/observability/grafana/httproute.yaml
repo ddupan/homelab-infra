@@ -4,6 +4,14 @@ kind: HTTPRoute
 metadata:
   name: grafana-lan
   namespace: monitoring
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Grafana"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "grafana.svg"
+    gethomepage.dev/description: "监控与日志"
+    gethomepage.dev/href: "https://grafana.lab.ddupan.top/"
+    gethomepage.dev/app: "grafana"
 spec:
   parentRefs:
     # lab.ddupan.top (PowerDNS); external-dns publishes the record. See infrastructure/dns/README.md.
