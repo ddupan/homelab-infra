@@ -60,6 +60,7 @@ Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<
 | etcd-pve2 | base | 2026-10-09 |
 | lb-prod-1、lb-prod-2 | loadbalancer-prod | 待部署 |
 | lb-dev-1、lb-dev-2 | loadbalancer-dev | 待部署 |
+| ayatori-dev | ayatori-dev | 迁移中（原 infrastructure/ayatori/ansible） |
 
 新节点：加进 `ansible/inventory/hosts.yml`，并把 `<名字>:9100` 加进
 `platform/observability/metrics/scrapes/cinc-nodes.yaml`。

@@ -1,5 +1,8 @@
 # Ayatori 控制面部署
 
+> **迁移中**：ayatori-dev 已改由 Chef 部署（`infrastructure/chef/`，policy `ayatori-dev`，cookbook
+> homelab-cookbooks 的 `homelab_ayatori`），本目录只剩 prod；prod 迁移后删除本目录。
+
 部署逻辑是 Ayatori 仓库的 role `panxiao81.ayatori.control_plane`，按 release tag 安装；
 本目录只声明环境：主机、`ayatori_environment`、该环境的 PostgreSQL 实例，以及 Flux 同步的
 GitOps 目录 `clusters/ayatori-<env>`（`ayatori_gitops`，需 role ≥ v0.1.1）。role 的行为、

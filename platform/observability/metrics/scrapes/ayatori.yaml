@@ -11,7 +11,7 @@ spec:
   jobName: ayatori-node
   targetEndpoints:
     - targets: ['192.168.10.11:9100']
-      labels: {cluster: ayatori-dev, env: dev}
+      labels: {cluster: ayatori-dev, env: dev, node: ayatori-dev}
     - targets: ['192.168.10.12:9100']
       labels: {cluster: ayatori-prod, env: prod}
 ---
