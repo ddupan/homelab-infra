@@ -57,8 +57,9 @@
       "prBodyNotes": ["⚠️ **合并前**：本地 terraform 先升到同一版本。CI 用新 CLI 写过的 state，本地旧版本读不了。"]
     },
     {
-      "description": "Sidecar must follow the bao server (openbao_version, Ansible, checksum-pinned). The PR carries the steps; nothing merges itself.",
+      "description": "Sidecar must follow the bao server (openbao_version, Ansible, checksum-pinned). The PR carries the steps; nothing merges itself. Own group: the observability group (by path) would otherwise swallow it.",
       "matchPackageNames": ["quay.io/openbao/openbao"],
+      "groupName": "openbao",
       "commitMessageSuffix": "(需手动步骤)",
       "prBodyNotes": ["⚠️ **这只是 vmagent 的 sidecar。** 先用 Ansible 升 bao 服务器（`infrastructure/openbao/ansible/group_vars/all/vars.yml` 的 `openbao_version` 与 `openbao_download_checksum`），再合并本 PR。"]
     },
