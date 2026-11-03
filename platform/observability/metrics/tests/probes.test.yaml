@@ -114,3 +114,26 @@ tests:
         summary: 黑盒探测 probe-dns-dc1 无法抓取
         description: blackbox-exporter 不可达时以上所有探测告警都不会触发；查 monitoring/blackbox-exporter Pod。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: Ayatori LB 入口三分钟不通即为 critical
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-ayatori-lb-entrypoints",instance="sandbox-k8s.lab.ddupan.top:6443",probe_group="ayatori-lb"}
+    values: 0x6
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: AyatoriLbEntrypointDown
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: AyatoriLbEntrypointDown
+    exp_alerts:
+    - exp_labels:
+        job: probe-ayatori-lb-entrypoints
+        instance: sandbox-k8s.lab.ddupan.top:6443
+        probe_group: ayatori-lb
+        severity: critical
+      exp_annotations:
+        summary: Ayatori LB 入口 sandbox-k8s.lab.ddupan.top:6443 不可达
+        description: >-
+          先看 ayatori-prod 上对应 LoadBalancer 的 Programmed 与 status.hosts，再看 VyOS 是否经 BGP
+          学到 VIP（show ip route 10.62.0.0/24 longer-prefixes）；都正常则是后端本身。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

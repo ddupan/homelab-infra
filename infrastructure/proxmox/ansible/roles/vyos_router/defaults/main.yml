@@ -70,22 +70,6 @@ vyos_postgresql_servers:
   - {name: sandbox2, address: 10.60.0.12}
 vyos_patroni_api_port: 8008
 
-# Stable API endpoint for the two-node sandbox K3s control plane. HAProxy owns
-# this /32 on the existing labnet interface and performs only TCP health checks.
-vyos_sandbox_k3s_api_address: "10.60.0.13"
-vyos_sandbox_k3s_api_interface: eth1
-vyos_sandbox_k3s_api_port: 6443
-vyos_opensandbox_api_port: 8080
-vyos_opensandbox_node_port: 30080
-# Lifecycle create is synchronous and a cold Kata image pull can exceed the
-# HAProxy 50-second default. Keep this below OpenSandbox's overall timeout.
-vyos_opensandbox_api_timeout: 600
-vyos_sandbox_k3s_servers:
-  - name: sandbox1
-    address: "10.60.0.11"
-  - name: sandbox2
-    address: "10.60.0.12"
-
 # 内置 Prometheus exporter（COVERAGE P6）。只听 LAN 地址：VyOS 没有配置 firewall，
 # 绑 0.0.0.0 会把指标也暴露到 SDN 网段和 wg42。集群 vmagent 经 LAN 抓取
 # （platform/observability/metrics/scrapes/vyos.yaml）。端口显式写出，不依赖发行版默认值。

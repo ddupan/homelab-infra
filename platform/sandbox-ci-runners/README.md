@@ -29,7 +29,7 @@ daemon。Kata VM 中的 workflow 必须先把稀疏 ext4 镜像 loop-mount 到
 - OpenSandbox chart 和 CRD 已 Ready；
 - RuntimeClass `kata-clh-runtime-rs` 已存在；
 - 中央 SPIRE 已发布 `ConfigMap/opensandbox/spire-bundle-pem`；
-- `sandbox-k8s.lab.ddupan.top:8080`（当前是 VyOS `10.60.0.13`）转发 sandbox1/2 的 NodePort `30080`；
+- `sandbox-k8s.lab.ddupan.top:8080`（Ayatori LoadBalancer）转发 sandbox1/2 的 NodePort `30080`；
 - runner/controller 镜像均使用 Zot digest，而不是可变 tag。
 
 本目录不读取 OpenBao，也不修改 OpenSandbox 平台侧 ExternalSecret、ClusterSecretStore

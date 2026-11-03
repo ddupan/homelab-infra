@@ -35,6 +35,21 @@
     comment: Retire OSPF (replaced by BGP to the IX)
   when: "'set protocols ospf ' in _vyos_running_commands.stdout[0]"
 
+# sandbox-k8s（K3s API 6443 与 OpenSandbox 8080）已迁到 Ayatori LoadBalancer
+# （clusters/ayatori-prod/sandbox-k8s.yaml），客户端经 sandbox-k8s.lab.ddupan.top 的 CNAME 访问。
+# set-lines 模板删不掉节点，在这里一次性撤掉 VyOS 上的入口与 10.60.0.13/32。
+- name: Retire the sandbox-k8s frontends
+  vyos.vyos.vyos_config:
+    lines:
+      - delete load-balancing haproxy service sandbox-k3s-api
+      - delete load-balancing haproxy backend sandbox-k3s-api
+      - delete load-balancing haproxy service opensandbox-api
+      - delete load-balancing haproxy backend opensandbox-api
+      - delete interfaces ethernet eth1 address '10.60.0.13/32'
+    save: true
+    comment: sandbox-k8s moved to Ayatori LoadBalancer
+  when: "'set load-balancing haproxy service sandbox-k3s-api ' in _vyos_running_commands.stdout[0]"
+
 - name: Render the desired configuration
   ansible.builtin.set_fact:
     _vyos_lines: >-

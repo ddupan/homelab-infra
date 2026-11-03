@@ -15,20 +15,6 @@ set interfaces ethernet {{ i.iface }} address {{ i.address }}
 set interfaces ethernet {{ i.iface }} description '{{ i.description }}'
 {% endfor %}
 
-{# OpenSandbox stays on a NodePort; VyOS owns the stable routed frontend. #}
-set load-balancing haproxy service opensandbox-api listen-address {{ vyos_sandbox_k3s_api_address }}
-set load-balancing haproxy service opensandbox-api port {{ vyos_opensandbox_api_port }}
-set load-balancing haproxy service opensandbox-api mode 'tcp'
-set load-balancing haproxy service opensandbox-api backend 'opensandbox-api'
-set load-balancing haproxy service opensandbox-api timeout client {{ vyos_opensandbox_api_timeout }}
-set load-balancing haproxy backend opensandbox-api mode 'tcp'
-set load-balancing haproxy backend opensandbox-api timeout server {{ vyos_opensandbox_api_timeout }}
-{% for server in vyos_sandbox_k3s_servers %}
-set load-balancing haproxy backend opensandbox-api server {{ server.name }} address {{ server.address }}
-set load-balancing haproxy backend opensandbox-api server {{ server.name }} port {{ vyos_opensandbox_node_port }}
-set load-balancing haproxy backend opensandbox-api server {{ server.name }} check
-{% endfor %}
-
 {# --- default route out; BGP to the IX carries the rest --- #}
 set protocols static route 0.0.0.0/0 next-hop {{ vyos_lan_gateway }}
 
@@ -91,19 +77,6 @@ set load-balancing haproxy backend sandbox-postgresql-primary http-check expect 
 set load-balancing haproxy backend sandbox-postgresql-primary server {{ server.name }} address {{ server.address }}
 set load-balancing haproxy backend sandbox-postgresql-primary server {{ server.name }} port {{ vyos_postgresql_port }}
 set load-balancing haproxy backend sandbox-postgresql-primary server {{ server.name }} check port {{ vyos_patroni_api_port }}
-{% endfor %}
-
-{# --- Sandbox K3s API: stable address with both control-plane nodes --- #}
-set interfaces ethernet {{ vyos_sandbox_k3s_api_interface }} address '{{ vyos_sandbox_k3s_api_address }}/32'
-set load-balancing haproxy service sandbox-k3s-api listen-address {{ vyos_sandbox_k3s_api_address }}
-set load-balancing haproxy service sandbox-k3s-api port {{ vyos_sandbox_k3s_api_port }}
-set load-balancing haproxy service sandbox-k3s-api mode 'tcp'
-set load-balancing haproxy service sandbox-k3s-api backend 'sandbox-k3s-api'
-set load-balancing haproxy backend sandbox-k3s-api mode 'tcp'
-{% for server in vyos_sandbox_k3s_servers %}
-set load-balancing haproxy backend sandbox-k3s-api server {{ server.name }} address {{ server.address }}
-set load-balancing haproxy backend sandbox-k3s-api server {{ server.name }} port {{ vyos_sandbox_k3s_api_port }}
-set load-balancing haproxy backend sandbox-k3s-api server {{ server.name }} check
 {% endfor %}
 
 {# --- management --- #}

@@ -170,8 +170,9 @@ WAN 没有 IPv6，因此 IPv6 只在内部使用，地址取本站 dn42 ULA `fdd
    （IX 不改写第三方下一跳），所以无需与 VyOS 单独建邻居。VyOS、IX、laptop 上的 OSPF 已删除。
    VyOS 自身的 dn42 段 172.21.111.160/27 不单独宣告，由 OCI 学来的 172.20.0.0/14 覆盖：
    OCI 是去 dn42 的唯一出口，会话断开时这个段本来就没有意义，随汇总一起撤回是对的。
-2. **VyOS 上的 HAProxy 服务**：sandbox-postgresql（10.60.0.1:5432）、sandbox-k3s-api 与
-   opensandbox-api（10.60.0.13）。LoadBalancer 上线后迁走，删除 10.60.0.13/32。
+2. **VyOS 上的 HAProxy 服务**：sandbox-postgresql（10.60.0.1:5432）待迁到 Ayatori LoadBalancer。
+   ~~sandbox-k3s-api 与 opensandbox-api（10.60.0.13）~~（2026-11-03 完成）：已迁到 `sandbox/k8s`，
+   客户端经 `sandbox-k8s.lab.ddupan.top` 的 CNAME 访问。
 3. **pg-prod 解析到 VyOS（192.168.10.2）。** 随上一条一起改为 VIP。
 4. ~~IX 的 laptop 邻居未过滤~~（2026-10-16 完成）：IX 对 laptop 用入方向 prefix 过滤，只收 NAIST 两条。
 5. **docker 自动分配会撞 dn42。** docker 默认地址池含 172.17–172.31，laptop 已自动用到
