@@ -25,4 +25,11 @@ resource "vault_cert_auth_backend_role" "etcd_renewal" {
   token_no_default_policy = true
   token_ttl               = 600
   token_max_ttl           = 900
+
+  # Vault provider v5 sends these Vault 1.16 fields; OpenBao 2.6.1 cert auth has neither
+  # (only ocsp_enabled / ocsp_query_all_servers), so they never read back and every plan
+  # would re-add them. Drop once OpenBao or its own provider (see openbao versions.tf) has them.
+  lifecycle {
+    ignore_changes = [ocsp_max_retries, ocsp_this_update_max_age]
+  }
 }
