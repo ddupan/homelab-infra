@@ -37,8 +37,8 @@ env:
   # 共用一份，并经 actions/cache 跨运行保留，命中时 init 只建符号链接。
   TF_PLUGIN_CACHE_DIR: /tmp/tf-plugin-cache
 
-# validate 只在 PR 上跑：-backend=false，不碰 state、不需要凭据；未接入 TF_ROOTS 的目录也校验。
-# 合并后的 apply 不再重复，配置若无效，apply 自己的 init/plan 同样会失败。
+# fmt 检查全部目录；validate 只给未接入 TF_ROOTS 的目录（-backend=false，不碰 state、不需要
+# 凭据），接入的由 plan 校验。只在 PR 上跑：合并后配置若无效，apply 自己的 plan 同样会失败。
 jobs:
   # job id 是 SPIFFE ID 的一部分：bao role ci-terraform 只接受
   # spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-*，改名会登录失败。
@@ -68,6 +68,9 @@ jobs:
           for d in $(git ls-files '*.tf' | xargs -n1 dirname | sort -u); do
             echo "::group::$d"
             terraform -chdir="$d" fmt -check -diff || rc=1
+            # TF_ROOTS 里的 root 随后由 plan 校验，这里再 validate 一遍只是多启动一次
+            # provider（aws 单个就要 40s）。
+            case " $(echo $TF_ROOTS) " in *" $d "*) echo "::endgroup::"; continue ;; esac
             for i in 1 2 3; do
               terraform -chdir="$d" init -backend=false -input=false && break
               [ $i = 3 ] && rc=1; sleep 10
