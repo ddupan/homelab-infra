@@ -1,0 +1,38 @@
+---
+# ddupan.homelab collection 的 sanity/unit 测试。单独成 workflow 是为了只在 collection
+# 改动时才跑：它每次都要重建 ansible-test 的 venv（约 2 分钟），而 collection 很少改动。
+name: ansible-collection
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/samba-ad/ansible/collections/**'
+      - '.gitea/workflows/ansible-collection.yml'
+  pull_request:
+    paths:
+      - 'infrastructure/samba-ad/ansible/collections/**'
+      - '.gitea/workflows/ansible-collection.yml'
+
+jobs:
+  collection-test:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+
+      - name: Install ansible-core
+        run: |
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install ansible-core --quiet
+
+      - name: Run ansible-test
+        working-directory: infrastructure/samba-ad/ansible/collections/ansible_collections/ddupan/homelab
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ansible-test sanity --venv --requirements --python 3.12 --color no
+          ansible-test units --venv --requirements --python 3.12 --color no

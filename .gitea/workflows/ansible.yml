@@ -27,68 +27,75 @@ jobs:
           pypi: 'true'
           ansible: 'true'
 
-      - name: Bootstrap uv
+      - name: Pick projects
+        # ansible-lint 锁住整个仓库根，同一 job 内无法并行，而全量串行要几分钟；PR 只 lint
+        # 改到的项目，main 和 lint 配置变更时全量。与 base 分支最新提交比较而不是 merge-base
+        # （浅克隆，全量历史近 10 GiB）：main 在分叉后又改过的项目会被多选，只是多跑。
+        # ayatori 依赖其仓库发布的 collection，且正迁往 Chef，不纳入。
         run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "ANSIBLE_COLLECTIONS_PATH=$HOME/.ansible/collections" >> "$GITHUB_ENV"
+          all=$(ls -d infrastructure/*/ansible | grep -v '^infrastructure/ayatori/' | xargs -n1 dirname)
+          projects=$all
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && git fetch -q --depth=1 origin "$GITHUB_BASE_REF"; then
+            changed=$(git diff --name-only FETCH_HEAD HEAD)
+            if ! grep -qxE '\.ansible-lint|\.gitea/workflows/ansible\.yml' <<<"$changed"; then
+              projects=$(for p in $all; do grep -q "^$p/" <<<"$changed" && echo "$p"; done || true)
+            fi
+          fi
+          echo "PROJECTS=$(echo $projects)" >> "$GITHUB_ENV"
+          echo "lint: ${projects:-（无）}"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-ansible-lint-${{ hashFiles('.gitea/workflows/ansible.yml') }}
+          restore-keys: uv-ansible-lint-
+
+      - uses: actions/cache@v6
+        id: collections
+        with:
+          path: ~/.ansible/projects
+          key: ansible-collections-${{ hashFiles('infrastructure/*/ansible/requirements.yml') }}
 
       - name: Install ansible-lint and collections
+        if: env.PROJECTS != ''
+        # 每个项目的 collections 装到各自目录：各项目钉的版本不同，装进同一目录会互相覆盖。
         run: |
-          for i in 1 2 3 4 5; do
-            uv tool install ansible-core --with paramiko --with pywinrm --quiet && break
-            echo "attempt $i failed"; sleep 10
-          done
-          for i in 1 2 3 4 5; do
-            uv tool install ansible-lint --quiet && break
-            echo "attempt $i failed"; sleep 10
-          done
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           export PATH="$HOME/.local/bin:$PATH"
-          for p in infrastructure/proxmox infrastructure/samba-ad infrastructure/openbao; do
-            ansible-galaxy collection install \
-              -r "$p/ansible/requirements.yml" -p "$ANSIBLE_COLLECTIONS_PATH"
+          for i in 1 2 3 4 5; do
+            uv tool install ansible-core --with paramiko --with pywinrm --quiet \
+              && uv tool install ansible-lint --quiet && break
+            echo "attempt $i failed"; sleep 10
+          done
+          [ '${{ steps.collections.outputs.cache-hit }}' = true ] && exit 0
+          for r in infrastructure/*/ansible/requirements.yml; do
+            p=$(basename "$(dirname "$(dirname "$r")")")
+            for i in 1 2 3; do
+              ansible-galaxy collection install -r "$r" -p "$HOME/.ansible/projects/$p" && break
+              [ $i = 3 ] && exit 1; sleep 10
+            done
           done
 
       - name: ansible-lint
+        if: env.PROJECTS != ''
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:$HOME/.ansible/collections"
           # 静态检查不应依赖生产 vault 凭据。一次性 checkout 可以去掉加密变量文件；
           # syntax-check 只验证结构，不需要解析变量的运行时值。
-          rm -f \
-            infrastructure/openbao/ansible/group_vars/all/vault.yml \
-            infrastructure/samba-ad/ansible/group_vars/all/vault.yml
+          git grep -lz '^\$ANSIBLE_VAULT' | xargs -0r rm -f
           # ansible.cfg still declares vault_password_file. Even with encrypted
           # vars removed, ansible-lint validates that the configured file exists
           # before syntax-check starts. This throwaway value decrypts nothing.
           export ANSIBLE_VAULT_PASSWORD_FILE="$RUNNER_TEMP/ansible-lint-vault-pass"
           printf '%s\n' 'ci-placeholder-not-a-production-secret' > "$ANSIBLE_VAULT_PASSWORD_FILE"
+          # 自己的 collections 优先；没有 requirements.yml 的项目（docker、oci 等）回落到
+          # 其余项目装好的那些。
+          others=$(ls -d "$HOME"/.ansible/projects/* 2>/dev/null | tr '\n' ':')
           rc=0
-          for p in infrastructure/openbao infrastructure/samba-ad infrastructure/proxmox; do
+          for p in $PROJECTS; do
             echo "::group::$p"
+            export ANSIBLE_COLLECTIONS_PATH="$PWD/infrastructure/samba-ad/ansible/collections:$HOME/.ansible/projects/$(basename "$p"):$others"
             (cd "$p/ansible" && ansible-lint -c ../../../.ansible-lint --nocolor -f pep8 .) || rc=1
             echo "::endgroup::"
           done
           exit $rc
-
-  collection-test:
-    runs-on: [self-hosted, pod]
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
-        with:
-          pypi: 'true'
-
-      - name: Install ansible-core
-        run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
-          export PATH="$HOME/.local/bin:$PATH"
-          uv tool install ansible-core --quiet
-
-      - name: Run ansible-test
-        working-directory: infrastructure/samba-ad/ansible/collections/ansible_collections/ddupan/homelab
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          ansible-test sanity --venv --requirements --python 3.12 --color no
-          ansible-test units --venv --requirements --python 3.12 --color no

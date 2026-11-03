@@ -33,12 +33,12 @@ env:
     apps/seaweedfs/terraform
     apps/iam-login/terraform
 
-  # 耗时几乎全在解压 provider（aws 解压后 789MB，laptop 上 40s+），不在 root 数量。
-  # 同一 job 内各 root 共用一份；validate 不再单独起 job，否则每次运行都要全部解压两遍。
+  # 耗时几乎全在解压 provider（aws 解压后 789MB），不在 root 数量。同一 job 内各 root
+  # 共用一份，并经 actions/cache 跨运行保留，命中时 init 只建符号链接。
   TF_PLUGIN_CACHE_DIR: /tmp/tf-plugin-cache
 
-# validate 放在 plan/apply 各自的 job 里先跑：它的 init 装好的 provider 被随后带 backend
-# 的 init 直接复用。-backend=false，所以不碰 state、不需要凭据；未接入 TF_ROOTS 的目录也校验。
+# validate 只在 PR 上跑：-backend=false，不碰 state、不需要凭据；未接入 TF_ROOTS 的目录也校验。
+# 合并后的 apply 不再重复，配置若无效，apply 自己的 init/plan 同样会失败。
 jobs:
   # job id 是 SPIFFE ID 的一部分：bao role ci-terraform 只接受
   # spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-*，改名会登录失败。
@@ -55,6 +55,12 @@ jobs:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
           terraform_version: v1.17.1
           terraform_wrapper: false
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/tf-plugin-cache
+          key: tf-providers-${{ hashFiles('**/.terraform.lock.hcl') }}
+          # ponytail: restore-keys 让旧版本 provider 在缓存里累积；体积明显变大时清掉这个缓存即可。
+          restore-keys: tf-providers-
       - name: fmt and validate
         # 重试同 init：provider 走 WAN 镜像，会随机失败。
         run: |
@@ -119,21 +125,12 @@ jobs:
         with:
           terraform_version: v1.17.1
           terraform_wrapper: false
-      - name: fmt and validate
-        # 重试同 init：provider 走 WAN 镜像，会随机失败。
-        run: |
-          mkdir -p "$TF_PLUGIN_CACHE_DIR"; rc=0
-          for d in $(git ls-files '*.tf' | xargs -n1 dirname | sort -u); do
-            echo "::group::$d"
-            terraform -chdir="$d" fmt -check -diff || rc=1
-            for i in 1 2 3; do
-              terraform -chdir="$d" init -backend=false -input=false && break
-              [ $i = 3 ] && rc=1; sleep 10
-            done
-            terraform -chdir="$d" validate || rc=1
-            echo "::endgroup::"
-          done
-          exit $rc
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/tf-plugin-cache
+          key: tf-providers-${{ hashFiles('**/.terraform.lock.hcl') }}
+          # ponytail: restore-keys 让旧版本 provider 在缓存里累积；体积明显变大时清掉这个缓存即可。
+          restore-keys: tf-providers-
       - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-terraform
@@ -141,6 +138,7 @@ jobs:
       - name: apply
         run: |
           set -euo pipefail
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
           for r in $TF_ROOTS; do
             echo "::group::$r"
             for i in 1 2 3; do

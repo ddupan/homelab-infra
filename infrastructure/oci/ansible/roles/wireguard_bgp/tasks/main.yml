@@ -103,7 +103,7 @@
     owner: root
     group: root
     mode: '0600'
-  when: wg_key_file.stat.exists and (hostvars[wg_peer_host].wg_key_file | default({"stat":{"exists":false}})).stat.exists
+  when: wg_key_file.stat.exists and (hostvars[wg_peer_host].wg_key_file.stat.exists | default(false))
   notify: 重启 WireGuard
 
 - name: 启动 WireGuard
