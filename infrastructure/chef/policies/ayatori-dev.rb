@@ -12,10 +12,9 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 end
 
 default['homelab_ayatori']['environment'] = 'dev'
-# Flux 跟随的 Ayatori release；manager 镜像暂用 Ayatori PR #80 的构建（ADR-0021 客户端证书，
-# 基于 v0.3.0-rc.1），PR 进入 release 后换成 release 镜像的 digest。
-default['homelab_ayatori']['release'] = 'v0.3.0-rc.1'
-default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:2299a3033e64f65f31d48994d0576a03dcd928da6d54b035b3684e41b6c00d33'
+# Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。
+default['homelab_ayatori']['release'] = 'v0.3.0-rc.3'
+default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:931825920487c5d292e152163af3bb46cc95d3f52b418f40dbb1fe60eeb35053'
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-dev',
   'host' => 'pg-dev.lab.ddupan.top',
