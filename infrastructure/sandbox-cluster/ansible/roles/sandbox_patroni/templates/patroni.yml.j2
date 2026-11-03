@@ -68,5 +68,7 @@ postgresql:
   # No pg_rewind (it needs a networked superuser): a diverged old primary is
   # recloned from the leader. The datastore is small and disposable.
   remove_data_directory_on_diverged_timelines: true
+  callbacks:
+    on_role_change: /etc/patroni/on-role-change.sh
 watchdog:
   mode: 'off'

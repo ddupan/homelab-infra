@@ -60,6 +60,23 @@
   no_log: true
   notify: Reload Patroni
 
+# VyOS's HAProxy keeps sessions open when it marks a server down and cannot be
+# told otherwise. K3s reconnects within VyOS's ~6s detection window and lands
+# on the demoted, read-only member, so a demoted member drops K3s's sessions
+# once VyOS routes to the new leader.
+- name: Install the role change callback
+  ansible.builtin.copy:
+    dest: /etc/patroni/on-role-change.sh
+    owner: root
+    group: postgres
+    mode: "0750"
+    content: |
+      #!/bin/sh
+      # Patroni: on-role-change.sh <action> <role> <scope>
+      [ "$2" = replica ] || exit 0
+      sleep 15
+      exec psql -XAtq -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = '{{ sandbox_postgresql_user }}'"
+
 - name: Install the Patroni service
   ansible.builtin.copy:
     dest: /etc/systemd/system/patroni.service
