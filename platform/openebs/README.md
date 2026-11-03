@@ -12,9 +12,9 @@ chart 自带的 local PV、Loki、Alloy 与 MinIO 组件。业务 PVC 使用独�
 - LVM LocalPV、RawFile LocalPV、Mayastor：显式禁用
 - bundled Loki SingleBinary：单副本
 
-不要在 chart 升级时顺带启用其他存储引擎。`localpv-zfs-ceph` 当前承载 SeaweedFS、
-shared PostgreSQL、NetBox、VictoriaMetrics、VictoriaLogs、VictoriaTraces、Grafana 与
-RustFS 的持久卷；删除 StorageClass 不会删除已有 PV，但误删/重建 chart 资源可能中断
+不要在 chart 升级时顺带启用其他存储引擎。`localpv-zfs-ceph` 当前（2026-11-03）承载
+SeaweedFS、VictoriaMetrics、VictoriaLogs、VictoriaTraces、Grafana、Nexus、NATS 与
+SPIRE Server 的持久卷；删除 StorageClass 不会删除已有 PV，但误删/重建 chart 资源可能中断
 provisioner，因此 brownfield 接管期间保持 `prune: false`。
 
 ## Flux 接管状态

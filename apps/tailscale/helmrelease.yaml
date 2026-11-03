@@ -1,0 +1,37 @@
+# Adoption of the helm-CLI release (2026-04-16, chart 1.96.5, revision 1 "failed": the
+# install timed out waiting for the Deployment, which then came up fine). Phase 1 registers
+# it suspended; a fresh render with the same values hashes identical to the stored
+# manifest. Phase 2 (separate PR) only removes `suspend`.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-operator
+  namespace: tailscale
+spec:
+  suspend: true
+  chart:
+    spec:
+      chart: tailscale-operator
+      interval: 1h
+      sourceRef:
+        kind: HelmRepository
+        name: tailscale
+      version: 1.96.5
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  releaseName: tailscale-operator
+  targetNamespace: tailscale
+  timeout: 10m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  valuesFrom:
+    - kind: Secret
+      name: tailscale-operator-values
+      valuesKey: values.yaml

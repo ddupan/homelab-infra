@@ -27,4 +27,5 @@ resources:
   - apps/iam-login.yaml
   - apps/poweradmin.yaml
   - apps/external-dns.yaml
+  - apps/tailscale.yaml
   - apps/cloudflared.yaml
