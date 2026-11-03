@@ -72,7 +72,7 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 9. `monitoring.yml` 激活 SQL 指标：先由 `site.yml` 写入模板，再执行本 play。它只在配置未生效时
    向 Patroni 发 HUP、对 pending 成员 `patronictl restart --pending`（primary 原位重启，不 failover，
    写入短暂中断）或重启 dev；随后在可写实例创建监控角色与扩展并安装 exporter。不需要 Bao。
-10. Ayatori 已接入（Instance、管理凭据同步由 Ayatori 部署 role 与 `infrastructure/ayatori/ansible` 管理，
+10. Ayatori 已接入（Instance、管理凭据同步由 Ayatori 部署（Chef `ayatori-<env>` policy，homelab_ayatori）管理，
     数据库经 `clusters/ayatori-<env>/` 申请）；原 CNPG 上的应用已全部迁入（见上）。
 
 普通 `site.yml` 不代表所有配置已在线激活；尚未实现通用参数变更的 rolling restart。

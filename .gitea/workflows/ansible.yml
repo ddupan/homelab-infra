@@ -31,9 +31,8 @@ jobs:
         # ansible-lint 锁住整个仓库根，同一 job 内无法并行，而全量串行要几分钟；PR 只 lint
         # 改到的项目，main 和 lint 配置变更时全量。与 base 分支最新提交比较而不是 merge-base
         # （浅克隆，全量历史近 10 GiB）：main 在分叉后又改过的项目会被多选，只是多跑。
-        # ayatori 依赖其仓库发布的 collection，且正迁往 Chef，不纳入。
         run: |
-          all=$(ls -d infrastructure/*/ansible | grep -v '^infrastructure/ayatori/' | xargs -n1 dirname)
+          all=$(ls -d infrastructure/*/ansible | xargs -n1 dirname)
           projects=$all
           if [ "$GITHUB_EVENT_NAME" = pull_request ] && git fetch -q --depth=1 origin "$GITHUB_BASE_REF"; then
             changed=$(git diff --name-only FETCH_HEAD HEAD)

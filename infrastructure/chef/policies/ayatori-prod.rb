@@ -1,6 +1,5 @@
 # Ayatori 控制面 prod（ayatori-prod LXC）。部署时的值在这里，不在 cookbook 里：漂移检查按最后
-# 一次 apply 的 policy why-run，policy 就是记录。PostgreSQL、GitOps 与 LB 的值原在
-# infrastructure/ayatori/ansible/inventory。
+# 一次 apply 的 policy why-run，policy 就是记录。
 name 'ayatori-prod'
 # adopt 接管原 Ansible 部署（停用它的 node_exporter），必须在 homelab_base 之前。
 run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::default'
