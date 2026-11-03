@@ -1,5 +1,5 @@
 {
-  "revision_id": "7b840a6a6727f41d799e24b0fffbe35c9fee6d9aeaf1aeacbd822ecceea1d7c3",
+  "revision_id": "95b3dc204f83dcf4c41c076598f78b9fff832e4478d7bf73d04b1b38b28415bd",
   "name": "loadbalancer-prod",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -13,25 +13,25 @@
       "version": "0.4.3",
       "identifier": "d5db93ba7a387b657b778eb3f373f3cea4674f9c",
       "dotted_decimal_identifier": "60195597574617211.28564726073258867.268068847046556",
-      "cache_key": "homelab_base-f91596f0ef40375686c46637c35b3911b2abb5de",
+      "cache_key": "homelab_base-9c489222c8387bd10cc311e396011beb2a6017e9",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "f91596f0ef40375686c46637c35b3911b2abb5de",
-        "tag": "v0.4.6",
+        "revision": "9c489222c8387bd10cc311e396011beb2a6017e9",
+        "tag": "v0.4.7",
         "rel": "cookbooks/homelab_base"
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.2.6",
-      "identifier": "434a2dcfa680248147cc2388e176337d893555ea",
-      "dotted_decimal_identifier": "18940384057393188.36389214090748278.56614265902570",
-      "cache_key": "homelab_loadbalancer-f91596f0ef40375686c46637c35b3911b2abb5de",
+      "version": "0.3.0",
+      "identifier": "68ceb8c7fd950e034925d2ec3d4a534a8f64b51e",
+      "dotted_decimal_identifier": "29500690602497294.924851731447114.91579698427166",
+      "cache_key": "homelab_loadbalancer-9c489222c8387bd10cc311e396011beb2a6017e9",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "f91596f0ef40375686c46637c35b3911b2abb5de",
-        "tag": "v0.4.6",
+        "revision": "9c489222c8387bd10cc311e396011beb2a6017e9",
+        "tag": "v0.4.7",
         "rel": "cookbooks/homelab_loadbalancer"
       }
     }
@@ -41,6 +41,9 @@
       "environment": "prod",
       "dataplaneapi": {
         "password_hash": "$6$A7APG0w/Kx2eRx0v$w6DF3h6tmiX0D/Oh41eLewRjh3AdYeRUw4d2T6832YSR/FMgqiDIL3PKGN9.d0cSTMDujDdFxtvppjU5vV56E0"
+      },
+      "agent": {
+        "version": "0.3.0-rc.0"
       },
       "bgp": {
         "local_as": 65100,
@@ -69,7 +72,7 @@
       "homelab_base (0.4.3)": [
 
       ],
-      "homelab_loadbalancer (0.2.6)": [
+      "homelab_loadbalancer (0.3.0)": [
         [
           "homelab_base",
           ">= 0.0.0"
