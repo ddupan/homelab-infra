@@ -92,6 +92,18 @@
     group: postgres
     mode: "0644"
 
+# Patroni renames the data directory's postgresql.conf to postgresql.base.conf
+# and includes it. Debian keeps its config in /etc, so there is none to rename
+# and Patroni fails to start PostgreSQL; an empty base file skips the rename.
+- name: Provide the base configuration Patroni includes
+  ansible.builtin.copy:
+    dest: "{{ sandbox_postgresql_data_dir }}/postgresql.base.conf"
+    content: ""
+    force: false
+    owner: postgres
+    group: postgres
+    mode: "0600"
+
 - name: Check for a PostgreSQL still run by the Debian unit
   ansible.builtin.command:
     argv: [systemctl, is-active, "postgresql@{{ sandbox_postgresql_version }}-main"]
