@@ -7,20 +7,27 @@
 #
 # WHY the laptop rather than VyOS or a PVE node: it already sits on every path
 # worth reaching. It is on the LAN, it is the NFS/k3s/netboot host, and it
-# speaks OSPF with the VyOS router (vm:100), so the PVE SDN VNets show up as
-# ordinary kernel routes without adding another tailnet node.
+# speaks eBGP with the VyOS router (vm:100), so everything behind VyOS shows up
+# as an ordinary kernel route without adding another tailnet node.
 #
-# WHY these three:
+# WHY these two:
 #   192.168.10.0/24   the LAN — PVE nodes, the AD DC, OpenBao, k3s ingress
-#   10.60.0.0/24      SDN labnet   (VLAN 100) — retrolab, future lab VMs
-#   10.61.0.0/24      SDN retronet (VLAN 110) — 86Box guests. Included on
-#                     purpose: the alternative is a second VPN or a jump box
-#                     just to reach an emulated Win98. retronet is a quarantine
-#                     network as seen from the LAN, not from the tailnet.
+#   10.60.0.0/14      everything behind VyOS, as one summary (role "internal"
+#                     in infrastructure/network/ipam.yml): SDN labnet
+#                     10.60.0.0/24, retronet 10.61.0.0/24 and the LoadBalancer
+#                     VIP pools 10.62.0.0/24 (Prod) and 10.62.1.0/24 (Dev).
+#                     The summary, not the /24s: per-subnet routes had to be
+#                     added here by hand and the VIP pools were forgotten for
+#                     weeks. Anything new carved from the /14 is covered.
+#                     retronet is included on purpose: the alternative is a
+#                     second VPN or a jump box just to reach an emulated Win98.
+#                     It is a quarantine network as seen from the LAN, not from
+#                     the tailnet.
 #
-# The two 10.x routes are LEARNED BY OSPF, not configured here — check with
-# `ip route show proto ospf`. If VyOS stops advertising them this script still
-# reports success while the routes blackhole, so verify the kernel table too.
+# 10.60.0.0/14 is LEARNED BY BGP from VyOS (the same summary it sends the IX),
+# not configured here — check with `ip route show proto bgp`. If VyOS stops
+# advertising it this script still reports success while the route blackholes,
+# so verify the kernel table too.
 #
 # ⚠️ Advertising is only half the job. A newly advertised route arrives
 # UNAPPROVED and carries no traffic until it is enabled in the admin console
@@ -35,6 +42,6 @@
 # is the complete set, not an increment.
 set -euo pipefail
 
-sudo tailscale set --advertise-routes=192.168.10.0/24,10.60.0.0/24,10.61.0.0/24
+sudo tailscale set --advertise-routes=192.168.10.0/24,10.60.0.0/14
 
 sudo tailscale debug netmap | jq -r '"approved: " + (.SelfNode.AllowedIPs | join(", "))'
