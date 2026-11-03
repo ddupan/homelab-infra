@@ -1,5 +1,5 @@
 ---
-sandbox_spire_bootstrap_api_server: https://10.60.0.13:6443
+sandbox_spire_bootstrap_api_server: https://sandbox-k8s.lab.ddupan.top:6443
 sandbox_spire_bootstrap_source_namespace: spire-system
 sandbox_spire_bootstrap_source_secret: spire-server-token-reviewer-token
 sandbox_spire_bootstrap_controller_secret: spire-controller-manager-token

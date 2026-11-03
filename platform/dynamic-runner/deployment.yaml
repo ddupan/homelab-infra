@@ -88,7 +88,7 @@ spec:
             - name: POD_RUNNER_CACHE_SECRET
               value: gitea-runner-cache-s3
             - name: OPENSANDBOX_API
-              value: http://10.60.0.13:8080
+              value: http://sandbox-k8s.lab.ddupan.top:8080
             - name: OPENSANDBOX_API_KEY_FILE
               value: /run/dynamic-runner-secrets/opensandbox-api-key
             - name: OPENSANDBOX_POOL
