@@ -25,6 +25,16 @@
       "enabled": false
     },
     {
+      "description": "Our own images, pinned by bare digest and bumped by hand when gitea-dynamic-runner ships. The repo has no `latest` tag, so Renovate can only fail to resolve a new digest.",
+      "matchPackageNames": ["zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-*"],
+      "enabled": false
+    },
+    {
+      "description": "Pinned to a commit after 1.2.2 for #561 (configurable server config mode, needed for 0600). Tags would only offer a downgrade; take the next release.",
+      "matchDepNames": ["k3s.orchestration"],
+      "allowedVersions": ">1.2.2"
+    },
+    {
       "description": "One PR for all provider bumps: CI plans every root on each PR anyway, so splitting only multiplies runs.",
       "matchDatasources": ["terraform-provider"],
       "matchUpdateTypes": ["minor", "patch"],
