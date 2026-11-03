@@ -13,7 +13,7 @@ spec:
     - targets: ['192.168.10.11:9100']
       labels: {cluster: ayatori-dev, env: dev, node: ayatori-dev}
     - targets: ['192.168.10.12:9100']
-      labels: {cluster: ayatori-prod, env: prod}
+      labels: {cluster: ayatori-prod, env: prod, node: ayatori-prod}
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
