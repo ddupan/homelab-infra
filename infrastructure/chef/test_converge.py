@@ -1,7 +1,7 @@
 """python3 -m pytest infrastructure/chef/test_converge.py (or run directly)."""
 import pytest
 
-from converge import load_nodes, parse_omnitruck, select, updated_count
+from converge import changed_resources, load_nodes, parse_omnitruck, scope_from_changes, select, updated_count
 
 INV = {"all": {"vars": {"ansible_user": "root"}, "children": {"cinc": {"hosts": {
     "etcd-pve1.lab.ddupan.top": {"cinc_policy": "base"},
@@ -35,6 +35,26 @@ def test_updated_count():
 def test_parse_omnitruck():
     text = "sha1\tabc\nsha256\tdeadbeef\nurl\thttps://x/cinc_19.3.14-1_amd64.deb\nversion\t19.3.14\n"
     assert parse_omnitruck(text) == ("https://x/cinc_19.3.14-1_amd64.deb", "deadbeef")
+
+
+def test_scope_from_changes():
+    c = "infrastructure/chef/"
+    assert scope_from_changes([c + "policies/base.lock.json", c + "policies/loadbalancer-prod.rb"]) == {
+        "base", "loadbalancer-prod"}
+    assert scope_from_changes([c + "README.md", c + "ansible/enroll.yml", c + "test_converge.py"]) == set()
+    assert scope_from_changes([c + "policies/base.rb", c + "converge.py"]) is None
+    assert scope_from_changes([c + "ansible/inventory/hosts.yml"]) is None
+    assert scope_from_changes([".gitea/workflows/chef.yml"]) is None
+
+
+def test_changed_resources():
+    out = ("  - homelab_base (0.4.3)\n"
+           "  * apt_update[daily] action periodic\n"
+           "    * execute[apt-get -q update] action run\n"
+           "      - execute [\"apt-get\", \"-q\", \"update\"]\n"
+           "    - update new lists of packages\n"
+           "[2026-11-03T15:10:19+00:00] ERROR: shard_seed - noise\n")
+    assert changed_resources(out) == ['- execute ["apt-get", "-q", "update"]', "- update new lists of packages"]
 
 
 if __name__ == "__main__":

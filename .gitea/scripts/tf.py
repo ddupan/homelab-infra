@@ -2,7 +2,8 @@
 """CI 用 Terraform 包装：凭据只在内存中传给 terraform 子进程，不写 GITHUB_ENV。
 
   tf.py run <root> <terraform args...>   取 state 与 root 凭据后执行 terraform
-  tf.py comment <markdown-file>         在当前 PR 上新建或更新唯一一条 plan 评论
+  tf.py comment <markdown-file> [marker]  在当前 PR 上新建或更新唯一一条带 marker 的评论
+                                         （默认 terraform plan；chef.yml 用自己的 marker）
 
 依赖 spiffe-openbao-login 写入的 BAO_ADDR/BAO_TOKEN（role ci-terraform）。
 """
@@ -97,8 +98,8 @@ def run(root, args):
         return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
 
 
-def comment(markdown_file):
-    body = MARKER + '\n' + Path(markdown_file).read_text()
+def comment(markdown_file, marker=MARKER):
+    body = marker + '\n' + Path(markdown_file).read_text()
     if len(body) > MAX_COMMENT:
         body = body[:MAX_COMMENT] + '\n```\n\n…已截断，完整 plan 见 job 日志。'
     event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
@@ -106,7 +107,7 @@ def comment(markdown_file):
     auth = {'Authorization': f"token {os.environ['GITEA_TOKEN']}"}
     issue = f"{api}/issues/{event['pull_request']['number']}/comments"
     # ponytail: 只看第一页评论（默认 50 条），评论更多的 PR 会新建而非更新
-    mine = [c for c in request(issue, headers=auth) if c['body'].startswith(MARKER)]
+    mine = [c for c in request(issue, headers=auth) if c['body'].startswith(marker)]
     if mine:
         request(f"{api}/issues/comments/{mine[0]['id']}", 'PATCH', {'body': body}, auth)
     else:
@@ -116,6 +117,6 @@ def comment(markdown_file):
 if __name__ == '__main__':
     if sys.argv[1:2] == ['run'] and len(sys.argv) > 3:
         raise SystemExit(run(sys.argv[2], sys.argv[3:]))
-    if sys.argv[1:2] == ['comment'] and len(sys.argv) == 3:
-        raise SystemExit(comment(sys.argv[2]))
+    if sys.argv[1:2] == ['comment'] and len(sys.argv) in (3, 4):
+        raise SystemExit(comment(*sys.argv[2:]))
     raise SystemExit(__doc__)

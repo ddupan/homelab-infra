@@ -1,0 +1,101 @@
+---
+name: chef
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/chef/**'
+      - '.gitea/workflows/chef.yml'
+  pull_request:
+    paths:
+      - 'infrastructure/chef/**'
+      - '.gitea/workflows/chef.yml'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 主机短名、FQDN 或 policy 名，逗号分隔；留空为全部节点
+        default: ''
+      why_run:
+        description: 只 why-run，不改动节点
+        type: boolean
+        default: true
+
+jobs:
+  unit:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+      - name: test_converge.py
+        run: |
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
+          ~/.local/bin/uv run --with pyyaml --with pytest python -m pytest -q infrastructure/chef/test_converge.py
+
+  # job id 是 SPIFFE ID 的一部分：bao role ci-converge 只接受
+  # spiffe://ddupan.top/ci/panxiao81/homelab-infra/converge-*，改名会登录失败。
+  # PR 上 why-run 并贴评论；合并即 apply（与 terraform 一样，main 是期望状态），
+  # 范围按改动算：policy 只影响自己的节点，执行器/inventory/本文件影响全部节点。
+  converge-run:
+    needs: unit
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # --since 要算 diff
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+          docker: 'true'  # 导出 policy 归档用的 Cinc Workstation 镜像
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+        with:
+          role: ci-converge
+
+      - name: SSH certificate
+        # 每次 job 一把临时 key，Bao 签 30 分钟证书；principal 与 inventory 的登录用户一致。
+        # token 经 header 文件传给 curl，不出现在进程参数里。
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          ssh-keygen -q -t ed25519 -N '' -C "ci-converge-${GITHUB_RUN_ID}" -f "$RUNNER_TEMP/ci_key"
+          printf 'X-Vault-Token: %s\n' "$BAO_TOKEN" > "$RUNNER_TEMP/bao.hdr"
+          jq -n --arg k "$(cat "$RUNNER_TEMP/ci_key.pub")" '{public_key: $k, valid_principals: "root,panxiao81"}' |
+            curl -fsS --retry 3 -H @"$RUNNER_TEMP/bao.hdr" --data @- \
+              "${BAO_ADDR%/}/v1/ssh-client-signer/sign/ci-converge" |
+            jq -er .data.signed_key > "$RUNNER_TEMP/ci_key-cert.pub"
+          rm -f "$RUNNER_TEMP/bao.hdr"
+          # 主机密钥来自仓库（加入时已与操作者信任的 known_hosts 核对），不做 TOFU。
+          cp infrastructure/chef/known_hosts ~/.ssh/known_hosts
+
+      - name: converge
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          LIMIT: ${{ inputs.limit }}
+          WHY_RUN: ${{ inputs.why_run }}
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
+          args=(-i "$RUNNER_TEMP/ci_key" --summary-md "$RUNNER_TEMP/summary.md")
+          case "$EVENT" in
+            pull_request) args+=(--why-run --since "$PR_BASE") ;;
+            push) args+=(--since "$PUSH_BEFORE") ;;
+            workflow_dispatch)
+              [ -n "$LIMIT" ] && args+=(-l "$LIMIT")
+              [ "$WHY_RUN" = true ] && args+=(--why-run) ;;
+          esac
+          infrastructure/chef/converge.py "${args[@]}"
+
+      - name: PR comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GITEA_TOKEN: ${{ github.token }}
+        run: |
+          [ -s "$RUNNER_TEMP/summary.md" ] || exit 0
+          { echo '### Cinc why-run'; echo; cat "$RUNNER_TEMP/summary.md"; } > "$RUNNER_TEMP/comment.md"
+          python3 .gitea/scripts/tf.py comment "$RUNNER_TEMP/comment.md" '<!-- chef-why-run -->'

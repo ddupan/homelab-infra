@@ -15,7 +15,7 @@ what is already recorded there.
 | Ansible | `infrastructure/proxmox/`, `infrastructure/samba-ad/`, `infrastructure/openbao/` | `<component>/ansible/{ansible.cfg,inventory/hosts.yml,group_vars/,roles/,*.yml}` |
 | Terraform | per-component roots under `apps/` and `infrastructure/` | `<component>/terraform/{versions,main,variables,outputs}.tf`; states remain isolated |
 | Kubernetes | `platform/` and `apps/` | manifests or Helm `values.yaml` owned by each component |
-| Cinc (Chef) | `infrastructure/chef/` (cookbooks in the `homelab-cookbooks` repo) | policies + locks; `converge.py` bootstraps the client over SSH and converges nodes in parallel (`--why-run` = preview); first SPIRE enrollment is `ansible/enroll.yml`; no server, apply is manual |
+| Cinc (Chef) | `infrastructure/chef/` (cookbooks in the `homelab-cookbooks` repo) | policies + locks; `converge.py` bootstraps the client over SSH and converges nodes in parallel (`--why-run` = preview); first SPIRE enrollment is `ansible/enroll.yml`; no server; CI (`chef.yml`) why-runs PRs and applies on merge |
 
 Single-node **k3s runs on the laptop (192.168.10.127)**, which is deliberately *not* a Proxmox
 cluster member. It is also the NFS server, libvirt host (AD DC, OpenBao, Windows), and

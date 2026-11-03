@@ -8,6 +8,7 @@
     ./converge.py --why-run                    preview every node (changes nothing)
     ./converge.py -l etcd-pve1                 apply one node (short name, FQDN or policy)
     ./converge.py -l loadbalancer-prod -i KEY  apply a policy group with a specific SSH key
+    ./converge.py --since origin/main          only the nodes whose policy changed since a ref (CI)
 
 Replaces the former ansible/converge.yml. The only thing that does not
 move here is first SPIRE enrollment (ansible/enroll.yml): it mints a one-time EAB with
@@ -83,6 +84,31 @@ def select(nodes, limit):
     if unknown:
         raise SystemExit(f"--limit matches nothing: {', '.join(sorted(unknown))}")
     return picked
+
+
+def scope_from_changes(paths):
+    """Policies touched by a set of repo paths: a set of names, or None for "every node".
+
+    A policy's .rb or lock affects only its own nodes. The executor, the inventory and
+    the workflow can affect any node, so they widen to all. Anything else (README,
+    tests, enroll.yml) converges nothing.
+    """
+    policies = set()
+    for p in paths:
+        if p == ".gitea/workflows/chef.yml":
+            return None
+        rel = p.removeprefix("infrastructure/chef/")
+        if rel.startswith("policies/"):
+            policies.add(Path(rel).name.removesuffix(".lock.json").removesuffix(".rb"))
+        elif rel == "converge.py" or rel.startswith("ansible/inventory/"):
+            return None
+    return policies
+
+
+def changed_resources(output):
+    # Cinc prints what it did (or would do) as "    - <action>" under each resource.
+    # The cookbook sync list ("  - homelab_base (0.4.3)") is only two deep, so need four.
+    return [l.strip() for l in output.splitlines() if re.match(r"^\s{4,}- ", l)]
 
 
 def updated_count(output):
@@ -203,7 +229,7 @@ def converge(n, cfg, archives, why_run, identity):
     result = "ok"
     if node.run("test -e /etc/spire-agent/node.crt", check=False).returncode != 0:
         result = "ok, SPIRE not enrolled (run ansible/enroll.yml)"
-    return dict(result=result, changed=updated_count(out))
+    return dict(result=result, changed=updated_count(out), changes=changed_resources(out))
 
 
 def main():
@@ -211,10 +237,24 @@ def main():
     ap.add_argument("--why-run", action="store_true", help="preview only; changes nothing on any node")
     ap.add_argument("-l", "--limit", help="comma list of hosts (short or FQDN) and/or policy names")
     ap.add_argument("-i", "--identity", help="SSH private key (its -cert.pub is used if present)")
+    ap.add_argument("--since", metavar="REF", help="only nodes affected by changes between REF and HEAD")
+    ap.add_argument("--summary-md", metavar="FILE", help="also write the summary as Markdown (PR comment)")
     args = ap.parse_args()
 
     cfg = yaml.safe_load(GROUP_VARS.read_text())
     nodes = select(load_nodes(yaml.safe_load(INVENTORY.read_text())), args.limit)
+    if args.since:
+        paths = subprocess.run(
+            ["git", "diff", "--name-only", f"{args.since}...HEAD", "--", str(HERE), ".gitea/workflows/chef.yml"],
+            cwd=HERE.parent.parent, check=True, capture_output=True, text=True).stdout.split()
+        scope = scope_from_changes(paths)
+        if scope is not None:
+            nodes = [n for n in nodes if n["policy"] in scope]
+    if not nodes:
+        print("Nothing to converge.")
+        if args.summary_md:
+            Path(args.summary_md).write_text("没有受影响的节点。\n")
+        return
 
     with tempfile.TemporaryDirectory(prefix="cinc-") as tmp:
         export_archives(sorted({n["policy"] for n in nodes}), cfg["cinc_workstation"], tmp)
@@ -233,7 +273,19 @@ def main():
     print(f"\n{'host':<32} {verb:>12}  result")
     for host, r in results.items():
         print(f"{host:<32} {r['changed']:>12}  {r['result']}")
+    if args.summary_md:
+        write_summary(args.summary_md, results, verb)
     sys.exit(1 if any(r.get("failed") for r in results.values()) else 0)
+
+
+def write_summary(path, results, verb):
+    lines = [f"| 主机 | {verb} | 结果 |", "|---|---:|---|"]
+    lines += [f"| `{h}` | {r['changed']} | {r['result']} |" for h, r in results.items()]
+    for h, r in results.items():
+        if r.get("changes"):
+            body = "\n".join(r["changes"])
+            lines += ["", f"<details><summary><code>{h}</code></summary>", "", "```", body, "```", "</details>"]
+    Path(path).write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
