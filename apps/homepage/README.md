@@ -14,6 +14,7 @@ it is only links, each app authenticates on its own).
   - The status badge looks up pods by `app.kubernetes.io/name=<route name>`. When that is
     wrong, set `app` or `pod-selector` (see the iam-login, grafana and seaweedfs routes).
 - **Everything else** (off-cluster hosts, routes rendered by a Helm chart): `config/services.yaml`.
+- Files not in `config/` (bookmarks, widgets, proxmox, …) Homepage creates itself from its skeleton.
 
 Discovered tiles are listed before `services.yaml` ones within a group; `settings.yaml` only
 fixes the group order. Discovery is read-only cluster-wide RBAC (`rbac.yaml`).

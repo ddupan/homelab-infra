@@ -23,6 +23,23 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      # Homepage copies a skeleton into every config file it finds missing, at start
+      # and on first request — and the list grows between releases (proxmox.yaml
+      # crash-looped v2.7.0). So /app/config is a writable emptyDir seeded from the
+      # ConfigMap, and Homepage creates whatever else it wants itself.
+      initContainers:
+        - name: seed-config
+          image: ghcr.io/gethomepage/homepage:v2.7.0@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f
+          command: [sh, -c, cp /seed/* /app/config/]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: seed
+              mountPath: /seed
+            - name: config
+              mountPath: /app/config
       containers:
         - name: homepage
           # Index digest, not a platform one (renovate-platform-digest trap).
@@ -45,12 +62,16 @@ spec:
               path: /api/healthcheck
               port: http
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /api/healthcheck
               port: http
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 20
+            # Slow first request on the laptop's contended disk; 1s killed it.
+            timeoutSeconds: 5
+            failureThreshold: 5
           resources:
             requests:
               cpu: 10m
@@ -62,21 +83,11 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
-            # One subPath per file: at start Homepage copies a skeleton into any
-            # missing config file, which uid 1000 cannot do in the image's /app/config.
-            - {name: config, mountPath: /app/config/settings.yaml, subPath: settings.yaml}
-            - {name: config, mountPath: /app/config/services.yaml, subPath: services.yaml}
-            - {name: config, mountPath: /app/config/kubernetes.yaml, subPath: kubernetes.yaml}
-            - {name: config, mountPath: /app/config/bookmarks.yaml, subPath: bookmarks.yaml}
-            - {name: config, mountPath: /app/config/widgets.yaml, subPath: widgets.yaml}
-            - {name: config, mountPath: /app/config/docker.yaml, subPath: docker.yaml}
-            - {name: config, mountPath: /app/config/custom.css, subPath: custom.css}
-            - {name: config, mountPath: /app/config/custom.js, subPath: custom.js}
-            - name: logs
-              mountPath: /app/config/logs
+            - name: config
+              mountPath: /app/config
       volumes:
-        - name: config
+        - name: seed
           configMap:
             name: homepage-config
-        - name: logs
+        - name: config
           emptyDir: {}
