@@ -101,12 +101,14 @@ resource "powerdns_record" "sandbox2_a" {
   records = ["10.60.0.12"]
 }
 
-resource "powerdns_record" "sandbox_k8s_a" {
+# sandbox k3s 入口是 Ayatori LoadBalancer（clusters/ayatori-prod/sandbox-k8s.yaml），VIP 由它分配；
+# 这里只把客户端用的名字指向它发布的 Hostname，证书 SAN 与客户端都不随 VIP 改。
+resource "powerdns_record" "sandbox_k8s_cname" {
   zone    = powerdns_zone.lab.name
   name    = "sandbox-k8s.lab.ddupan.top."
-  type    = "A"
+  type    = "CNAME"
   ttl     = 300
-  records = ["10.60.0.13"]
+  records = ["k8s.sandbox.lb.lab.ddupan.top."]
 }
 
 # LoadBalancer on the laptop, so external-dns (HTTPRoutes only) cannot publish it.
