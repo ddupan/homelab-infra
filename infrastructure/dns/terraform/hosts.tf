@@ -103,6 +103,15 @@ resource "powerdns_record" "sandbox2_a" {
 
 # sandbox k3s 入口是 Ayatori LoadBalancer（clusters/ayatori-prod/sandbox-k8s.yaml），VIP 由它分配；
 # 这里只把客户端用的名字指向它发布的 Hostname，证书 SAN 与客户端都不随 VIP 改。
+# sandbox k3s datastore 入口（clusters/ayatori-prod/sandbox-postgresql.yaml），同上。
+resource "powerdns_record" "pg_sandbox_cname" {
+  zone    = powerdns_zone.lab.name
+  name    = "pg-sandbox.lab.ddupan.top."
+  type    = "CNAME"
+  ttl     = 300
+  records = ["postgresql.sandbox.lb.lab.ddupan.top."]
+}
+
 resource "powerdns_record" "sandbox_k8s_cname" {
   zone    = powerdns_zone.lab.name
   name    = "sandbox-k8s.lab.ddupan.top."
