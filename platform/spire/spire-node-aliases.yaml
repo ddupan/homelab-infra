@@ -1,7 +1,7 @@
 # Stable node identities for Cinc-managed hosts (x509pop). The agent ID changes with
 # every certificate renewal; these aliases match on the certificate CN (= the node's
 # lab DNS name, enforced by the Bao ACME role) and are what workload entries parent to.
-# Adding a node: enroll it (infrastructure/chef/ansible) and add an alias here.
+# Adding a node: enroll it (infrastructure/chef/ansible/enroll.yml) and add an alias here.
 apiVersion: spire.spiffe.io/v1alpha1
 kind: ClusterStaticEntry
 metadata:
@@ -79,3 +79,16 @@ spec:
   spiffeID: spiffe://ddupan.top/node/lb-dev-2
   selectors:
     - x509pop:subject:cn:lb-dev-2.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-ayatori-dev
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/ayatori-dev
+  selectors:
+    - x509pop:subject:cn:ayatori-dev.lab.ddupan.top
