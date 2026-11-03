@@ -25,7 +25,6 @@ cloudflared/secret.yaml
 # Live OpenAI OAuth material — these carry refresh_tokens, which do not expire
 # when the access_token does. Innocuous filenames, so no pattern rule catches them.
 codex-proxy/data/
-litellm-gateway/auth.json
 
 # Hardcoded Keycloak admin password (bootstrap curl + manifest). The stack is
 # RETIRED and its namespace deleted, so the credential should be dead — but it is
@@ -50,7 +49,6 @@ gitea/secret.yaml
 **/cloudflared/backup/
 **/cloudflared/secret.yaml
 **/codex-proxy/data/
-**/litellm-gateway/auth.json
 **/gitea/gitea-oidc-secret.yaml
 **/keycloak/keycloak-bootstrap-configmap.yaml
 **/keycloak/keycloak.yaml
