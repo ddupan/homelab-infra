@@ -161,6 +161,7 @@
       --content {{ item.content | default('images,rootdir') }}
       --controller {{ _pve_linstor_controllers | join(',') }}
       --resourcegroup {{ item.name }}
+      {{ '--preferlocal yes' if item.preferlocal | default(false) else '' }}
   loop: "{{ pve_linstor_resource_groups }}"
   loop_control:
     label: "{{ item.name }}"

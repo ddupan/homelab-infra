@@ -61,6 +61,14 @@ pve_linstor_resource_groups:
   - name: pve-rg-hdd        # bulk: large/cold volumes on the 1TB spindles
     pool: "{{ pve_linstor_hdd_pool }}"
     content: images,rootdir
+  # Disposable disks (sandbox k3s nodes: CI executors, containerd, Kata VMs).
+  # One replica, kept on the guest's own node: no write crosses the 1G LAN, and
+  # losing it only means re-pulling images. The guest is pinned to that node.
+  - name: pve-rg-local
+    pool: "{{ pve_linstor_ssd_pool }}"
+    content: images,rootdir
+    place_count: 1
+    preferlocal: true
 
 # Safety: wiping a disk is destructive and irreversible. Must be set explicitly.
 pve_linstor_wipe_hdd: false
