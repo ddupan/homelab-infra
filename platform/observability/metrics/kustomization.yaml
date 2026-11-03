@@ -27,6 +27,8 @@ resources:
   - scrapes/shared-postgresql.yaml
   - rules/shared-postgresql-sql.yaml
   - scrapes/shared-postgresql-sql.yaml
+  - rules/sandbox-postgresql.yaml
+  - scrapes/sandbox-postgresql.yaml
   - scrapes/platform-controllers.yaml
   - rules/platform-controllers.yaml
   - scrapes/seaweedfs.yaml

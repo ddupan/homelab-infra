@@ -12,7 +12,7 @@ import yaml
 
 groups = []
 vm_groups = []
-for name in ("kubernetes-health", "host-health", "monitoring-delivery", "platform-controllers", "data-services", "openbao", "shared-data-maintenance", "shared-postgresql-sql", "probes", "samba-dc", "ayatori", "proxmox", "vyos", "linstor", "k3s-components", "cinc"):
+for name in ("kubernetes-health", "host-health", "monitoring-delivery", "platform-controllers", "data-services", "openbao", "shared-data-maintenance", "shared-postgresql-sql", "sandbox-postgresql", "probes", "samba-dc", "ayatori", "proxmox", "vyos", "linstor", "k3s-components", "cinc"):
     path = pathlib.Path(sys.argv[1]) / f"{name}.yaml"
     target = vm_groups if name == "kubernetes-health" else groups
     target.extend(yaml.safe_load(path.read_text())["spec"]["groups"])

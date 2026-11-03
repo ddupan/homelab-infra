@@ -59,6 +59,7 @@ PR 号**；新发现的盲区直接追加。
 - [ ] **H7** winadmin：windows_exporter
 - [ ] **H8** OCI 两台云主机（oci-arm / oci-amd）
 - [ ] **H9** retrolab（10.60.0.10，当前不在线）——在线时再决定
+- [x] **H10** sandbox K3s datastore（Patroni pg-sandbox）：Patroni 原生指标；无/双 primary、无同步 standby、failsafe、维护模式滞留、leader 切换 — `rules/sandbox-postgresql.yaml`
 
 ## 5. 笔记本本机（P1：数据已有，缺规则）
 

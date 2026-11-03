@@ -1,0 +1,68 @@
+# sandbox K3s datastore（Patroni pg-sandbox，DCS 为共享 etcd）。没有 primary 时
+# 整个 sandbox K3s 停写，CI 随之卡住。
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: sandbox-postgresql
+  namespace: monitoring
+spec:
+  groups:
+    - name: sandbox-postgresql
+      rules:
+        - alert: SandboxPostgresMemberUnavailable
+          expr: up{job="sandbox-postgresql-patroni"} == 0
+          for: 2m
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: 'sandbox PG 成员 {{ $labels.member }} 无法采集'
+            description: Patroni REST :8008 不通，成员或节点可能已停。systemctl status patroni。
+        - alert: SandboxPostgresNoPrimary
+          expr: (sum(patroni_primary{job="sandbox-postgresql-patroni"}) or vector(0)) == 0
+          for: 1m
+          labels: {severity: critical, service: sandbox-postgresql}
+          annotations:
+            summary: sandbox PG 没有 primary，sandbox K3s 无法写入
+            description: >-
+              patronictl -c /etc/patroni/patroni.yml list；两个成员都在而无 leader 时检查共享 etcd
+              （SharedEtcd* 告警）与同步状态（/sync 未登记 standby 时不会提升）。
+        - alert: SandboxPostgresMultiplePrimaries
+          expr: sum(patroni_primary{job="sandbox-postgresql-patroni"}) > 1
+          for: 30s
+          labels: {severity: critical, service: sandbox-postgresql}
+          annotations:
+            summary: sandbox PG 观察到 {{ $value }} 个 primary
+            description: 疑似脑裂，K3s 写入可能分叉。立即 patronictl list，核对 VyOS sandbox-postgresql 后端。
+        - alert: SandboxPostgresNoSyncStandby
+          expr: (sum(patroni_sync_standby{job="sandbox-postgresql-patroni"}) or vector(0)) == 0
+          for: 10m
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: sandbox PG 没有同步 standby，已降为异步或单节点
+            description: 此时故障切换可能丢最近的写入，或根本无法切换。patronictl list 查看另一成员状态。
+        - alert: SandboxPostgresReplicaNotStreaming
+          expr: patroni_replica{job="sandbox-postgresql-patroni"} == 1 and patroni_postgres_streaming{job="sandbox-postgresql-patroni"} == 0
+          for: 2m
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: 'sandbox PG replica {{ $labels.member }} 没有流复制'
+            description: journalctl -u patroni；分叉的旧主会被重新克隆，期间也会触发本告警。
+        - alert: SandboxPostgresFailsafeActive
+          expr: patroni_failsafe_mode_is_active{job="sandbox-postgresql-patroni"} == 1
+          for: 1m
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: 'sandbox PG {{ $labels.member }} 进入 failsafe：连不上共享 etcd'
+            description: leader 仍可写，但不会自动切换。检查 SharedEtcd* 告警与 /etc/patroni/etcd.crt 是否过期。
+        - alert: SandboxPostgresPaused
+          expr: patroni_is_paused{job="sandbox-postgresql-patroni"} == 1
+          for: 30m
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: sandbox PG 处于维护模式超过 30 分钟
+            description: 维护模式下不会自动切换。维护结束后 patronictl resume。
+        - alert: SandboxPostgresLeaderChanged
+          expr: changes(patroni_postgres_timeline{job="sandbox-postgresql-patroni"}[10m]) > 0 and patroni_primary{job="sandbox-postgresql-patroni"} == 1
+          labels: {severity: warning, service: sandbox-postgresql}
+          annotations:
+            summary: 'sandbox PG 发生切换，新 leader 为 {{ $labels.member }}'
+            description: 计划内 switchover 可忽略；否则查看旧 leader 的 journalctl -u patroni 与节点状态。
