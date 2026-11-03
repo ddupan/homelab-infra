@@ -78,8 +78,9 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 - Still plaintext-but-**gitignored**, because nothing consumes them as Ansible vars:
   `infrastructure/proxmox/vyos/credentials.yml` (referenced only in an inventory comment) and
   `infrastructure/proxmox/pxe/answer/*.toml` (read by the PXE installer).
-- **Never** print, copy, or commit live credentials. `apps/tailscale/helm.sh` contains live OAuth
-  values — leave them where they are.
+- **Never** print, copy, or commit live credentials. The tailscale-operator OAuth client lives in
+  Bao `kv/k8s/tailscale-operator` (Flux since 2026-11-03); any local gitignored
+  `apps/tailscale/helm.sh` is obsolete and still holds a live copy — delete it rather than reuse it.
 
 **Rebuild order — bao comes first.** The whole chain is deliberately rooted in one hardware key:
 

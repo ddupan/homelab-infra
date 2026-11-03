@@ -1,14 +1,13 @@
-# Adoption of the helm-CLI release (2026-04-16, chart 1.96.5, revision 1 "failed": the
-# install timed out waiting for the Deployment, which then came up fine). Phase 1 registers
-# it suspended; a fresh render with the same values hashes identical to the stored
-# manifest. Phase 2 (separate PR) only removes `suspend`.
+# Adopted from a helm-CLI release (2026-04-16, chart 1.96.5, revision 1 "failed": the install
+# timed out waiting for the Deployment, which then came up fine). Registered suspended first
+# (#498); the fresh render and the ESO-rendered values both hashed identical to what Helm had
+# stored, so unsuspending only records a new revision of the same manifest.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: tailscale-operator
   namespace: tailscale
 spec:
-  suspend: true
   chart:
     spec:
       chart: tailscale-operator
