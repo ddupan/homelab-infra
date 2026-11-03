@@ -100,18 +100,21 @@
   loop: "{{ pve_linstor_resource_groups }}"
   loop_control:
     label: "{{ item.name }} -> {{ item.pool }}"
+  register: _rg
   run_once: true
   delegate_to: "{{ pve_linstor_controller }}"
 
 # Exactly volume 0: PVE fails every disk create on a group with more than one
-# ("has 3 Volume groups, but only 1 sizes were provided").
+# ("has 3 Volume groups, but only 1 sizes were provided"). In --check a group
+# that would be created does not exist yet, so its volume group is skipped.
 - name: Create the volume groups
   linbit.linstor.volume_group:
-    resource_group: "{{ item.name }}"
+    resource_group: "{{ item.item.name }}"
     volume_nr: 0
-  loop: "{{ pve_linstor_resource_groups }}"
+  loop: "{{ _rg.results }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.item.name }}"
+  when: not (ansible_check_mode and item is changed)
   run_once: true
   delegate_to: "{{ pve_linstor_controller }}"
 
