@@ -7,5 +7,8 @@ metadata:
 spec:
   interval: 1h
   ref:
+    # Flux pulls by digest when both are set; the tag is only what Renovate needs to find
+    # newer versions (this repo has no `latest` tag, so a bare digest cannot be updated).
+    tag: 4.1.0
     digest: sha256:33f102f6db70083de4fc8238af4439c4245a601bcb6a72e49bc80529098aefc0
   url: oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy
