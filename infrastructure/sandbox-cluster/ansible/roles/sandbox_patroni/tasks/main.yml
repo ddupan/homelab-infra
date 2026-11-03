@@ -1,0 +1,184 @@
+---
+- name: Validate sandbox PostgreSQL inputs
+  ansible.builtin.assert:
+    that:
+      - sandbox_postgresql_k3s_password | length >= 32
+      - sandbox_postgresql_replication_password | length >= 32
+      - sandbox_bao_token | length > 0
+      - inventory_hostname in groups['postgres']
+    fail_msg: Missing Bao-provided credentials (SANDBOX_* passwords, BAO_TOKEN) or invalid inventory role
+  no_log: true
+
+- name: Install PostgreSQL and Patroni prerequisites
+  ansible.builtin.apt:
+    name:
+      - postgresql-{{ sandbox_postgresql_version }}
+      - postgresql-client-{{ sandbox_postgresql_version }}
+      - python3-psycopg2
+      - python3-venv
+      - python3-cryptography
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install the pinned Patroni release in its own venv
+  ansible.builtin.pip:
+    name: patroni[etcd3,psycopg3]=={{ sandbox_patroni_version }}
+    virtualenv: /opt/patroni
+    virtualenv_command: python3 -m venv
+
+- name: Create the Patroni configuration directory
+  ansible.builtin.file:
+    path: /etc/patroni
+    state: directory
+    owner: root
+    group: postgres
+    mode: "0750"
+
+- name: Issue or renew the etcd client certificate
+  ansible.builtin.include_tasks: certificate.yml
+
+- name: Read the etcd account from Bao
+  ansible.builtin.uri:
+    url: "{{ sandbox_bao_url }}/v1/kv/data/infra/etcd/consumers/{{ sandbox_patroni_etcd_user }}"
+    headers:
+      X-Vault-Token: "{{ sandbox_bao_token }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: sandbox_patroni_etcd_secret
+  no_log: true
+  check_mode: false
+
+- name: Install the Patroni configuration
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: /etc/patroni/patroni.yml
+    owner: root
+    group: postgres
+    mode: "0640"
+  no_log: true
+  notify: Reload Patroni
+
+- name: Install the Patroni service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/patroni.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Patroni for the sandbox K3s datastore
+      After=network-online.target
+      Wants=network-online.target
+      [Service]
+      Type=simple
+      User=postgres
+      Group=postgres
+      ExecStart=/opt/patroni/bin/patroni /etc/patroni/patroni.yml
+      ExecReload=/bin/kill -HUP $MAINPID
+      KillMode=process
+      Restart=on-failure
+      RestartSec=5
+      TimeoutStopSec=120
+      [Install]
+      WantedBy=multi-user.target
+
+# Patroni owns the data directory now; the Debian cluster unit must never start
+# a second postmaster on it, including after a package upgrade.
+- name: Keep the Debian cluster unit from starting PostgreSQL
+  ansible.builtin.copy:
+    dest: /etc/postgresql/{{ sandbox_postgresql_version }}/main/start.conf
+    content: "disabled\n"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+
+- name: Check for a PostgreSQL still run by the Debian unit
+  ansible.builtin.command:
+    argv: [systemctl, is-active, "postgresql@{{ sandbox_postgresql_version }}-main"]
+  register: sandbox_debian_cluster
+  changed_when: false
+  failed_when: false
+
+# One-time handover of a running pre-Patroni node. Patroni adopts the existing
+# data directory: the old primary takes the leader key, the old standby follows.
+- name: Hand the running node over to Patroni
+  when: sandbox_debian_cluster.stdout == 'active'
+  block:
+    - name: Require an explicit takeover
+      ansible.builtin.assert:
+        that: sandbox_patroni_takeover | default(false) | bool
+        fail_msg: >-
+          PostgreSQL is still run by postgresql@{{ sandbox_postgresql_version }}-main.
+          Re-run with -e sandbox_patroni_takeover=true during a maintenance window.
+
+    - name: Stop the Debian cluster unit
+      ansible.builtin.systemd_service:
+        name: postgresql@{{ sandbox_postgresql_version }}-main
+        state: stopped
+        enabled: false
+
+    - name: Remove the pre-Patroni configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/postgresql/{{ sandbox_postgresql_version }}/main/conf.d/99-sandbox.conf
+        - /etc/postgresql/{{ sandbox_postgresql_version }}/main/sandbox-synchronous-ready
+
+- name: Start Patroni
+  ansible.builtin.systemd_service:
+    name: patroni
+    state: started
+    enabled: true
+    daemon_reload: true
+
+# Nothing to poll in check mode: Patroni was not actually started.
+- name: Wait for the local member to run
+  when: not ansible_check_mode
+  ansible.builtin.uri:
+    url: http://{{ ansible_host }}:8008/health
+  register: sandbox_patroni_health
+  retries: 30
+  delay: 5
+  until: sandbox_patroni_health.status == 200
+
+- name: Check whether this member leads
+  when: not ansible_check_mode
+  ansible.builtin.uri:
+    url: http://{{ ansible_host }}:8008/primary
+    status_code: [200, 503]
+  register: sandbox_patroni_primary
+
+- name: Reconcile K3s roles on the leader
+  when: not ansible_check_mode and sandbox_patroni_primary.status == 200
+  become: true
+  become_user: postgres
+  block:
+    - name: Create K3s PostgreSQL login role
+      community.postgresql.postgresql_user:
+        name: "{{ sandbox_postgresql_user }}"
+        password: "{{ sandbox_postgresql_k3s_password }}"
+        no_password_changes: "{{ not sandbox_postgresql_rotate_passwords }}"
+        role_attr_flags: LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE,NOREPLICATION
+        state: present
+      no_log: true
+      environment:
+        PGOPTIONS: -c password_encryption=scram-sha-256
+
+    - name: Create K3s PostgreSQL database
+      community.postgresql.postgresql_db:
+        name: "{{ sandbox_postgresql_database }}"
+        owner: "{{ sandbox_postgresql_user }}"
+        state: present
+
+    # Patroni creates it on a fresh initdb; this covers adopted clusters.
+    - name: Create PostgreSQL replication login role
+      community.postgresql.postgresql_user:
+        name: "{{ sandbox_postgresql_replication_user }}"
+        password: "{{ sandbox_postgresql_replication_password }}"
+        no_password_changes: "{{ not sandbox_postgresql_rotate_passwords }}"
+        role_attr_flags: LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+        state: present
+      no_log: true
+      environment:
+        PGOPTIONS: -c password_encryption=scram-sha-256

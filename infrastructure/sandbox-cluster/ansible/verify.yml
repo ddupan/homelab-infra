@@ -20,47 +20,23 @@
         fail_msg: The VyOS datastore endpoint is not connected to a writable PostgreSQL primary
         quiet: true
 
-- name: Verify synchronous PostgreSQL replication
-  hosts: postgres_primary
+- name: Verify the Patroni cluster
+  hosts: sandbox1
   gather_facts: false
   tasks:
-    - name: Query replication state on the primary
-      community.postgresql.postgresql_query:
-        login_db: postgres
-        query: >-
-          SELECT application_name, state, sync_state
-          FROM pg_stat_replication
-          WHERE application_name = 'sandbox2'
-      become: true
-      become_user: postgres
-      register: sandbox_replication_state
+    - name: Read the Patroni cluster state
+      ansible.builtin.uri:
+        url: http://{{ ansible_host }}:8008/cluster
+      register: sandbox_patroni_cluster
 
-    - name: Assert sandbox2 is a synchronous streaming standby
+    - name: Assert one leader and one streaming synchronous standby
+      vars:
+        members: "{{ sandbox_patroni_cluster.json.members }}"
       ansible.builtin.assert:
         that:
-          - sandbox_replication_state.query_result | length == 1
-          - sandbox_replication_state.query_result[0].state == 'streaming'
-          - sandbox_replication_state.query_result[0].sync_state == 'sync'
-        fail_msg: sandbox2 is not synchronously streaming from sandbox1
-        quiet: true
-
-- name: Verify PostgreSQL standby recovery state
-  hosts: postgres_standby
-  gather_facts: false
-  tasks:
-    - name: Query recovery state on the standby
-      community.postgresql.postgresql_query:
-        login_db: postgres
-        query: SELECT pg_is_in_recovery() AS in_recovery
-      become: true
-      become_user: postgres
-      register: sandbox_standby_state
-
-    - name: Assert sandbox2 remains in recovery
-      ansible.builtin.assert:
-        that:
-          - sandbox_standby_state.query_result[0].in_recovery
-        fail_msg: sandbox2 is not operating as a PostgreSQL standby
+          - members | selectattr('role', 'equalto', 'leader') | list | length == 1
+          - members | selectattr('role', 'equalto', 'sync_standby') | selectattr('state', 'equalto', 'streaming') | list | length == 1
+        fail_msg: "Patroni members are not leader + streaming sync_standby: {{ members | map(attribute='name') | zip(members | map(attribute='role')) | list }}"
         quiet: true
 
 - name: Verify K3s node prerequisites

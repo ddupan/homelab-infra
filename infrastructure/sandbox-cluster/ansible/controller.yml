@@ -1,0 +1,80 @@
+---
+# Installs the daily etcd client certificate renewal on the laptop, next to the
+# shared PostgreSQL one but with its own Bao role (homelab-sandbox-postgresql).
+- name: Install the sandbox certificate renewal timer
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  vars:
+    sandbox_controller_dir: /opt/homelab-sandbox-controller
+  tasks:
+    - name: Create the controller directories
+      ansible.builtin.file:
+        path: "{{ sandbox_controller_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: [ansible, ansible/roles]
+
+    # Only what the renewal needs; the working tree also holds a local .venv.
+    - name: Install a root-owned copy of the renewal entry point
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ sandbox_controller_dir }}/{{ item.dest }}"
+        owner: root
+        group: root
+        mode: preserve
+      loop:
+        - {src: ../renew.sh, dest: renew.sh}
+        - {src: ansible.cfg, dest: ansible/}
+        - {src: renew-etcd-cert.yml, dest: ansible/}
+        - {src: inventory, dest: ansible/}
+        - {src: roles/sandbox_patroni, dest: ansible/roles/}
+
+    - name: Run one renewal check before scheduling it
+      ansible.builtin.command:
+        argv: ["{{ sandbox_controller_dir }}/renew.sh"]
+      environment:
+        PATH: /home/panxiao81/.local/bin:/usr/local/bin:/usr/bin:/bin
+      become: true
+      become_user: panxiao81
+      changed_when: false
+
+    - name: Install the renewal service and timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/{{ item.name }}
+        mode: "0644"
+        content: "{{ item.content }}"
+      loop:
+        - name: homelab-sandbox-renew.service
+          content: |
+            [Unit]
+            Description=Renew the sandbox Patroni etcd client certificate
+            After=network-online.target
+            [Service]
+            Type=oneshot
+            User=panxiao81
+            Environment=HOME=/home/panxiao81
+            Environment=PATH=/home/panxiao81/.local/bin:/usr/local/bin:/usr/bin:/bin
+            ExecStart={{ sandbox_controller_dir }}/renew.sh
+            TimeoutStartSec=14min
+            UMask=0077
+        - name: homelab-sandbox-renew.timer
+          content: |
+            [Unit]
+            Description=Daily sandbox Patroni certificate renewal
+            [Timer]
+            OnCalendar=*-*-* 04:50:00 UTC
+            RandomizedDelaySec=15min
+            Persistent=true
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Enable the timer
+      ansible.builtin.systemd_service:
+        name: homelab-sandbox-renew.timer
+        daemon_reload: true
+        enabled: true
+        state: started

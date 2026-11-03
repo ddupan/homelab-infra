@@ -1,6 +1,0 @@
----
-- name: Restart sandbox PostgreSQL
-  ansible.builtin.service:
-    name: postgresql
-    enabled: true
-    state: restarted

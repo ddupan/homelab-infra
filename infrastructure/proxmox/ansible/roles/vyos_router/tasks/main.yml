@@ -61,6 +61,18 @@
   # otherwise real drift is indistinguishable from a routine backup.
   changed_when: (_vyos_cfg.commands | default([]) | length) > 0
 
+# The pre-Patroni backend pointed at one fixed server named `primary`. Removed only
+# after the Patroni members are in, so the endpoint never has an empty backend.
+- name: Remove the fixed sandbox PostgreSQL primary
+  vyos.vyos.vyos_config:
+    lines:
+      - delete load-balancing haproxy backend sandbox-postgresql-primary server primary
+    save: true
+    comment: Sandbox PostgreSQL follows the Patroni leader
+  when: >-
+    "set load-balancing haproxy backend sandbox-postgresql-primary server primary"
+    in _vyos_running_commands.stdout[0]
+
 - name: Show what changed
   ansible.builtin.debug:
     msg: "{{ _vyos_cfg.commands | default(['(no changes)']) }}"

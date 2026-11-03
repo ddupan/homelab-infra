@@ -12,23 +12,8 @@
   roles:
     - sandbox_base
 
-- name: Reconcile sandbox PostgreSQL primary
-  hosts: postgres_primary
-  gather_facts: false
-  roles:
-    - sandbox_postgresql
-
-- name: Reconcile sandbox PostgreSQL synchronous standby
-  hosts: postgres_standby
-  gather_facts: false
-  roles:
-    - sandbox_postgresql
-
-- name: Finalize synchronous PostgreSQL settings
-  hosts: postgres_primary
-  gather_facts: false
-  roles:
-    - sandbox_postgresql
+- name: Reconcile sandbox PostgreSQL under Patroni
+  ansible.builtin.import_playbook: postgresql.yml
 
 - name: Validate runtime K3s datastore credential
   hosts: k3s_cluster
