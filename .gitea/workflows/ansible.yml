@@ -47,8 +47,8 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: ~/.cache/uv
+          # 同 terraform.yml：不设 restore-keys，过期交给 ci-cache bucket 的 lifecycle。
           key: uv-ansible-lint-${{ hashFiles('.gitea/workflows/ansible.yml') }}
-          restore-keys: uv-ansible-lint-
 
       - uses: actions/cache@v6
         id: collections
