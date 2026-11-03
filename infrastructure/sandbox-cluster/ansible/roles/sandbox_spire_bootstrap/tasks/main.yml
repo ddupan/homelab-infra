@@ -12,6 +12,8 @@
       - --output=json
   register: sandbox_spire_bootstrap_reviewer_secret
   changed_when: false
+  # Read-only get; --check would otherwise skip it and the steps below have no data.
+  check_mode: false
   retries: 60
   delay: 10
   until:
@@ -33,6 +35,8 @@
       - --output=json
   register: sandbox_spire_bootstrap_controller_secret_result
   changed_when: false
+  # Read-only get; --check would otherwise skip it and the steps below have no data.
+  check_mode: false
   retries: 60
   delay: 10
   until:

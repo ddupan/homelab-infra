@@ -13,6 +13,8 @@
     validate_certs: true
   register: sandbox_internal_ca
   changed_when: false
+  # Read-only GET; without this --check skips it and the assert below has no content.
+  check_mode: false
   retries: 3
   delay: 5
   until: sandbox_internal_ca is succeeded
