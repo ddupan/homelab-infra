@@ -96,7 +96,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 - [ ] **A4** zot
 - [ ] **A5** iam-login
 - [ ] **A6** smtp-relay（Postfix 队列积压）
-- [ ] **A7** LiteLLM gateway、backstage 等其余 apps —— 逐个评估，大部分 B2 探测即可
+- [ ] **A7** backstage 等其余 apps —— 逐个评估，大部分 B2 探测即可
 
 ## 8. 日志（P2）
 
