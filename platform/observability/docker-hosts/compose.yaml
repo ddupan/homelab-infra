@@ -9,7 +9,7 @@
 services:
   # Host metrics (CPU/mem/disk/net/fs). host networking -> listens on <hostIP>:9100.
   node-exporter:
-    image: quay.io/prometheus/node-exporter:v1.9.1
+    image: quay.io/prometheus/node-exporter:v1.12.1
     command:
       - --path.rootfs=/host
     network_mode: host
@@ -21,7 +21,7 @@ services:
   # Container metrics. Published on <hostIP>:8080. If 8080 is taken on this host,
   # remap the left side (e.g. "8098:8080") and update the VMStaticScrape target.
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     command:
       - --housekeeping_interval=30s
       - --docker_only=true
@@ -40,7 +40,7 @@ services:
 
   # Ships every container's logs to VictoriaLogs (pushed over the tailnet).
   vector:
-    image: timberio/vector:0.44.0-debian
+    image: timberio/vector:0.61.0-debian
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./vector.yaml:/etc/vector/vector.yaml:ro

@@ -35,7 +35,7 @@ spec:
     readOnly: true
   containers:
   - name: bao-metrics-agent
-    image: quay.io/openbao/openbao:2.6.1
+    image: quay.io/openbao/openbao:2.7.2
     command:
     - bao
     args:
@@ -73,7 +73,7 @@ spec:
     fsGroup: 65534
   initContainers:
   - name: prepare-bao-token-file
-    image: quay.io/openbao/openbao:2.6.1
+    image: quay.io/openbao/openbao:2.7.2
     command:
     - sh
     - -ec
