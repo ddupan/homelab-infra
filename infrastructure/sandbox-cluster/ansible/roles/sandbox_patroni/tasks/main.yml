@@ -73,6 +73,9 @@
       Type=simple
       User=postgres
       Group=postgres
+      # The cluster predates Patroni and is SQL_ASCII; psycopg3 then returns
+      # text as bytes (slot names fail to compare). UTF8 needs no conversion.
+      Environment=PGCLIENTENCODING=UTF8
       ExecStart=/opt/patroni/bin/patroni /etc/patroni/patroni.yml
       ExecReload=/bin/kill -HUP $MAINPID
       KillMode=process
