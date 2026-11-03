@@ -29,16 +29,27 @@ sandbox_base_packages:
   - openssh-server
 
 sandbox_postgresql_version: 16
-sandbox_postgresql_primary_address: 10.60.0.11
-sandbox_postgresql_standby_address: 10.60.0.12
+sandbox_postgresql_data_dir: /var/lib/postgresql/{{ sandbox_postgresql_version }}/main
 sandbox_postgresql_lb_address: 10.60.0.1
 sandbox_postgresql_database: k3s
 sandbox_postgresql_user: k3s
 sandbox_postgresql_replication_user: k3s_replication
-sandbox_postgresql_replication_slot: sandbox2
 sandbox_postgresql_rotate_passwords: false
 sandbox_postgresql_k3s_password: "{{ lookup('env', 'SANDBOX_K3S_DB_PASSWORD') }}"
 sandbox_postgresql_replication_password: "{{ lookup('env', 'SANDBOX_REPLICATION_PASSWORD') }}"
+
+# Patroni leader election runs on the shared etcd (infrastructure/etcd), with
+# its own account and prefix /homelab/patroni/pg-sandbox/.
+sandbox_patroni_version: 4.1.5
+sandbox_patroni_etcd_user: patroni-pg-sandbox
+sandbox_patroni_etcd_hosts:
+  - 192.168.10.127:2379
+  - 10.60.0.20:2379
+  - 10.60.0.21:2379
+# Controller-side only: signs the etcd client certificate and reads the etcd
+# account. Never sent to the nodes.
+sandbox_bao_url: https://bao.lab.ddupan.top:8200
+sandbox_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
 
 # This is rendered only at playbook runtime from the Bao-provided password. K3s
 # necessarily persists its datastore credential, but config.yaml is root-only.

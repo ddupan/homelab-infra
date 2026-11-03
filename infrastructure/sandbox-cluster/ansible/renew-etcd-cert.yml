@@ -1,0 +1,18 @@
+---
+# Daily, from controller.yml's timer: renew the Patroni etcd client certificate
+# 14 days before expiry and HUP Patroni. Touches nothing else.
+- name: Renew the Patroni etcd client certificate
+  hosts: postgres
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Require the controller's Bao token
+      ansible.builtin.assert:
+        that: sandbox_bao_token | length > 0
+        quiet: true
+      no_log: true
+
+    - name: Renew when due
+      ansible.builtin.include_role:
+        name: sandbox_patroni
+        tasks_from: certificate

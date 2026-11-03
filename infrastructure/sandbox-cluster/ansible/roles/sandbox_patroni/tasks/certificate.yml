@@ -1,0 +1,75 @@
+---
+# etcd requires mTLS. Patroni goes through the gRPC gateway, which rejects
+# certificates with a CN, so the client certificate carries only a SAN.
+- name: Generate the etcd client key on the node
+  community.crypto.openssl_privatekey:
+    path: /etc/patroni/etcd.key
+    type: ECC
+    curve: secp256r1
+    owner: root
+    group: postgres
+    mode: "0640"
+
+- name: Generate the etcd client CSR
+  community.crypto.openssl_csr:
+    path: /etc/patroni/etcd.csr
+    privatekey_path: /etc/patroni/etcd.key
+    use_common_name_for_san: false
+    subject_alt_name: ["DNS:etcd-{{ sandbox_patroni_etcd_user }}"]
+    extended_key_usage: [clientAuth]
+    key_usage: [digitalSignature]
+    mode: "0644"
+  register: sandbox_patroni_csr
+
+- name: Check the etcd client certificate
+  ansible.builtin.stat:
+    path: /etc/patroni/etcd.crt
+  register: sandbox_patroni_cert_file
+
+- name: Check the renewal window
+  community.crypto.x509_certificate_info:
+    path: /etc/patroni/etcd.crt
+    valid_at: {renewal: "+14d"}
+  register: sandbox_patroni_cert_info
+  when: sandbox_patroni_cert_file.stat.exists
+
+- name: Sign through Bao when missing, changed or due
+  when: >-
+    not ansible_check_mode and (not sandbox_patroni_cert_file.stat.exists or sandbox_patroni_csr is changed
+    or not (sandbox_patroni_cert_info.valid_at.renewal | default(false)))
+  block:
+    - name: Read the CSR
+      ansible.builtin.slurp:
+        src: /etc/patroni/etcd.csr
+      register: sandbox_patroni_csr_content
+
+    - name: Request the certificate (token stays on the controller)
+      ansible.builtin.uri:
+        url: "{{ sandbox_bao_url }}/v1/pki/sign/homelab-etcd-client"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ sandbox_bao_token }}"
+        body_format: json
+        body:
+          csr: "{{ sandbox_patroni_csr_content.content | b64decode }}"
+          ttl: 1440h
+      delegate_to: localhost
+      become: false
+      register: sandbox_patroni_signed
+      no_log: true
+
+    - name: Install the certificate and CA chain
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: /etc/patroni/{{ item.name }}
+        owner: root
+        group: postgres
+        mode: "0644"
+      loop:
+        - name: etcd.crt
+          content: "{{ sandbox_patroni_signed.json.data.certificate }}\n{{ sandbox_patroni_signed.json.data.ca_chain | join('\n') }}\n"
+        - name: ca.crt
+          content: "{{ sandbox_patroni_signed.json.data.ca_chain | join('\n') }}\n"
+      loop_control:
+        label: "{{ item.name }}"
+      notify: Reload Patroni

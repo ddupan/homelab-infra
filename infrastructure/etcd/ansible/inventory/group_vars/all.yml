@@ -8,6 +8,8 @@ etcd_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
 etcd_consumers:
   - name: patroni-pg-prod
     prefix: /homelab/patroni/pg-prod/
+  - name: patroni-pg-sandbox
+    prefix: /homelab/patroni/pg-sandbox/
 etcd_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
 etcd_lxc_storage: pve-rg
 etcd_lxc_bridge: labnet

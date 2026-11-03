@@ -30,7 +30,7 @@ variable "member_names" {
 }
 variable "consumer_names" {
   type    = set(string)
-  default = ["patroni-pg-prod"]
+  default = ["patroni-pg-prod", "patroni-pg-sandbox"]
 }
 
 # 仅管理既有 PKI 下的新 role/policy，不纳管 CA 私钥、mount 或秘密值。

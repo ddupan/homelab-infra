@@ -1,0 +1,7 @@
+---
+# HUP makes Patroni re-read patroni.yml and the etcd client certificate without
+# restarting PostgreSQL. try- does nothing before the first start.
+- name: Reload Patroni
+  ansible.builtin.command:
+    argv: [systemctl, try-reload-or-restart, patroni]
+  changed_when: true

@@ -39,8 +39,8 @@ node_exporter：LXC 的 `/proc` 是 lxcfs 虚拟视图与宿主内核视图的�
 
 节点与 API VIP 均位于现有 PVE `labnet`（VLAN 100，`10.60.0.0/24`），通过
 VyOS `10.60.0.1` 路由；不为 sandbox 新建 VNet，也不占用 `192.168.10.0/24`
-地址。需要从 LAN 访问的服务统一经 VyOS 路由或 LB 暴露。两个 LXC 均使用
-`pve-rg-hdd` 上的 32 GiB rootfs；不为 `/var/lib/kubelet` 单独创建 volume。Kata
+地址。需要从 LAN 访问的服务统一经 VyOS 路由或 LB 暴露。两个 LXC 的 rootfs 均在
+`pve-rg-local`（本节点 SSD 单副本）；不为 `/var/lib/kubelet` 单独创建 volume。Kata
 `block-plain` 产生的数据随 Pod 生命周期清理，当前规模没有额外磁盘故障域的需求。
 K3s API 的 `10.60.0.13/32` 由 VyOS 现有 labnet interface 持有，HAProxy 以 TCP
 健康检查把 `6443` 分发到两个 control-plane 节点；它与 PostgreSQL 主从切换逻辑无关。
@@ -52,21 +52,44 @@ guest 若看不到对应版本的模块目录，K3s 无法加载 `br_netfilter` 
 
 ## PostgreSQL 写入口与切换
 
-K3s 使用外部 PostgreSQL，首期采用 primary + synchronous standby。VyOS 在 labnet
-gateway `10.60.0.1:5432` 提供固定 TCP 入口，backend 只包含当前声明的 primary；
-不把普通 TCP 或 PostgreSQL 存活检查等同于“节点可写”，也不自动把流量切到 standby。
-VyOS 2025.11 的 PostgreSQL protocol check 会生成缺少必需 `user` 参数的 HAProxy
-配置，因此这里只使用基础 TCP check；真正的可写性由 `verify.yml` 通过 SQL 验证。
+K3s 使用外部 PostgreSQL（sandbox1、sandbox2 各一个成员），由 Patroni 自动选主。
+DCS 是共享三成员 etcd（`infrastructure/etcd`），账号 `patroni-pg-sandbox` 只能读写
+`/homelab/patroni/pg-sandbox/`；两节点本身没有仲裁，第三票来自 etcd。
 
-数据库切换必须由 Ansible runbook 受控完成：先隔离旧 primary，再提升 standby，最后
-更新 VyOS backend。首期不部署 PgBouncer、Patroni、repmgr 或额外 DCS，也不宣称两节点
-PostgreSQL 能够自动 HA。以后具备第三个仲裁节点时再重新评估自动 failover。
+VyOS 在 labnet gateway `10.60.0.1:5432` 提供固定 TCP 入口，backend 含两个成员，
+以 Patroni REST `GET :8008/primary` 做健康检查，只有 leader 返回 200。切换后 K3s
+重连即到新主，无需改配置。REST 的写操作（switchover、restart）只接受成员自身地址。
+
+- 同步复制非 strict：standby 健康时同步，掉线时自动降为异步，单节点停机不阻塞写入。
+- `failsafe_mode`：etcd 不可达但两成员互通时，leader 保持可写，不因 DCS 故障降级。
+- 不用 pg_rewind（需要网络 superuser）；分叉的旧主由 Patroni 从 leader 重新克隆，
+  数据小且可重建。
+- 断开的成员保留的 slot WAL 上限 2 GiB，不会撑满 rootfs。
 
 数据库凭据位于 Bao `kv/infra/sandbox-postgresql`，包含 K3s 登录密码和 physical
-replication 密码。运行 Ansible 前由本机 SPIFFE identity 获取短期 Bao token，再把
-两个值注入 `SANDBOX_K3S_DB_PASSWORD` 与 `SANDBOX_REPLICATION_PASSWORD`；凭据不写入
-inventory、Git 或 Ansible fact cache。首次创建 standby 只允许覆盖不含任何业务库的
-Ubuntu 默认空集群，之后重复执行不会 reseed。
+replication 密码，运行 Ansible 前注入 `SANDBOX_K3S_DB_PASSWORD` 与
+`SANDBOX_REPLICATION_PASSWORD`。Patroni 角色还需要 `BAO_TOKEN`（Bao role
+`homelab-sandbox-postgresql`，由 `infrastructure/etcd/terraform` 管理）：在控制端签发
+etcd 客户端证书并读取 etcd 账号，token 不下发节点。
+
+etcd 强制 mTLS，客户端证书 60 天有效。`controller.yml` 在 laptop 安装
+`homelab-sandbox-renew.timer`，每日以 SPIFFE 身份换 15 分钟 token 执行
+`renew-etcd-cert.yml`，剩余不足 14 天时续签并 HUP Patroni。与 prod 的
+`homelab-postgresql-renew` 分开，互不影响。
+
+### 从手动主从接管（一次性）
+
+已运行的 `postgresql@16-main` 不会被默认接管，role 会失败并提示。维护窗口内：
+
+1. `infrastructure/etcd`：`terraform apply`（新增客户端 SAN 与 Bao role），再执行
+   `consumers.yml` 创建 etcd 账号与 Bao 秘密。
+2. 本目录 `ansible-playbook postgresql.yml -e sandbox_patroni_takeover=true`。play
+   串行，先 sandbox1（现主库，取得 leader key），后 sandbox2（Patroni 拒绝在没有
+   leader 时接管一个 standby）。K3s 写入中断约为 sandbox1 上 PostgreSQL 停止到
+   Patroni 拉起的几秒。
+3. 两个成员都在 Patroni 下以后，再跑 `infrastructure/proxmox` 的 VyOS play，把入口
+   改为跟随 `/primary`；顺序反过来入口会因为健康检查全失败而中断。
+4. `ansible-playbook verify.yml`，然后 `ansible-playbook controller.yml` 安装续签 timer。
 
 ## Ansible
 

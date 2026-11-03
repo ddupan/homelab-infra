@@ -30,6 +30,9 @@ Patroni 走 etcd3 gateway，使用无 CN 的客户端证书及独立 username/pa
 `patroni-pg-prod`，只允许 `/homelab/patroni/pg-prod/`。其 Bao KV v2 路径为
 `kv/infra/etcd/consumers/patroni-pg-prod`，包含 username/password/prefix；不在本文复制实际值。
 配置 Patroni 时对应 `namespace: /homelab/patroni/` 与 `scope: pg-prod`。
+第二个消费者 `patroni-pg-sandbox`（sandbox K3s datastore 的 Patroni，`scope: pg-sandbox`），
+只允许 `/homelab/patroni/pg-sandbox/`；它的部署与续签身份 `homelab-sandbox-postgresql` 见
+`terraform/sandbox.tf` 与 `../sandbox-cluster/README.md`。
 
 第一次接入应由管理流程交付 CA、客户端证书及秘密引用，然后使用自己的身份对自己的 prefix
 执行一次 put/get/delete。跨 prefix 应被拒绝；不要把 root 证书复制给应用。
