@@ -3,7 +3,7 @@ terraform {
   required_providers {
     incus = {
       source  = "lxc/incus"
-      version = "1.2.0"
+      version = "1.2.1"
     }
     # Same provider and pin as infrastructure/dns/terraform.
     powerdns = { source = "mmianl/powerdns", version = "~> 2.5" }

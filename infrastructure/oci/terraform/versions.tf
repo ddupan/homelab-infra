@@ -3,7 +3,7 @@ terraform {
   required_providers {
     oci = {
       source  = "oracle/oci"
-      version = "= 9.1.0"
+      version = "9.11.0"
     }
   }
   # 已停用旧执行流程，当前根模块直接管理既有对象；不迁移本地恢复副本。
