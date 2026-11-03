@@ -29,6 +29,9 @@
         quiet: true
       no_log: true
 
+# Not idempotent by upstream design: k3s_server restarts every joined server
+# (sandbox2) on each run, so a second site.yml reports changed=1 there. It is
+# one server behind the API VIP and pods keep running, so this is accepted.
 - name: Install the sandbox K3s control plane
   ansible.builtin.import_playbook: k3s.orchestration.site
 
