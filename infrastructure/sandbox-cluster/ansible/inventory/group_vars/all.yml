@@ -11,7 +11,11 @@ sandbox_gateway: 10.60.0.1
 sandbox_nameserver: 192.168.10.5
 sandbox_search_domain: ad.ddupan.top
 sandbox_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-sandbox_rootfs_storage: pve-rg-hdd
+# One local SSD replica (pve-rg-local): nothing here needs DRBD. PostgreSQL
+# streams sandbox1 -> sandbox2 and caches live on the lab registries. On
+# replicated HDD, CI writes stalled PostgreSQL fsync until k3s lost its leases
+# and restarted. Each LXC is pinned to its node.
+sandbox_rootfs_storage: pve-rg-local
 # Defaults; a host's sandbox_lxc.cores / rootfs_gb override them.
 sandbox_rootfs_gb: 32
 sandbox_lxc_cores: 4
