@@ -1,7 +1,8 @@
 # Ayatori LoadBalancer 主机
 
-Ayatori LoadBalancer（ADR-0012）的数据面主机：HAProxy + Data Plane API + gobgpd。主机配置由
-Cinc（`homelab_loadbalancer` cookbook）负责，`lb_*` 配置段与 VIP 宣告由 Ayatori 负责。网络规则见
+Ayatori LoadBalancer（ADR-0012）的数据面主机：HAProxy + Data Plane API + Ayatori LB agent。主机配置由
+Cinc（`homelab_loadbalancer` cookbook）负责，`lb_*` 配置段由 Ayatori 经 Data Plane API 写入；是否宣告
+某个 VIP 由每台主机上的 agent 在本机判断（ADR-0014/0015），agent 内嵌 GoBGP，只主动连 VyOS。网络规则见
 [`../network/README.md`](../network/README.md)。
 
 | 主机 | 环境 | PVE | VMID | 地址 |
@@ -16,8 +17,9 @@ Cinc（`homelab_loadbalancer` cookbook）负责，`lb_*` 配置段与 VIP 宣告
   Ayatori 重新收敛 `lb_*`，所以不用 DRBD，也不进 PVE HA（冗余靠两台主机和 BGP）。
 - 放在 labnet；环境由 BGP AS 区分（Prod 65100、Dev 65101），与地址无关。邻居是 VyOS
   `10.60.0.1`，它对内以 AS 65002 出现；VyOS 侧每台主机一条静态邻居。
-- 部署时才确定的值（AS、邻居、VIP 段、Basic 哈希）在
-  `../chef/policies/loadbalancer-{prod,dev}.rb`，不在 cookbook 里。
+- 部署时才确定的值（AS、邻居、VIP 段、Basic 哈希、agent 所用的 Ayatori release 版本）在
+  `../chef/policies/loadbalancer-{prod,dev}.rb`，不在 cookbook 里。agent 从该 Ayatori release 的附件安装，
+  `/status` 与 `/metrics` 在 `<主机地址>:9641`，controller 读 `/status` 判断就绪。
 
 ## 部署顺序
 
@@ -36,5 +38,6 @@ Cinc（`homelab_loadbalancer` cookbook）负责，`lb_*` 配置段与 VIP 宣告
    ```
 3. **VyOS 接入**：`LB-PROD`/`LB-DEV` peer-group 与每台主机的静态邻居（另行变更）。
 4. **OSPF→BGP 切换**（网络规划迁移清单第 1 条）：在此之前 IX 没有 10.62 的路由，LAN 访问不到 VIP。
-5. **Ayatori 侧**：凭据 ExternalSecret 与 `--loadbalancer-host=<名字>.lab.ddupan.top,...` 参数。
-   主机必须以 lab 名访问：服务端证书经 ACME 签发，没有 IP SAN。
+5. **Ayatori 侧**：凭据 ExternalSecret，以及部署 inventory 中的 `ayatori_loadbalancer.hosts`（每台主机的
+   `name`、`data_plane_url`、`agent_url`），部署 role 据此创建 LoadBalancerHost。Data Plane API 必须以 lab
+   名访问：服务端证书经 ACME 签发，没有 IP SAN。
