@@ -46,7 +46,7 @@ OpenBao kv/k8s/zot-s3 ────┘                 → 完整 s3.config
 ```
 
 `kv/k8s/zot-s3` 是 zot AK/SK 的唯一维护来源。基础配置保留原有身份及其他字段，
-不再保存 zot 凭据副本；[SeaweedFS ExternalSecret](../../platform/external-secrets/externalsecrets.yaml)
+不再保存 zot 凭据副本；[SeaweedFS ExternalSecret](../seaweedfs/s3-config-external-secret.yaml)
 使用 ESO v2 模板追加 zot 身份。两个 Kubernetes Secret 都是自动生成的消费副本，
 不手工编辑。Bao 的旧版本历史保留，回滚基础配置时模板也会替换其中的旧 zot 身份。
 
