@@ -48,7 +48,8 @@ def test_scope_from_changes():
 
 
 def test_changed_resources():
-    out = ("  * apt_update[daily] action periodic\n"
+    out = ("  - homelab_base (0.4.3)\n"
+           "  * apt_update[daily] action periodic\n"
            "    * execute[apt-get -q update] action run\n"
            "      - execute [\"apt-get\", \"-q\", \"update\"]\n"
            "    - update new lists of packages\n"

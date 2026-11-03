@@ -107,7 +107,8 @@ def scope_from_changes(paths):
 
 def changed_resources(output):
     # Cinc prints what it did (or would do) as "    - <action>" under each resource.
-    return [l.strip() for l in output.splitlines() if re.match(r"^\s+- ", l)]
+    # The cookbook sync list ("  - homelab_base (0.4.3)") is only two deep, so need four.
+    return [l.strip() for l in output.splitlines() if re.match(r"^\s{4,}- ", l)]
 
 
 def updated_count(output):
