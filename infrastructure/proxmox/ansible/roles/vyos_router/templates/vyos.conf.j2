@@ -72,7 +72,7 @@ set load-balancing haproxy service sandbox-postgresql backend 'sandbox-postgresq
 set load-balancing haproxy backend sandbox-postgresql-primary mode 'tcp'
 set load-balancing haproxy backend sandbox-postgresql-primary http-check method 'get'
 set load-balancing haproxy backend sandbox-postgresql-primary http-check uri '/primary'
-set load-balancing haproxy backend sandbox-postgresql-primary http-check expect 'status 200'
+set load-balancing haproxy backend sandbox-postgresql-primary http-check expect status '200'
 {% for server in vyos_postgresql_servers %}
 set load-balancing haproxy backend sandbox-postgresql-primary server {{ server.name }} address {{ server.address }}
 set load-balancing haproxy backend sandbox-postgresql-primary server {{ server.name }} port {{ vyos_postgresql_port }}
