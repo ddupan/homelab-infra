@@ -74,7 +74,7 @@ PR 号**；新发现的盲区直接追加。
   叠加 seaweedfs、zot 重启，load 冲到 54、swap 用满 7.8/8G、IO PSI 40%+，VMSingle 查询排队超时——
   **唯一响起来的是副作用 `AlertingRulesError`**，真正的原因没有任何告警
 - [ ] **L9** CI runner 资源边界：dynamic-runner 的 task Pod 与关键服务抢同一台笔记本，考虑 limits / 并发上限 / 优先级
-- [ ] **L7** 清理：笔记本 node-exporter 被采了两份（`node-exporter` job 与 `docker-hosts` job 的 `:9100`）
+- [x] **L7** 清理：笔记本 node-exporter 被采了两份（`node-exporter` job 与 `docker-hosts` job 的 `:9100`） — 2026-11-03 删除 `docker-hosts` scrape
 
 ## 6. k3s 控制面与集群组件（P2）
 
@@ -102,7 +102,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 
 当前只收 pod 日志；宿主机 journald 一概没有。
 
-- [ ] **G1** 部署 `logs/vlogs-ingress.yaml`（README 里一直挂着未做）
+- [x] **G1** ~~部署 `logs/vlogs-ingress.yaml`~~ — 不再需要：它只服务于 docker-hosts 栈的 Vector，二者 2026-11-03 一并删除（该栈从未部署）
 - [ ] **G2** 笔记本 journald → VictoriaLogs（openvpn、libvirt、k3s 本体）
 - [ ] **G3** PVE 节点 journald（corosync / HA / fencing 事件）
 - [ ] **G4** dc1 / bao1 日志

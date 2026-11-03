@@ -1,4 +1,4 @@
-# Blocky DNS metrics. Same VMStaticScrape pattern as docker-hosts.yaml, because
+# Blocky DNS metrics. A VMStaticScrape (fixed LAN target), because
 # Blocky runs as a compose stack on the laptop rather than in the cluster
 # (see ../../../../apps/blocky/README.md for why DNS deliberately lives outside k3s).
 #

@@ -33,7 +33,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (node) (label_replace(up{job=~\"node-exporter|docker-hosts\"}, \"node\", \"$1\", \"host\", \"(.+)\"))",
+          "expr": "max by (node) (label_replace(up{job=\"node-exporter\"}, \"node\", \"$1\", \"host\", \"(.+)\"))",
           "legendFormat": "{{node}}",
           "instant": true
         }
