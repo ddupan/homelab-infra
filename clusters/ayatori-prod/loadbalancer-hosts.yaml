@@ -1,0 +1,17 @@
+# LB 主机（Ayatori ADR-0018）。原由部署 role 按 inventory 生成；控制面迁入 Chef 后在这里声明。
+# agent_url 是 lb-agent 的 metricsAddress（cookbooks homelab_loadbalancer），manager 要能访问到。
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: LoadBalancerHost
+metadata:
+  name: lb-prod-1
+spec:
+  dataPlaneURL: https://lb-prod-1.lab.ddupan.top:5555
+  agentURL: http://lb-prod-1.lab.ddupan.top:9641
+---
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: LoadBalancerHost
+metadata:
+  name: lb-prod-2
+spec:
+  dataPlaneURL: https://lb-prod-2.lab.ddupan.top:5555
+  agentURL: http://lb-prod-2.lab.ddupan.top:9641

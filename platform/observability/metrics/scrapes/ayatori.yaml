@@ -1,4 +1,4 @@
-# Ayatori Dev/Prod 控制面（Incus LXC，见 infrastructure/ayatori）。各组件 metrics 由部署 role 监听在
+# Ayatori Dev/Prod 控制面（Incus LXC，由 Chef 部署，见 infrastructure/chef 的 ayatori-<env> policy）。各组件 metrics 监听在
 # LXC 地址；每个组件一个 VMStaticScrape，job 取自 jobName（endpoint labels 中的 job 会被 jobName
 # 覆盖），一律以 ayatori- 开头并带 cluster 标签，避免命中集群内 kube-state-metrics/Flux 的规则。
 ---
