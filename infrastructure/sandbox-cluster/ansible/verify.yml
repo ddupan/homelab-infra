@@ -110,10 +110,10 @@
           --for=condition=Ready pods --all --timeout=120s
       changed_when: false
 
-    - name: Verify the authenticated API path through VyOS
+    - name: Verify the authenticated API path through the API name
       ansible.builtin.command:
         cmd: >-
-          k3s kubectl --server=https://10.60.0.13:6443 get --raw=/livez
+          k3s kubectl --server=https://sandbox-k8s.lab.ddupan.top:6443 get --raw=/livez
       register: sandbox_api_livez
       changed_when: false
 
@@ -121,5 +121,5 @@
       ansible.builtin.assert:
         that:
           - sandbox_api_livez.stdout == 'ok'
-        fail_msg: The K3s API is not healthy through the VyOS VIP
+        fail_msg: The K3s API is not healthy through sandbox-k8s.lab.ddupan.top
         quiet: true

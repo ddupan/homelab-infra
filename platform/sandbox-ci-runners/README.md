@@ -29,7 +29,7 @@ daemon。Kata VM 中的 workflow 必须先把稀疏 ext4 镜像 loop-mount 到
 - OpenSandbox chart 和 CRD 已 Ready；
 - RuntimeClass `kata-clh-runtime-rs` 已存在；
 - 中央 SPIRE 已发布 `ConfigMap/opensandbox/spire-bundle-pem`；
-- VyOS `10.60.0.13:8080` 转发 sandbox1/2 的 NodePort `30080`；
+- `sandbox-k8s.lab.ddupan.top:8080`（当前是 VyOS `10.60.0.13`）转发 sandbox1/2 的 NodePort `30080`；
 - runner/controller 镜像均使用 Zot digest，而不是可变 tag。
 
 本目录不读取 OpenBao，也不修改 OpenSandbox 平台侧 ExternalSecret、ClusterSecretStore
@@ -43,7 +43,7 @@ Secret，两边由各自身份读取同一 Bao 资源。
 ```bash
 kubectl -n dynamic-runner wait externalsecret/dynamic-runner --for=condition=Ready --timeout=2m
 kubectl -n dynamic-runner exec deploy/dynamic-runner-controller -- \
-  wget -qO- http://10.60.0.13:8080/health
+  wget -qO- http://sandbox-k8s.lab.ddupan.top:8080/health
 ```
 
 然后触发一个 `runs-on: [self-hosted, vm]` 的最小 workflow，并同时观察：

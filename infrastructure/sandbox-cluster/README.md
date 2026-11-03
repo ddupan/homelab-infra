@@ -35,7 +35,7 @@ node_exporter：LXC 的 `/proc` 是 lxcfs 虚拟视图与宿主内核视图的�
 |---|---:|---:|---|---|
 | `sandbox1` | pve1 | 148 | `10.60.0.11/24` | 4 vCPU / 6 GiB / 2 GiB swap |
 | `sandbox2` | pve2 | 149 | `10.60.0.12/24` | 4 vCPU / 4 GiB / 2 GiB swap |
-| K3s API VIP | VyOS | — | `10.60.0.13:6443` | HAProxy TCP LB |
+| K3s API VIP | VyOS | — | `sandbox-k8s.lab.ddupan.top:6443`（当前 `10.60.0.13`） | HAProxy TCP LB |
 
 节点与 API VIP 均位于现有 PVE `labnet`（VLAN 100，`10.60.0.0/24`），通过
 VyOS `10.60.0.1` 路由；不为 sandbox 新建 VNet，也不占用 `192.168.10.0/24`
@@ -44,6 +44,8 @@ VyOS `10.60.0.1` 路由；不为 sandbox 新建 VNet，也不占用 `192.168.10.
 `block-plain` 产生的数据随 Pod 生命周期清理，当前规模没有额外磁盘故障域的需求。
 K3s API 的 `10.60.0.13/32` 由 VyOS 现有 labnet interface 持有，HAProxy 以 TCP
 健康检查把 `6443` 分发到两个 control-plane 节点；它与 PostgreSQL 主从切换逻辑无关。
+客户端一律用 `sandbox-k8s.lab.ddupan.top` 访问，证书 SAN 含这个名字；VIP 迁到 Ayatori
+LoadBalancer 时把它改成 CNAME 即可。
 LXC 内通过 `/etc/tmpfiles.d/kmsg.conf` 持久维护 `/dev/kmsg -> /dev/console`；否则
 kubelet 会因 LXC 不提供真实 host `/dev/kmsg` 而反复退出。
 每个 LXC 还以只读 bind mount 使用宿主的 `/lib/modules`。LXC 与 PVE 宿主共享内核，
