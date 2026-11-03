@@ -53,8 +53,8 @@ SeaweedFS 服务端使用。
 `kv/k8s/seaweedfs-s3` 的原有身份及其他配置，再追加 zot 身份与限定 bucket 的权限。
 基础配置当前版本不保存 zot AK/SK；旧 KV 版本历史仍保留。新增其他身份时使用
 KV compare-and-set 保留已有内容，不覆盖 Terraform 或其他应用的 AK/SK。
-不要直接编辑生成的 Kubernetes Secret。该 ExternalSecret 已单独应用到集群，
-目前仍未加入 ESO 的 Flux Kustomization，遵循该组件现有 ownership 边界。
+不要直接编辑生成的 Kubernetes Secret。该 ExternalSecret 随本目录的 Flux Kustomization
+部署（2026-11-03 起；此前为手工 apply）。
 
 运行版本 `4.22` 可在 Secret volume 更新后向 filer/内嵌 S3 的 `weed` 进程发送
 SIGHUP，重新加载静态配置，无需重启共享 S3 服务。本次接入没有启用 SeaweedFS
