@@ -16,3 +16,22 @@ collections:
   - name: community.hashi_vault   # vault_kv2_get/write: pve-exporter token → Bao (roles/pve_monitoring)
   - name: community.proxmox
     version: 2.0.0              # typed PVE API modules for HA, SDN and guest lifecycle
+  # LINSTOR nodes, pools, resource/volume groups (roles/pve_linstor). Not on
+  # Galaxy yet, nor are its linbit.* dependencies, so all four come from git.
+  # The modules need python-linstor on the controller host (via linstor-client).
+  - name: linbit.linstor
+    source: https://github.com/LINBIT/ansible-linstor-collection.git
+    type: git
+    version: 0.9.11
+  - name: linbit.common
+    source: https://github.com/LINBIT/ansible-common-collection.git
+    type: git
+    version: 0.9.11
+  - name: linbit.drbd
+    source: https://github.com/LINBIT/ansible-drbd-collection.git
+    type: git
+    version: 0.9.10
+  - name: linbit.drbd_reactor
+    source: https://github.com/LINBIT/ansible-drbd_reactor-collection.git
+    type: git
+    version: 0.9.10
