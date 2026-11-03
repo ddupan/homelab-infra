@@ -13,7 +13,6 @@ resources:
   - rules/vmalert.yaml
   - rules/vmsingle.yaml
   - scrapes/blocky.yaml
-  - scrapes/docker-hosts.yaml
   - scrapes/kubelet.yaml
   - exporters/node-exporter.yaml
   - exporters/process-exporter.yaml

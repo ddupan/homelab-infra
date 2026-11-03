@@ -34,8 +34,8 @@ RSS、PSS、cAdvisor working set、ARC 是不同口径，不能直接相加。
 - kubelet/cAdvisor：Pod/container working set、Swap 等。
 
 Grafana 新增 `Homelab 内存与 Swap`（UID `homelab-memory`），由 sidecar ConfigMap 加载。
-仅使用 `job="node-exporter"` 查询主机指标，避免目前 `docker-hosts` 对同一 9100 端口
-的重复抓取。另有 `192.168.10.127:8080` Docker cAdvisor target 失效，本次未修改该旧配置。
+仅使用 `job="node-exporter"` 查询主机指标。（曾有 `docker-hosts` job 重复抓取同一 9100
+端口，2026-11-03 随未部署的 docker-hosts 栈一并删除。）
 
 所有新增 manifest 已纳入对应 Kustomization，并已单独应用到 live；尚未提交到远端，
 Flux source 尚未包含这些新增资源。修改 exporter ConfigMap 后需滚动重启 DaemonSet，

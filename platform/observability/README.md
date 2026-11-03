@@ -55,13 +55,10 @@ Helm revision 均保持为 1；随后在同一独立 PR 中解除两个 HelmRele
 Grafana 升级会有一次短暂停机，但旧 Pod 会先退出，新 Pod 才挂载同一 PVC；不要改回
 RollingUpdate，除非存储改为真正支持并发挂载的 RWX。
 
-以下内容明确不属于本批接管：尚未部署的 kube-state-metrics、`vlogs-ingress.yaml`，以及
+以下内容明确不属于本批接管：尚未部署的 kube-state-metrics，以及
 仅作 standalone chart 参考的 `traces-values.yaml`。Grafana 的 OIDC 客户端
 由 `apps/iam-login/terraform` 注册，secret 写入 bao `kv/k8s/grafana-sso`，经
 `grafana/sso-external-secret.yaml` 同步为 `grafana-sso` Secret。
-
-Still host-side (not yet done): deploy `docker-hosts/compose.yaml` on the Docker
-hosts and `logs/vlogs-ingress.yaml` to push their logs.
 
 ## Decision
 
@@ -110,7 +107,7 @@ VM 资源，不需要每个应用额外维护一份 `VM*Scrape`。
 - 目标标签不要和指标自带的标签同名（如 LINSTOR 指标自带 `node`），否则会被覆盖、原值改名为 `exported_*`。
 
 2026-10 之前留下的 `VMNodeScrape`（kubelet / cadvisor / node-exporter）与若干 `VMStaticScrape`
-（docker-hosts、shared-*）尚未迁移。
+（blocky、shared-*）尚未迁移。
 
 ## Architecture
 
@@ -136,35 +133,15 @@ observability/
   logs/                     VLSingle CR + victoria-logs-collector (Helm)
   traces/                   victoria-traces-single (Helm) + OTel Collector
   grafana/                  Grafana (Helm) values, OIDC secret, install script
-  docker-hosts/             per-Docker-host sidecar (cAdvisor + node-exporter + Vector)
 ```
 
 ## Docker hosts
 
-The Compose services on Docker hosts (`../../apps/vlmcsd`, `../../apps/ps3netsrv`, `../../apps/netboot`, ...)
-are monitored too:
-
-- **Metrics — pull, nothing exposed.** Each host runs `docker-hosts/compose.yaml`
-  (cAdvisor `:8080` + node-exporter `:9100`). The cluster's vmagent scrapes their LAN
-  IPs via `metrics/scrapes/docker-hosts.yaml` (VMStaticScrape). VMSingle stays private.
-- **Logs — push over the tailnet.** A **Vector** container per host tails the Docker
-  socket and ships to VictoriaLogs' Elasticsearch-bulk endpoint, exposed privately as
-  `vlogs.<tailnet>.ts.net` by `logs/vlogs-ingress.yaml`.
-
-Deploy:
-
-```bash
-# cluster side (once): expose VictoriaLogs ingest + register the scrape
-kubectl apply -f logs/vlogs-ingress.yaml -f metrics/scrapes/docker-hosts.yaml
-
-# on each Docker host:
-cd docker-hosts
-cp .env.example .env        # set HOST_LABEL and confirm VLOGS_ENDPOINT (tailnet FQDN)
-docker compose up -d
-# then add the host's IP to metrics/scrapes/docker-hosts.yaml and re-apply
-```
-
-Note: cAdvisor uses host port `8080` — remap it (and the scrape target) if taken.
+There is no per-Docker-host sidecar. A `docker-hosts/` compose stack (cAdvisor + node-exporter
++ Vector pushing to a tailnet `vlogs` ingress) sat here unused and was never deployed; removed
+2026-11-03. The laptop's host metrics come from the node-exporter DaemonSet and its container
+metrics from kubelet's cAdvisor. Compose stacks that need metrics get their own scrape (see
+`metrics/scrapes/blocky.yaml`).
 
 ## Deploy order
 
