@@ -12,42 +12,59 @@
 - name: 为 OCI ARM 设置经 AMD 的站点回程，保留其余 Tailscale 路由
   hosts: oci_routed_hosts
   become: true
+  vars:
+    # cloud-init 的 netplan 生成 10-netplan-<if>.network；drop-in 按这个文件名挂上去。
+    site_return_dropin_dir: '/etc/systemd/network/10-netplan-{{ ansible_default_ipv4.interface }}.network.d'
   tasks:
-    - name: 安装三个目标网段的策略路由脚本
-      ansible.builtin.template:
-        src: templates/arm-routes.sh.j2
-        dest: /usr/local/sbin/oci-site-return-routes
+    # 规则必须由 networkd 自己持有：它默认 ManageForeignRoutingPolicyRules=yes，每次重启都会清掉
+    # 别人加的 ip rule。原来的 oneshot 脚本只在开机跑一次，2026-11-04 无人值守升级重启 networkd 后
+    # 规则全丢，回包改走 Tailscale（52 表），LAN→OCI 不通而服务仍显示 active。
+    - name: networkd drop-in 目录
+      ansible.builtin.file:
+        path: '{{ site_return_dropin_dir }}'
+        state: directory
         mode: '0755'
-      notify: 更新 OCI ARM 回程
 
-    - name: 安装回程策略启动单元
+    - name: 由 networkd 持有回程策略路由（优先于 Tailscale 的 52 表，规则 5270）
       ansible.builtin.copy:
-        dest: /etc/systemd/system/oci-site-return-routes.service
+        dest: '{{ site_return_dropin_dir }}/50-site-return.conf'
         mode: '0644'
         content: |
-          [Unit]
-          Description=Route homelab prefixes through OCI AMD rather than Tailscale
-          After=network-online.target
-          Wants=network-online.target
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/local/sbin/oci-site-return-routes
-          RemainAfterExit=yes
-          [Install]
-          WantedBy=multi-user.target
-      notify: 更新 OCI ARM 回程
+          # 主表仍使用 OCI 网关；VCN 路由表再将这些前缀交给 AMD。
+          {% for prefix in wg_home_prefixes %}
+          [RoutingPolicyRule]
+          To={{ prefix }}
+          Table=main
+          Priority={{ 5100 + loop.index }}
+          {% endfor %}
+      notify: 重载 networkd
 
-    - name: 启用回程策略
+    - name: 退役旧的 oneshot 回程脚本
       ansible.builtin.systemd_service:
         name: oci-site-return-routes
-        daemon_reload: true
-        enabled: true
-        state: started
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: 删除旧脚本与单元
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: absent
+      loop:
+        - /etc/systemd/system/oci-site-return-routes.service
+        - /usr/local/sbin/oci-site-return-routes
+
+    - name: 先应用再验证
+      ansible.builtin.meta: flush_handlers
+
+    - name: 验证回程不走 Tailscale
+      ansible.builtin.command: "ip -4 route get {{ item | split('/') | first }}"
+      changed_when: false
+      register: site_return_route
+      failed_when: "'tailscale0' in site_return_route.stdout"
+      loop: '{{ wg_home_prefixes }}'
       when: not ansible_check_mode
   handlers:
-    - name: 更新 OCI ARM 回程
-      ansible.builtin.systemd_service:
-        name: oci-site-return-routes
-        daemon_reload: true
-        state: restarted
+    - name: 重载 networkd
+      ansible.builtin.command: networkctl reload
       when: not ansible_check_mode

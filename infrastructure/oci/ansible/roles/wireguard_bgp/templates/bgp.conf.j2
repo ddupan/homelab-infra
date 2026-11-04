@@ -16,6 +16,15 @@ ip prefix-list OCI-WG-IN seq {{ loop.index * 10 }} permit {{ prefix }}
 {% for prefix in bgp_export + (bgp_summary | default([])) %}
 ip prefix-list OCI-WG-OUT seq {{ loop.index * 10 }} permit {{ prefix }}
 {% endfor %}
+{% if bgp_transport_peer is defined %}
+! link-local 单会话上，iBGP 的 IPv4 路由默认以对端 link-local 为下一跳；zebra 对 iBGP 做递归解析，
+! 解析不了 link-local，路由留在 BGP 表里但 RIB 中 Status: Failed，回家方向因此走默认路由丢包
+! （2026-11-04 实测）。对端在 MP_REACH 里同时带了 ULA 全局下一跳，wg 接口直连可解析，所以优先用它。
+! 与 VyOS 端 OCI-MP-IN 相同。
+route-map OCI-WG-NH-IN permit 10
+ set ipv6 next-hop prefer-global
+exit
+{% endif %}
 router bgp {{ bgp_asn }}
  bgp router-id {{ bgp_router_id }}
  neighbor {{ v4_peer }} remote-as {{ bgp_peer_asn }}
@@ -35,6 +44,9 @@ router bgp {{ bgp_asn }}
   neighbor {{ v4_peer }} activate
   neighbor {{ v4_peer }} prefix-list OCI-WG-IN in
   neighbor {{ v4_peer }} prefix-list OCI-WG-OUT out
+{% if bgp_transport_peer is defined %}
+  neighbor {{ v4_peer }} route-map OCI-WG-NH-IN in
+{% endif %}
   neighbor {{ v4_peer }} maximum-prefix {{ bgp_import | length }}
  exit-address-family
 exit

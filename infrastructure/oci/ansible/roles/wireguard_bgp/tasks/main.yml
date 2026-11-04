@@ -151,6 +151,17 @@
     and (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_address), {}).get('pfxRcd', 0) == bgp_import | length
   when: not ansible_check_mode
 
+# 收到前缀不等于装进内核：下一跳解析失败时路由只留在 BGP 表里（2026-11-04 断了数天未被发现）。
+- name: 验证导入的 IPv4 前缀已装入内核并经隧道转发
+  ansible.builtin.command: 'ip -4 route show {{ item }}'
+  changed_when: false
+  register: bgp_kernel_route
+  retries: 6
+  delay: 5
+  until: wg_interface in bgp_kernel_route.stdout
+  loop: '{{ bgp_import }}'
+  when: not ansible_check_mode
+
 - name: 验证 IPv6 iBGP 建邻与前缀
   ansible.builtin.command: vtysh -c 'show bgp summary json'
   changed_when: false

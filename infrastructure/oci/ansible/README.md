@@ -17,6 +17,13 @@ MTU 1380，Linux 使用 `Table = off`，WireGuard AllowedIPs 用于选 peer 与�
 内部旧 IPv4/ULA BGP 邻居已退役；ULA 传输地址保留用于路由下一跳，不再用于建邻。
 VyOS 10.2.4 通过 `OCI-MP-IN` 的 `ipv6-next-hop prefer-global` 优先采用通告中的 ULA 下一跳，
 避免 link-local NHT 显示 overlay index unresolved、BGP 已建邻但路由未安装。
+AMD 端同理用 `OCI-WG-NH-IN` 优先全局下一跳：否则 iBGP 的 IPv4 路由以 link-local 为下一跳，
+zebra 递归解析失败（RIB `Status: Failed`），回家方向静默走默认路由（2026-11-04 修复）。
+角色现在校验导入前缀确实装入内核，不只看 `pfxRcd`。
+
+OCI ARM 回程的三条策略路由（5101–5103，优先于 Tailscale 52 表）是 networkd drop-in
+`10-netplan-<if>.network.d/50-site-return.conf`，不能用 `ip rule add`：networkd 默认清理外来规则，
+2026-11-04 无人值守升级重启 networkd 后旧脚本加的规则全部丢失，回包改走 Tailscale。
 
 ## 地址与通告边界
 
