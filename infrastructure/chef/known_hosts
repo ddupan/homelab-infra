@@ -5,6 +5,7 @@ ayatori-dev.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICMhoTXrkAAHsj6P+
 ayatori-prod.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBKZVgrTACwPQ50jg5swBxAF68DkiPszIF6S/JUTFxiB
 etcd-pve1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPxBkYHKtQCLvK/2SDNXQKI3FnXfpFlw8FUvlH8TrFuM
 etcd-pve2.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMj0RtKF6aXfaGiS/2bMDJBFI2eF47HjHFh+Rglapm9Q
+etcd-pve3.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE7RbPymv2d3E7Xj/tqCvpwrRuRqyPlhBLQKKQiwy4PY
 lb-dev-1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM5sKiLz4cJL26aQH/vpenvoRk5vzSSWpDqpaauzxOro
 lb-dev-2.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJw+dEvMjFyhe8q25BJcfClypG65MCjC8UJCjj5YKNfY
 lb-prod-1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDM1efKw/buswfKlCIgtJaIyhtmgl0+e7lejS3BGjMSE
