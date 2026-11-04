@@ -79,3 +79,25 @@ pve_vms:
     # belongs, producing a silently unbootable disk. Write it straight to the
     # DRBD device instead (see tasks/image.yml).
     image: "/mnt/pve/laptop/import/noble-server-cloudimg-amd64.img.raw"
+
+  - vmid: 105
+    name: router-poc
+    description: "NixOS router PoC (infrastructure/router-nixos). Temporary: delete after the evaluation."
+    # Ubuntu only bootstraps the VM: nixos-anywhere kexecs from it and repartitions
+    # the disk (router-nixos/disk.nix). From then on the OS belongs to Nix, not here.
+    cores: 2
+    memory: 2048
+    cpu: x86-64-v2-AES
+    disk: "pve-rg:8"
+    bios: ovmf
+    machine: q35
+    vga: serial0              # headless like vyos-rtr; `qm terminal 105` is the out-of-band path
+    serial: true
+    nets:
+      - { id: 0, bridge: labnet }   # DHCP first; NixOS then sets the static address in facts.nix
+    onboot: 0
+    cloudinit: true
+    ciuser: panxiao81
+    # Pristine upstream image (3.5 GiB virtual). The .qcow2 next to it was grown to
+    # 40 GiB and no longer fits an 8 GiB disk ("Cannot grow device files").
+    image: "/mnt/pve/laptop/import/noble-server-cloudimg-amd64.img"

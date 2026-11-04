@@ -78,12 +78,16 @@ HA 重启只会和它抢。
 | | 回滚 | 回滚时的扰动 | 正确性靠什么 |
 |---|---|---|---|
 | VyOS | `commit-confirm`，超时未 `confirm` 自动回退 | **默认 `action reboot`**（重启进 saved 配置）；设 `system config-management commit-confirm action reload` 才是不重启的差异回退 | commit 时的配置树校验 |
-| NixOS | deploy-rs magic rollback：激活后放 canary，`confirmTimeout`（默认 30s）内控制端未确认就在线重新激活上一代，**不重启** | FRR 走 reload（见下），会话不断；其他 unit 若配置变了会被 restart | 事前检查（CI 构建整机、flake check） |
+| NixOS | deploy-rs magic rollback：激活后放 canary，`confirmTimeout`（默认 30s）内控制端未确认就在线重新激活上一代，**不重启** | FRR 走 reload，会话不断——**前提是改掉模块默认的 `ExecReload`**（见下）；其他 unit 若配置变了会被 restart | 事前检查（CI 构建整机、flake check） |
 | Chef | 无自动回滚：revert 提交，CI 重新 converge，分钟级；锁死自己只能上 console | `frr-reload.py`，会话不断 | 事前测试（ChefSpec、Kitchen、why-run） |
 
 NixOS 回滚**不等于重启**：只有内核/initrd 变了，或机器起不来要在启动菜单选旧代时才需要。
+PoC 实测：锁死 SSH 后 60 秒（`confirmTimeout`）目标机自行切回上一代，4 秒完成、BGP 不断。
+⚠ 只能回到 deploy-rs 部署过的代：nixos-anywhere 首装的那一代没有 `deploy-rs-activate`，回滚只改
+profile 指针、运行的仍是新配置。首装后先用 deploy-rs 部署一次。
 
-**nixpkgs 的 FRR 模块**（`nixos/modules/services/networking/frr.nix`，FRR 10.7.1，读代码确认，未实机验证）：
+**nixpkgs 的 FRR 模块**（`nixos/modules/services/networking/frr.nix`；nixos-26.05 带 FRR 10.6.1，master 为 10.7.1。
+2026-11-04 在 [`router-nixos`](../router-nixos/) PoC 上实测）：
 
 - `reloadIfChanged = true`，`restartTriggers = [ configFile daemonList ]`：`frr.conf` 或启用的
   daemon 变化时，switch 执行 `systemctl reload frr` 而非 restart。
@@ -91,7 +95,14 @@ NixOS 回滚**不等于重启**：只有内核/initrd 变了，或机器起不�
   不重启），再 `frr-reload.py --reload` 应用整份 `frr.conf` 的差异——与上文 Chef 方案同一机制。
 - ⚠ `frrinit.sh reload` 最后无条件 `exit 0`，**`frr-reload.py` 失败也报成功**。坏的 `frr.conf`
   会被当作激活成功：auto rollback 不触发，SSH 仍通所以 magic rollback 也不触发，FRR 停在新旧混合
-  的配置上。必须在构建期挡住：flake check 里跑 `vtysh --dryrun -f frr.conf`（对应 Chef 的 Kitchen）。
+  的配置上。必须在构建期挡住：flake check 里跑 `vtysh --dryrun --config_dir`（对应 Chef 的 Kitchen；PoC 已验证能拦）。
+- ⚠ **实测：默认 reload 会让 BGP 断一次。** `frrinit.sh reload` 重启 watchfrr，watchfrr 退出时发
+  `STOPPING=1`（unit 为 `NotifyAccess=all`），systemd 把 frr.service 当成在停，`TimeoutStop`（2 分钟）后
+  SIGKILL 全部守护进程再拉起。脚本里的规避（把 watchfrr 搬出 control cgroup）只认 cgroup v1。
+  脚本是 FRR 上游的，发行版 unit 若同样 `ExecReload=frrinit.sh reload` 应会同样中招（未验证），
+  Chef 方案要直接调 `frr-reload.py`。PoC 把
+  `ExecReload` 换成直接 `frr-reload.py --reload`：reload 1 秒、会话不断，且失败码能传到激活结果，
+  上一条的 `exit 0` 也一并解决；代价是增删 daemon 要手动 restart。
 - ⚠ FRR 包升级也只触发 reload，旧 bgpd 继续运行到下次重启。升级 FRR 要在窗口里手动
   `systemctl restart frr`。
 

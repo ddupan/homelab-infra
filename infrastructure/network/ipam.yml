@@ -53,5 +53,6 @@ homelab_ipam:
     - { asn: 65001, owner: laptop, description: "laptop FRR，向 IX 宣告 NAIST 前缀" }
     - { asn: 65002, owner: vyos-rtr, description: "VyOS 对内邻居（IX、LB）的 local-as；IX 只支持 2 字节 AS" }
     - { asn: 4242421811, owner: vyos-rtr, description: "dn42；VyOS 与 OCI 共用，只用于 dn42/OCI 边界" }
+    - { asn: 65003, owner: router-poc, description: "NixOS 路由器评估（infrastructure/router-nixos），结束即释放" }
     - { asn: 65100, owner: loadbalancer-prod, description: "Prod LB 主机共用" }
     - { asn: 65101, owner: loadbalancer-dev, description: "Dev LB 主机共用" }
