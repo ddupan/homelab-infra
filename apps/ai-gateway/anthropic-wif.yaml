@@ -1,0 +1,232 @@
+# Anthropic credential without a static key: Workload Identity Federation with SPIRE.
+#
+# Every 15 minutes a Job fetches a JWT-SVID (aud https://api.anthropic.com) from the SPIRE agent,
+# presents it to POST /v1/oauth/token and writes the resulting 1-hour access token into Secret
+# anthropic-token, which Agent Router watches and sends as Authorization: Bearer. Four attempts
+# per token lifetime, because the WAN drops at random. Minted lifetime = min(rule, 2 × the
+# JWT-SVID's remaining life); SPIRE's 1h JWT TTL with agent renewal at half-life keeps that 1h.
+#
+# Console side (Settings → Workload identity → Custom OIDC):
+#   issuer    https://spire-oidc.lab.ddupan.top                 (the JWT's iss; string compare)
+#   JWKS      explicit_url https://spire-oidc.ddupan.top/keys   (public copy via cloudflared)
+#   subject   spiffe://ddupan.top/ns/ai-gateway/sa/anthropic-wif  (exact, no *)
+#   audience  https://api.anthropic.com
+#   lifetime  3600
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: anthropic-wif
+  namespace: ai-gateway
+automountServiceAccountToken: false
+---
+# Declared without data: Flux owns only the metadata, the Job owns .data (SSA field ownership),
+# so a Flux reconcile never blanks the token.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: anthropic-token
+  namespace: ai-gateway
+type: Opaque
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: anthropic-wif
+  namespace: ai-gateway
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [anthropic-token]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: anthropic-wif
+  namespace: ai-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: anthropic-wif
+subjects:
+  - kind: ServiceAccount
+    name: anthropic-wif
+    namespace: ai-gateway
+---
+# Not secrets — identifiers from the Console wizard.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: anthropic-wif
+  namespace: ai-gateway
+data:
+  ANTHROPIC_ORGANIZATION_ID: "26d63c26-9648-49f4-9cb3-6e463b3faeb1"
+  ANTHROPIC_SERVICE_ACCOUNT_ID: "svac_01HwvMnsaefrcxcybcE9ytvY"
+  ANTHROPIC_FEDERATION_RULE_ID: "fdrl_01HukY1osAonkJ2w1wYgjiDC"
+  ANTHROPIC_WORKSPACE_ID: "wrkspc_01GCfeF3wYZnRx6sm8bGRUbe"
+  helper.conf: |
+    agent_address = "/run/spire/agent-sockets/spire-agent.sock"
+    daemon_mode = false
+    cert_dir = "/run/anthropic"
+    jwt_svids = [{ jwt_audience = "https://api.anthropic.com", jwt_svid_file_name = "jwt.token" }]
+  exchange.py: |
+    # Exchange the projected k8s token for an Anthropic access token; store it in the Secret.
+    # Prints no token material — only status codes and expiry.
+    import base64, json, os, ssl, sys, time, urllib.error, urllib.request
+
+    SA = "/var/run/secrets/kubernetes.io/serviceaccount"
+    env = os.environ
+
+    def call(req, ctx=None, tries=5):
+        for i in range(tries):
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=30) as r:
+                    return json.load(r)
+            except urllib.error.HTTPError as e:
+                # 4xx is a config problem (rule, JWKS, jti); retrying would only reuse the jti.
+                sys.exit(f"{req.full_url}: HTTP {e.code} {e.read()[:300]!r}")
+            except OSError as e:
+                print(f"{req.full_url}: {e}; retry {i + 1}/{tries}", flush=True)
+                time.sleep(2 ** i * 5)
+        sys.exit(f"{req.full_url}: giving up")
+
+    body = {
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion": open("/run/anthropic/jwt.token").read().strip(),
+        "federation_rule_id": env["ANTHROPIC_FEDERATION_RULE_ID"],
+        "organization_id": env["ANTHROPIC_ORGANIZATION_ID"],
+        "service_account_id": env["ANTHROPIC_SERVICE_ACCOUNT_ID"],
+        "workspace_id": env["ANTHROPIC_WORKSPACE_ID"],
+    }
+    tok = call(urllib.request.Request(
+        "https://api.anthropic.com/v1/oauth/token", data=json.dumps(body).encode(),
+        headers={"content-type": "application/json"}))
+    print(f"exchanged; expires_in={tok.get('expires_in')}", flush=True)
+
+    patch = {"data": {"apiKey": base64.b64encode(tok["access_token"].encode()).decode()}}
+    ns = open(f"{SA}/namespace").read().strip()
+    api = f"https://{env['KUBERNETES_SERVICE_HOST']}:{env['KUBERNETES_SERVICE_PORT']}"
+    call(urllib.request.Request(
+        f"{api}/api/v1/namespaces/{ns}/secrets/anthropic-token?fieldManager=anthropic-wif",
+        data=json.dumps(patch).encode(), method="PATCH",
+        headers={"content-type": "application/merge-patch+json",
+                 "authorization": "Bearer " + open(f"{SA}/token").read().strip()}),
+        ctx=ssl.create_default_context(cafile=f"{SA}/ca.crt"))
+    print("secret updated", flush=True)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: anthropic-wif
+  namespace: ai-gateway
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: anthropic-wif
+        spec:
+          serviceAccountName: anthropic-wif
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # One-shot (daemon_mode false): write the JWT-SVID to the shared tmpfs and exit.
+            - name: jwt-svid
+              image: ghcr.io/spiffe/spiffe-helper:0.12.3@sha256:58f28329f6be32ab5a80248931845157d858f0aebdf7e462217a43f019e3452f
+              args: [-config, /etc/anthropic-wif/helper.conf]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /etc/anthropic-wif
+                  readOnly: true
+                - name: spire-agent-socket
+                  mountPath: /run/spire/agent-sockets
+                  readOnly: true
+                - name: jwt
+                  mountPath: /run/anthropic
+          containers:
+            - name: exchange
+              image: docker.io/library/python:3.13-alpine@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+              command: [python3, -I, /etc/anthropic-wif/exchange.py]
+              envFrom:
+                - configMapRef:
+                    name: anthropic-wif
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /etc/anthropic-wif
+                  readOnly: true
+                - name: jwt
+                  mountPath: /run/anthropic
+                  readOnly: true
+                - name: kube-api
+                  mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: anthropic-wif
+                items:
+                  - {key: exchange.py, path: exchange.py}
+                  - {key: helper.conf, path: helper.conf}
+            - name: spire-agent-socket
+              csi:
+                driver: csi.spiffe.io
+                readOnly: true
+            # Memory-backed and pod-scoped: the JWT-SVID never touches the node's disk.
+            - name: jwt
+              emptyDir:
+                medium: Memory
+                sizeLimit: 1Mi
+            # Explicit, since automount is off: only this pod gets an API token at all.
+            - name: kube-api
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      expirationSeconds: 3600
+                      path: token
+                  - configMap:
+                      name: kube-root-ca.crt
+                      items: [{key: ca.crt, path: ca.crt}]
+                  - downwardAPI:
+                      items:
+                        - path: namespace
+                          fieldRef: {fieldPath: metadata.namespace}
+---
+# Only this Job's pods get the identity the Anthropic rule trusts.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: ai-gateway-anthropic-wif
+spec:
+  className: spire-mgmt-spire
+  spiffeIDTemplate: spiffe://ddupan.top/ns/ai-gateway/sa/anthropic-wif
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: ai-gateway
+  podSelector:
+    matchLabels:
+      app: anthropic-wif
+  workloadSelectorTemplates:
+    - k8s:ns:ai-gateway
+    - k8s:sa:anthropic-wif

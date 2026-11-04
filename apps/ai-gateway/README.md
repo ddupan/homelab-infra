@@ -36,6 +36,19 @@ client ─TLS─▶ eg (LAN ingress) ── apiKeyAuth ──▶ Gateway `ai` (E
 - Gateway `ai` is separate from `eg` on purpose: Agent Router's pod webhook fails closed, so it
   is scoped to `ai`'s Envoy pods and can never block a rollout of the LAN ingress.
 
+## Anthropic credential: Workload Identity Federation
+
+No `sk-ant-` key exists. CronJob `anthropic-wif` swaps a SPIRE JWT-SVID for a 1-hour access
+token every 15 minutes (`anthropic-wif.yaml`, Console setup in its header). Anthropic verifies
+it against the public JWKS copy at `https://spire-oidc.ddupan.top/keys`. Usage is billed to the
+rule's workspace exactly like an API key, so the credit grant applies.
+
+- Refresh now (first deploy, or after fixing the Console side):
+  `kubectl -n ai-gateway create job --from=cronjob/anthropic-wif wif-manual`
+- Exchange fails with 401: the Console's *authentication history* tab says why. A signature
+  error usually means `https://spire-oidc.ddupan.top/keys` is unreachable from outside, so
+  Anthropic cannot see SPIRE's rotated keys.
+
 ## ChatGPT login (CLIProxyAPI)
 
 The Codex OAuth credential lives on the `cliproxyapi-auth` PVC, not in Bao — CLIProxyAPI
@@ -54,7 +67,6 @@ The running server watches `/data/auths` and picks the new credential up without
 
 | path | property | what |
 |---|---|---|
-| `kv/k8s/ai-gateway` | `anthropic_api_key` | Console key; write it yourself, no one else handles it |
 | `kv/k8s/ai-gateway` | `cliproxyapi_api_key` | shared secret between the ai Envoy and CLIProxyAPI; random, rotate freely |
 | `kv/k8s/ai-gateway-clients` | `<client-id>` | one gateway key per client; property name = client ID |
 
