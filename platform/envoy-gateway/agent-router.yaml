@@ -50,7 +50,32 @@ spec:
   releaseName: ai-gateway
   targetNamespace: envoy-ai-gateway-system
   values:
+    # GenAI tracing → otel-collector → VictoriaTraces, next to the Claude API's own spans
+    # (service.name claude-platform). The ext_proc sidecar propagates traceparent upstream,
+    # so Anthropic's server-side spans nest under the gateway span in one trace.
+    # ⚠ Sidecar env is injected at pod CREATE by the webhook: changing these needs the `ai`
+    # Envoy pod recreated (delete it; EG's Deployment brings it back).
+    extProc:
+      extraEnvVars:
+        # gen_ai, not the default OpenInference: OpenInference records full prompts and
+        # responses unless every OPENINFERENCE_HIDE_* is set; gen_ai keeps content opt-in
+        # (OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT, left unset) and uses the same
+        # gen_ai.* attribute names as the claude-platform spans.
+        - name: AI_GATEWAY_TRACING_SEMCONV
+          value: gen_ai
+        # Traces-specific endpoint on purpose: a generic OTEL_EXPORTER_OTLP_ENDPOINT would
+        # also switch on OTLP metrics and Envoy access-log export, which the collector has
+        # no pipelines for. Metrics stay on the Prometheus endpoint.
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces
+        - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_SERVICE_NAME
+          value: ai-gateway
     controller:
+      # Which gateway client (apps/ai-gateway SecurityPolicy forwardClientIDHeader) made the
+      # call; keeps the chart's default session mapping.
+      spanRequestHeaderAttributes: "agent-session-id:session.id,x-ai-client:ai_gateway.client"
       mutatingWebhook:
         # Without cert-manager the chart mints a fresh self-signed cert on every render, and the
         # running controller keeps serving the old one until restarted.
