@@ -100,6 +100,10 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
    指向 A1 公网 IP 的代理 A 记录。⚠ 同名 CNAME→A 不能共存：一次 apply 可能先建后删、报冲突
    （与 pdns 的类型变更坑同理）。分两次 apply：先移除 ingress（CNAME 随之删除），再加 A 记录。
    中间断开约一分钟，此时本来就处于冻结窗口。
+   第二次 apply 同时删除 `cloudflare_ruleset.custom_firewall`（git.ddupan.top 的爬虫挑战，ruleset 里只有
+   这一条）。不能更早删：切换前 Gitea 还在 laptop 上，爬虫会再次打满它和 pg-prod。也不能留：
+   切换后 lab 内也经 Cloudflare 访问，`/raw/`、`/archive/` 上的挑战会拦下 Backstage 等非浏览器客户端。
+   新 Gitea 用 `REQUIRE_SIGNIN_VIEW = expensive` 接替（只拦匿名，带 token 的客户端不受影响）。
 2. 按 `infrastructure/dns/records.yml` 的流程删除 `git.ddupan.top` 的 split-horizon 记录（blocky +
    coredns）。这一步不能等 Flux，手工应用，之后在新 Gitea 上补 commit。
 3. 在 LAN、pod 和外网三处都验证解析结果和 `https://git.ddupan.top/api/healthz`。
