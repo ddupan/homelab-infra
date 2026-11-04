@@ -40,8 +40,9 @@ spec:
     kind: Backend
     group: gateway.envoyproxy.io
 ---
-# Replaces whatever x-api-key the client sent with the real key. The client's own gateway key
-# never gets here anyway (httproute.yaml strips it), but this is what makes the swap safe.
+# Short-lived WIF access token (anthropic-wif.yaml), sent as Authorization: Bearer — type APIKey,
+# not AnthropicAPIKey, which would put it in x-api-key. The client's gateway key never gets
+# here (httproute.yaml strips it).
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: BackendSecurityPolicy
 metadata:
@@ -52,10 +53,10 @@ spec:
     - group: aigateway.envoyproxy.io
       kind: AIServiceBackend
       name: anthropic
-  type: AnthropicAPIKey
-  anthropicAPIKey:
+  type: APIKey
+  apiKey:
     secretRef:
-      name: anthropic-api-key
+      name: anthropic-token
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: Backend
