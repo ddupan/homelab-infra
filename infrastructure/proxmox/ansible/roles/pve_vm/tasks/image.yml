@@ -62,6 +62,9 @@
   vars:
     _dev: "{{ _drbd_dev.stdout | trim }}"
     _res: "{{ _drbd_dev.stdout | trim | regex_replace('.*drbd', '') }}"
-  when: _has_mbr.stdout is not search('yes')
+  # Only on a disk positively read as blank. `unreadable` used to fall through to
+  # here too, i.e. a disk we could not inspect got overwritten -- the wrong default
+  # for a destructive step.
+  when: _has_mbr.stdout == 'no'
   changed_when: true
   delegate_to: "{{ pve_vm_node }}"
