@@ -5,4 +5,5 @@ resources:
   - external-secret.yaml
   - gateway.yaml
   - anthropic.yaml
+  - cliproxyapi.yaml
   - httproute.yaml

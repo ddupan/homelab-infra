@@ -1,5 +1,6 @@
-# Every model name goes to Anthropic; there is one provider. Clients call the native API at
-# /anthropic/v1/messages, or the OpenAI-compatible /v1/chat/completions.
+# Routing by model name: OpenAI models (gpt-*, o<n>*, codex-*) go to CLIProxyAPI (ChatGPT Plus,
+# cliproxyapi.yaml); everything else to Anthropic. Header-matched rules outrank the bare one.
+# Anthropic: native /anthropic/v1/messages or OpenAI-style /v1/chat/completions.
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIGatewayRoute
 metadata:
@@ -11,6 +12,15 @@ spec:
       kind: Gateway
       group: gateway.networking.k8s.io
   rules:
+    - matches:
+        - headers:
+            - type: RegularExpression
+              name: x-ai-eg-model
+              value: "(gpt-|o[0-9]|codex-).*"
+      backendRefs:
+        - name: cliproxyapi
+      timeouts:
+        request: 600s
     - backendRefs:
         - name: anthropic
       # Envoy's default route timeout is 15s; a long generation takes minutes.
