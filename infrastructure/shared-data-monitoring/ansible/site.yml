@@ -8,6 +8,10 @@
     data_monitor_exporter_version: 1.9.1
     data_monitor_download_base: https://github.com/prometheus/node_exporter/releases/download
     data_monitor_archive: "node_exporter-{{ data_monitor_exporter_version }}.linux-amd64"
+    # collect.py 的唯一来源是 homelab-cookbooks 的 homelab_data（etcd-pve1/2 由 Cinc 部署）；
+    # 这里按 tag 取同一份，升级只改 tag。
+    data_monitor_collector_url: >-
+      https://git.ddupan.top/panxiao81/homelab-cookbooks/raw/tag/v0.4.10/cookbooks/homelab_data/files/default/collect.py
   tasks:
     - name: 检查仅支持 amd64
       ansible.builtin.command: uname -m
@@ -44,12 +48,17 @@
         remote_src: true
         creates: "{{ data_monitor_root }}/node_exporter-{{ data_monitor_exporter_version }}.linux-amd64/node_exporter"
     - name: 安装只读采集程序
-      ansible.builtin.copy:
-        src: ../files/collect.py
+      ansible.builtin.get_url:
+        url: "{{ data_monitor_collector_url }}"
         dest: "{{ data_monitor_root }}/collect.py"
+        force: true
         owner: root
         group: root
         mode: '0755'
+      register: data_monitor_collector
+      retries: 3
+      delay: 5
+      until: data_monitor_collector is succeeded
     - name: 配置明确的证书与检查清单
       ansible.builtin.template:
         src: config.json.j2

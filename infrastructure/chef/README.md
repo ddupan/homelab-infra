@@ -43,7 +43,7 @@ cd infrastructure/chef
 
 ```bash
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/policies:/p" -w /p \
-  docker.io/cincproject/workstation:26.3.0 cinc install base.rb
+  docker.io/cincproject/workstation:26.3.0 cinc install <policy>.rb
 ```
 
 执行器只从**已提交的 lock** 导出，不会重新解析版本。工具链用 Cinc Workstation 容器，laptop
@@ -67,12 +67,13 @@ Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<
 
 | 节点 | policy | 加入日期 |
 |---|---|---|
-| etcd-pve1 | base | 2026-10-09 |
-| etcd-pve2 | base | 2026-10-09 |
+| etcd-pve1 | etcd-pve1（含共享数据维护指标，2026-11-04） | 2026-10-09 |
+| etcd-pve2 | etcd-pve2（含共享数据维护指标，2026-11-04） | 2026-10-09 |
 | lb-prod-1、lb-prod-2 | loadbalancer-prod | 待部署 |
 | lb-dev-1、lb-dev-2 | loadbalancer-dev | 待部署 |
 | ayatori-dev | ayatori-dev | 2026-11-03 |
 | ayatori-prod | ayatori-prod | 2026-11-03 |
+| dc1 | samba-dc | 2026-11-04 |
 
 新节点：加进 `ansible/inventory/hosts.yml` 和 `known_hosts`，并把 `<名字>:9100` 加进
 `platform/observability/metrics/scrapes/cinc-nodes.yaml`。
