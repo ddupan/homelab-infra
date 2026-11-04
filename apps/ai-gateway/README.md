@@ -67,13 +67,13 @@ The running server watches `/data/auths` and picks the new credential up without
 
 Issue and revoke them at **https://ai-keys.lab.ddupan.top** (platform-admins; `keys-ui.yaml`,
 code in `panxiao81/ai-gateway-keys`). It shows who created each key and when, when it was last
-used, and 30-day requests/tokens (Agent Router metrics, `podmonitor.yaml`). A key is shown once;
-names are never reused.
+used, and 30-day requests/tokens (Agent Router metrics, `podmonitor.yaml`). A key is shown once.
 
 Behind it, one Bao secret per key at `kv/k8s/ai-gateway-keys/<id>`, field `key`, with
-`custom_metadata` `status`/`created_by`/`description`/`revoked_*`. ESO passes only
-`status=active` keys to the gateway (`external-secret.yaml`); revoking destroys the key's
-versions and keeps the metadata. Upstream sees the client as `x-ai-client: <id>`.
+`custom_metadata` `status`/`created_by`/`description`. ESO passes only `status=active` keys to
+the gateway (`external-secret.yaml`); revoking deletes the secret outright. Who created or
+revoked what: the UI's JSON log lines (`"audit":"key.create|key.revoke"`, in VictoriaLogs) and
+Bao's audit log. Upstream sees the client as `x-ai-client: <id>`.
 
 ## Other secrets (Bao)
 
