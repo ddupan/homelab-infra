@@ -1,10 +1,20 @@
-# Executors request 1 CPU but may burst to 2: jobs mostly wait on network and
-# disk, so CPU is deliberately overcommitted (contention only slows jobs down,
-# it never kills them). By request, sandbox1 (4 CPU, its PVE host shared with
-# iam-spike-build) fits three and sandbox2 (8 CPU, ~2.6 CPU already requested
-# by OpenSandbox, the controller and the cache) fits five. POD_CAPACITY must
-# not exceed what fits, or the extra Pod stays Pending and its task fails after
-# the handoff deadline.
+# Executors get no CPU limit and only a token CPU request: jobs average ~0.5
+# core and mostly wait on network and disk, and CPU contention only slows jobs
+# down, it never kills them. Each sandbox LXC's core count still caps the
+# total, so iam-spike-build (graalvm, same PVE host as sandbox1) is protected
+# at the PVE level, not here.
+#
+# Memory is reserved at 512Mi, below what heavier jobs (image builds,
+# integration tests) peak at: most jobs peak around 0.2Gi, p95 1.5Gi, and the
+# graalvm build runs on its own LXC. Overcommitting memory is deliberate. If a
+# node does run short, the kernel OOM-kills burstable executor processes
+# (oom_score_adj near 1000) before k3s or PostgreSQL; that job fails and can be rerun.
+#
+# Requests still bound scheduling. Allocatable after system pods: sandbox1
+# ~6.7Gi, sandbox2 ~5.4Gi; one ci-vm sandbox (3Gi + kata overhead) must still
+# fit on either node, which leaves room for 16 executors at 512Mi.
+# POD_CAPACITY must not exceed what fits, or the extra Pod stays Pending and
+# its task fails after the handoff deadline.
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -14,8 +24,7 @@ spec:
   limits:
     - type: Container
       default:
-        cpu: "2"
         memory: 3Gi
       defaultRequest:
-        cpu: "1"
-        memory: 1Gi
+        cpu: 250m
+        memory: 512Mi
