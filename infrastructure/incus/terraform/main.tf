@@ -195,6 +195,79 @@ resource "incus_instance" "ayatori" {
   }
 }
 
+# 计算节点（Ayatori ADR-0015）：Debian 13 VM，在其中以嵌套 KVM 运行 libvirt，验证 Compute Agent。
+# 宿主机须开启嵌套虚拟化（kvm_intel nested=Y）；Incus VM 默认透传宿主 CPU，含 vmx。
+# 只有 Dev：Prod 的计算节点是物理机。
+locals {
+  compute_ipv4 = {
+    "compute-dev1" = "192.168.10.14"
+  }
+}
+
+resource "powerdns_record" "compute" {
+  for_each = local.compute_ipv4
+  zone     = "lab.ddupan.top."
+  name     = "${each.key}.lab.ddupan.top."
+  type     = "A"
+  ttl      = 300
+  records  = [each.value]
+}
+
+resource "incus_instance" "compute" {
+  for_each    = local.compute_ipv4
+  name        = each.key
+  description = "Ayatori Dev 计算节点；节点软件由 Cinc（homelab_compute）管理"
+  image       = "images:debian/13/cloud"
+  type        = "virtual-machine"
+  profiles    = []
+  running     = true
+  config = {
+    "boot.autostart" = "true"
+    "limits.cpu"     = "4"
+    "limits.memory"  = "6GiB"
+    # 同 ayatori_cloud_config 的说明：只在创建时渲染，改地址须重建实例。
+    "cloud-init.network-config" = yamlencode({
+      version = 2
+      ethernets = {
+        # VM 的网卡名由 PCI 位置决定（如 enp5s0），按 MAC 匹配不依赖它。
+        lan = {
+          match       = { macaddress = "02:16:3e:aa:00:03" }
+          addresses   = ["${each.value}/24"]
+          routes      = [{ to = "default", via = "192.168.10.1" }]
+          nameservers = { addresses = ["192.168.10.127", "192.168.10.1"] }
+        }
+      }
+    })
+    "cloud-init.user-data" = "#cloud-config\n${yamlencode(merge(local.ayatori_cloud_config, {
+      hostname = each.key
+    }))}"
+  }
+  device {
+    name = "root"
+    type = "disk"
+    properties = {
+      path = "/"
+      pool = incus_storage_pool.ayatori.name
+      size = "40GiB"
+    }
+  }
+  device {
+    name = "eth0"
+    type = "nic"
+    properties = {
+      nictype = "bridged"
+      parent  = "br0"
+      hwaddr  = "02:16:3e:aa:00:03"
+    }
+  }
+  wait_for {
+    type = "ipv4"
+  }
+  lifecycle {
+    ignore_changes = [image]
+  }
+}
+
 output "containers" {
   value = { for env, instance in incus_instance.ayatori : env => {
     name = instance.name
