@@ -1,0 +1,53 @@
+# CI pushes only :latest from main (repo panxiao81/ai-gateway-keys); follow the digest behind
+# it, as for backstage. Old digests lose their tag and are collected by zot GC.
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: ai-gateway-keys
+  namespace: flux-system
+spec:
+  image: zot.lab.ddupan.top/panxiao81/ai-gateway-keys
+  interval: 1m
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: ai-gateway-keys
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ai-gateway-keys
+  filterTags:
+    pattern: '^latest$'
+  policy:
+    alphabetical: {}
+  digestReflectionPolicy: Always
+  interval: 1m
+---
+# Its own automation rather than widening homelab-infra's path: each one may rewrite only
+# the directory of the app it deploys.
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: ai-gateway-keys
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: homelab-infra-write
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: flux-bot
+        email: flux-bot@noreply.git.ddupan.top
+      messageTemplate: |
+        chore(image): update {{ range .Changed.Changes }}{{ .OldValue }} -> {{ .NewValue }} {{ end }}
+    push:
+      branch: main
+  update:
+    path: ./apps/ai-gateway
+    strategy: Setters

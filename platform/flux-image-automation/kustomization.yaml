@@ -5,3 +5,4 @@ resources:
   - gitrepository.yaml
   - imageupdateautomation.yaml
   - backstage.yaml
+  - ai-gateway-keys.yaml

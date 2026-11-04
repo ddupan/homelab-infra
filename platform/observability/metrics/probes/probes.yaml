@@ -42,6 +42,7 @@ spec:
         - https://s3.lab.ddupan.top/status
         # /health 不经登录（httproute-admin.yaml）；其余路径由网关 OIDC 保护。
         - https://seaweedfs-admin.lab.ddupan.top/health
+        - https://ai-keys.lab.ddupan.top/healthz
 ---
 # 要求认证的端点：401 由后端返回，证明路由和后端都在。
 apiVersion: monitoring.coreos.com/v1

@@ -62,6 +62,23 @@ resource "vault_kv_secret_v2" "backstage" {
 # this root because the client secret is created here: the mount's config can take it from state, with no copy
 # through the Ansible vault.
 # OpenBao sends PKCE for the code flow and checks the ID token's aud against bound_audiences (= client id).
+# AI gateway key UI (apps/ai-gateway/keys-ui.yaml). It sends PKCE, so PKCE stays required.
+resource "homelab_oidc_client" "ai_gateway_keys" {
+  id            = "ai-gateway-keys"
+  name          = "AI 网关 Key"
+  redirect_uris = ["https://ai-keys.lab.ddupan.top/callback"]
+  scopes        = ["openid", "profile", "groups"]
+}
+
+resource "vault_kv_secret_v2" "ai_gateway_keys" {
+  mount = "kv"
+  name  = "k8s/ai-gateway-keys-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.ai_gateway_keys.id
+    client_secret = homelab_oidc_client.ai_gateway_keys.secret
+  })
+}
+
 resource "homelab_oidc_client" "openbao" {
   id   = "openbao"
   name = "OpenBao"

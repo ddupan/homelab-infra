@@ -63,13 +63,22 @@ kubectl --context default -n ai-gateway exec -it deploy/cliproxyapi -- \
 
 The running server watches `/data/auths` and picks the new credential up without a restart.
 
-## Keys (Bao)
+## Gateway keys
+
+Issue and revoke them at **https://ai-keys.lab.ddupan.top** (platform-admins; `keys-ui.yaml`,
+code in `panxiao81/ai-gateway-keys`). It shows who created each key and when, when it was last
+used, and 30-day requests/tokens (Agent Router metrics, `podmonitor.yaml`). A key is shown once;
+names are never reused.
+
+Behind it, one Bao secret per key at `kv/k8s/ai-gateway-keys/<id>`, field `key`, with
+`custom_metadata` `status`/`created_by`/`description`/`revoked_*`. ESO passes only
+`status=active` keys to the gateway (`external-secret.yaml`); revoking destroys the key's
+versions and keeps the metadata. Upstream sees the client as `x-ai-client: <id>`.
+
+## Other secrets (Bao)
 
 | path | property | what |
 |---|---|---|
 | `kv/k8s/ai-gateway` | `cliproxyapi_api_key` | shared secret between the ai Envoy and CLIProxyAPI; random, rotate freely |
-| `kv/k8s/ai-gateway-clients` | `<client-id>` | one gateway key per client; property name = client ID |
-
-Add a client: `bao kv patch kv/k8s/ai-gateway-clients <id>=$(openssl rand -hex 24)`.
-Revoke: `bao kv patch` the property away. ESO syncs within 5 minutes. Upstream sees the client
-as `x-ai-client: <id>`.
+| `kv/k8s/ai-gateway-keys-sso` | `client_id`, `client_secret` | key UI's iam-login client (written by `apps/iam-login/terraform`) |
+| `kv/k8s/ai-gateway-keys-session` | `session_secret` | signs the key UI's login cookie; rotating it logs everyone out |

@@ -1,0 +1,16 @@
+# Agent Router's own metrics (gen_ai_* per model/backend/client) from the ext_proc sidecar of
+# the `ai` Envoy pods. The envoy-proxy PodMonitor only scrapes Envoy's /stats/prometheus.
+# The key UI reads per-client last-use and usage from these.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ai-gateway-extproc
+  namespace: envoy-gateway-system
+spec:
+  selector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: ai
+      gateway.envoyproxy.io/owning-gateway-namespace: ai-gateway
+  podMetricsEndpoints:
+    - port: aigw-admin
+      path: /metrics

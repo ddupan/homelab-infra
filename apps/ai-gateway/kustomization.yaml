@@ -8,3 +8,5 @@ resources:
   - anthropic-wif.yaml
   - cliproxyapi.yaml
   - httproute.yaml
+  - keys-ui.yaml
+  - podmonitor.yaml
