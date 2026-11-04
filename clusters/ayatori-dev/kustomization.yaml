@@ -3,5 +3,5 @@
 # Tenant 即释放其 Database（默认 Retain，不删数据）。用法见 wiki services/ayatori.md。
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources:
-  - loadbalancer-hosts.yaml
+# LoadBalancerHost 由各 LB 主机的 lb-agent 自行注册（ADR-0022），不在这里声明。
+resources: []
