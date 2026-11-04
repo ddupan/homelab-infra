@@ -77,6 +77,16 @@ resource "powerdns_record" "bao_a" {
   records = ["192.168.10.8"]
 }
 
+# dc1's AD name is dc1.ad.ddupan.top (Samba's own DNS); this one is its lab name, the
+# CN its SPIRE node certificate is issued for (homelab_base: <hostname>.lab.ddupan.top).
+resource "powerdns_record" "dc1_a" {
+  zone    = powerdns_zone.lab.name
+  name    = "dc1.lab.ddupan.top."
+  type    = "A"
+  ttl     = 300
+  records = ["192.168.10.5"]
+}
+
 resource "powerdns_record" "retrolab_a" {
   zone    = powerdns_zone.lab.name
   name    = "retrolab.lab.ddupan.top."

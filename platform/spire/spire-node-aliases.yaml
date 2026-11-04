@@ -105,3 +105,16 @@ spec:
   spiffeID: spiffe://ddupan.top/node/ayatori-prod
   selectors:
     - x509pop:subject:cn:ayatori-prod.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-dc1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/dc1
+  selectors:
+    - x509pop:subject:cn:dc1.lab.ddupan.top
