@@ -1,0 +1,164 @@
+---
+# First certificate of an Ayatori node agent (compute, loadbalancer) — "join" in
+# Ayatori ADR-0021/0022. Like enroll.yml, the one step ../converge.py cannot do: the
+# cookbook installs the agent but never touches credentials, and the first
+# certificate needs a short-lived bootstrap token from the control plane.
+#
+# Approving the CSR is the admission: from then on the host may register as that
+# role and take traffic. The checks (the CSR came with this token and asks for exactly
+# this node and role) live in Ayatori — `client-credentials approve-bootstrap` in the
+# manager image the control plane already runs — not here.
+#
+# Run after the node's first ../converge.py apply (the cookbook creates the credentials
+# directory, owned by the agent's user), once per role on the host:
+#
+#   ansible-playbook join.yml -l lb-dev-1.lab.ddupan.top \
+#     -e ayatori_role=loadbalancer -e ayatori_control_plane=ayatori-dev.lab.ddupan.top
+#
+# The private key is generated on the node and never leaves it; the token only passes
+# through this run and expires after 15 minutes. Renewal needs nothing from here.
+# One-way and needs the control plane's admin credentials, so it never runs from CI.
+
+- name: Join Ayatori node agents
+  hosts: cinc
+  gather_facts: false
+  vars:
+    ayatori_agents:
+      compute: {dir: /etc/ayatori/compute-agent, unit: ayatori-compute-agent}
+      loadbalancer: {dir: /etc/ayatori/lb-agent, unit: ayatori-lb-agent}
+    ayatori_agent: "{{ ayatori_agents[ayatori_role] }}"
+    # Must equal the agent's nodeName (the cookbook's node_name).
+    ayatori_node: "{{ inventory_hostname.split('.')[0] }}"
+    ayatori_user: "system:ayatori:node:{{ ayatori_node }}"
+    ayatori_kubectl: /usr/local/bin/k0s kubectl
+  tasks:
+    - name: Role and control plane given
+      ansible.builtin.assert:
+        that:
+          - ayatori_role is defined and ayatori_role in ayatori_agents
+          - ayatori_control_plane is defined and ayatori_control_plane in groups['cinc']
+        fail_msg: >-
+          Pass -e ayatori_role=<{{ ayatori_agents.keys() | join('|') }}>
+          -e ayatori_control_plane=<control plane host from the inventory>.
+        quiet: true
+
+    - name: Agent certificate present?
+      ansible.builtin.stat:
+        path: "{{ ayatori_agent.dir }}/client.pem"
+      register: ayatori_cert
+
+    - name: Join
+      when: not ayatori_cert.stat.exists and not ansible_check_mode
+      block:
+        # Lowercase alphanumerics: the format bootstrap tokens require ([a-z0-9]{6}.[a-z0-9]{16}).
+        - name: Bootstrap token
+          ansible.builtin.set_fact:
+            ayatori_token_id: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['ascii_lowercase', 'digits'], length=6) }}"
+            ayatori_token_secret: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['ascii_lowercase', 'digits'], length=16) }}"
+          no_log: true
+
+        # Same group as the control plane's own identities (homelab_ayatori client_identity):
+        # deploy/flux/control-plane lets it submit CSRs and nothing else.
+        - name: Create the bootstrap token (15 minutes)
+          ansible.builtin.command:
+            cmd: "{{ ayatori_kubectl }} apply -f -"
+            stdin: |
+              apiVersion: v1
+              kind: Secret
+              metadata: {namespace: kube-system, name: bootstrap-token-{{ ayatori_token_id }}}
+              type: bootstrap.kubernetes.io/token
+              stringData:
+                token-id: "{{ ayatori_token_id }}"
+                token-secret: "{{ ayatori_token_secret }}"
+                expiration: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime(now(utc=true).timestamp() + 900, utc=true) }}"
+                usage-bootstrap-authentication: "true"
+                auth-extra-groups: system:bootstrappers:ayatori
+          delegate_to: "{{ ayatori_control_plane }}"
+          changed_when: true
+          no_log: true
+
+        - name: API CA
+          ansible.builtin.slurp:
+            src: /var/lib/k0s/pki/ca.crt
+          register: ayatori_ca
+          delegate_to: "{{ ayatori_control_plane }}"
+
+        # The cookbook creates it owned by the agent's user (root for compute,
+        # ayatori-lb-agent for LB); the file must be readable by that user only.
+        - name: Credentials directory from the cookbook
+          ansible.builtin.stat:
+            path: "{{ ayatori_agent.dir }}"
+          register: ayatori_dir
+          failed_when: not ayatori_dir.stat.isdir | default(false)
+
+        # The agent reads it again on every attempt, so a running agent picks it up
+        # without a restart. k0s puts <hostname>.lab.ddupan.top in the API certificate.
+        - name: Write bootstrap-kubeconfig
+          ansible.builtin.copy:
+            dest: "{{ ayatori_agent.dir }}/bootstrap-kubeconfig"
+            owner: "{{ ayatori_dir.stat.pw_name }}"
+            group: "{{ ayatori_dir.stat.gr_name }}"
+            mode: '0400'
+            content: |
+              apiVersion: v1
+              kind: Config
+              clusters:
+              - name: ayatori
+                cluster:
+                  server: https://{{ ayatori_control_plane }}:6443
+                  certificate-authority-data: {{ ayatori_ca.content }}
+              users:
+              - name: bootstrap
+                user:
+                  token: {{ ayatori_token_id }}.{{ ayatori_token_secret }}
+              contexts:
+              - name: default
+                context: {cluster: ayatori, user: bootstrap}
+              current-context: default
+          no_log: true
+
+        # compute waits for the file (ConditionPathExists); the LB agent already runs
+        # and announces, and retries until the file is there.
+        - name: Agent running
+          ansible.builtin.systemd_service:
+            name: "{{ ayatori_agent.unit }}"
+            state: started
+
+        - name: Manager image the control plane runs
+          ansible.builtin.slurp:
+            src: /etc/containers/systemd/client-credentials.container
+          register: ayatori_quadlet
+          delegate_to: "{{ ayatori_control_plane }}"
+
+        - name: Image pinned by digest
+          ansible.builtin.set_fact:
+            ayatori_image: "{{ ayatori_quadlet.content | b64decode | regex_search('(?m)^Image=(\\S+@sha256:\\S+)$', '\\1') | first }}"
+
+        - name: Check and approve the CSR made with this token
+          ansible.builtin.command:
+            argv:
+              - podman
+              - run
+              - --rm
+              - --network=host
+              - --user=0
+              - --entrypoint=/client-credentials
+              - -v
+              - /var/lib/k0s/pki/admin.conf:/admin.conf:ro
+              - "{{ ayatori_image }}"
+              - approve-bootstrap
+              - --kubeconfig=/admin.conf
+              - --token-id={{ ayatori_token_id }}
+              - --user={{ ayatori_user }}
+              - --group=system:ayatori:nodes
+              - --group=system:ayatori:role:{{ ayatori_role }}
+          delegate_to: "{{ ayatori_control_plane }}"
+          changed_when: true
+
+        - name: Certificate issued
+          ansible.builtin.stat:
+            path: "{{ ayatori_agent.dir }}/client.pem"
+          register: ayatori_issued
+          retries: 30
+          delay: 2
+          until: ayatori_issued.stat.exists
