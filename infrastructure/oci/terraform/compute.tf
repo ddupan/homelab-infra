@@ -14,6 +14,7 @@ resource "oci_core_instance" "vm" {
     assign_private_dns_record = false
     assign_public_ip          = "true"
     display_name              = "homelab-vm"
+    nsg_ids                   = [oci_core_network_security_group.gitea.id]
     hostname_label            = "homelab-vm"
     private_ip                = "10.0.0.124"
     skip_source_dest_check    = false

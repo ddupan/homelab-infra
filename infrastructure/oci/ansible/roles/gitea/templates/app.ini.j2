@@ -1,0 +1,94 @@
+; {{ ansible_managed }}
+; 以只读方式挂进容器：所有密钥都由 Ansible 给出，Gitea 没有需要回写的内容。
+; 业务设置照搬 apps/gitea/gitea-values.yaml（k3s 时期），差异只在路径、数据库与邮件。
+APP_NAME = {{ gitea_app_name }}
+RUN_MODE = prod
+WORK_PATH = /var/lib/gitea
+
+[server]
+; Cloudflare 以 Full (strict) 连源站，Origin CA 证书。
+PROTOCOL = https
+CERT_FILE = /etc/gitea/tls/cert.pem
+KEY_FILE = /etc/gitea/tls/key.pem
+HTTP_ADDR = 0.0.0.0
+HTTP_PORT = 3000
+DOMAIN = {{ gitea_domain }}
+ROOT_URL = https://{{ gitea_domain }}/
+APP_DATA_PATH = /var/lib/gitea
+DISABLE_SSH = true
+; 与 k3s 时期相同的值：签过的 LFS token 迁移后继续有效。
+LFS_JWT_SECRET = {{ vault_gitea_lfs_jwt_secret }}
+
+[database]
+DB_TYPE = sqlite3
+PATH = /var/lib/gitea/data/gitea.db
+; WAL 让 dump/备份读取时不阻塞写入。
+SQLITE_JOURNAL_MODE = WAL
+
+[repository]
+ROOT = /var/lib/gitea/git/gitea-repositories
+
+[security]
+INSTALL_LOCK = true
+; SECRET_KEY 加密数据库里的 2FA 种子、OAuth 登录源 secret 等。必须是迁移前的原值，
+; 换掉它这些字段就再也解不开。
+SECRET_KEY = {{ vault_gitea_secret_key }}
+INTERNAL_TOKEN = {{ vault_gitea_internal_token }}
+
+[oauth2]
+JWT_SECRET = {{ vault_gitea_oauth2_jwt_secret }}
+
+[service]
+ALLOW_ONLY_EXTERNAL_REGISTRATION = true
+SHOW_REGISTRATION_BUTTON = false
+ENABLE_PASSWORD_SIGNIN_FORM = false
+
+[oauth2_client]
+; OIDC 登录按 email 关联已有账号；Entra 作为第二登录源时靠它落到同一账号。
+ACCOUNT_LINKING = auto
+ENABLE_AUTO_REGISTRATION = true
+USERNAME = preferred_username
+UPDATE_AVATAR = true
+
+[session]
+PROVIDER = memory
+
+[cache]
+ADAPTER = memory
+
+[queue]
+TYPE = database
+
+[indexer]
+ISSUE_INDEXER_TYPE = db
+
+[actions]
+ENABLED = true
+; github.com 从这里可达；uses: 按 github 解析。
+DEFAULT_ACTIONS_URL = github
+
+; 没有 [webhook] ALLOWED_HOST_LIST：k3s 时期 app.ini 里那条 dynamic-runner-controller
+; 是 chart init 容器只增不删留下的残留，controller 走 runner 协议，不收 webhook。
+
+[mailer]
+{% if vault_gitea_smtp_user is defined %}
+ENABLED = true
+PROTOCOL = smtp+starttls
+SMTP_ADDR = {{ gitea_mailer_host }}
+SMTP_PORT = {{ gitea_mailer_port }}
+USER = {{ vault_gitea_smtp_user }}
+PASSWD = {{ vault_gitea_smtp_password }}
+FROM = {{ gitea_mailer_from }}
+{% else %}
+ENABLED = false
+{% endif %}
+
+[log]
+MODE = console
+LEVEL = Info
+
+[metrics]
+ENABLED = false
+
+[cron.update_checker]
+ENABLED = false

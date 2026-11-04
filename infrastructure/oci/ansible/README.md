@@ -279,3 +279,20 @@ ansible-playbook watcher.yml
 反过来 `LabWatchdogMissing` 会立刻发到生产频道（2026-10-04 首次部署就这样发了一条）。
 维护 laptop 监控栈期间，在 oci-arm 上 `amtool --alertmanager.url=http://100.99.94.44:9093
 silence add alertname=LabWatchdogMissing` 临时静默。
+
+## Gitea（oci-arm）
+
+`gitea.yml` / `roles/gitea`：Docker Compose 跑 rootless Gitea + SQLite，数据在 `/srv/gitea/data`。
+repo 放在 lab 之外是为了重建顺序：lab 全挂时 repo 仍在，所以秘密只来自 `host_vars/oci_arm/vault.yml`，
+不读 Bao。迁移流程见 `docs/gitea-oci-migration-plan.md`。
+
+- 入口：A1 公网 IP 443 → Gitea 自己的 HTTPS（Cloudflare Origin CA，Full strict）。NSG `homelab-vm-gitea`
+  只放 Cloudflare IP 段（`infrastructure/oci/terraform/gitea-ingress.tf`）；不要在宿主机防火墙上找，
+  Docker 的 DNAT 不经 INPUT 链。
+- 证书：私钥 `vault_gitea_tls_key`，CSR 在 `infrastructure/cloudflared/terraform/gitea-origin.csr`，
+  证书由那边的 `gitea-origin.tf` 签出（15 年），写进 `host_vars/oci_arm/gitea.yml` 的 `gitea_tls_cert`。
+- 四个应用密钥是 k3s 时期的原值；`SECRET_KEY` 加密库内 2FA 种子与 OAuth secret，不能换。
+- 备份：`gitea-backup.timer` 每天 `gitea dump` → Object Storage `gitea-backup`（instance principal，
+  只能新建对象，14 天过期）。恢复：OCI 控制台或 `oci os object get` 取回后解包，见迁移方案第 2 步。
+- 升级：Renovate 改 `roles/gitea/defaults/main.yml` 的 tag+digest → 合并 → `ansible-playbook gitea.yml`。
+  不交给 CI：runner 在 lab 里，又要连这个正在重启的 Gitea。
