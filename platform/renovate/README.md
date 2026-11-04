@@ -6,7 +6,7 @@ Hourly CronJob running self-hosted Renovate against Gitea as the restricted user
 
 **Scope = renovate-bot's collaborator list.** A restricted Gitea user sees only repos it was
 explicitly added to, so adding/removing a repo is a collaborator change in Gitea, not a
-config change. `autodiscoverFilter` additionally excludes Ayatori, whose code we never touch.
+config change.
 
 PRs are never auto-merged: IaC goes through review like any other change, and every PR
 costs a CI run on the laptop (hence `prHourlyLimit`/`prConcurrentLimit`).
@@ -28,8 +28,8 @@ kubectl -n gitea exec deploy/gitea -c gitea -- gitea admin user generate-access-
   --scopes write:repository,write:issue,read:user,read:organization \
   | tr -d '\n' | bao kv put kv/k8s/renovate token=-   # --raw ends with a newline; `token=-` would keep it
 
-# 3. Scope: write collaborator on each repo it should manage (never ayatori).
-for r in homelab-infra homelab-cookbooks iam-login ...; do
+# 3. Scope: write collaborator on each repo it should manage.
+for r in homelab-infra homelab-cookbooks iam-login ayatori ...; do
   tea api -X PUT "/repos/panxiao81/$r/collaborators/renovate-bot" -d '{"permission":"write"}'
 done
 

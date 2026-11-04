@@ -5,10 +5,8 @@ module.exports = {
   endpoint: 'https://git.ddupan.top/api/v1/',
   gitAuthor: 'Renovate Bot <renovate-bot@users.noreply.ddupan.top>',
   // renovate-bot is a restricted user, so it only sees repos it was added to as a
-  // collaborator — that list is the real scope. The filter is a backstop: never Ayatori.
-  // Filters are unioned, so the negation must stay the only entry.
+  // collaborator — that list is the whole scope.
   autodiscover: true,
-  autodiscoverFilter: ['!panxiao81/ayatori'],
   onboardingConfig: {
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
     extends: ['config:recommended'],
