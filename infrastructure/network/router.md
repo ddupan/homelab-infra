@@ -69,6 +69,53 @@ HA 重启只会和它抢。
 ## 未决
 
 - 两台路由器对 IX 用同一个 AS 还是各自一个：共用便于 IX 侧过滤写一份，各自便于排障。
+- 实现用 Chef（上文）还是 NixOS，见下节，届时再定。
+
+## 备选：NixOS（2026-11-04 评估，未定）
+
+三者的区别不在"能否声明式"，而在**改坏之后多快、多平稳地回到上一版**：
+
+| | 回滚 | 回滚时的扰动 | 正确性靠什么 |
+|---|---|---|---|
+| VyOS | `commit-confirm`，超时未 `confirm` 自动回退 | **默认 `action reboot`**（重启进 saved 配置）；设 `system config-management commit-confirm action reload` 才是不重启的差异回退 | commit 时的配置树校验 |
+| NixOS | deploy-rs magic rollback：激活后放 canary，`confirmTimeout`（默认 30s）内控制端未确认就在线重新激活上一代，**不重启** | FRR 走 reload（见下），会话不断；其他 unit 若配置变了会被 restart | 事前检查（CI 构建整机、flake check） |
+| Chef | 无自动回滚：revert 提交，CI 重新 converge，分钟级；锁死自己只能上 console | `frr-reload.py`，会话不断 | 事前测试（ChefSpec、Kitchen、why-run） |
+
+NixOS 回滚**不等于重启**：只有内核/initrd 变了，或机器起不来要在启动菜单选旧代时才需要。
+
+**nixpkgs 的 FRR 模块**（`nixos/modules/services/networking/frr.nix`，FRR 10.7.1，读代码确认，未实机验证）：
+
+- `reloadIfChanged = true`，`restartTriggers = [ configFile daemonList ]`：`frr.conf` 或启用的
+  daemon 变化时，switch 执行 `systemctl reload frr` 而非 restart。
+- `ExecReload` 是 FRR 自带的 `frrinit.sh reload`：重启 watchfrr 以接管新增 daemon（其余 daemon
+  不重启），再 `frr-reload.py --reload` 应用整份 `frr.conf` 的差异——与上文 Chef 方案同一机制。
+- ⚠ `frrinit.sh reload` 最后无条件 `exit 0`，**`frr-reload.py` 失败也报成功**。坏的 `frr.conf`
+  会被当作激活成功：auto rollback 不触发，SSH 仍通所以 magic rollback 也不触发，FRR 停在新旧混合
+  的配置上。必须在构建期挡住：flake check 里跑 `vtysh --dryrun -f frr.conf`（对应 Chef 的 Kitchen）。
+- ⚠ FRR 包升级也只触发 reload，旧 bgpd 继续运行到下次重启。升级 FRR 要在窗口里手动
+  `systemctl restart frr`。
+
+**结论**：补上 dry-run 检查后，NixOS 同时有接近 VyOS `reload` 的在线回滚和 Chef 式的事前验证；
+代价是 Chef 之外再养一套语言、CI 路径和秘密注入方式（wg42 私钥可用本机生成的文件，不进 store）。
+两条路都比"VyOS 整份 `load`"好：后者必须把 wg 私钥和登录 hash 渲染到控制机，且躲不开 Stream 改语法。
+
+**GitOps：推送式，不用拉取式。** 形态同 Chef 的 `chef.yml`：
+
+- PR：`nix flake check`（含上面的 `vtysh --dryrun`）+ 构建整机 closure + 对目标跑
+  `switch-to-configuration dry-activate`，列出会 reload/restart 的 unit，贴进 PR，等价于 why-run。
+- 合并：CI 跑 deploy-rs，开 magic rollback。
+
+拉取式（comin、`system.autoUpgrade.flake`）不给 CI 部署权限，但**部署后没有基于连通性的回滚**——
+comin 的 confirmer 只是部署*前*的人工/延时确认。路由器改坏就失联，正需要 magic rollback，所以推送。
+
+CI runner 到路由器的确认路径要经过被改的转发面才有意义：确认发不回来 = 变更弄断了网 = 自动回滚。
+runner 走 LAN 地址（192.168.10.x）连路由器，而不是依赖某个 VNet 网关之外的旁路。
+
+**不论选哪条，先收拢写入方。** 整份替换意味着最后渲染的一方会抹掉其他人的配置，而现在
+vyos-rtr 由六处写入：`proxmox/ansible/roles/vyos_router`、`oci/ansible/vyos.yml`、`dn42-dns.yml`、
+`dn42-ra.yml`、`shared-postgresql/ansible/proxy.yml`（pg-prod HAProxy，随 Ayatori 迁移撤掉）、
+`proxmox/ansible/vyos-monitoring.yml`；BGP 的 `system-as` 在 oci 侧，邻居在 proxmox 侧。迁移时
+它们要并成一个拥有者和一份数据模型（取自 [`ipam.yml`](ipam.yml)），Chef 或 Nix 只是渲染后端。
 
 已确认：IX 支持 `ip route … Null0.0 distance <n>`（高管理距离兜底路由可行）；FRR 用
 `frr-reload.py` 热应用配置，只有改会话参数（timers、capability）时需要对该邻居软复位。
