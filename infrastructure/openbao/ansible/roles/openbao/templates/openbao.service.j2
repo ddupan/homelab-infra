@@ -12,7 +12,8 @@ Group={{ openbao_group }}
 ProtectSystem=full
 ProtectHome=read-only
 PrivateTmp=yes
-PrivateDevices=yes
+{# A private /dev has no /dev/tpmrm0: the pkcs11 seal could never reach the TPM. #}
+PrivateDevices={{ 'no' if openbao_pkcs11_seal else 'yes' }}
 SecureBits=keep-caps
 AmbientCapabilities=CAP_IPC_LOCK
 CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK

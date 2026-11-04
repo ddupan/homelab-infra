@@ -6,8 +6,15 @@
 # Bump both together. Get the checksum from the release's checksums.txt:
 #   curl -sL https://github.com/openbao/openbao/releases/download/v<VER>/checksums.txt \
 #     | grep openbao_<VER>_linux_amd64.tar.gz
-openbao_version: "2.6.1"
-openbao_download_checksum: "sha256:ca8d836eb3a5c80407e45e762300b64e7138c419e78826955f2e4ba4ce6d8a6b"
+openbao_version: "2.7.2"
+openbao_download_checksum: "sha256:582b1f3c2fdc5afd443b2d57a225ef654de75adea609fdb66731fd582a9cbc96"
+
+# pkcs11 KMS plugin (README "TPM seal"). Tarball checksum from the release's
+# checksums-kms-pkcs11.txt; the binary sha256 is what bao re-verifies before exec.
+openbao_pkcs11_plugin_version: "0.3.0"
+openbao_pkcs11_plugin_checksum: "sha256:c112c670e1bcca7a7b7625b13c0ecf1a43a62cd2651d29bf23befb2ad47c49bf"
+openbao_pkcs11_plugin_sha256: "96fefa80e721551725ea01be79b0dae0f3951f15f01291fd87846d5e45475be6"
+openbao_pkcs11_seal: false
 
 # --- Identity / addresses ---
 openbao_fqdn: "bao.ad.ddupan.top"       # A record on the Samba DC (ad.ddupan.top zone)

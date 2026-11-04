@@ -1,0 +1,16 @@
+---
+# One-way: mint the pkcs11 seal key, escrow it to the YubiKey, import it into bao1's TPM.
+# Does not change bao's config or restart it. README "TPM seal" has the migration that
+# follows (openbao_pkcs11_seal: true + MIGRATE=1 ../unseal.sh).
+#
+#   ansible-playbook tpm-seal.yml
+#   git add ../tpm-seal-key.gpg ../tpm-seal.pub
+- name: pkcs11 seal key ceremony
+  hosts: bao1          # one key, minted once; other nodes import the escrow (README)
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Ceremony
+      ansible.builtin.import_role:
+        name: openbao
+        tasks_from: tpm_seal.yml
