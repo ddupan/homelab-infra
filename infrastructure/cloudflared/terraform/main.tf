@@ -25,6 +25,15 @@ locals {
       hostname = "obj.ddupan.top"
       service  = "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
     },
+    {
+      # Public copy of SPIRE's JWKS, for verifiers that fetch keys from the internet
+      # (Anthropic WIF: explicit_url mode). Not the issuer — JWT-SVIDs still say
+      # iss=https://spire-oidc.lab.ddupan.top; making THIS the issuer is a cutover
+      # (platform/spire/README.md "Issuer migration"). Only the two public documents.
+      hostname = "spire-oidc.ddupan.top"
+      path     = "^/(\\.well-known/openid-configuration|keys)$"
+      service  = "http://spire-spiffe-oidc-discovery-provider.spire-server.svc.cluster.local:80"
+    },
   ]
 }
 
