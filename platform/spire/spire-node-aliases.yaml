@@ -31,6 +31,19 @@ spec:
 apiVersion: spire.spiffe.io/v1alpha1
 kind: ClusterStaticEntry
 metadata:
+  name: node-etcd-pve3
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/etcd-pve3
+  selectors:
+    - x509pop:subject:cn:etcd-pve3.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
   name: node-lb-prod-1
   labels:
     spire.spiffe.io/class-name: spire-mgmt-spire

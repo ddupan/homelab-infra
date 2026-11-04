@@ -69,6 +69,7 @@ Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<
 |---|---|---|
 | etcd-pve1 | etcd-pve1（含共享数据维护指标，2026-11-04） | 2026-10-09 |
 | etcd-pve2 | etcd-pve2（含共享数据维护指标，2026-11-04） | 2026-10-09 |
+| etcd-pve3 | etcd-pve3（取代 etcd-laptop，#570） | 2026-11-04 |
 | lb-prod-1、lb-prod-2 | loadbalancer-prod | 待部署 |
 | lb-dev-1、lb-dev-2 | loadbalancer-dev | 待部署 |
 | ayatori-dev | ayatori-dev | 2026-11-03 |
