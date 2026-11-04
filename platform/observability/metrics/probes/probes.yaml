@@ -62,6 +62,8 @@ spec:
         probe_group: lan
       static:
         - https://zot-push.ad.ddupan.top/v2/
+        # No key → 401 from eg's SecurityPolicy: proves the route and auth, not the Anthropic hop.
+        - https://ai.lab.ddupan.top/anthropic/v1/models
 ---
 # COVERAGE B4：dc1 直连、CoreDNS（ad.ddupan.top 转发到 dc1）、Blocky 三条解析路径。
 # 内部解析绝不能依赖 WAN（CLAUDE.md）。

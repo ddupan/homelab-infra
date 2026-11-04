@@ -1,0 +1,58 @@
+# Front door: `eg` terminates TLS for ai.lab.ddupan.top, checks the client's gateway key, and
+# hands the request to the `ai` Gateway's Envoy (gateway.yaml).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway
+  namespace: ai-gateway
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - ai.lab.ddupan.top
+  rules:
+    - backendRefs:
+        - name: ai-gateway-envoy
+          namespace: envoy-gateway-system
+          port: 80
+      timeouts:
+        request: 600s
+---
+# EG creates the `ai` Gateway's Service in its own namespace, not the Gateway's.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: ai-gateway-envoy
+  namespace: envoy-gateway-system
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: ai-gateway
+  to:
+    - group: ""
+      kind: Service
+      name: ai-gateway-envoy
+---
+# One key per client, from Bao (external-secret.yaml). x-api-key is where Anthropic SDKs and
+# Claude Code (ANTHROPIC_API_KEY) put the key, so clients need only a base URL and a key.
+# sanitize drops it before forwarding; the client's name goes on as x-ai-client.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ai-gateway
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ai-gateway
+  apiKeyAuth:
+    credentialRefs:
+      - name: client-keys
+    extractFrom:
+      - headers: [x-api-key]
+    sanitize: true
+    forwardClientIDHeader: x-ai-client

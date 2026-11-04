@@ -12,6 +12,30 @@ spec:
         kind: HelmRepository
         name: envoy-gateway
       version: 1.9.3
+  # Hooks for Agent Router (ex-Envoy AI Gateway, ./agent-router.yaml): its controller rewrites the
+  # xDS of AIGatewayRoutes, and its Backends (api.anthropic.com) are Backend objects.
+  # ⚠ The hooks see EVERY listener/route/cluster, including the whole LAN ingress. EG fails closed by
+  # default — an unreachable extension server freezes xDS updates for all of it. failOpen: true
+  # confines a dead ai-gateway-controller to the AI routes.
+  values:
+    config:
+      envoyGateway:
+        extensionApis:
+          enableBackend: true
+        extensionManager:
+          failOpen: true
+          hooks:
+            xdsTranslator:
+              translation:
+                listener: {includeAll: true}
+                route: {includeAll: true}
+                cluster: {includeAll: true}
+                secret: {includeAll: true}
+              post: [Translation, Cluster, Route]
+          service:
+            fqdn:
+              hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+              port: 1063
   driftDetection:
     mode: enabled
   install:
