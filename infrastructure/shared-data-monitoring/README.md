@@ -9,6 +9,12 @@
 PrometheusRule 与 VMStaticScrape 已进入 inventory，converter 生成的 VMRule 为 operational。
 三个抓取目标均 up=1，八条规则均 health=ok、inactive，告警已启用。
 
+2026-11-04：etcd-pve1/2 迁入 Cinc（`infrastructure/chef` 的 policy `etcd-pve1`/`etcd-pve2`，
+cookbook `homelab_data`），:9109 改用发行版 node_exporter。本目录的 Ansible 只剩 laptop。
+采集程序 `collect.py` 与其测试的唯一来源是
+[homelab-cookbooks](https://git.ddupan.top/panxiao81/homelab-cookbooks) 的
+`cookbooks/homelab_data/`，这里的 play 按 tag（`data_monitor_collector_url`）下载同一份。
+
 ## 采集和阈值
 
 每分钟执行 `homelab-data-collect.service`，读取明确清单并原子替换
@@ -36,14 +42,14 @@ node_exporter 当前版本为 1.9.1；下载包与官方 `sha256sums.txt` 均由
 
 ## 部署和验证
 
-在 PR 分支或合并后的完整 checkout 中执行：
+etcd-pve1/2 随 Cinc 部署（合并即 apply，见 `infrastructure/chef/README.md`）。laptop：
 
 ```bash
 cd infrastructure/shared-data-monitoring/ansible
 ansible-playbook site.yml
 ```
 
-本机需要免交互 sudo，远程使用已有 root SSH；配置不包含秘密。当前实现仅支持 Linux amd64，
+本机需要免交互 sudo；配置不包含秘密。当前实现仅支持 Linux amd64，
 依赖现有 Python 3、OpenSSL、systemd、PG 客户端和 pgBackRest。下载 exporter 需要访问 GitHub。
 
 只读查看结果：

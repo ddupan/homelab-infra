@@ -1,0 +1,67 @@
+{
+  "revision_id": "47b37e6f4b38346826ed3fddc4d30fed0e873d0c427a015324df7908f6fad652",
+  "name": "etcd-pve1",
+  "run_list": [
+    "recipe[homelab_base::default]",
+    "recipe[homelab_data::monitoring]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_base": {
+      "version": "0.4.4",
+      "identifier": "996830448fc36d8a26246d0e9fbb0238e7c2afb8",
+      "dotted_decimal_identifier": "43180227954721645.38885484676423611.2443429719992",
+      "cache_key": "homelab_base-e806f68234050c13d6b74d4edf886e3111fa9937",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "e806f68234050c13d6b74d4edf886e3111fa9937",
+        "tag": "v0.4.10",
+        "rel": "cookbooks/homelab_base"
+      }
+    },
+    "homelab_data": {
+      "version": "0.1.0",
+      "identifier": "ee9b8aadc061609e0226da0e48bf439412263e28",
+      "dotted_decimal_identifier": "67162064379994464.44475412210665663.74303238716968",
+      "cache_key": "homelab_data-e806f68234050c13d6b74d4edf886e3111fa9937",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "e806f68234050c13d6b74d4edf886e3111fa9937",
+        "tag": "v0.4.10",
+        "rel": "cookbooks/homelab_data"
+      }
+    }
+  },
+  "default_attributes": {
+    "homelab_data": {
+      "postgresql_prod": true
+    }
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ],
+      [
+        "homelab_data",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_base (0.4.4)": [
+
+      ],
+      "homelab_data (0.1.0)": [
+
+      ]
+    }
+  }
+}
