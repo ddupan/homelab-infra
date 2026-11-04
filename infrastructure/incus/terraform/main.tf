@@ -293,6 +293,12 @@ resource "incus_instance" "compute" {
       hwaddr  = "02:16:3e:aa:00:03"
     }
   }
+  # ponytail: 固定延迟，宿主机高负载时 VM agent 要 2–5 分钟才起来，超过 provider 等 agent 的
+  # 时限（apply 因此失败过一次）。agent 的时限从延迟之后起算；若仍不够再加大。
+  wait_for {
+    type  = "delay"
+    delay = "5m"
+  }
   wait_for {
     type = "agent"
   }
