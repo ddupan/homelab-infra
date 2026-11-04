@@ -217,30 +217,63 @@ resource "incus_instance" "compute" {
   for_each    = local.compute_ipv4
   name        = each.key
   description = "Ayatori Dev 计算节点；节点软件由 Cinc（homelab_compute）管理"
-  image       = "images:debian/13/cloud"
-  type        = "virtual-machine"
-  profiles    = []
-  running     = true
+  # 不用 cloud 镜像：本机 Incus 上带 cloud-init 的 VM 开机后会自行循环重启（原因未知，ayatori
+  # 容器不受影响）。网络、hostname 由 file 写入，sshd 与登录用户由 exec 经 VM agent 配置。
+  image    = "images:debian/13"
+  type     = "virtual-machine"
+  profiles = []
+  running  = true
   config = {
     "boot.autostart" = "true"
     "limits.cpu"     = "4"
     "limits.memory"  = "6GiB"
-    # 同 ayatori_cloud_config 的说明：只在创建时渲染，改地址须重建实例。
-    "cloud-init.network-config" = yamlencode({
-      version = 2
-      ethernets = {
-        # VM 的网卡名由 PCI 位置决定（如 enp5s0），按 MAC 匹配不依赖它。
-        lan = {
-          match       = { macaddress = "02:16:3e:aa:00:03" }
-          addresses   = ["${each.value}/24"]
-          routes      = [{ to = "default", via = "192.168.10.1" }]
-          nameservers = { addresses = ["192.168.10.127", "192.168.10.1"] }
-        }
-      }
-    })
-    "cloud-init.user-data" = "#cloud-config\n${yamlencode(merge(local.ayatori_cloud_config, {
-      hostname = each.key
-    }))}"
+  }
+  # 编号小于镜像自带的 enp5s0.network（DHCP），先匹配；按 MAC 匹配，不依赖网卡名。
+  file {
+    target_path = "/etc/systemd/network/10-lan.network"
+    mode        = "0644"
+    content     = <<-EOT
+      [Match]
+      MACAddress=02:16:3e:aa:00:03
+
+      [Network]
+      Address=${each.value}/24
+      Gateway=192.168.10.1
+      DNS=192.168.10.127
+      DNS=192.168.10.1
+    EOT
+  }
+  file {
+    target_path = "/etc/hostname"
+    mode        = "0644"
+    content     = "${each.key}\n"
+  }
+  # 与 ayatori_cloud_config 相同的登录方式：panxiao81 免密 sudo、只认公钥、不开放 root。
+  # 脚本以 file 写入、exec 执行：provider 不接受 command 中含 validate 时未知的值。
+  file {
+    target_path = "/root/bootstrap.sh"
+    mode        = "0700"
+    content     = <<-EOT
+        hostname ${each.key}
+        networkctl reload
+        until getent ahostsv4 deb.debian.org >/dev/null; do sleep 2; done
+        apt-get -o Acquire::Retries=5 update -q
+        DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y -q openssh-server
+        id panxiao81 >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo panxiao81
+        install -d -m 0700 -o panxiao81 -g panxiao81 /home/panxiao81/.ssh
+        printf '%s\n' '${trimspace(file("${path.module}/../ansible/files/panxiao81.pub"))}' >/home/panxiao81/.ssh/authorized_keys
+        chown panxiao81:panxiao81 /home/panxiao81/.ssh/authorized_keys
+        echo 'panxiao81 ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/panxiao81
+        chmod 0440 /etc/sudoers.d/panxiao81
+        printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n' >/etc/ssh/sshd_config.d/60-homelab.conf
+        systemctl reload ssh
+    EOT
+  }
+  exec = {
+    bootstrap = {
+      timeout = "10m"
+      command = ["sh", "-eu", "/root/bootstrap.sh"]
+    }
   }
   device {
     name = "root"
@@ -261,10 +294,7 @@ resource "incus_instance" "compute" {
     }
   }
   wait_for {
-    type = "ipv4"
-  }
-  lifecycle {
-    ignore_changes = [image]
+    type = "agent"
   }
 }
 
