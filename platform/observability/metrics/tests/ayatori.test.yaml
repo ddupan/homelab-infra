@@ -164,3 +164,19 @@ tests:
         summary: Ayatori ayatori-prod ayatori-manager 1 小时内重启 3 次以上
         description: 反复退出后被 systemd 重启；查 journalctl 退出原因（选主丢失、OOM、配置错误）。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: 备份告警只看 prod，dev 不备份
+  interval: 10m
+  input_series:
+  - series: up{job="ayatori-node",cluster="ayatori-prod",env="prod",instance="192.168.10.12:9100"}
+    values: 1x20
+  - series: up{job="ayatori-node",cluster="ayatori-dev",env="dev",instance="192.168.10.11:9100"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 3h
+    alertname: AyatoriBackupMetricMissing
+    exp_alerts:
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, env: prod, instance: "192.168.10.12:9100", severity: warning}
+      exp_annotations:
+        summary: Ayatori ayatori-prod 没有备份成功记录
+        description: 备份从未成功或 textfile 未写入；手动 systemctl start ayatori-backup.service 后核对。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时

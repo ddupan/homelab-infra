@@ -86,7 +86,7 @@ spec:
             description: 查 Instance Conditions、管理 Secret 同步与 PostgreSQL 连通性。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriBackupFailed
-          expr: node_systemd_unit_state{job="ayatori-node",name="ayatori-backup.service",state="failed"} == 1
+          expr: node_systemd_unit_state{job="ayatori-node",env="prod",name="ayatori-backup.service",state="failed"} == 1
           for: 1m
           labels:
             severity: warning
@@ -95,7 +95,7 @@ spec:
             description: journalctl -u ayatori-backup.service；确认备份卷已挂载且有空间。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriBackupStale
-          expr: time() - ayatori_backup_last_success_timestamp_seconds{job="ayatori-node"} > 36 * 3600
+          expr: time() - ayatori_backup_last_success_timestamp_seconds{job="ayatori-node",env="prod"} > 36 * 3600
           for: 10m
           labels:
             severity: warning
@@ -104,7 +104,7 @@ spec:
             description: 检查 ayatori-backup.timer 是否排程、最近一次运行结果。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriBackupMetricMissing
-          expr: up{job="ayatori-node"} == 1 unless on (cluster) ayatori_backup_last_success_timestamp_seconds{job="ayatori-node"}
+          expr: up{job="ayatori-node",env="prod"} == 1 unless on (cluster) ayatori_backup_last_success_timestamp_seconds{job="ayatori-node"}
           for: 2h
           labels:
             severity: warning
