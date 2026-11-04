@@ -145,3 +145,17 @@ resource "vault_kubernetes_auth_backend_role" "iam_login_database" {
   token_policies = [vault_policy.iam_login_database.name]
   token_ttl      = 3600
 }
+
+# The AI gateway key UI writes keys straight into kv/k8s/ai-gateway-keys/* (it is the
+# issuer, not a consumer, so ESO's read-only identity does not fit).
+# Consumed by ../../../apps/ai-gateway/keys-ui.yaml.
+resource "vault_kubernetes_auth_backend_role" "ai_gateway_keys" {
+  backend   = "kubernetes"
+  role_name = "ai-gateway-keys"
+
+  bound_service_account_names      = ["ai-gateway-keys"]
+  bound_service_account_namespaces = ["ai-gateway"]
+
+  token_policies = [vault_policy.ai_gateway_keys.name]
+  token_ttl      = 3600
+}

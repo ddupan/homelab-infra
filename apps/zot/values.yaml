@@ -34,7 +34,7 @@ configFiles:
           "delay": "24h",
           "policies": [
             {
-              "repositories": ["panxiao81/backstage"],
+              "repositories": ["panxiao81/backstage", "panxiao81/ai-gateway-keys"],
               "deleteUntagged": true,
               "keepTags": [{ "patterns": ["^latest$"] }]
             },
@@ -118,6 +118,24 @@ configFiles:
                 {
                   "users": [
                     "spiffe://ddupan.top/ci/panxiao81/backstage/image",
+                    "spiffe://ddupan.top/dev/panxiao81"
+                  ],
+                  "actions": [
+                    "read",
+                    "create",
+                    "update"
+                  ]
+                }
+              ],
+              "defaultPolicy": [
+                "read"
+              ]
+            },
+            "panxiao81/ai-gateway-keys": {
+              "policies": [
+                {
+                  "users": [
+                    "spiffe://ddupan.top/ci/panxiao81/ai-gateway-keys/image",
                     "spiffe://ddupan.top/dev/panxiao81"
                   ],
                   "actions": [

@@ -1,0 +1,179 @@
+# Key management UI: https://ai-keys.lab.ddupan.top (code: panxiao81/ai-gateway-keys).
+# Login via iam-login, members of platform-admins only. Writes keys to Bao
+# kv/k8s/ai-gateway-keys/<id> with its own Kubernetes-auth role (infrastructure/openbao/
+# terraform, policy ai-gateway-keys: create/revoke, never read a key back); reads usage from
+# VictoriaMetrics; nudges ExternalSecret client-keys so a change applies at once.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+---
+# Only "force-sync" the one ExternalSecret; ESO does the actual read from Bao.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+rules:
+  - apiGroups: [external-secrets.io]
+    resources: [externalsecrets]
+    resourceNames: [client-keys]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ai-gateway-keys
+subjects:
+  - kind: ServiceAccount
+    name: ai-gateway-keys
+    namespace: ai-gateway
+---
+# client_id/secret: written by apps/iam-login/terraform (clients.tf). session_secret signs the
+# login cookie; random, rotating it only logs everyone out.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: ai-gateway-keys
+    creationPolicy: Owner
+  data:
+    - secretKey: OIDC_CLIENT_ID
+      remoteRef: {key: k8s/ai-gateway-keys-sso, property: client_id}
+    - secretKey: OIDC_CLIENT_SECRET
+      remoteRef: {key: k8s/ai-gateway-keys-sso, property: client_secret}
+    - secretKey: SESSION_SECRET
+      remoteRef: {key: k8s/ai-gateway-keys-session, property: session_secret}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-gateway-keys
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-gateway-keys
+    spec:
+      serviceAccountName: ai-gateway-keys
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: zot.lab.ddupan.top/panxiao81/ai-gateway-keys:latest@sha256:270d2302d715b2678bb0a816a58f3be74eb28bc1d810d38dff7ebbda94e40727 # {"$imagepolicy": "flux-system:ai-gateway-keys"}
+          envFrom:
+            - secretRef:
+                name: ai-gateway-keys
+          env:
+            - name: PUBLIC_URL
+              value: https://ai-keys.lab.ddupan.top
+            - name: ALLOWED_GROUPS
+              value: platform-admins
+            - name: SYNC_EXTERNALSECRET
+              value: client-keys
+            - name: TZ
+              value: Asia/Tokyo
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: ai-gateway-keys
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway-keys
+  namespace: ai-gateway
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "AI 网关 Key"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "mdi-key-chain"
+    gethomepage.dev/description: "AI 网关的 API Key"
+    gethomepage.dev/href: "https://ai-keys.lab.ddupan.top/"
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - ai-keys.lab.ddupan.top
+  rules:
+    - backendRefs:
+        - name: ai-gateway-keys
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-gateway-keys-ingress
+  namespace: ai-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ai-gateway-keys
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+      ports:
+        - port: 8080
+          protocol: TCP
+    - from:
+        - ipBlock:
+            cidr: 192.168.10.127/32
+      ports:
+        - port: 8080
+          protocol: TCP

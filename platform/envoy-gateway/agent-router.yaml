@@ -76,6 +76,9 @@ spec:
       # Which gateway client (apps/ai-gateway SecurityPolicy forwardClientIDHeader) made the
       # call; keeps the chart's default session mapping.
       spanRequestHeaderAttributes: "agent-session-id:session.id,x-ai-client:ai_gateway.client"
+      # Per-client usage for the key UI (apps/ai-gateway/keys-ui.yaml): last used, requests,
+      # tokens. Low cardinality — one value per issued key.
+      metricsRequestHeaderAttributes: "x-ai-client:ai_gateway.client"
       mutatingWebhook:
         # Without cert-manager the chart mints a fresh self-signed cert on every render, and the
         # running controller keeps serving the old one until restarted.

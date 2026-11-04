@@ -82,3 +82,8 @@ resource "vault_policy" "ci_converge" {
   name   = "ci-converge"
   policy = file("${path.module}/policies/ci-converge.hcl")
 }
+
+resource "vault_policy" "ai_gateway_keys" {
+  name   = "ai-gateway-keys"
+  policy = file("${path.module}/policies/ai-gateway-keys.hcl")
+}
