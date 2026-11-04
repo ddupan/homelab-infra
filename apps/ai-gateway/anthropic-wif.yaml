@@ -60,10 +60,10 @@ metadata:
   name: anthropic-wif
   namespace: ai-gateway
 data:
-  ANTHROPIC_ORGANIZATION_ID: "TODO"
-  ANTHROPIC_SERVICE_ACCOUNT_ID: "TODO"
-  ANTHROPIC_FEDERATION_RULE_ID: "TODO"
-  ANTHROPIC_WORKSPACE_ID: "TODO"
+  ANTHROPIC_ORGANIZATION_ID: "26d63c26-9648-49f4-9cb3-6e463b3faeb1"
+  ANTHROPIC_SERVICE_ACCOUNT_ID: "svac_01HwvMnsaefrcxcybcE9ytvY"
+  ANTHROPIC_FEDERATION_RULE_ID: "fdrl_01HukY1osAonkJ2w1wYgjiDC"
+  ANTHROPIC_WORKSPACE_ID: "wrkspc_01GCfeF3wYZnRx6sm8bGRUbe"
   helper.conf: |
     agent_address = "/run/spire/agent-sockets/spire-agent.sock"
     daemon_mode = false
