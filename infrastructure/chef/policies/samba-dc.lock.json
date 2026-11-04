@@ -1,0 +1,46 @@
+{
+  "revision_id": "f3b4353c1d2d9bc9a082ab75c76766b99a2249a85a90213256c4c67d7e751131",
+  "name": "samba-dc",
+  "run_list": [
+    "recipe[homelab_base::default]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_base": {
+      "version": "0.4.4",
+      "identifier": "996830448fc36d8a26246d0e9fbb0238e7c2afb8",
+      "dotted_decimal_identifier": "43180227954721645.38885484676423611.2443429719992",
+      "cache_key": "homelab_base-d1e325ce374d787842517efece0477db578c0bb7",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "d1e325ce374d787842517efece0477db578c0bb7",
+        "tag": "v0.4.9",
+        "rel": "cookbooks/homelab_base"
+      }
+    }
+  },
+  "default_attributes": {
+    "homelab_base": {
+      "listen_address": "192.168.10.5"
+    }
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_base (0.4.4)": [
+
+      ]
+    }
+  }
+}
