@@ -55,6 +55,14 @@ spec:
           labels: {severity: warning, service: shared-data}
           annotations:
             summary: 共享数据续签检查失败、停用或超过 36 小时未成功
+        # homelab_data::etcd never restarts etcd (two members restarting together lose
+        # quorum). A config/unit/binary change waits for a manual one-member-at-a-time restart.
+        - alert: SharedDataRestartPending
+          expr: homelab_data_restart_pending{job="shared-data-maintenance"} == 1
+          for: 1h
+          labels: {severity: warning, service: shared-data}
+          annotations:
+            summary: 配置已变更但服务尚未重启；etcd 请逐成员重启并确认健康后再处理下一个
         - alert: SharedPostgresDevUnavailable
           expr: homelab_data_dev_sql_ready{job="shared-data-maintenance"} == 0
           for: 3m
