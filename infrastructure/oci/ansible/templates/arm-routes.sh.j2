@@ -1,9 +1,0 @@
-#!/bin/sh
-set -eu
-# 5101..5103 保留给此互联，优先于 Tailscale 的 52 表（规则 5270）。
-# 主表仍使用 OCI 网关；VCN 路由表再将这三个前缀交给 AMD。
-{% for prefix in wg_home_prefixes %}
-if ! ip -4 rule show | grep -F 'to {{ prefix }} lookup main' >/dev/null; then
-  ip -4 rule add priority {{ 5100 + loop.index }} to {{ prefix }} lookup main
-fi
-{% endfor %}
