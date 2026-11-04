@@ -20,7 +20,7 @@ git 82 MB、attachments 68 MB、actions_log 47 MB），数据库很小。
 | 数据库 | SQLite（`/data/gitea/gitea.db`） | 数据库只有几十 MB；`gitea dump` 一次就能连同 repo 一起备份，时间点一致。OCI 免费 MySQL 的备份和 repo 不同步，且免费账户只能恢复成另一个免费实例（每个 tenancy 只有一个），不划算 |
 | 配置管理 | `infrastructure/oci/ansible/` 新 role `gitea`（照 `outside_watcher` 的样子） | 与看守同一处管理 |
 | 秘密 | oci ansible-vault（`host_vars/oci_arm/vault.yml`），**不从 Bao 读** | 恢复根不能依赖 lab 里的 Bao（与 infrastructure/openbao 同理） |
-| 公网入口 | A1 上跑一个独立 cloudflared connector（新 tunnel `oci-arm`，由 `infrastructure/cloudflared/terraform` 管理） | 不经 lab；现有 WAF 爬虫规则在 zone 级，照常生效 |
+| 公网入口 | A1 公网 IP 443，`git.ddupan.top` 在 Cloudflare 开代理；Gitea 自己用 Cloudflare Origin CA 证书跑 HTTPS（Full strict）；专用 NSG 的 443 只放 Cloudflare IP 段 | 不经 lab 的 tunnel，也不必在 A1 上多跑一个 connector；NSG 限制来源，爬虫无法绕过 zone 级 WAF 规则直连源站。Origin CA 只有 Cloudflare 信任，所以 lab 内也必须经 Cloudflare 访问。私钥只在 vault 里，Terraform 只拿 CSR |
 | lab 内访问 | **全部走公网名 `https://git.ddupan.top`**，取消 split-horizon | 见下文「网络」 |
 | 登录 | 保留 iam-login 登录源 `sso`（数据库里 ID 3，随数据迁移）；**另加 Entra ID 登录源** | iam-login 依赖 lab 里的 dc1，lab 挂了就无法登录；Entra ID 不依赖 lab，作为第二入口。Entra 应用设成「需要分配用户」，只有被分配的用户能登录，避免 `ENABLE_AUTO_REGISTRATION` 让整个租户都能自动注册；`ACCOUNT_LINKING=auto` 按 email 关联到已有账号。client secret 放 vault。最后兜底仍是 ssh 到 A1 用 `gitea admin` CLI |
 | 邮件 | OCI Email Delivery（Always Free 每月 3000 封）SMTP | 集群内的 smtp-relay 从 A1 访问不到，而且它依赖 lab。需要：approved sender `noreply@ddupan.top`、SPF 加 include、DKIM CNAME（都在 Cloudflare，用 Terraform 管理）、SMTP 凭据放 vault |
@@ -40,7 +40,8 @@ git 82 MB、attachments 68 MB、actions_log 47 MB），数据库很小。
   或大 artifact，再走私网。
 - 现状：LAN ↔ `10.0.0.124`（经 VyOS wg42 → oci-amd）已在 #582 修通，RTT 约 4 ms；pod 也能经
   Tailscale 访问 A1。以后如果遇到 100 MB 上限，或者想让 lab 内访问不经 Cloudflare，可以把
-  split-horizon 指向 `10.0.0.124`。前提是 A1 自己持有 `git.ddupan.top` 的证书（DNS-01）。
+  split-horizon 指向 `10.0.0.124`。前提是把源站证书换成公开受信的（如 LE DNS-01），因为 Origin CA
+  证书只有 Cloudflare 信任。
 - OCI Site-to-Site VPN（IPSec，终结在 DRG，Free Tier 可建 50 条连接）是另一条私网路径，可以替代
   单台 1 GB 的 oci-amd。单独做实验，不阻塞本迁移。
 
@@ -57,12 +58,20 @@ git 82 MB、attachments 68 MB、actions_log 47 MB），数据库很小。
    - 安装 docker；Compose 文件里 tag 与 k3s 里的版本一致（当前 `28.3.0`），加 renovate 注释。
    - `app.ini` 照搬 `apps/gitea/gitea-values.yaml` 的 `gitea.config`，`DB_TYPE` 改为 `sqlite3`，
      mailer 指向 OCI Email Delivery。
-   - Gitea 只监听本机或 docker 网络，不开新的安全列表端口。
-   - cloudflared connector，tunnel token 放 vault。
+   - Gitea 在宿主机 443 上跑 HTTPS（Origin CA 证书），来源由 NSG 限制为 Cloudflare。
+   - 四个密钥（`SECRET_KEY`、`INTERNAL_TOKEN`、`JWT_SECRET`、`LFS_JWT_SECRET`）照搬 k3s 时期的原值。
+     `SECRET_KEY` 加密库内的 2FA 种子和 OAuth secret，换了就解不开。
+   - 不带 `[webhook] ALLOWED_HOST_LIST`：k3s app.ini 里那条 dynamic-runner-controller 是 chart
+     init 容器只增不删留下的残留，controller 走 runner 协议，不收 webhook。
    - 备份 timer 和 instance principal（dynamic group + policy、bucket + lifecycle 规则放在
      `infrastructure/oci/terraform`）。
-3. 部署到 A1，先用空数据启动，确认 `curl localhost:3000/api/healthz` 正常，然后停掉。
-4. `infrastructure/cloudflared/terraform`：创建 `oci-arm` tunnel，但先**不**移动 `git.ddupan.top`。
+3. apply `infrastructure/oci/terraform`（备份 bucket/策略、Gitea NSG）和
+   `infrastructure/cloudflared/terraform` 的 `gitea-origin.tf`（只签证书，**不**动 DNS），把证书输出写进
+   `host_vars/oci_arm/gitea.yml`。
+4. 部署到 A1，用空数据启动，确认 `https://127.0.0.1/api/healthz` 正常。空库无用户，开着也无害；
+   切换时再停下导入。
+5. 确认 zone 的 SSL 模式是 Full (strict)，或者给 `git.ddupan.top` 单独加一条 Configuration Rule。
+   Flexible 会让 Cloudflare 走 80 端口回源，而 NSG 只开了 443。
 
 ### 1. 冻结（停机窗口开始）
 
@@ -87,8 +96,10 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 
 ### 3. 切换
 
-1. `infrastructure/cloudflared/terraform`：把 `git.ddupan.top` 的 ingress 从 laptop tunnel 移到
-   `oci-arm` tunnel（DNS CNAME 原地更新），apply。
+1. `infrastructure/cloudflared/terraform`：把 `git.ddupan.top` 从 tunnel ingress 列表中移除，同时新增
+   指向 A1 公网 IP 的代理 A 记录。⚠ 同名 CNAME→A 不能共存：一次 apply 可能先建后删、报冲突
+   （与 pdns 的类型变更坑同理）。分两次 apply：先移除 ingress（CNAME 随之删除），再加 A 记录。
+   中间断开约一分钟，此时本来就处于冻结窗口。
 2. 按 `infrastructure/dns/records.yml` 的流程删除 `git.ddupan.top` 的 split-horizon 记录（blocky +
    coredns）。这一步不能等 Flux，手工应用，之后在新 Gitea 上补 commit。
 3. 在 LAN、pod 和外网三处都验证解析结果和 `https://git.ddupan.top/api/healthz`。
@@ -112,7 +123,7 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 
 ## 回滚
 
-- **新 Gitea 产生写入之前**：把 tunnel ingress 和 split-horizon 改回去，scale 旧 Deployment 到 1，
+- **新 Gitea 产生写入之前**：把 DNS（A 记录 → tunnel CNAME，同样分两次 apply）和 split-horizon 改回去，scale 旧 Deployment 到 1，
   解除 HelmRelease 的 suspend。pg-prod 和 PVC 都没有动过。
 - **已经产生写入之后**：反向迁移（`gitea dump --database postgres` 后导回 pg-prod），或者接受
   丢失窗口内的写入。单用户实例，窗口很短，所以第 4 步验收要尽快做完。
