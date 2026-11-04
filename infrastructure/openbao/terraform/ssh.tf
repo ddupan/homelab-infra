@@ -27,8 +27,9 @@ resource "vault_ssh_secret_backend_role" "ai_agent" {
 #
 # Principals mirror how Ansible already logs in: root on PVE-built hosts, panxiao81
 # (+ NOPASSWD sudo) on Incus instances, whose cloud-init sets disable_root and
-# PermitRootLogin no. Both are root-equivalent, so this widens nothing; the cost is that
-# CI logins on Incus hosts are logged as panxiao81.
+# PermitRootLogin no, and ansible (+ NOPASSWD sudo) on dc1, the cloud-init user
+# create-dc-vm.yml made. All are root-equivalent, so this widens nothing; the cost is
+# that CI logins on those hosts are logged under the non-root name.
 resource "vault_ssh_secret_backend_role" "ci_converge" {
   backend  = vault_mount.ssh_client_signer.path
   name     = "ci-converge"
@@ -36,7 +37,7 @@ resource "vault_ssh_secret_backend_role" "ci_converge" {
 
   allow_user_certificates = true
   default_user            = "root"
-  allowed_users           = "root,panxiao81"
+  allowed_users           = "root,panxiao81,ansible"
 
   # sshd checks validity only at authentication, so this bounds how long a run may
   # take to *start* its connections, not how long a converge may last.
