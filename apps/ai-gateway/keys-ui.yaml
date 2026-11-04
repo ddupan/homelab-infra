@@ -95,6 +95,11 @@ spec:
               value: client-keys
             - name: TZ
               value: Asia/Tokyo
+            # The k8s API (ExternalSecret force-sync) is signed by the cluster's own CA, which
+            # Node does not trust by default; added to, not replacing, the system roots (Bao,
+            # iam-login and VictoriaMetrics still verify as before).
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           ports:
             - name: http
               containerPort: 8080
