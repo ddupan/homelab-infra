@@ -6,12 +6,9 @@ path "kv/data/k8s/ai-gateway-keys/*" {
   capabilities = ["create"]
 }
 
-# created_time, custom_metadata (status/created_by/description/revoked_*), and the list.
+# created_time + custom_metadata (status/created_by/description), the list, and revoke:
+# DELETE on metadata removes the key and all its versions. Who revoked what is in the app's
+# audit log line and Bao's audit log, not kept in KV.
 path "kv/metadata/k8s/ai-gateway-keys/*" {
-  capabilities = ["create", "update", "read", "list"]
-}
-
-# Revoke = destroy every version, keeping the metadata as the audit record.
-path "kv/destroy/k8s/ai-gateway-keys/*" {
-  capabilities = ["update"]
+  capabilities = ["create", "update", "read", "list", "delete"]
 }
