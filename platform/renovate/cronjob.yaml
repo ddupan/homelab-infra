@@ -28,6 +28,10 @@ spec:
               env:
                 - {name: RENOVATE_CONFIG_FILE, value: /config/config.js}
                 - {name: LOG_LEVEL, value: info}
+                # Go 模块走 Artifact Keeper 的 pull-through 缓存，与 CI 相同；直连 proxy.golang.org
+                # 时外网随机断开，每次运行都有一批模块 lookup 返回 no-result，分组 PR 因此缺项。
+                - {name: GOPROXY, value: https://artifacts.lab.ddupan.top/go/go-proxy}
+                - {name: GOPRIVATE, value: git.ddupan.top}
               envFrom:
                 - secretRef: {name: renovate}
               securityContext:
