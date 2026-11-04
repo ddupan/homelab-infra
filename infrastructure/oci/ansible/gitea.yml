@@ -1,0 +1,8 @@
+---
+# oci-arm 上的 Gitea。秘密在 host_vars/oci_arm/vault.yml（ansible-vault），刻意不读 Bao。
+# 迁移与升级流程见 docs/gitea-oci-migration-plan.md。
+- name: 在 oci-arm 上部署 Gitea
+  hosts: oci_arm
+  become: true
+  roles:
+    - gitea

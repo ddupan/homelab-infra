@@ -1,0 +1,32 @@
+---
+# 与 k3s 里的 HelmRelease 保持同一版本，直到迁移完成：gitea dump 只能导入同版本。
+# 固定多架构 index digest（不是某个平台的 manifest，见 renovate-platform-digest 教训）。
+# renovate: datasource=docker depName=docker.gitea.com/gitea
+gitea_version: "28.3.0"
+gitea_image: "docker.gitea.com/gitea:{{ gitea_version }}-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d"
+
+gitea_root: /srv/gitea
+# rootless 镜像内的 git 用户；宿主机上 1000 恰好是 opc，无所谓，只按数字对齐属主。
+gitea_uid: 1000
+
+gitea_domain: git.ddupan.top
+gitea_app_name: Gitea on ddupan.top
+
+# 公网入口：A1 公网 IP 443，git.ddupan.top 在 Cloudflare 开代理（不经 tunnel，lab 挂了也不受影响）。
+# 源站证书是 Cloudflare Origin CA：gitea_tls_cert（公开，host_vars/oci_arm/gitea.yml，
+# 来自 cloudflared/terraform 的 gitea_origin_certificate 输出）+ vault_gitea_tls_key。
+# 443 只对 Cloudflare 开放（oci/terraform/gitea-ingress.tf）。
+
+# 以下两组是「有就启用」：迁移前可以先在没有邮件 / Entra 的情况下部署验证。
+# - gitea_mailer_*：OCI Email Delivery（大阪 SMTP 端点，STARTTLS）。
+# - gitea_entra_*：lab 不可用时的第二登录源（iam-login 依赖 dc1）。
+gitea_mailer_host: smtp.email.ap-osaka-1.oci.oraclecloud.com
+gitea_mailer_port: 587
+gitea_mailer_from: Gitea <noreply@ddupan.top>
+gitea_entra_source_name: entra
+
+# 备份：instance principal 上传到 infrastructure/oci/terraform/gitea-backup.tf 的 bucket。
+gitea_backup_namespace: axckv9ylwqxr
+gitea_backup_bucket: gitea-backup
+# renovate: datasource=pypi depName=oci-cli
+gitea_backup_oci_cli_version: "3.95.1"

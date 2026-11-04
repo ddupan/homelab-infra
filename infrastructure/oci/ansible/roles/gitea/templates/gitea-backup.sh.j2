@@ -1,0 +1,18 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# 每日 gitea dump → Object Storage。dump 一次带上数据库和 repo，时间点一致。
+# 上传用 instance principal：磁盘上没有凭据，策略只允许新建对象（见 gitea-backup.tf）。
+set -eu
+
+name="gitea-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+tmp="{{ gitea_root }}/backup/$name"
+trap 'rm -f "$tmp"' EXIT
+
+docker compose -f {{ gitea_root }}/compose.yaml exec -T gitea \
+  gitea dump --type tar.gz --skip-log --file - > "$tmp"
+
+# --no-multipart：分段上传中断后要 OBJECT_DELETE 才能 abort，而策略刻意不给删除权限。
+# 单次 PUT 上限 50 GiB，远大于 dump。
+/opt/oci-cli/bin/oci os object put --auth instance_principal \
+  --namespace {{ gitea_backup_namespace }} --bucket-name {{ gitea_backup_bucket }} \
+  --name "$name" --file "$tmp" --no-multipart --no-overwrite

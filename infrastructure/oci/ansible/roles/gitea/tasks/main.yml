@@ -1,0 +1,215 @@
+---
+# oci-arm 上的 Gitea：repo 放在 lab 之外，lab 整体重建时 repo 仍在（CLAUDE.md 重建顺序第一步）。
+# 所以这里的一切都不能依赖 lab：秘密来自本仓库 ansible-vault，不读 Bao；公网入口是 A1 自己的
+# 公网 IP + Cloudflare 代理，不经 laptop 上的 tunnel。迁移步骤见 docs/gitea-oci-migration-plan.md。
+
+- name: 确认源站证书已就位
+  ansible.builtin.assert:
+    that:
+      - gitea_tls_cert is defined
+      - vault_gitea_tls_key is defined
+    fail_msg: >-
+      缺 gitea_tls_cert：先 apply infrastructure/cloudflared/terraform（gitea-origin.tf），
+      把 gitea_origin_certificate 输出写进 host_vars/oci_arm/gitea.yml。
+
+- name: 安装 Docker 与 compose 插件、备份所需的 venv
+  ansible.builtin.apt:
+    name: [docker.io, docker-compose-v2, python3-venv]
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+  register: gitea_packages
+  retries: 3
+  delay: 5
+  until: gitea_packages is succeeded
+
+# 首次 --check 时软件包并未真正安装，依赖它们的任务只能跳过。
+- name: 记录能否执行依赖软件包的任务
+  ansible.builtin.set_fact:
+    gitea_runtime_ready: "{{ not ansible_check_mode or not gitea_packages.changed }}"
+
+- name: 启动 Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started
+  when: gitea_runtime_ready
+
+- name: 创建 Gitea 根目录
+  ansible.builtin.file:
+    path: '{{ gitea_root }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# 数据与证书目录归容器内 uid 读取；backup 目录放 dump 临时文件，只给 root。
+- name: 创建数据、证书与备份目录
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    owner: '{{ item.owner }}'
+    group: '{{ item.group }}'
+    mode: '0750'
+  loop:
+    - { path: '{{ gitea_root }}/data', owner: '{{ gitea_uid }}', group: '{{ gitea_uid }}' }
+    - { path: '{{ gitea_root }}/tls', owner: 0, group: '{{ gitea_uid }}' }
+    - { path: '{{ gitea_root }}/backup', owner: 0, group: 0 }
+
+# diff: false —— 文件里有 SECRET_KEY 等，--diff 会把它们打到终端和日志里。
+- name: 写入 app.ini
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: '{{ gitea_root }}/app.ini'
+    owner: root
+    group: '{{ gitea_uid }}'
+    mode: '0640'
+  diff: false
+  notify: 重启 Gitea
+
+- name: 写入源站证书与私钥
+  ansible.builtin.copy:
+    dest: '{{ gitea_root }}/tls/{{ item.name }}'
+    content: '{{ item.content }}'
+    owner: root
+    group: '{{ gitea_uid }}'
+    mode: '0640'
+  loop:
+    - { name: cert.pem, content: '{{ gitea_tls_cert }}' }
+    - { name: key.pem, content: '{{ vault_gitea_tls_key }}' }
+  loop_control:
+    label: '{{ item.name }}'
+  diff: false
+  no_log: true
+  notify: 重启 Gitea
+
+- name: 写入 compose 文件
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: '{{ gitea_root }}/compose.yaml'
+    owner: root
+    group: root
+    mode: '0644'
+
+# 镜像从公网拉；A1 在云上，不受家里 WAN 影响，但仍按惯例重试。
+- name: 启动 Gitea
+  community.docker.docker_compose_v2:
+    project_src: '{{ gitea_root }}'
+    pull: missing
+    remove_orphans: true
+    state: present
+  register: gitea_compose
+  when: gitea_runtime_ready
+  retries: 3
+  delay: 10
+  until: gitea_compose is succeeded
+
+- name: 先应用 app.ini 变更再验证
+  ansible.builtin.meta: flush_handlers
+
+- name: 等 Gitea 健康
+  ansible.builtin.uri:
+    url: https://127.0.0.1/api/healthz
+    # Origin CA 证书只有 Cloudflare 信任，且名字是 git.ddupan.top；本机检查只看服务活着。
+    validate_certs: false
+  register: gitea_health
+  retries: 24
+  delay: 5
+  until: gitea_health.status == 200
+  when: not ansible_check_mode
+
+# 登录源存在数据库里，不在 app.ini。只在缺失时添加；改名或改参数需要手工
+# `gitea admin auth update-oauth`（同 k3s 时期的 sso 源：按名称匹配，改名会新建源、断开账号关联）。
+- name: 读取已有登录源
+  ansible.builtin.command:
+    argv: [docker, compose, -f, '{{ gitea_root }}/compose.yaml', exec, -T, gitea, gitea, admin, auth, list]
+  register: gitea_auth_sources
+  changed_when: false
+  when:
+    - vault_gitea_entra_client_secret is defined
+    - not ansible_check_mode
+
+# secret 只能走命令行参数，会短暂出现在容器内 argv；单租户 VM，可以接受，日志用 no_log 挡住。
+- name: 添加 Entra ID 登录源（lab 不可用时的登录入口）
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - -f
+      - '{{ gitea_root }}/compose.yaml'
+      - exec
+      - -T
+      - gitea
+      - gitea
+      - admin
+      - auth
+      - add-oauth
+      - --name={{ gitea_entra_source_name }}
+      - --provider=openidConnect
+      - --key={{ gitea_entra_client_id }}
+      - --secret={{ vault_gitea_entra_client_secret }}
+      - --auto-discover-url=https://login.microsoftonline.com/{{ gitea_entra_tenant_id }}/v2.0/.well-known/openid-configuration
+      - --scopes=openid profile email
+  no_log: true
+  when:
+    - vault_gitea_entra_client_secret is defined
+    - not ansible_check_mode
+    - gitea_auth_sources.stdout_lines[1:] | map('split') | map(attribute=1) | select('equalto', gitea_entra_source_name) | list | length == 0
+
+- name: 安装 oci-cli（备份上传）
+  ansible.builtin.pip:
+    name: 'oci-cli=={{ gitea_backup_oci_cli_version }}'
+    virtualenv: /opt/oci-cli
+    virtualenv_command: python3 -m venv
+  register: gitea_oci_cli
+  when: gitea_runtime_ready
+  retries: 3
+  delay: 10
+  until: gitea_oci_cli is succeeded
+
+- name: 写入备份脚本
+  ansible.builtin.template:
+    src: gitea-backup.sh.j2
+    dest: /usr/local/sbin/gitea-backup
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: 写入备份单元与定时器
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item.name }}'
+    content: '{{ item.content }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - name: gitea-backup.service
+      content: |
+        [Unit]
+        Description=Dump Gitea and upload to OCI Object Storage
+        Requires=docker.service
+        After=docker.service
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/gitea-backup
+    - name: gitea-backup.timer
+      content: |
+        [Unit]
+        Description=Daily Gitea dump
+        [Timer]
+        OnCalendar=daily
+        RandomizedDelaySec=1h
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: 启用备份定时器
+  ansible.builtin.systemd_service:
+    name: gitea-backup.timer
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: gitea_runtime_ready

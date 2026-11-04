@@ -1,0 +1,6 @@
+---
+# app.ini 是只读挂载，Gitea 只在启动时读取一次。
+- name: 重启 Gitea
+  ansible.builtin.command:
+    argv: [docker, compose, -f, '{{ gitea_root }}/compose.yaml', restart, gitea]
+  when: not ansible_check_mode
