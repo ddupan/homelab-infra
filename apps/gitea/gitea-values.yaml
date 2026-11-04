@@ -4,6 +4,15 @@
 strategy:
   type: Recreate
 
+# 笔记本 CPU 长期过载（load 40–60 / 12 核）。主容器原本没有 requests（chart 只给 init 容器设了），
+# 其 cgroup cpu.weight 取最小值，争用时 Gitea 最先被饿死，Web/git 操作明显变慢。
+# requests 只抬高调度权重和预留；不设 limits：CPU limit 会在空闲时也节流，
+# 内存 limit 会让 Gitea 在 git gc / 大 push 时被 OOMKill。
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
 ingress:
   enabled: true
   hosts:
