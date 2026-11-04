@@ -1,0 +1,36 @@
+# The AI data plane: its own Gateway, so its own Envoy pods. Only these pods get Agent Router's
+# ext_proc sidecar, through a webhook that fails closed (../../platform/envoy-gateway/agent-router.yaml);
+# keeping them apart from Gateway `eg` keeps the LAN ingress out of that webhook's reach.
+#
+# ClusterIP and plaintext: clients never reach it directly. They come in through `eg`
+# (httproute.yaml), which terminates TLS and checks the client's API key first.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ai
+  namespace: ai-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        # Fixed name so httproute.yaml can point at it (EG's default name carries a hash).
+        name: ai-gateway-envoy
+        type: ClusterIP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ai
+  namespace: ai-gateway
+spec:
+  gatewayClassName: eg
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: ai
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80

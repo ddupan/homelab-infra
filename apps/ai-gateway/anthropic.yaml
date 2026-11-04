@@ -1,0 +1,73 @@
+# Every model name goes to Anthropic; there is one provider. Clients call the native API at
+# /anthropic/v1/messages, or the OpenAI-compatible /v1/chat/completions.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: anthropic
+  namespace: ai-gateway
+spec:
+  parentRefs:
+    - name: ai
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - backendRefs:
+        - name: anthropic
+      # Envoy's default route timeout is 15s; a long generation takes minutes.
+      timeouts:
+        request: 600s
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: anthropic
+  namespace: ai-gateway
+spec:
+  schema:
+    name: Anthropic
+  backendRef:
+    name: anthropic
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+# Replaces whatever x-api-key the client sent with the real key. The client's own gateway key
+# never gets here anyway (httproute.yaml strips it), but this is what makes the swap safe.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: BackendSecurityPolicy
+metadata:
+  name: anthropic
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: aigateway.envoyproxy.io
+      kind: AIServiceBackend
+      name: anthropic
+  type: AnthropicAPIKey
+  anthropicAPIKey:
+    secretRef:
+      name: anthropic-api-key
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: anthropic
+  namespace: ai-gateway
+spec:
+  endpoints:
+    - fqdn:
+        hostname: api.anthropic.com
+        port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: anthropic
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: gateway.envoyproxy.io
+      kind: Backend
+      name: anthropic
+  validation:
+    wellKnownCACertificates: System
+    hostname: api.anthropic.com

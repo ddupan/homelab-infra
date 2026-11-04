@@ -30,3 +30,4 @@ resources:
   - apps/external-dns.yaml
   - apps/tailscale.yaml
   - apps/cloudflared.yaml
+  - apps/ai-gateway.yaml
