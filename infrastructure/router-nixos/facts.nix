@@ -1,7 +1,7 @@
 # PoC 主机的网络事实，集中一处；网段与 AS 的登记在 infrastructure/network/ipam.yml。
 {
   hostname = "router-poc";
-  # 静态地址，DNS 记录在 infrastructure/dns/terraform/hosts.tf（router_poc_a）。
+  # PoC 用过的地址；VM 已删（2026-11-04），DNS 记录随之撤掉。重建时重新登记 hosts.tf。
   address = "10.60.0.40";
   prefixLength = 24;
   gateway = "10.60.0.1";

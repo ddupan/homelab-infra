@@ -111,15 +111,6 @@ resource "powerdns_record" "sandbox2_a" {
   records = ["10.60.0.12"]
 }
 
-# NixOS 路由器 PoC（infrastructure/router-nixos，vm:105）。地址写在 facts.nix，不走 DHCP；PoC 结束随 VM 删除。
-resource "powerdns_record" "router_poc_a" {
-  zone    = powerdns_zone.lab.name
-  name    = "router-poc.lab.ddupan.top."
-  type    = "A"
-  ttl     = 300
-  records = ["10.60.0.40"]
-}
-
 # sandbox k3s 入口是 Ayatori LoadBalancer（clusters/ayatori-prod/sandbox-k8s.yaml），VIP 由它分配；
 # 这里只把客户端用的名字指向它发布的 Hostname，证书 SAN 与客户端都不随 VIP 改。
 # sandbox k3s datastore 入口（clusters/ayatori-prod/sandbox-postgresql.yaml），同上。

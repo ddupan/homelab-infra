@@ -64,25 +64,6 @@ set protocols bgp neighbor {{ n }} peer-group '{{ g.name }}'
 {% endfor %}
 {% endfor %}
 
-{# --- 评估用路由器（router-nixos PoC）：只观察会话，什么都不收也不发 --- #}
-{# soft-reconfiguration 留住被 POC-IN 拒掉的前缀，`show bgp neighbors X received-routes`
-   才能看到对端宣告的变化；import 全拒，所以 PoC 怎么改都进不了 RIB。 #}
-{% if vyos_poc_peers %}
-set policy prefix-list POC-IN rule 10 action 'deny'
-set policy prefix-list POC-IN rule 10 prefix '0.0.0.0/0'
-set policy prefix-list POC-IN rule 10 le '32'
-{% endif %}
-{% for p in vyos_poc_peers %}
-set protocols bgp neighbor {{ p.address }} description '{{ p.description }}'
-set protocols bgp neighbor {{ p.address }} remote-as '{{ p.remote_as }}'
-set protocols bgp neighbor {{ p.address }} local-as {{ vyos_bgp_internal_local_as }} no-prepend replace-as
-set protocols bgp neighbor {{ p.address }} timers keepalive '10'
-set protocols bgp neighbor {{ p.address }} timers holdtime '30'
-set protocols bgp neighbor {{ p.address }} address-family ipv4-unicast prefix-list import 'POC-IN'
-set protocols bgp neighbor {{ p.address }} address-family ipv4-unicast prefix-list export 'LB-OUT'
-set protocols bgp neighbor {{ p.address }} address-family ipv4-unicast soft-reconfiguration inbound
-{% endfor %}
-
 {# --- management --- #}
 set service ssh port 22
 {# --- monitoring: built-in exporters. node-exporter's textfile collector carries the

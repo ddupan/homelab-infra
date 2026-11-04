@@ -85,11 +85,6 @@ vyos_lb_peer_groups:
     vip_pool: "10.62.1.0/24"
     neighbors: ["10.60.0.32", "10.60.0.33"]   # lb-dev-1, lb-dev-2
 
-# 评估中的路由器（infrastructure/router-nixos）。⚠ 评估结束从这里删掉并不会删掉 VyOS 上的
-# 邻居——set 行模板删不了节点，要显式 `delete protocols bgp neighbor <addr>` 和 POC-IN。
-vyos_poc_peers:
-  - { address: "10.60.0.40", remote_as: 65003, description: "router-poc (NixOS PoC)" }
-
 # BGP to the NEC IX (replaces OSPF; infrastructure/network/README.md 迁移清单第 1 条).
 # The IX only gets summaries: its route budget is single digits. 10.60.0.0/14 is an
 # aggregate (labnet, retronet, the VIP pools); the other two come from OCI over iBGP.
