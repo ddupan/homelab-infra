@@ -1,6 +1,10 @@
 # OpenTelemetry Collector — OTLP ingress point for app traces. Receives OTLP over
 # gRPC (4317) and HTTP (4318), batches, and exports to VictoriaTraces' OTLP endpoint.
 # Point your apps' OTEL_EXPORTER_OTLP_ENDPOINT at otel-collector.monitoring.svc:4317.
+#
+# :4319 is the PUBLIC door (otlp.ddupan.top via cloudflared, infrastructure/cloudflared):
+# OTLP/HTTP with a bearer token, for the Claude API's trace export. 4317/4318 stay
+# unauthenticated and in-cluster only — never route the tunnel at them.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -14,6 +18,12 @@ metadata:
   namespace: monitoring
 data:
   config.yaml: |
+    extensions:
+      # Token from Bao kv/k8s/otel-collector (otlp-public-token ExternalSecret). Read from
+      # file so a rotation needs no config change.
+      bearertokenauth/public:
+        scheme: Bearer
+        filename: /etc/otel-auth/token
     receivers:
       otlp:
         protocols:
@@ -21,6 +31,12 @@ data:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
+      otlp/public:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4319
+            auth:
+              authenticator: bearertokenauth/public
     processors:
       memory_limiter:
         check_interval: 5s
@@ -35,9 +51,10 @@ data:
         tls:
           insecure: true
     service:
+      extensions: [bearertokenauth/public]
       pipelines:
         traces:
-          receivers: [otlp]
+          receivers: [otlp, otlp/public]
           processors: [memory_limiter, batch]
           exporters: [otlphttp/victoriatraces]
       telemetry:
@@ -50,6 +67,27 @@ data:
                   prometheus:
                     host: 0.0.0.0
                     port: 8888
+---
+# Bearer token for the public receiver (:4319). The same value goes into the Claude Console
+# destination's "authorization: Bearer …" header.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: otlp-public-token
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: otlp-public-token
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: k8s/otel-collector
+        property: public_token
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -77,10 +115,14 @@ spec:
           ports:
             - { name: otlp-grpc, containerPort: 4317 }
             - { name: otlp-http, containerPort: 4318 }
+            - { name: otlp-public, containerPort: 4319 }
             - { name: metrics, containerPort: 8888 }
           volumeMounts:
             - name: config
               mountPath: /etc/otel
+            - name: public-token
+              mountPath: /etc/otel-auth
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -92,6 +134,9 @@ spec:
         - name: config
           configMap:
             name: otel-collector-config
+        - name: public-token
+          secret:
+            secretName: otlp-public-token
 ---
 apiVersion: v1
 kind: Service
@@ -106,6 +151,7 @@ spec:
   ports:
     - { name: otlp-grpc, port: 4317, targetPort: 4317 }
     - { name: otlp-http, port: 4318, targetPort: 4318 }
+    - { name: otlp-public, port: 4319, targetPort: 4319 }
     - { name: metrics, port: 8888, targetPort: 8888 }
 ---
 # Self-scrape the collector's own telemetry into VictoriaMetrics.

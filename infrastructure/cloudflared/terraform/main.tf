@@ -34,6 +34,14 @@ locals {
       path     = "^/(\\.well-known/openid-configuration|keys)$"
       service  = "http://spire-spiffe-oidc-discovery-provider.spire-server.svc.cluster.local:80"
     },
+    {
+      # Claude API trace export (Console → OpenTelemetry destination). The collector's
+      # token-checked receiver (:4319), never the open in-cluster :4318. Anthropic appends
+      # /v1/traces to the base URL and needs HTTPS on 443 — Cloudflare provides both.
+      hostname = "otlp.ddupan.top"
+      path     = "^/v1/traces$"
+      service  = "http://otel-collector.monitoring.svc.cluster.local:4319"
+    },
   ]
 }
 
