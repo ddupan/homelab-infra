@@ -50,7 +50,7 @@ PR 号**；新发现的盲区直接追加。
 
 ## 4. 其他主机与 VM（P1–P2）
 
-- [x] **H1** dc1（Samba AD）：node-exporter（`monitoring-dc.yml`）+ samba-ad-dc 服务、Kerberos/LDAP/LDAPS 端口、LDAPS 证书到期、samba-acme 续期 timer、时钟同步。DNS 见 B4。只有一台 DC，没有复制可监控
+- [x] **H1** dc1（Samba AD）：node-exporter（Cinc policy `samba-dc`）+ samba-ad-dc 服务、Kerberos/LDAP/LDAPS 端口、LDAPS 证书到期、samba-acme 续期 timer、时钟同步。DNS 见 B4。只有一台 DC，没有复制可监控
 - [ ] **H2** libvirt-exporter：dc1 / bao1 / winadmin / win2k25 的 VM 状态
 - [ ] **H3** 10.60.0.20/21（共享 PG/etcd 节点）主机层面 node-exporter（现在只有 PG/etcd 指标）
 - [ ] **H4** ayatori-dev/prod（Incus .11/.12）node-exporter —— 只装 exporter，**不碰 Ayatori 本身**

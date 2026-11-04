@@ -1,8 +1,0 @@
----
-# dc1 的 node_exporter。可安全重跑；与 provision-dc.yml 分开，避免为装一个 exporter
-# 去跑 AD 的 provision 流程。
-- name: 为 dc1 安装主机指标采集
-  hosts: samba_dc
-  become: true
-  roles:
-    - samba_dc_monitoring

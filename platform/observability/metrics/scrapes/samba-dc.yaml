@@ -1,5 +1,5 @@
 # dc1（Samba AD DC，laptop 上的 libvirt VM）的 node_exporter，由
-# infrastructure/samba-ad/ansible/monitoring-dc.yml 部署。job 改写为 node-exporter，
+# Cinc policy samba-dc（infrastructure/chef/，homelab_base）部署。job 改写为 node-exporter，
 # 这样 host-health 的磁盘/内存/systemd/PSI/时钟规则自动覆盖 dc1；与 bao1 同一做法。
 apiVersion: v1
 kind: Service

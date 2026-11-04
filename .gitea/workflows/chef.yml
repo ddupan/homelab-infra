@@ -62,7 +62,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keygen -q -t ed25519 -N '' -C "ci-converge-${GITHUB_RUN_ID}" -f "$RUNNER_TEMP/ci_key"
           printf 'X-Vault-Token: %s\n' "$BAO_TOKEN" > "$RUNNER_TEMP/bao.hdr"
-          jq -n --arg k "$(cat "$RUNNER_TEMP/ci_key.pub")" '{public_key: $k, valid_principals: "root,panxiao81"}' |
+          jq -n --arg k "$(cat "$RUNNER_TEMP/ci_key.pub")" '{public_key: $k, valid_principals: "root,panxiao81,ansible"}' |
             curl -fsS --retry 3 -H @"$RUNNER_TEMP/bao.hdr" --data @- \
               "${BAO_ADDR%/}/v1/ssh-client-signer/sign/ci-converge" |
             jq -er .data.signed_key > "$RUNNER_TEMP/ci_key-cert.pub"

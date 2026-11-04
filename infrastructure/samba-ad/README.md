@@ -316,14 +316,10 @@ samba-tool domain backup offline --targetdir=/var/backups/samba
 
 Schedule it (cron/systemd timer) and ship the tarball off-box.
 
-### Monitoring — `monitoring-dc.yml`
+### Monitoring — Cinc policy `samba-dc`
 
-```bash
-ansible-playbook monitoring-dc.yml --check --diff
-ansible-playbook monitoring-dc.yml          # rerun → changed=0
-```
-
-Installs Ubuntu's `prometheus-node-exporter` bound to `192.168.10.5:9100`; the cluster scrapes
+dc1 is a Cinc node (`infrastructure/chef/`, policy `samba-dc`, applied by CI on merge):
+`homelab_base` installs Ubuntu's `prometheus-node-exporter` bound to `192.168.10.5:9100`; the cluster scrapes
 it as `job=node-exporter, node=dc1` (`platform/observability/metrics/scrapes/samba-dc.yaml`), so
 the generic host-health rules (disk, memory, failed units, PSI, clock sync) cover dc1 too.
 AD-specific alerts live in `platform/observability/metrics/rules/samba-dc.yaml`:

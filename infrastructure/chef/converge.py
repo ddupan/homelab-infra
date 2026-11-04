@@ -192,7 +192,9 @@ def converge(n, cfg, archives, why_run, identity):
     node, d = Node(n, identity), cfg["cinc_node_dir"]
     staging = f"{d}/staging"
 
-    installed = node.run("dpkg-query -W -f='${Version}' cinc", check=False).stdout
+    # "Not installed" is decided on the node, so an unreachable host (ssh 255, unknown
+    # host key) fails here instead of passing as "would install cinc".
+    installed = node.run("dpkg-query -W -f='${Version}' cinc 2>/dev/null || true").stdout
     if installed != f"{cfg['cinc_version']}-1":
         if why_run:
             # Nothing to why-run with: the client the policy needs is not there yet.
