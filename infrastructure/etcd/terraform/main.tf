@@ -24,9 +24,10 @@ variable "kv_mount" {
   type    = string
   default = "kv"
 }
+# etcd-pve3 replaces etcd-laptop (#570); the laptop name goes once that member is removed.
 variable "member_names" {
   type    = list(string)
-  default = ["etcd-laptop", "etcd-pve1", "etcd-pve2"]
+  default = ["etcd-laptop", "etcd-pve1", "etcd-pve2", "etcd-pve3"]
 }
 variable "consumer_names" {
   type    = set(string)
