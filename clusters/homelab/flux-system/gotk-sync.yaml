@@ -9,7 +9,9 @@ spec:
   ref:
     branch: main
   timeout: 60s
-  url: http://gitea-http.gitea.svc.cluster.local:3000/panxiao81/homelab-infra.git
+  # 公网名而非集群内 Service：Gitea 将迁出 k3s（docs/gitea-oci-migration-plan.md），切换时只改
+  # DNS/tunnel，Flux 自动跟随，无需拉取「修改自身 URL」的 commit。集群内经 split-horizon 到 Envoy。
+  url: https://git.ddupan.top/panxiao81/homelab-infra.git
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
