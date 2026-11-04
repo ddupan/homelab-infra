@@ -39,7 +39,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:633244941bde811100d02457bf4fccc14e4ae7a60a9863c0a6a1afbbdbc4dbee
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:47a64f11e2b51e19bcdadd47b7934042dc8a642f8b57d2e66663a129b4941089
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -89,13 +89,20 @@ spec:
           ports:
             - name: facade
               containerPort: 8443
+            # Plain HTTP: kubelet cannot complete the facade's mTLS.
+            - name: health
+              containerPort: 8081
           readinessProbe:
-            tcpSocket:
-              port: facade
+            httpGet:
+              path: /healthz
+              port: health
+            tcpSocket: null
             periodSeconds: 5
           livenessProbe:
-            tcpSocket:
-              port: facade
+            httpGet:
+              path: /healthz
+              port: health
+            tcpSocket: null
             initialDelaySeconds: 15
             periodSeconds: 10
           resources:
