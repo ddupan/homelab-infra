@@ -1,8 +1,10 @@
 # router-nixos（PoC）
 
 验证 [router.md](../network/router.md)「备选：NixOS」的三条结论，**不碰 vm:100 的转发**：
-PoC（vm:105，labnet 10.60.0.40）只和 vyos-rtr 建 eBGP，宣告一个 RFC 5737 文档地址，VyOS 侧全拒导入
-（`vyos_poc_peers` / `POC-IN`）。
+PoC（vm:105，labnet 10.60.0.40）只和 vyos-rtr 建 eBGP，宣告一个 RFC 5737 文档地址，VyOS 侧全拒导入。
+
+**状态（2026-11-04）**：验证通过，这套配置就是下一代路由器的起点；迁移未开始。PoC 的 VM、VyOS 邻居、
+DNS 记录已撤掉，代码留着。重建时 VM 定义、VyOS 侧 `vyos_poc_peers`/`POC-IN` 模板见 #581 的改动。
 
 ## 结果（2026-11-04，nixos-26.05，FRR 10.6.1）
 
@@ -52,9 +54,3 @@ O="-i id -o CertificateFile=id-cert.pub -o ControlPath=/tmp/cm -o ServerAliveInt
 ssh $O -fNM -o ControlPersist=20m root@10.60.0.40     # 签完证书立刻
 nix run --inputs-from path:/src deploy-rs#deploy-rs -- --skip-checks path:/src#router-poc --ssh-opts "$O"
 ```
-
-## 收尾（PoC 结束时）
-
-`vyos_poc_peers` 删掉后 set-lines 角色不会删 VyOS 上的东西：手动
-`delete protocols bgp neighbor 10.60.0.40`、`delete policy prefix-list POC-IN`；删 vm:105；
-删 `ipam.yml` 的 AS 65003 与 `dns/terraform/hosts.tf` 的 `router_poc_a`。
