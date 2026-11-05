@@ -1,0 +1,44 @@
+# etcd members' certificate renewal identity (homelab_data::etcd, homelab-cookbooks):
+# root on each member node gets spiffe://ddupan.top/node/<member>/etcd, which Bao's
+# jwt-spire role homelab-etcd-member (infrastructure/etcd/terraform/member.tf) lets sign
+# only the member certificate roles. Root already owns the node and its etcd keys, so
+# unix:uid:0 grants nothing new.
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: etcd-member-etcd-pve1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/etcd-pve1
+  spiffeID: spiffe://ddupan.top/node/etcd-pve1/etcd
+  selectors:
+    - unix:uid:0
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: etcd-member-etcd-pve2
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/etcd-pve2
+  spiffeID: spiffe://ddupan.top/node/etcd-pve2/etcd
+  selectors:
+    - unix:uid:0
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: etcd-member-etcd-pve3
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/etcd-pve3
+  spiffeID: spiffe://ddupan.top/node/etcd-pve3/etcd
+  selectors:
+    - unix:uid:0

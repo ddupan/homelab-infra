@@ -167,3 +167,23 @@ tests:
         job: shared-data-maintenance
       exp_annotations:
         summary: 共享数据维护指标无法采集
+- name: 待重启持续一小时才告警
+  interval: 1m
+  input_series:
+  - series: homelab_data_restart_pending{job="shared-data-maintenance",instance="host:9109",unit="homelab-etcd"}
+    values: '1x90'
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: SharedDataRestartPending
+    exp_alerts: []
+  - eval_time: 70m
+    alertname: SharedDataRestartPending
+    exp_alerts:
+    - exp_labels:
+        job: shared-data-maintenance
+        instance: host:9109
+        unit: homelab-etcd
+        severity: warning
+        service: shared-data
+      exp_annotations:
+        summary: 配置已变更但服务尚未重启；etcd 请逐成员重启并确认健康后再处理下一个

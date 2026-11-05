@@ -20,5 +20,6 @@ resources:
   - local-development-identity.yaml
   - iam-build-ci-publish.yaml
   - spire-node-aliases.yaml
+  - etcd-members.yaml
   - database.yaml
   - tlsroute.yaml
