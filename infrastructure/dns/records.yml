@@ -7,7 +7,7 @@ homelab_dns:
   split_horizon:
     # backends records the current adoption boundary. obj is deliberately not
     # emitted to CoreDNS yet, preserving the current pod resolver behaviour.
+    # git.ddupan.top 不在这里：Gitea 已迁到 OCI A1，Origin CA 证书只被 Cloudflare 信任，lab 内也必须经 CF。
     records:
-      - { name: git.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: sso.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky, coredns] }
       - { name: obj.ddupan.top, type: A, values: [192.168.10.127], backends: [blocky] }

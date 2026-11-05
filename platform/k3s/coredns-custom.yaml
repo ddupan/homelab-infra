@@ -65,16 +65,6 @@ data:
   # Split-horizon blocks are generated from ../../infrastructure/dns/records.yml.
   # They keep pod traffic on the LAN while preserving public hostnames and LE certs.
   # BEGIN GENERATED: homelab DNS (coredns)
-  git-ddupan-top.server: |
-    git.ddupan.top:53 {
-        errors
-        template IN A {
-            answer "{{ .Name }} 60 IN A 192.168.10.127"
-        }
-        template IN AAAA {
-            rcode NOERROR
-        }
-    }
   sso-ddupan-top.server: |
     sso.ddupan.top:53 {
         errors

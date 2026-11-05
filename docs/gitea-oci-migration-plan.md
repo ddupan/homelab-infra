@@ -89,9 +89,9 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 # 然后 scale 旧 Deployment 到 0（HelmRelease 先 suspend）
 ```
 
-在 A1 上：解压到数据卷（`data/` → `/data`，`repos/` → `/data/git/gitea-repositories`），执行
-`sqlite3 /data/gitea/gitea.db < gitea-db.sql`，修正属主（rootless 是 uid 1000），启动，然后
-`gitea doctor check --all`。dump 是**明文**（含 token 哈希、OAuth secret），传完立即删除，
+在 A1 上（rootless 镜像，容器内 `/var/lib/gitea` = 宿主机 `/srv/gitea/data`）：停容器，解压 `data/` → `/srv/gitea/data/`，
+`repos/` → `/srv/gitea/data/git/gitea-repositories/`，`sqlite3 /srv/gitea/data/data/gitea.db < gitea-db.sql`，
+修正属主（uid 1000），启动，然后 `gitea doctor check --all`。dump 是**明文**（含 token 哈希、OAuth secret），传完立即删除，
 不要放进 scratchpad 以外的地方。
 
 ### 3. 切换
