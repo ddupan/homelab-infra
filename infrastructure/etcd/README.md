@@ -139,6 +139,40 @@ PVE 包装命令仍会报非零；需再次检查返回 0 才启动容器。不�
   开放客户端前逐个协调消费者状态。Patroni 必须核对真实主库、timeline、lease/DCS 状态；
   不因旧快照宣称某节点为主就允许它写入。完整跨服务灾难恢复演练尚未完成。
 
+### 加入 Cinc 管理的新成员（etcd-pve3 取代 etcd-laptop，#570）
+
+Cinc（`homelab_data::etcd`）装好成员并用节点自己的 SPIFFE 身份签好证书，但 unit 在
+`member add` 之前不启动：没有数据目录、也没有 `/etc/homelab-etcd/join` 时 systemd 条件不满足。
+以 **learner** 加入：learner 不计入 quorum，新成员起不来或追不上时不会让集群从 3 成员的
+quorum 2 变成 4 成员的 quorum 3（laptop 负载高时那就可能丢 quorum，Patroni 随即降级 pg-prod 主库）。
+
+在新成员上以 root 执行，用它自己的 admin 证书（CN=root）：
+
+```bash
+export ETCDCTL_ENDPOINTS=https://10.60.0.20:2379,https://10.60.0.21:2379,https://192.168.10.127:2379
+export ETCDCTL_CACERT=/etc/homelab-etcd/ca.crt ETCDCTL_CERT=/etc/homelab-etcd/admin.crt ETCDCTL_KEY=/etc/homelab-etcd/admin.key
+e=/opt/homelab-etcd/etcdctl
+$e endpoint health -w table                       # 三个都 healthy 才继续
+$e member add etcd-pve3 --learner --peer-urls=https://10.60.0.22:2380
+touch /etc/homelab-etcd/join && systemctl start homelab-etcd
+$e member list -w table                           # etcd-pve3 started, IS LEARNER true
+$e member promote <etcd-pve3 的 ID>                # 未追上时报 "can only promote a learner member which is in sync"，稍后重试
+$e endpoint status --cluster -w table             # 四个成员 raft index 一致
+rm /etc/homelab-etcd/join                         # 数据目录已存在，标记不再需要；留着的话数据目录被清空后 unit 仍会启动并反复失败
+systemctl start homelab-etcd-snapshot.service     # 首个快照，之后再接维护指标
+```
+
+然后下一个 PR：etcd-pve3 的 policy 加 `homelab_data::monitoring`，抓取（2381、9109）加 etcd-pve3，
+消费者 endpoint 由 laptop 换成 10.60.0.22（Patroni 逐个重载）。之后移除 laptop 成员：
+
+```bash
+$e member remove <etcd-laptop 的 ID>               # 先确认 etcd-pve3 已是正式成员、四个都 healthy
+```
+
+laptop 上停掉并禁用 `homelab-etcd`、`homelab-etcd-snapshot.timer`、`homelab-etcd-renew.timer`。
+`members` 去掉 etcd-laptop 后 etcd-pve3 的 etcd.yml 会变（`initial-cluster` 只在首次启动读），
+`homelab_data_restart_pending` 因此为 1；方便时单独重启 etcd-pve3 即可。
+
 ## 验证
 
 ```bash
