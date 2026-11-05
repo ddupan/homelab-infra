@@ -19,10 +19,10 @@ resource "oci_objectstorage_object_lifecycle_policy" "gitea_backup" {
   bucket    = oci_objectstorage_bucket.gitea_backup.name
 
   rules {
-    name        = "expire-gitea-dumps"
-    action      = "DELETE"
-    is_enabled  = true
-    target      = "objects"
+    name       = "expire-gitea-dumps"
+    action     = "DELETE"
+    is_enabled = true
+    target     = "objects"
     # Always Free 的 Object Storage 共 20 GB；一份 dump 约 0.9 GB（大头是 actions_artifacts），
     # 14 天约 13 GB。dump 明显变大时先缩短这里，或降低 Gitea 的 ARTIFACT_RETENTION_DAYS。
     time_amount = 14
