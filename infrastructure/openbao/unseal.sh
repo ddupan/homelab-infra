@@ -5,6 +5,7 @@
 # It decrypts unseal-key.gpg (touch the YubiKey) and posts the key to /v1/sys/unseal over
 # stdin, so the key never appears in argv or the process list — which is also why this
 # does not use `bao operator unseal` (2.6.1 takes the key only as an argument).
+# MIGRATE=1 sends it as a seal-migration share (README "TPM seal").
 set -euo pipefail
 
 # By hostname: the listener cert is Let's Encrypt with DNS SANs only.
@@ -18,7 +19,7 @@ if ! status | grep -q '"sealed":true'; then
 fi
 
 key="$(gpg -dq "$KEY_FILE" | tr -d '[:space:]')"
-printf '{"key":"%s"}' "$key" \
+printf '{"key":"%s"%s}' "$key" "${MIGRATE:+,\"migrate\":true}" \
   | curl -sS --fail --max-time 10 -X PUT --data @- "$BAO_ADDR/v1/sys/unseal" >/dev/null
 unset key
 

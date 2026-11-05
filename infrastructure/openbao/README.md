@@ -23,6 +23,7 @@ KV, PKI, transit) — the root-of-trust for AI agents and internal TLS.
 ansible/
   create-bao-vm.yml            # create the host as a tiny libvirt VM (cloud-init)
   provision-openbao.yml        # deploy play (install + Raft + TLS + systemd)
+  tpm-seal.yml                 # one-way: pkcs11 seal key → YubiKey escrow + bao1's TPM
   inventory/hosts.yml          # the bao host (LAN IP)
   group_vars/all/vars.yml      # version/checksum, addresses, firewall, auto-unseal
   group_vars/all/vault.example.yml
@@ -182,6 +183,64 @@ It reads `unseal-key.gpg` (ciphertext, encrypted to `0166F47B5400ECC2`), checks 
 status first, and sends the key over stdin. Until bao is unsealed, External Secrets cannot
 sync, CI cannot log in, and pods that fetch the internal CA at start (dynamic-runner) wait.
 
+## TPM seal (pkcs11 auto-unseal)
+
+Goal: a laptop reboot no longer needs the YubiKey. bao1 has the laptop's TPM 2.0 passed
+through (`bao_vm_tpm_passthrough`). The seal is OpenBao's `pkcs11` KMS plugin over
+tpm2-pkcs11, with an RSA-2048 key that is **imported, not generated in the TPM**:
+
+- Raft stores ONE seal-wrapped root key, so every node (and every `raft join`) needs the
+  SAME seal key. The YubiKey escrow `tpm-seal-key.gpg` is how a new node or a replacement
+  TPM gets it, and it keeps the YubiKey as the root of trust (CLAUDE.md "Rebuild order").
+- With auto-unseal the Shamir key becomes a **recovery key: it can no longer decrypt
+  anything**. Losing the TPM AND the escrow means losing the data.
+- Only one seal is active. The phone (teekms) was the alternative; it adds a device, WiFi
+  and custom code to the unseal path of a single-node bao for no security gain.
+- The unit runs with `PrivateDevices=no` while the seal is on (a private `/dev` has no TPM).
+- Re-encrypt `tpm-seal-key.gpg` when the [E] subkey is rotated (expires 2027-04-07).
+
+**Staging (no restart):** mint the key, escrow it, import it, and check the escrow:
+
+```bash
+cd infrastructure/openbao/ansible
+ansible-playbook tpm-seal.yml          # writes ../tpm-seal-key.gpg + ../tpm-seal.pub; commit both
+# on the YubiKey machine, from infrastructure/openbao (touch the key):
+gpg -dq tpm-seal-key.gpg | openssl pkey -pubout | cmp - tpm-seal.pub && echo ESCROW OK
+```
+
+**Migration (change window; bao restarts three times):**
+
+1. Take a Raft snapshot off-box (`bao operator raft snapshot save`).
+2. Upgrade on its own first, so a failure has one cause: `provision-openbao.yml` with the
+   seal still off → restart → `../unseal.sh`. Before that, check `bao auth list` /
+   `bao secrets list` for `ldap`, `kerberos` or `radius`: 2.7 dropped them from the binary.
+3. Set `openbao_pkcs11_seal: true` in `group_vars/all/vars.yml`, then
+   `ansible-playbook provision-openbao.yml --check --diff` and apply. bao restarts sealed;
+   `seal-status` shows `"migration":true`.
+4. `MIGRATE=1 ../unseal.sh` (YubiKey) → `unsealed`, and `seal-status` reports `"type":"pkcs11"`.
+5. `sudo systemctl restart openbao` on bao1 → it must come back unsealed by itself. Then
+   cold-boot bao1 (`virsh shutdown`/`start`) for the real test.
+
+**Rollback to Shamir:** set `openbao_pkcs11_seal_disabled: true`, apply, then
+`MIGRATE=1 ../unseal.sh` (the old Shamir key is now the recovery key). Afterwards set both
+`openbao_pkcs11_seal*` back to false and apply; the node is plain Shamir again.
+
+**Recovery (TPM replaced, or a new node):** the old store is useless off its TPM.
+
+```bash
+# bao1
+sudo systemctl stop openbao
+sudo mv /opt/openbao/tpm2-pkcs11 /opt/openbao/tpm2-pkcs11.dead
+# YubiKey machine, from infrastructure/openbao (the PEM lands on bao1's tmpfs only)
+gpg -dq tpm-seal-key.gpg | ssh ansible@192.168.10.8 'sudo install -m 0600 /dev/stdin /run/tpm-seal.pem'
+cd ansible && ansible-playbook tpm-seal.yml -e openbao_pkcs11_import_key=/run/tpm-seal.pem
+# checks the key against tpm-seal.pub, imports it under a fresh PIN, shreds the PEM;
+# then provision-openbao.yml (renders the new PIN and restarts bao → unsealed)
+```
+
+**Upgrades:** bump `openbao_pkcs11_plugin_version` with BOTH checksums (tarball for the
+download, binary for the `sha256sum` bao re-verifies before exec).
+
 ## Bootstrap (engines, auth, policies)
 
 Once initialized + unsealed, configure the bao side. Authenticate with the root token
@@ -260,7 +319,7 @@ prints it): `cert-authority,principals="<node>",restrict,pty <ca-pubkey>`.
 ## Operational notes
 
 - **Restart re-seals** a Shamir node (needs manual unseal). Harmless before first init;
-  automatic re-unseal with transit auto-unseal.
+  automatic re-unseal once the TPM seal is on (see "TPM seal").
 - **Back up** Raft snapshots off-box once initialized: `bao operator raft snapshot save`
   (belongs in the bootstrap play — it needs a token).
 - The listener uses a **self-signed bootstrap cert**; replace it with a cert issued by

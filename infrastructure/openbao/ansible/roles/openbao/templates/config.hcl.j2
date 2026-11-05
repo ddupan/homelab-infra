@@ -25,6 +25,33 @@ seal "transit" {
   mount_path = "{{ openbao_transit_mount_path }}"
 }
 {% endif %}
+{% if openbao_pkcs11_seal %}
+
+# Auto-unseal with an RSA key held by bao1's passthrough TPM (tpm2-pkcs11). The key was
+# imported, not generated in the TPM: every Raft node must unwrap the SAME root key, and
+# the YubiKey escrow (tpm-seal-key.gpg) is how a replacement node or TPM gets it.
+plugin_directory = "{{ openbao_plugin_dir }}"
+
+plugin "kms" "pkcs11" {
+  command   = "openbao-plugin-kms-pkcs11"
+  sha256sum = "{{ openbao_pkcs11_plugin_sha256 }}"
+  # The plugin process does not inherit bao's environment; tpm2-pkcs11 finds its store here.
+  env       = ["TPM2_PKCS11_STORE={{ openbao_pkcs11_store }}"]
+}
+
+seal "pkcs11" {
+  lib           = "{{ openbao_pkcs11_lib }}"
+  token_label   = "{{ openbao_pkcs11_token_label }}"
+  pin           = "{{ openbao_pkcs11_pin }}"
+  key_label     = "{{ openbao_pkcs11_key_label }}"
+  # RSA-2048: TPMs (and swtpm) reject importing RSA-3072.
+  mechanism     = "CKM_RSA_PKCS_OAEP"
+  rsa_oaep_hash = "sha256"
+{% if openbao_pkcs11_seal_disabled %}
+  disabled      = "true"
+{% endif %}
+}
+{% endif %}
 
 # 显式固定 Prometheus 行为；应用此配置会经 handler 重启，须人工解封。
 telemetry {

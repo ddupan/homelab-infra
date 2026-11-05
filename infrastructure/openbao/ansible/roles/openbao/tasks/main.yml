@@ -15,6 +15,7 @@
       - openbao_fqdn | length > 0
       - openbao_lan_ip | length > 0
       - (not openbao_auto_unseal) or (openbao_transit_address | length > 0 and openbao_transit_token | length > 0)
+      - not (openbao_auto_unseal and openbao_pkcs11_seal)   # one active seal only
     fail_msg: >-
       Set openbao_version + openbao_download_checksum (sha256:...), openbao_fqdn and
       openbao_lan_ip. If openbao_auto_unseal is true you must also provide
@@ -71,6 +72,10 @@
         dest: "/tmp/openbao_{{ openbao_version }}.tar.gz"
         checksum: "{{ openbao_download_checksum }}"
         mode: "0644"
+        timeout: 60
+      register: openbao_dl
+      retries: 5                         # flaky WAN
+      until: openbao_dl is succeeded
 
     - name: Create staging directory for extraction
       ansible.builtin.file:
@@ -98,6 +103,84 @@
 - name: Generate bootstrap TLS certificate
   ansible.builtin.import_tasks: tls.yml
 
+# --- pkcs11 seal (README "TPM seal") ---------------------------------------------
+- name: pkcs11 seal prerequisites
+  when: openbao_pkcs11_seal
+  block:
+    - name: Seal key has been imported (tpm-seal.yml)
+      ansible.builtin.stat:
+        path: "{{ openbao_pkcs11_pin_file }}"
+      register: openbao_pkcs11_pin_stat
+
+    - name: Refuse to enable the seal before the key ceremony
+      ansible.builtin.assert:
+        that: openbao_pkcs11_pin_stat.stat.exists
+        fail_msg: Run tpm-seal.yml first; without the imported key bao would not come up.
+
+    - name: Installed pkcs11 plugin
+      ansible.builtin.stat:
+        path: "{{ openbao_plugin_dir }}/openbao-plugin-kms-pkcs11"
+        checksum_algorithm: sha256
+      register: openbao_pkcs11_plugin_stat
+
+    - name: Install the pkcs11 KMS plugin
+      when: openbao_pkcs11_plugin_stat.stat.checksum | default('') != openbao_pkcs11_plugin_sha256
+      block:
+        - name: Download the plugin tarball (checksum-verified)
+          ansible.builtin.get_url:
+            url: "{{ openbao_pkcs11_plugin_url }}"
+            dest: "/tmp/openbao-plugin-kms-pkcs11-{{ openbao_pkcs11_plugin_version }}.tar.gz"
+            checksum: "{{ openbao_pkcs11_plugin_checksum }}"
+            mode: "0644"
+            timeout: 60
+          register: openbao_pkcs11_plugin_dl
+          retries: 5                     # flaky WAN
+          until: openbao_pkcs11_plugin_dl is succeeded
+
+        # root-owned and not writable by openbao: bao execs whatever is in here.
+        - name: Plugin directory
+          ansible.builtin.file:
+            path: "{{ openbao_plugin_dir }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+
+        - name: Extract the plugin binary
+          ansible.builtin.unarchive:
+            src: "/tmp/openbao-plugin-kms-pkcs11-{{ openbao_pkcs11_plugin_version }}.tar.gz"
+            dest: "{{ openbao_plugin_dir }}"
+            include: [openbao-plugin-kms-pkcs11_linux_amd64_v1]
+            remote_src: true
+
+        # The tarball ships it 0644 uid 1001 → "fork/exec ... permission denied".
+        - name: Install the plugin binary root:root 0755 under the name the config uses
+          ansible.builtin.copy:
+            src: "{{ openbao_plugin_dir }}/openbao-plugin-kms-pkcs11_linux_amd64_v1"
+            dest: "{{ openbao_plugin_dir }}/openbao-plugin-kms-pkcs11"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0755"
+          notify: restart openbao
+
+        - name: Remove the extracted original
+          ansible.builtin.file:
+            path: "{{ openbao_plugin_dir }}/openbao-plugin-kms-pkcs11_linux_amd64_v1"
+            state: absent
+
+    # Minted on bao1 by tpm-seal.yml and never leaves it.
+    - name: Read the token PIN
+      ansible.builtin.slurp:
+        src: "{{ openbao_pkcs11_pin_file }}"
+      register: openbao_pkcs11_pin_raw
+      no_log: true
+
+    - name: Token PIN for the seal stanza
+      ansible.builtin.set_fact:
+        openbao_pkcs11_pin: "{{ openbao_pkcs11_pin_raw.content | b64decode }}"
+      no_log: true
+
 # --- Config + service ----------------------------------------------------------
 - name: Write OpenBao config
   ansible.builtin.template:
@@ -106,7 +189,8 @@
     owner: root
     group: "{{ openbao_group }}"
     mode: "0640"
-  no_log: "{{ openbao_auto_unseal }}"    # config carries the transit token when auto-unseal is on
+  # The config carries the transit token / pkcs11 PIN when either seal is on.
+  no_log: "{{ openbao_auto_unseal or openbao_pkcs11_seal }}"
   notify: restart openbao
 
 - name: Install systemd unit

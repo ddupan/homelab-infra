@@ -1,0 +1,113 @@
+---
+# Seal key ceremony for the pkcs11 seal (README "TPM seal"); run by tpm-seal.yml.
+# Mints an RSA-2048 key, escrows it GPG-encrypted to the YubiKey, imports it into the
+# TPM through tpm2-pkcs11 and drops the plaintext. Does NOT touch bao's config: turning
+# the seal on (openbao_pkcs11_seal) is the separate migration step.
+
+- name: tpm2-pkcs11 and tools
+  ansible.builtin.apt:
+    name:
+      - libtpm2-pkcs11-1
+      - libtpm2-pkcs11-tools        # tpm2_ptool
+      - gnupg
+    state: present
+    update_cache: true
+  register: openbao_tpm_apt
+  retries: 3                        # flaky WAN
+  until: openbao_tpm_apt is succeeded
+
+# /dev/tpmrm0 is tss:tss 0660. Takes effect at bao's next start (the migration restart).
+- name: openbao may use the TPM
+  ansible.builtin.user:
+    name: "{{ openbao_user }}"
+    groups: tss
+    append: true
+
+- name: Escrow recipient public key
+  ansible.builtin.copy:
+    src: "{{ openbao_pkcs11_escrow_pubkey }}"
+    dest: "{{ openbao_config_dir }}/escrow-recipient.asc"
+    mode: "0644"
+
+- name: Committed public key, to check a re-imported key against
+  when: openbao_pkcs11_import_key | length > 0
+  ansible.builtin.copy:
+    src: "{{ openbao_pkcs11_escrow_dest | dirname }}/tpm-seal.pub"
+    dest: "{{ openbao_config_dir }}/tpm-seal.pub"
+    owner: root
+    group: "{{ openbao_group }}"
+    mode: "0640"
+
+# One-time; skipped once the store exists. Re-running would mint a DIFFERENT key that
+# cannot unwrap bao's root key, so replacing the store is a manual, deliberate step;
+# with openbao_pkcs11_import_key it re-imports the escrowed key instead (README recovery).
+# Ordering: escrow first, store/PIN moved into place last — a failure leaves nothing
+# half-made behind (only *.new, wiped on the next attempt).
+# The plaintext key exists only on /run (tmpfs; bao1 has no swap) and is shredded on exit.
+# ponytail: tpm2_ptool takes the PINs as argv, so they are visible in `ps` for the few
+# seconds of the import. bao1 runs nothing else; the PIN alone is useless off this TPM.
+- name: Generate the seal key, escrow it to the YubiKey, import it into the TPM
+  ansible.builtin.shell:
+    executable: /bin/bash
+    creates: "{{ openbao_pkcs11_store }}"
+    cmd: |
+      set -euo pipefail
+      umask 077
+      store={{ openbao_pkcs11_store }}
+      cfg={{ openbao_config_dir }}
+      rm -rf "$store.new" "$cfg/tpm-seal-key.gpg.new" "$cfg/pkcs11-pin.new"
+      install -d -o {{ openbao_user }} -g {{ openbao_group }} -m 0700 "$store.new"
+      GNUPGHOME=$(mktemp -d); export GNUPGHOME
+      key=$(mktemp -p /run)
+      trap 'shred -u "$key"; rm -rf "$GNUPGHOME"' EXIT
+
+      {% if openbao_pkcs11_import_key %}
+      # Recovery / new node: the escrowed key, decrypted on the YubiKey machine.
+      cat {{ openbao_pkcs11_import_key | quote }} > "$key"
+      shred -u {{ openbao_pkcs11_import_key | quote }}
+      # The wrong key would import fine and then never unwrap bao's root key.
+      openssl pkey -in "$key" -pubout | cmp - "$cfg/tpm-seal.pub"
+      {% else %}
+      openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$key"
+      gpg --batch --quiet --import "$cfg/escrow-recipient.asc"
+      gpg --batch --quiet --trust-model always --recipient '{{ openbao_pkcs11_escrow_recipient }}' \
+          --encrypt --output "$cfg/tpm-seal-key.gpg.new" "$key"
+      test -s "$cfg/tpm-seal-key.gpg.new"
+      openssl pkey -in "$key" -pubout -out "$cfg/tpm-seal.pub"   # for the escrow check
+      {% endif %}
+
+      pin=$(openssl rand -hex 16)
+      sopin=$(openssl rand -hex 16)    # discarded: recovery is re-import from escrow
+      chown {{ openbao_user }} "$key"
+      p11() { runuser -u {{ openbao_user }} -- env TPM2_PKCS11_STORE="$store.new" tpm2_ptool "$@"; }
+      p11 init
+      p11 addtoken --pid=1 --label={{ openbao_pkcs11_token_label }} --sopin="$sopin" --userpin="$pin"
+      p11 import --label={{ openbao_pkcs11_token_label }} --key-label={{ openbao_pkcs11_key_label }} \
+          --userpin="$pin" --privkey="$key" --algorithm=rsa
+
+      printf '%s' "$pin" > "$cfg/pkcs11-pin.new"
+      unset pin sopin
+      chown root:{{ openbao_group }} "$cfg/pkcs11-pin.new" "$cfg/tpm-seal.pub"
+      chmod 0640 "$cfg/pkcs11-pin.new" "$cfg/tpm-seal.pub"
+      [ ! -e "$cfg/tpm-seal-key.gpg.new" ] || mv "$cfg/tpm-seal-key.gpg.new" "$cfg/tpm-seal-key.gpg"
+      mv "$cfg/pkcs11-pin.new" "{{ openbao_pkcs11_pin_file }}"
+      mv "$store.new" "$store"
+
+- name: The key is in the TPM-backed token, readable as openbao
+  ansible.builtin.command:
+    argv: [runuser, -u, "{{ openbao_user }}", --, env, "TPM2_PKCS11_STORE={{ openbao_pkcs11_store }}",
+           tpm2_ptool, listobjects, "--label={{ openbao_pkcs11_token_label }}"]
+  register: openbao_tpm_objects
+  changed_when: false
+  failed_when: openbao_tpm_objects.rc != 0 or openbao_pkcs11_key_label not in openbao_tpm_objects.stdout
+  check_mode: false
+
+- name: Bring the escrow ciphertext and public key into the repo (commit both)
+  when: openbao_pkcs11_import_key | length == 0   # a re-import mints no new escrow
+  ansible.builtin.fetch:
+    src: "{{ openbao_config_dir }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    flat: true
+  loop:
+    - { src: tpm-seal-key.gpg, dest: "{{ openbao_pkcs11_escrow_dest }}" }
+    - { src: tpm-seal.pub, dest: "{{ openbao_pkcs11_escrow_dest | dirname }}/tpm-seal.pub" }

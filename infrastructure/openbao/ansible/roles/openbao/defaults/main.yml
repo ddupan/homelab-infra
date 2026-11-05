@@ -3,7 +3,7 @@
 # Secrets (openbao_transit_token) MUST come from an Ansible Vault file, not here.
 
 # --- Release ---
-openbao_version: "2.6.1"
+openbao_version: "2.7.2"
 openbao_download_checksum: ""           # "sha256:..."  REQUIRED — set in group_vars
 openbao_download_url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_version }}/openbao_{{ openbao_version }}_linux_amd64.tar.gz"
 
@@ -42,6 +42,30 @@ openbao_transit_address: ""
 openbao_transit_token: ""
 openbao_transit_key_name: "autounseal"
 openbao_transit_mount_path: "transit/"
+
+# --- Auto-unseal (pkcs11 on bao1's passthrough TPM) — README "TPM seal" ---
+# The key is created by tpm-seal.yml (one-way: escrowed to the YubiKey, then imported
+# into the TPM via tpm2-pkcs11). Turning this on with a Shamir-sealed node starts a seal
+# MIGRATION on the next restart (unseal with MIGRATE=1 ../unseal.sh).
+openbao_pkcs11_seal: false
+# Rollback: true renders `disabled = "true"`, i.e. migrate back to Shamir.
+openbao_pkcs11_seal_disabled: false
+# Not writable by openbao: bao executes whatever sits here.
+openbao_plugin_dir: "/opt/openbao/plugins"
+openbao_pkcs11_plugin_version: "0.3.0"
+openbao_pkcs11_plugin_url: "https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{{ openbao_pkcs11_plugin_version }}/openbao-plugin-kms-pkcs11_linux_amd64_v1.tar.gz"
+openbao_pkcs11_plugin_checksum: ""      # "sha256:..." of the tarball — set in group_vars
+openbao_pkcs11_plugin_sha256: ""        # sha256 of the extracted BINARY (what bao verifies)
+openbao_pkcs11_lib: "/usr/lib/x86_64-linux-gnu/pkcs11/libtpm2_pkcs11.so"   # no .so.1 in this dir
+openbao_pkcs11_store: "/opt/openbao/tpm2-pkcs11"   # sqlite of TPM-wrapped blobs; useless off this TPM
+openbao_pkcs11_token_label: "openbao"
+openbao_pkcs11_key_label: "bao-seal"
+openbao_pkcs11_pin_file: "{{ openbao_config_dir }}/pkcs11-pin"
+openbao_pkcs11_escrow_recipient: "5A6A04D1B216C64E!"   # YubiKey [E] subkey, like .vault_pass.gpg
+openbao_pkcs11_escrow_pubkey: "escrow-recipient.asc"   # role files/ (or an absolute path, for rehearsals)
+# Recovery: path ON bao1 of the decrypted escrow PEM to import instead of minting a key.
+openbao_pkcs11_import_key: ""
+openbao_pkcs11_escrow_dest: "{{ playbook_dir }}/../tpm-seal-key.gpg"
 
 # --- Optional host firewall ---
 openbao_manage_firewall: false
