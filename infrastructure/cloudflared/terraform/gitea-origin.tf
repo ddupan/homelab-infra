@@ -28,3 +28,24 @@ resource "cloudflare_dns_record" "gitea" {
   proxied = true
   ttl     = 1
 }
+
+# 对 git.ddupan.top 关掉 Browser Integrity Check。BIC 按 User-Agent 拦"可疑"客户端，Python urllib 默认的
+# `Python-urllib/3.x` 直接 403（error 1010）：CI 的 tf.py 往 PR 贴 plan 评论、chef converge.py、dns generate.py
+# 等脚本都用它访问 Gitea API。切换前它们走 split-horizon 到 Envoy，不经 Cloudflare，所以这是切换后才暴露的。
+# 这个主机名主要给机器用；防爬虫由 Gitea 自己的 REQUIRE_SIGNIN_VIEW = expensive 负责，不靠边缘猜 UA。
+# token 需要 Zone · Config Rules : Edit（README）。
+resource "cloudflare_ruleset" "config_settings" {
+  zone_id = var.zone_id
+  name    = "default"
+  kind    = "zone"
+  phase   = "http_config_settings"
+
+  rules = [{
+    description = "gitea: no browser integrity check (API/git clients)"
+    expression  = "http.host eq \"git.ddupan.top\""
+    action      = "set_config"
+    action_parameters = {
+      bic = false
+    }
+  }]
+}

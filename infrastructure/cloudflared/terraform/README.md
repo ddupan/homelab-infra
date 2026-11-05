@@ -19,6 +19,7 @@ ingress config is authoritative **at Cloudflare's edge**, not the in-cluster `co
    - Account · **Cloudflare Tunnel : Edit**
    - Zone · **DNS : Edit** (zone `ddupan.top`)
    - Zone · **SSL and Certificates : Edit**（zone `ddupan.top`）— `cloudflare_origin_ca_certificate.gitea`（A1 源站证书）
+   - Zone · **Config Rules : Edit**（zone `ddupan.top`）— `cloudflare_ruleset.config_settings`（git.ddupan.top 关 BIC）
 2. Provide it + the zone id:
    ```bash
    export TF_VAR_cloudflare_api_token='...'
