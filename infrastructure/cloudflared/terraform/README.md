@@ -18,7 +18,6 @@ ingress config is authoritative **at Cloudflare's edge**, not the in-cluster `co
 1. **Create a Cloudflare API token** (dash → My Profile → API Tokens) with:
    - Account · **Cloudflare Tunnel : Edit**
    - Zone · **DNS : Edit** (zone `ddupan.top`)
-   - Zone · **Zone WAF : Edit** (zone `ddupan.top`) — `cloudflare_ruleset.custom_firewall`（git.ddupan.top 爬虫挑战）
    - Zone · **SSL and Certificates : Edit**（zone `ddupan.top`）— `cloudflare_origin_ca_certificate.gitea`（A1 源站证书）
 2. Provide it + the zone id:
    ```bash

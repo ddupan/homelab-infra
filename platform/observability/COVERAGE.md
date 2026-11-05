@@ -24,7 +24,7 @@ PR 号**；新发现的盲区直接追加。
 - [x] **B1** 部署 blackbox-exporter + `Probe`（上游 CRD） — `metrics/probes/`；HTTP / DNS 模块，ICMP 未启用（需要 NET_RAW，目前不需要）
 - [x] **B2** Envoy Gateway：逐个 Host 的健康端点 — `probes.yaml` 的 lan-https；`metrics-write` 只接受 POST，未纳入。新增 HTTPRoute 时要同步加一行
 - [x] **B3** 公网入口经 cloudflared：`auth` / `git` / `obj` / `e5renew.ddupan.top` — 从 oci-arm 经 Cloudflare 探测
-- [x] **B4** DNS：dc1 / CoreDNS / Blocky 解析 `dc1.ad.ddupan.top`，Blocky / CoreDNS 的 split-horizon（`git.ddupan.top` → Envoy）
+- [x] **B4** DNS：dc1 / CoreDNS / Blocky 解析 `dc1.ad.ddupan.top`，Blocky / CoreDNS 的 split-horizon（`sso.ddupan.top` → Envoy）
 - [x] **B5** VPN 黑洞：探测经 tun0 的 `www.naist.jp`，出口正常时失败即 `NaistVpnDown`。2026-09-11 起 pull-filter 只接受 NAIST 路由，CDN 不再走 tun0（CLAUDE.md 已更新）
 - [x] **B6** WAN 连通性：github.com + Cloudflare 都失败 10 分钟才报 `WanEgressDown`
 - [x] **B7** OpenBao `/v1/sys/health` 按主机名探测（在 lan-https 里）

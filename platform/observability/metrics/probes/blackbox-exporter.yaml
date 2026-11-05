@@ -79,14 +79,15 @@ spec:
             query_type: A
             validate_answer_rrs:
               fail_if_not_matches_regexp: ['.*\t192\.168\.10\.5$']
-        # split-horizon：git.ddupan.top 在内网必须解析到 Envoy，而不是 Cloudflare。
+        # split-horizon：sso.ddupan.top 在内网必须解析到 Envoy，而不是 Cloudflare。
+        # （原来查 git.ddupan.top；Gitea 迁到 OCI 后它刻意不再 split-horizon。）
         dns_split_horizon:
           prober: dns
           timeout: 5s
           dns:
             preferred_ip_protocol: ip4
             transport_protocol: udp
-            query_name: git.ddupan.top
+            query_name: sso.ddupan.top
             query_type: A
             validate_answer_rrs:
               fail_if_not_matches_regexp: ['.*\t192\.168\.10\.127$']

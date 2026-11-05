@@ -14,10 +14,6 @@ locals {
       service  = "http://iam-login.iam-login.svc.cluster.local:8080"
     },
     {
-      hostname = "git.ddupan.top"
-      service  = "http://gitea-http.gitea.svc.cluster.local:3000"
-    },
-    {
       hostname = "e5renew.ddupan.top"
       service  = "http://e5renew.e5renew.svc.cluster.local:80"
     },
@@ -88,30 +84,4 @@ resource "cloudflare_dns_record" "dkim_selector2" {
   content = "selector2-ddupan-top._domainkey.ddupan1.d-v1.dkim.mail.microsoft"
   proxied = false
   ttl     = 3600
-}
-
-# 爬虫在边缘拦：2026-11-01 公网爬虫遍历 git.ddupan.top 的 pulls 全部排序×筛选×分页（1h 3600+
-# 次、每次 3–4s 查询），把 laptop 上的 gitea 与 pg-prod 打满，所有 CI 跟着变慢。cloudflared 直连
-# gitea-http，不经 Envoy，所以这是唯一能在 gitea 之前挡住它的地方。
-# managed_challenge 而不是 block：人过一次挑战（cf_clearance）就照常浏览公开仓库；git clone/fetch
-# （/info/refs、/git-upload-pack）和 /api 不在列表里，不受影响。内网与 CI 解析到 .127 走 Envoy，
-# 根本不过 Cloudflare。路径与 gitea 的 isRoutePathExpensive 对齐；免费计划没有 matches，只能 contains。
-resource "cloudflare_ruleset" "custom_firewall" {
-  zone_id = var.zone_id
-  name    = "default"
-  kind    = "zone"
-  phase   = "http_request_firewall_custom"
-
-  rules = [{
-    description = "gitea: challenge crawlers on expensive pages"
-    action      = "managed_challenge"
-    expression = join(" ", [
-      "http.host eq \"git.ddupan.top\" and not starts_with(http.request.uri.path, \"/api/\") and (",
-      join(" or ", [for p in [
-        "/pulls", "/issues", "/src/", "/commits/", "/commit/", "/blame/", "/compare/", "/raw/",
-        "/archive/", "/media/", "/graph", "/activity", "/wiki", "/rss/",
-      ] : "http.request.uri.path contains \"${p}\""]),
-      ")",
-    ])
-  }]
 }

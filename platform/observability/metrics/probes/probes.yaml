@@ -89,7 +89,7 @@ spec:
         - 10.43.0.10:53
         - 192.168.10.127:53
 ---
-# split-horizon：git.ddupan.top 在 Blocky 和 CoreDNS 都要解析到 Envoy（infrastructure/dns/records.yml）。
+# split-horizon：sso.ddupan.top 在 Blocky 和 CoreDNS 都要解析到 Envoy（infrastructure/dns/records.yml）。
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
