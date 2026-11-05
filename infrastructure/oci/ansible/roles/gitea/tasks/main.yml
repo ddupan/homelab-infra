@@ -54,6 +54,8 @@
     mode: '0750'
   loop:
     - { path: '{{ gitea_root }}/data', owner: '{{ gitea_uid }}', group: '{{ gitea_uid }}' }
+    # Gitea 到第一个 repo 才建它；没有时 `gitea dump` 直接 fatal，空实例上的备份验证会失败。
+    - { path: '{{ gitea_root }}/data/git/gitea-repositories', owner: '{{ gitea_uid }}', group: '{{ gitea_uid }}' }
     - { path: '{{ gitea_root }}/tls', owner: 0, group: '{{ gitea_uid }}' }
     - { path: '{{ gitea_root }}/backup', owner: 0, group: 0 }
 
