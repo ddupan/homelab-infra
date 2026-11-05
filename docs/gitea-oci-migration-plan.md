@@ -1,6 +1,7 @@
 # Gitea → OCI A1 迁移方案（SQLite）
 
-状态：方案，未执行。2026-11-04。
+状态：**2026-11-05 已切换**（第 0–4 步完成，第 4 步的 Entra / 邮件验收和第 5 步收尾未做）。
+下面的步骤已按实际执行情况修正；执行中遇到的问题见文末「执行记录」。
 
 ## 为什么
 
@@ -75,8 +76,16 @@ git 82 MB、attachments 68 MB、actions_log 47 MB），数据库很小。
 
 ### 1. 冻结（停机窗口开始）
 
-- 暂停 Renovate CronJob 和 image-automation，把 dynamic-runner controller 缩到 0。这些之外基本
-  没有写入来源。
+- 暂停 Renovate CronJob 和 image-automation，并停掉**所有** Gitea runner。这些之外基本没有写入来源。
+  runner 不止 laptop 上的 dynamic-runner：
+  - laptop `dynamic-runner-controller`（registration `vm`）：缩到 0，Flux Kustomization `dynamic-runner` 先 suspend；
+  - sandbox 集群的 `dynamic-runner-controller`（`pod-sandbox`，`platform/sandbox-dynamic-runner`）：
+    **pod 类 job 实际都由它跑**，包括 terraform apply；
+  - pve1 LXC 104 `iam-spike-build` 上的 `gitea-runner.service`。
+
+  以 Gitea 数据库 `action_runner` 表为准逐个核对，不要凭记忆列。2026-11-05 漏了 `pod-sandbox`：冻结后合并
+  切换 PR，它照常跑了 cloudflared 的 CI apply，同名 CNAME→A 一次 apply 撞上冲突，git.ddupan.top 公网
+  NXDOMAIN 约 25 分钟（正是第 3 步要分两次 apply 避开的情况）。
 - 改 suspend 时用自定义 `--field-manager`（见 flux-suspend-reverted 记忆），否则会被 Flux 改回去。
 
 ### 2. 导出与导入
@@ -89,9 +98,19 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 # 然后 scale 旧 Deployment 到 0（HelmRelease 先 suspend）
 ```
 
+先把 dump 拷到本机 scratchpad 再 scale 旧 Deployment 到 0（Pod 的 `/tmp` 随 Pod 消失），再用
+`rsync --partial` 传到 A1 并核对 sha256——WAN 随时会断，0.9 GB 一次传完不靠谱。
+
 在 A1 上（rootless 镜像，容器内 `/var/lib/gitea` = 宿主机 `/srv/gitea/data`）：停容器，解压 `data/` → `/srv/gitea/data/`，
-`repos/` → `/srv/gitea/data/git/gitea-repositories/`，`sqlite3 /srv/gitea/data/data/gitea.db < gitea-db.sql`，
-修正属主（uid 1000），启动，然后 `gitea doctor check --all`。dump 是**明文**（含 token 哈希、OAuth secret），传完立即删除，
+`repos/` → `/srv/gitea/data/git/gitea-repositories/`，导入 `gitea-db.sql`，修正属主（uid 1000），启动，然后
+`gitea doctor check --all`。
+- 跳过 `data/gitea/conf`（旧 app.ini）、`data/queues`（旧 leveldb 队列，新实例队列在数据库里）、`data/tmp`、
+  `data/ssh`（SSH 已关）。**保留 `data/jwt/private.pem`**：Gitea 作为 OAuth 提供方的签名密钥。
+- ⚠ 不能直接 `sqlite3 gitea.db < gitea-db.sql`：Gitea 28 导出的 SQL 用了 `unistr()`（SQLite 3.50+），
+  Ubuntu 24.04 的 sqlite 是 3.45，会报 `no such function: unistr`。用 Python `sqlite3` 导入，先
+  `create_function('unistr', 1, ...)` 补上（转义规则见 https://sqlite.org/lang_corefunc.html#unistr）。
+  重试前删掉半成品 `gitea.db*`。
+- doctor 里 `Garbage collect LFS` 报 ERROR 无详情：本实例没开 LFS 服务，可忽略。dump 是**明文**（含 token 哈希、OAuth secret），传完立即删除，
 不要放进 scratchpad 以外的地方。
 
 ### 3. 切换
@@ -104,9 +123,24 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
    这一条）。不能更早删：切换前 Gitea 还在 laptop 上，爬虫会再次打满它和 pg-prod。也不能留：
    切换后 lab 内也经 Cloudflare 访问，`/raw/`、`/archive/` 上的挑战会拦下 Backstage 等非浏览器客户端。
    新 Gitea 用 `REQUIRE_SIGNIN_VIEW = expensive` 接替（只拦匿名，带 token 的客户端不受影响）。
-2. 按 `infrastructure/dns/records.yml` 的流程删除 `git.ddupan.top` 的 split-horizon 记录（blocky +
-   coredns）。这一步不能等 Flux，手工应用，之后在新 Gitea 上补 commit。
+   这部分代码（连同第 2 步）放进一个 PR，**在冻结后、dump 前**合并到旧 Gitea：新 Gitea 的 main 直接
+   带着它，不用切换后补 commit。cloudflared 在 CI 的 `TF_ROOTS` 里，所以合并前 runner 必须全部停掉，
+   由本地分两次 apply；解冻后 CI 应为空 plan。
+2. 删除 `git.ddupan.top` 的 split-horizon 记录（`records.yml` → `generate.py`）。
+   - Blocky：compose 栈直接 bind mount 主 checkout 的 `apps/blocky/config.yml`，快进主 checkout 后
+     `docker compose restart blocky`。
+   - CoreDNS：Flux 自己要经 CoreDNS 解析 git.ddupan.top 才能拉到这次改动——死锁，手工
+     `kubectl apply --server-side --field-manager=kustomize-controller` 应用 `platform/k3s/coredns-custom.yaml`。
+     ⚠ CoreDNS 的 `reload` 不会发现被删掉的 `import` 文件，ConfigMap 改了仍按旧块应答；
+     `kubectl rollout restart deploy/coredns`。
 3. 在 LAN、pod 和外网三处都验证解析结果和 `https://git.ddupan.top/api/healthz`。
+4. **重启长连接客户端**。DNS 改了不等于客户端换了地址：Go 的 HTTP keep-alive 按主机名复用连接，
+   每隔几秒轮询的客户端会让那条连到 Envoy（.127，后端已缩到 0）的连接永不过期，一直拿到 503。
+   2026-11-05 需要重启的：Flux `source-controller`、sandbox `dynamic-runner-controller`（删 Pod，不用
+   `rollout restart`，免得留下只存在于线上的 annotation）、LXC 104 `gitea-runner.service`。
+   判据：Gitea 数据库里各 runner 的 `last_online` 都晚于切换时间。
+5. LAN 客户端（含浏览器）可能还会缓存 .127 最长一小时：Blocky `customTTL: 1h`。看到 503 先清 DNS 缓存
+   和浏览器 socket pool，不用查服务端。
 
 ### 4. 解冻与验收
 
@@ -114,8 +148,10 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 - runner 注册信息在数据库里，随迁移带过来；dynamic-runner 恢复后跑通一个 workflow。
 - Renovate 跑一次；image-automation 推送一次。
 - 用 `sso` 和 Entra ID 各网页登录一次，用 token 推送一次，发一封测试邮件。
-- `platform/observability/metrics/probes/probes.yaml` 里 `git.ddupan.top` 的外部探测保留，
-  删掉 split-horizon 那个 Probe。
+- `platform/observability/metrics/probes/probes.yaml` 里 `git.ddupan.top` 的外部探测保留；
+  `dns_split_horizon` 模块改查 `sso.ddupan.top`（#596），保住 Blocky / CoreDNS split-horizon 的覆盖。
+- k3s 的 `gitea` Kustomization 和 HelmRelease **保持 suspend**（field-manager `gitea-cutover`），直到
+  第 5 步删除 `apps/gitea`：解除 suspend 会把旧 Pod 拉起来，连着 pg-prod 里切换前的数据。
 
 ### 5. 收尾（观察 2 周后）
 
@@ -137,3 +173,18 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 Renovate 改 Compose 里的 tag → 合并 → 手工 `ansible-playbook gitea.yml`（独立 playbook，照 `watcher.yml` 的样子）。
 不交给 CI：runner 跑在 lab 里，又要连接这个正在重启的 Gitea。备份 timer 前一晚已经跑过；跨 minor
 升级前再手工 `gitea dump` 一次。
+
+## 执行记录（2026-11-05）
+
+| 时间 (UTC) | 事件 |
+|---|---|
+| 04:21 | 开 #596（DNS / tunnel / WAF / split-horizon），开始冻结；漏掉 `pod-sandbox` |
+| 04:38 | 合并 #596；`pod-sandbox` 跑 CI apply：删了 CNAME 和 WAF ruleset，建 A 记录失败 → 公网 NXDOMAIN |
+| 04:40 | 旧 Pod 内 `gitea dump --database sqlite3`（921 MB），随后旧 Deployment 缩到 0 |
+| ~05:00 | A1 导入：`sqlite3` 因 `unistr()` 失败，改用 Python 导入；13 repo / 4 用户 / 4 runner，integrity ok |
+| ~05:05 | 手工建 A 记录，公网恢复（经 CF → A1：healthz、API、git 协议 200） |
+| ~05:10 | Blocky 重启、CoreDNS 手工应用 + 重启；source-controller 重启后三个 Flux source Ready |
+| 05:28 | sandbox runner、LXC 104 runner 重启后恢复接任务；main 上 terraform 工作流重跑，9 个 root 全部 No changes |
+
+影响：git.ddupan.top 公网不可用约 25 分钟（04:38–05:05），LAN 侧 503 直到 DNS 缓存和长连接各自刷新。
+无数据丢失：冻结后没有写入，dump 在合并之后、旧实例停机之前。
