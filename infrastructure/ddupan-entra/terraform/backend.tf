@@ -14,7 +14,7 @@
 terraform {
   backend "s3" {
     bucket = "tfstate"
-    key    = "gitea-entra/terraform.tfstate"
+    key    = "ddupan-entra/terraform.tfstate"
 
     endpoints = {
       s3 = "https://s3.lab.ddupan.top"
