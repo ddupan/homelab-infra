@@ -17,7 +17,8 @@ gitea_app_name: Gitea on ddupan.top
 # 来自 cloudflared/terraform 的 gitea_origin_certificate 输出）+ vault_gitea_tls_key。
 # 443 只对 Cloudflare 开放（oci/terraform/gitea-ingress.tf）。
 
-# 以下两组是「有就启用」：迁移前可以先在没有邮件 / Entra 的情况下部署验证。
+# 以下几组是「有就启用」：迁移前可以先在没有邮件 / Entra / 签名的情况下部署验证。
+# - gitea_signing_pubkey + vault_gitea_signing_key：用 Gitea 实例的 SSH 密钥签合并提交。
 # - gitea_mailer_*：OCI Email Delivery（大阪 SMTP 端点，STARTTLS）。
 # - gitea_entra_*：lab 不可用时的第二登录源（iam-login 依赖 dc1）。
 gitea_mailer_host: smtp.email.ap-osaka-1.oci.oraclecloud.com

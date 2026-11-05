@@ -27,6 +27,17 @@ SQLITE_JOURNAL_MODE = WAL
 
 [repository]
 ROOT = /var/lib/gitea/git/gitea-repositories
+{% if gitea_signing_pubkey is defined %}
+
+[repository.signing]
+SIGNING_FORMAT = ssh
+SIGNING_KEY = /etc/gitea/signing/gitea-signing.pub
+SIGNING_NAME = Gitea
+SIGNING_EMAIL = noreply@ddupan.top
+; 默认 pubkey, twofa, basesigned, commitssigned 要全部成立才签：main 上历史合并都没签名（basesigned
+; 永不成立），OIDC 登录也不算 Gitea 的 twofa，等于永远不签。签名的含义是「这次合并由本 Gitea 完成」。
+MERGES = always
+{% endif %}
 
 [security]
 INSTALL_LOCK = true

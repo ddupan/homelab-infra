@@ -27,3 +27,8 @@ gitea_tls_cert: |
 # secret 在 vault.yml 的 vault_gitea_entra_client_secret，2028-11-04 到期（README 有轮换步骤）。
 gitea_entra_tenant_id: 109c0655-211e-482c-be97-591635ff1caa
 gitea_entra_client_id: 6080dc6a-2008-4b20-8c2a-c4e6ba809372
+
+# 合并提交签名（SSH 格式）的公钥；私钥是 vault.yml 的 vault_gitea_signing_key。2026-11-05 生成。
+# 轮换：生成新密钥对替换两处；旧公钥要进 [repository.signing] TRUSTED_SSH_KEYS，旧提交才继续显示已验证
+# （role 还不支持，轮换时再加）。
+gitea_signing_pubkey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN2HCuO+mA+T58e4Iifcy8KrP/HHtThALDwQGUnPCY0a Gitea <noreply@ddupan.top> merge signing

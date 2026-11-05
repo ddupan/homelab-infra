@@ -57,6 +57,7 @@
     # Gitea 到第一个 repo 才建它；没有时 `gitea dump` 直接 fatal，空实例上的备份验证会失败。
     - { path: '{{ gitea_root }}/data/git/gitea-repositories', owner: '{{ gitea_uid }}', group: '{{ gitea_uid }}' }
     - { path: '{{ gitea_root }}/tls', owner: 0, group: '{{ gitea_uid }}' }
+    - { path: '{{ gitea_root }}/signing', owner: 0, group: '{{ gitea_uid }}' }
     - { path: '{{ gitea_root }}/backup', owner: 0, group: 0 }
 
 # diff: false —— 文件里有 SECRET_KEY 等，--diff 会把它们打到终端和日志里。
@@ -85,6 +86,25 @@
   diff: false
   no_log: true
   notify: 重启 Gitea
+
+# 属主 root、组 uid 1000、0640：ssh-keygen -Y sign 只在私钥属于当前用户且组/其他可读时拒绝，
+# 容器内是 uid 1000 而属主是 root，所以组可读能过检查。私钥与公钥同名、公钥加 .pub（Gitea 的约定）。
+- name: 写入合并签名密钥
+  ansible.builtin.copy:
+    dest: '{{ gitea_root }}/signing/{{ item.name }}'
+    content: '{{ item.content }}'
+    owner: root
+    group: '{{ gitea_uid }}'
+    mode: '0640'
+  loop:
+    - { name: gitea-signing.pub, content: "{{ gitea_signing_pubkey }}\n" }
+    - { name: gitea-signing, content: '{{ vault_gitea_signing_key }}' }
+  loop_control:
+    label: '{{ item.name }}'
+  diff: false
+  no_log: true
+  notify: 重启 Gitea
+  when: gitea_signing_pubkey is defined
 
 - name: 写入 compose 文件
   ansible.builtin.template:
