@@ -42,6 +42,11 @@ JWT_SECRET = {{ vault_gitea_oauth2_jwt_secret }}
 ALLOW_ONLY_EXTERNAL_REGISTRATION = true
 SHOW_REGISTRATION_BUTTON = false
 ENABLE_PASSWORD_SIGNIN_FORM = false
+; 匿名访问开销大的页面（pulls/issues 的排序×筛选×分页、blame、archive……）要求登录。
+; 取代 Cloudflare 上那条 git.ddupan.top 挑战规则（2026-11-01 爬虫打满过 Gitea）：在 Gitea 里判断，
+; 带 token 的客户端（Backstage、runner、Renovate）不受影响，而边缘的挑战会把它们一起拦下——
+; 迁移后 lab 内也经 Cloudflare 访问。上游标注 expensive 模式为实验性。
+REQUIRE_SIGNIN_VIEW = expensive
 
 [oauth2_client]
 ; OIDC 登录按 email 关联已有账号；Entra 作为第二登录源时靠它落到同一账号。
