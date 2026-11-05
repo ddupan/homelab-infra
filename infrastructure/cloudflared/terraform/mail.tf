@@ -16,3 +16,15 @@ resource "cloudflare_dns_record" "spf" {
   content = "\"v=spf1 include:spf.protection.outlook.com ~all\""
   ttl     = 3600
 }
+
+# OCI Email Delivery 的 DKIM（Gitea 通知，infrastructure/oci/terraform/gitea-mail.tf）。值来自那边的
+# `terraform output gitea_mail_dkim_cname`；不用 terraform_remote_state 跨 root 引用（CLAUDE.md）。
+# selector 轮换时：那边新建 oci_email_dkim，这里加新记录，激活后再删旧的。
+resource "cloudflare_dns_record" "dkim_oci_kix_202611" {
+  zone_id = var.zone_id
+  name    = "oci-kix-202611._domainkey.ddupan.top"
+  type    = "CNAME"
+  content = "oci-kix-202611.ddupan.top.dkim.kix1.oracleemaildelivery.com"
+  proxied = false
+  ttl     = 3600
+}

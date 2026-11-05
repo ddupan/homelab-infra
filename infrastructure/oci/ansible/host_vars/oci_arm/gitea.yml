@@ -22,3 +22,8 @@ gitea_tls_cert: |
   A0gAMEUCIC71agz4uhQAamoQeoKFcUAqe7AC0n+popXHhcQEwhWZAiEAx9aOEsmk
   sIPPjb2be+5fATrJMFeSdO3pABNue25Tt9Y=
   -----END CERTIFICATE-----
+
+# Entra ID 应急登录源，来自 infrastructure/ddupan-entra/terraform 的 tenant_id / gitea_client_id（不是秘密）。
+# secret 在 vault.yml 的 vault_gitea_entra_client_secret，2028-11-04 到期（README 有轮换步骤）。
+gitea_entra_tenant_id: 109c0655-211e-482c-be97-591635ff1caa
+gitea_entra_client_id: 6080dc6a-2008-4b20-8c2a-c4e6ba809372
