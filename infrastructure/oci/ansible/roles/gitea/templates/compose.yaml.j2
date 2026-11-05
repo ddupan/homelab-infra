@@ -8,6 +8,7 @@ services:
       - {{ gitea_root }}/data:/var/lib/gitea
       - {{ gitea_root }}/app.ini:/etc/gitea/app.ini:ro
       - {{ gitea_root }}/tls:/etc/gitea/tls:ro
+      - {{ gitea_root }}/signing:/etc/gitea/signing:ro
     # rootless 进程不能绑 443，容器内监听 3000（HTTPS），宿主机 443 映射过去。
     # 公网可达性由 NSG 控制（只放 Cloudflare），不靠宿主机防火墙：Docker 的 DNAT 不经 INPUT 链。
     ports:

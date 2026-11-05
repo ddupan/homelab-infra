@@ -21,3 +21,4 @@ vault_gitea_tls_key: |
 # vault_gitea_smtp_user: "OCI Email Delivery SMTP 凭据用户名"
 # vault_gitea_smtp_password: "CHANGE-ME"
 # vault_gitea_entra_client_secret: "CHANGE-ME"（同时在 host_vars 设 gitea_entra_tenant_id / gitea_entra_client_id）
+# vault_gitea_signing_key: "CHANGE-ME"（OpenSSH 私钥；公钥在 host_vars 的 gitea_signing_pubkey）
