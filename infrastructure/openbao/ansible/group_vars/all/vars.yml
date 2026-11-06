@@ -14,7 +14,7 @@ openbao_download_checksum: "sha256:582b1f3c2fdc5afd443b2d57a225ef654de75adea609f
 openbao_pkcs11_plugin_version: "0.3.0"
 openbao_pkcs11_plugin_checksum: "sha256:c112c670e1bcca7a7b7625b13c0ecf1a43a62cd2651d29bf23befb2ad47c49bf"
 openbao_pkcs11_plugin_sha256: "96fefa80e721551725ea01be79b0dae0f3951f15f01291fd87846d5e45475be6"
-openbao_pkcs11_seal: false
+openbao_pkcs11_seal: true
 
 # --- Identity / addresses ---
 openbao_fqdn: "bao.ad.ddupan.top"       # A record on the Samba DC (ad.ddupan.top zone)
