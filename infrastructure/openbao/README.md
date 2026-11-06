@@ -166,7 +166,9 @@ With transit auto-unseal (`openbao_auto_unseal: true`) there are no unseal keys 
 
 ## Unseal after a restart
 
-A Shamir node re-seals on every restart of the service, the VM or the laptop. On the machine
+**bao1 auto-unseals from its TPM since 2026-11-05** (see "TPM seal"); restarts of the service,
+the VM or the laptop need nothing. This section is for when it stays sealed anyway
+(TPM replaced or cleared) and for a Shamir node. On the machine
 the YubiKey is plugged into (not over ssh into the laptop — the forwarded agent cannot decrypt):
 
 ```bash
@@ -318,8 +320,9 @@ prints it): `cert-authority,principals="<node>",restrict,pty <ca-pubkey>`.
 
 ## Operational notes
 
-- **Restart re-seals** a Shamir node (needs manual unseal). Harmless before first init;
-  automatic re-unseal once the TPM seal is on (see "TPM seal").
+- **Restarts auto-unseal** via the TPM (bao1 migrated 2026-11-05). Sealed after a restart
+  means the TPM side failed: `journalctl -u openbao` (pkcs#11 Login errors), then "TPM seal"
+  recovery. `unseal-key.gpg` is now the **recovery** key (`generate-root`, rollback), not an unseal key.
 - **Back up** Raft snapshots off-box once initialized: `bao operator raft snapshot save`
   (belongs in the bootstrap play — it needs a token).
 - The listener uses a **self-signed bootstrap cert**; replace it with a cert issued by
