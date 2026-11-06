@@ -1,9 +1,10 @@
 {
-  "revision_id": "e2a90efd44612e107ff8cd9068789f650cff0e001d71a99c900f5cb01a63745c",
+  "revision_id": "a39cba47a8a536aeed0312c3fe51ab2b044edea860015ade841733b6f3804197",
   "name": "etcd-pve3",
   "run_list": [
     "recipe[homelab_base::default]",
-    "recipe[homelab_data::etcd]"
+    "recipe[homelab_data::etcd]",
+    "recipe[homelab_data::monitoring]"
   ],
   "included_policy_locks": [
 

@@ -18,7 +18,7 @@ pg_secret_paths:
   prod: infra/postgresql/prod
   dev: infra/postgresql/dev
 pg_etcd_secret_path: infra/etcd/consumers/patroni-pg-prod
-pg_etcd_endpoints: ['192.168.10.127:2379', '10.60.0.20:2379', '10.60.0.21:2379']
+pg_etcd_endpoints: ['10.60.0.20:2379', '10.60.0.21:2379', '10.60.0.22:2379']
 # dns is the CN and what bootstrap connects to; dns_aliases are extra SANs on the
 # server cert (the lab.ddupan.top name, while clients still verify the ad one).
 # Each must also be allowed by the role in ../../terraform/main.tf.

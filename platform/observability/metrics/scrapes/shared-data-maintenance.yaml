@@ -15,3 +15,6 @@ spec:
     - targets: ['10.60.0.21:9109']
       labels: {member: etcd-pve2}
       interval: 30s
+    - targets: ['10.60.0.22:9109']
+      labels: {member: etcd-pve3}
+      interval: 30s

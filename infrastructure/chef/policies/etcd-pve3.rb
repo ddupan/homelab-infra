@@ -1,10 +1,8 @@
 # etcd-pve3 (LXC 152 on pve3): replaces the laptop's etcd member (#570).
-# homelab_data::etcd installs the member and issues its certificates, but the unit stays
-# stopped until the join runbook (infrastructure/etcd/README.md) has run `member add`
-# and placed /etc/homelab-etcd/join. Maintenance metrics follow once it has joined and
-# taken a snapshot; before that they would only report a missing backup.
+# homelab_data::etcd installs the member and issues its certificates; it joined the
+# cluster through infrastructure/etcd/ansible/member-join.yml (2026-11-06).
 name 'etcd-pve3'
-run_list 'homelab_base::default', 'homelab_data::etcd'
+run_list 'homelab_base::default', 'homelab_data::etcd', 'homelab_data::monitoring'
 %w(homelab_base homelab_data).each do |name|
   cookbook name,
            git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
