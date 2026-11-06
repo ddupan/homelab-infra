@@ -60,6 +60,23 @@ Bao 的独立 CA `pki-spire-nodes`，走 ACME（lego，http-01），名字是 `<
   `spire-node-cert` → 启动 agent 并等 healthcheck。需要 `BAO_TOKEN`（laptop 上 SPIFFE
   `local-development` 登录即可）；此后的运行都不需要任何 token。
 - **续期**：节点上的 `spire-node-cert.timer` 每天运行 `lego run`（剩 30 天时续期），不需要 EAB。
+
+### Ayatori 节点 agent 的首次签发（join）
+
+compute、loadbalancer 节点上的 Ayatori agent 以 CSR 证书加入控制面（Ayatori ADR-0021/0022）。cookbook
+只装 agent 并创建属于 agent 用户的凭据目录，**不碰凭据**；第一张证书由 `ansible/join.yml` 完成，与
+enrollment 一样是一次性操作、不从 CI 运行：
+
+```
+ansible-playbook join.yml -l lb-dev-1.lab.ddupan.top \
+  -e ayatori_role=loadbalancer -e ayatori_control_plane=ayatori-dev.lab.ddupan.top
+```
+
+在控制面上建 15 分钟的 bootstrap token，把 `bootstrap-kubeconfig` 写进节点的凭据目录，再用控制面
+正在运行的 manager 镜像执行 `client-credentials approve-bootstrap`：只批准以这个 token 提交、且申请的
+恰好是 `system:ayatori:node:<节点>` 与该角色组的 CSR——**这次批准就是准入**。私钥只在节点上生成；
+续签由 agent 自己完成。证书已存在时跳过；同一台主机的每个角色各 join 一次。LB 主机在 join 之前照常
+宣告 VIP。
 - workload entry 一律挂在 node alias `spiffe://ddupan.top/node/<名字>` 下（`platform/spire/spire-node-aliases.yaml`），
   不要挂 agent ID：它包含证书指纹，每次续期都会变。新节点要在那里加一个 alias。
 
