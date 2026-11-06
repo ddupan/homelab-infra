@@ -1,6 +1,7 @@
 # Routing by model name: OpenAI models (gpt-*, o<n>*, codex-*) go to CLIProxyAPI (ChatGPT Plus,
 # cliproxyapi.yaml); everything else to Anthropic. Header-matched rules outrank the bare one.
-# Anthropic: native /anthropic/v1/messages or OpenAI-style /v1/chat/completions.
+# Either API reaches GPT; Claude only via /anthropic/v1/messages. Agent Router has no OpenAI →
+# Anthropic-native translator (only Bedrock/Vertex), so /v1/chat/completions + claude-* is a 422.
 apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIGatewayRoute
 metadata:
