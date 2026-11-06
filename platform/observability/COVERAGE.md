@@ -92,6 +92,8 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 
 - [x] ~~**A1** Authelia（SSO 前门）~~ — 不做：Authelia 已于 2026-10-11 退役，SSO 前门监控归 A5 iam-login
 - [ ] **A2** Gitea（CI 与 GitOps 源头）
+  - 2026-11-05 起在 oci-arm（compose + SQLite），不在 k3s：只有 B3 的外部 healthz 探测，没有应用指标
+    （`[metrics] ENABLED` + 从 oci-arm 本机的 vmagent/watcher 抓取，或经 Tailscale 由 lab 抓取）
 - [ ] **A3** Nexus
 - [ ] **A4** zot
 - [ ] **A5** iam-login
@@ -114,6 +116,8 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 已有：共享 PG 备份、OpenBao snapshot、shared-data 证书/续期。
 
 - [ ] **R1** Gitea 备份新鲜度
+  - 现状：oci-arm 上 `gitea-backup.timer` 每日 dump → OCI bucket `gitea-backup`，**失败无人知道**。
+    最省事的信号：oci-arm 的 watcher 检查 `systemctl is-failed gitea-backup.service`，或按 bucket 里最新对象的时间判断
 - [ ] **R2** ZFS 快照 / 复制新鲜度
 - [ ] **R3** 其余 CronJob / systemd timer 的"最后成功时间"统一告警（`node_systemd_timer_last_trigger_seconds` 已有数据）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
