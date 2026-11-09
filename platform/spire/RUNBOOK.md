@@ -47,7 +47,7 @@ SPIRE Server（trust domain: ddupan.top）
 | trust domain | `ddupan.top` |
 | Kubernetes cluster name | `homelab` |
 | Controller Manager class | `spire-mgmt-spire` |
-| JWT issuer | `https://spire-oidc.lab.ddupan.top` |
+| JWT issuer | `https://spire-oidc.ddupan.top` |
 | OpenBao auth mount | `jwt-spire` |
 | OpenBao login endpoint | `auth/jwt-spire/login` |
 | SPIRE Server namespace | `spire-server` |
@@ -318,15 +318,15 @@ Agent 应显示 `Attestation type: k8s_psat` 与 `Can re-attest: true`。
 ### OIDC discovery 与 JWKS
 
 ```bash
-dig @192.168.10.5 spire-oidc.lab.ddupan.top A +short
-dig @192.168.10.127 spire-oidc.lab.ddupan.top A +short
+dig @192.168.10.5 spire-oidc.ddupan.top A +short
+dig @192.168.10.127 spire-oidc.ddupan.top A +short
 curl --fail --silent \
-  https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration | jq
-curl --fail --silent https://spire-oidc.lab.ddupan.top/keys | jq '.keys | length'
+  https://spire-oidc.ddupan.top/.well-known/openid-configuration | jq
+curl --fail --silent https://spire-oidc.ddupan.top/keys | jq '.keys | length'
 ```
 
 discovery 的 `issuer` 必须严格等于
-`https://spire-oidc.lab.ddupan.top`。路径、scheme、hostname 或尾部 `/` 的差异都会
+`https://spire-oidc.ddupan.top`。路径、scheme、hostname 或尾部 `/` 的差异都会
 导致 JWT 验证失败。JWKS 是公开验证材料，不是 secret。
 
 ### OpenBao
@@ -373,8 +373,8 @@ Workload API，而不是假设 Pod 一启动身份就已可用。
 排查时只解码 JWT header/claims，禁止记录原始 token。公开 endpoint 可单独验证：
 
 ```bash
-curl --fail https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
-curl --fail https://spire-oidc.lab.ddupan.top/keys
+curl --fail https://spire-oidc.ddupan.top/.well-known/openid-configuration
+curl --fail https://spire-oidc.ddupan.top/keys
 ```
 
 ### CSI mount 失败

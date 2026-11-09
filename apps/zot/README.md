@@ -65,7 +65,7 @@ Terraform 的 `tfstate` bucket。`kv/k8s/zot-s3` 的字段是 `access_key` 和
 
 | 参数 | 值 |
 |---|---|
-| issuer | `https://spire-oidc.lab.ddupan.top` |
+| issuer | `https://spire-oidc.ddupan.top` |
 | JWT audience | `zot` |
 | subject | `spiffe://ddupan.top/` 下的 workload SPIFFE ID |
 | token endpoint | `https://zot-push.lab.ddupan.top/zot/auth/token` |

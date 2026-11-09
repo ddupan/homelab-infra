@@ -7,7 +7,7 @@
 # JWT-SVID's remaining life); SPIRE's 1h JWT TTL with agent renewal at half-life keeps that 1h.
 #
 # Console side (Settings → Workload identity → Custom OIDC):
-#   issuer    https://spire-oidc.lab.ddupan.top                 (the JWT's iss; string compare)
+#   issuer    https://spire-oidc.ddupan.top                     (the JWT's iss; string compare)
 #   JWKS      explicit_url https://spire-oidc.ddupan.top/keys   (public copy via cloudflared)
 #   subject   spiffe://ddupan.top/ns/ai-gateway/sa/anthropic-wif  (exact, no *)
 #   audience  https://api.anthropic.com

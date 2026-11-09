@@ -101,15 +101,15 @@ Workload API 获取 JWT-SVID。二进制来自 SPIRE 官方 `linux-amd64-musl` r
 当前没有其他服务直接消费 SPIFFE 身份；Gitea runner 与 dynamic runner 是独立身份
 使用方，NATS、SeaweedFS 等服务尚未通过 SPIFFE 做认证或授权。
 
-稳定的 JWT issuer 预留为：
+JWT issuer：
 
 ```text
-https://spire-oidc.lab.ddupan.top
+https://spire-oidc.ddupan.top
 ```
 
-OIDC Discovery Provider 在 Pod 内部使用明文 HTTP，由 Envoy Gateway 的 `https-lab`
-listener 使用 `*.lab.ddupan.top` wildcard certificate 终止 TLS。`HTTPRoute` 将
-`spire-oidc.lab.ddupan.top` 转发到 ClusterIP Service，lab DNS 记录由 external-dns 发布。
+OIDC Discovery Provider 在 Pod 内部使用明文 HTTP。公网经 cloudflared 直达 Service，只放行
+discovery 和 JWKS 两个路径；LAN 和 Pod 经 split-horizon 到 Envoy 的 `https-spire-oidc` listener。
+旧名 `spire-oidc.lab.ddupan.top` 继续挂在 `https-lab` 上，Bao 和 iam-login 从那里取 JWKS。
 
 接入 OpenBao 前必须从集群内和 LAN 分别验证 discovery document 的 `issuer` 与
 上述 URL 完全一致。该 endpoint 只发布公开的 discovery metadata 和 JWKS，不能
@@ -156,6 +156,14 @@ OpenBao 中对应的 Terraform 资源位于
 2. **B** `jwtIssuer` 改新名，`additionalDomains` 改 lab 名；zot 与 iam-login 的 issuer 同步改；
    同时手工改 Anthropic Console 的 issuer。
 3. **C** Bao `bound_issuer` 设为新名；清理仍写着 LAN-only 的注释。
+
+JWT-SVID 的 TTL 是 1 小时，agent 缓存的旧 `iss` 令牌要到半衰期才换，所以 B 合并后要主动清缓存：
+
+1. 确认 Flux 的 `spire` HelmRelease Ready，`curl https://spire-oidc.ddupan.top/.well-known/openid-configuration` 显示新 issuer。
+2. `kubectl -n spire-system rollout restart ds/spire-agent`。
+3. 在 Anthropic Console 把 issuer 改成新名，然后
+   `kubectl -n ai-gateway create job --from=cronjob/anthropic-wif wif-manual` 确认能换到 token。
+   现有 access token 还有最长 1 小时有效期，这一步要在它过期前做完。
 
 Bao 的 `jwks_url` 和 iam-login 的 `jwk-set-uri` 继续用 lab 名，它们只取公钥，与 `iss` 无关。
 
