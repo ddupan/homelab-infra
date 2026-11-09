@@ -32,6 +32,11 @@ spire-server:
   kind: statefulset
   replicaCount: 1
   auditLogEnabled: true
+  # Sandbox CI creates one attested node record per executor Pod (Agent ID has the
+  # Pod UID) and nothing evicts them, so they would pile up forever. Real nodes
+  # re-attest if they were down longer than this. pruneTOFUNodes stays off: a
+  # join_token node that loses its record cannot come back without a new token.
+  pruneAttestedNodesExpiredFor: "168h"
   service:
     type: LoadBalancer
     port: 8081

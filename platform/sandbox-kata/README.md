@@ -43,7 +43,8 @@ guest 内启动临时 SPIRE Agent，并满足以下约束：
    `shareProcessNamespace: true`，否则 `unix` workload attestor 无法从共享 `/proc`
    解析客户端的 `SO_PEERCRED` PID；
 5. 调度器必须在 registration entry 已同步到 Agent 后才放行 workload。Pod 删除后同步
-   删除 entry，并 evict 对应的临时 Agent 记录。
+   删除 entry。临时 Agent 记录不主动 evict，SVID 过期超过 7 天后由 Server 清理
+   （`pruneAttestedNodesExpiredFor`，见 `platform/spire/values.yaml`）。
 
 2026-09-17 的 live PoC 已验证：以 Pod UID 作为 parent 的临时 Agent 成功注册，
 `unix:uid:2000` workload 从 guest-local socket 获得
