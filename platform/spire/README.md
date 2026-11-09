@@ -146,7 +146,7 @@ OpenBao 中对应的 Terraform 资源位于
 - PostgreSQL或 SPIRE 不可用时，不得用新的空数据库覆盖现有状态；
 - 当前 Flux root 与本 Kustomization 均保持 `prune: false`，删除资源需单独审计。
 
-## Issuer migration（`spire-oidc.lab` → `spire-oidc.ddupan.top`，2026-11）
+## Issuer migration（`spire-oidc.lab` → `spire-oidc.ddupan.top`，2026-11，已完成）
 
 外部验证方（Entra、Google、OCI）要从公网取 issuer，`spire-oidc.lab` 公网解析不到。校验 `iss` 的除下文三处外，
 还有 Anthropic Console 里手工维护的 federation issuer。

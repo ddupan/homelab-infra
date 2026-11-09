@@ -18,7 +18,7 @@ terraform {
 
 # Azure CLI auth (`az login`): needs an account that owns the e5renew app registration.
 # Not in CI's TF_ROOTS for the same reason as smtp-relay: there is no Azure identity CI could use
-# (spire-oidc is LAN-only, so Entra cannot federate with the runners' JWT-SVIDs).
+# (Entra federation with the runners' JWT-SVIDs has not been set up).
 provider "azuread" {}
 
 provider "vault" {
