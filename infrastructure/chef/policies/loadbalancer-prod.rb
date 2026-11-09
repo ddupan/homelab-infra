@@ -19,6 +19,8 @@ default['homelab_loadbalancer']['dataplaneapi']['password_hash'] = '$6$A7APG0w/K
 default['homelab_loadbalancer']['agent']['version'] = '0.3.0'
 # ADR-0022：agent 以节点身份加入控制面（首次签发见 ../ansible/join.yml）。
 default['homelab_loadbalancer']['agent']['join'] = true
+# 经本机 loopback 上的 Data Plane API 收敛 HAProxy；与 policies/ayatori-prod.rb 的 agent_convergence 配套。
+default['homelab_loadbalancer']['agent']['converge'] = true
 default['homelab_loadbalancer']['bgp']['local_as'] = 65100
 # VyOS on labnet; it faces internal peers as AS 65002 (local-as), never its dn42 AS.
 default['homelab_loadbalancer']['bgp']['neighbors'] = { '10.60.0.1' => 65002 }

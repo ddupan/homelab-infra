@@ -1,5 +1,5 @@
 {
-  "revision_id": "4fb00e78e0f60ad1ae952dab624e1c418b773b9ab406d0dc4694b427533e4c4f",
+  "revision_id": "139544a6fe1197479b923ed5418d2927637938ff0c7bc451e731465842dd88ab",
   "name": "loadbalancer-prod",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -44,7 +44,8 @@
       },
       "agent": {
         "version": "0.3.0",
-        "join": true
+        "join": true,
+        "converge": true
       },
       "bgp": {
         "local_as": 65100,
