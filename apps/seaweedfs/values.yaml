@@ -90,6 +90,8 @@ admin:
 worker:
   enabled: true
   replicas: 1
+  # chart 默认要求 worker 分散到不同节点；单节点上滚动更新时新 pod 等旧 pod 退场，旧 pod 等新 pod Ready，会死锁。
+  affinity: ""
   # chart 默认连 12535.22535，会被 networkpolicy-admin.yaml 拦下；留给 worker 的 gRPC 端口是 33646。
   adminServer: seaweedfs-admin.seaweedfs:23646.33646
   jobType: s3_lifecycle
