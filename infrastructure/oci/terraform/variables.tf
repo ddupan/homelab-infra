@@ -2,6 +2,11 @@ variable "region" {
   type    = string
   default = "ap-osaka-1"
 }
+# 本地用 API key；CI 由 tf.py 设为 SecurityToken（SPIRE 换来的 UPST）。
+variable "oci_auth" {
+  type    = string
+  default = "ApiKey"
+}
 variable "oci_config_profile" {
   type    = string
   default = "DEFAULT"
