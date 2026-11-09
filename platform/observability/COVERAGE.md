@@ -120,6 +120,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
     最省事的信号：oci-arm 的 watcher 检查 `systemctl is-failed gitea-backup.service`，或按 bucket 里最新对象的时间判断
 - [ ] **R2** ZFS 快照 / 复制新鲜度
 - [ ] **R3** 其余 CronJob / systemd timer 的"最后成功时间"统一告警（`node_systemd_timer_last_trigger_seconds` 已有数据）
+- [x] **R5** tfstate 异地备份新鲜度（`TfstateBackupStale`）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
   - ⚠ **PVE 上 9 个客户机全部没有备份**（`pve_not_backed_up_total` = 9，2026-10-05）。未设告警，留给备份梳理
   - ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无

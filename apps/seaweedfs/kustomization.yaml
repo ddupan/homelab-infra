@@ -10,6 +10,7 @@ resources:
   - securitypolicy-admin.yaml
   - sso-external-secret.yaml
   - s3-config-external-secret.yaml
+  - tfstate-backup.yaml
   - networkpolicy-admin.yaml
 generatorOptions:
   disableNameSuffixHash: true

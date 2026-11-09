@@ -65,3 +65,15 @@ spec:
         summary: SeaweedFS 卷写入失败
         description: 检查 volume 日志、磁盘状态及上游请求；不代表已经验证 S3 端到端可用。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-data-services.md
+    # CronJob 每小时一次。absent 兜住从未成功过的情况：那时 last_successful_time 不存在。
+    - alert: TfstateBackupStale
+      expr: |
+        time() - max by (cluster,namespace,cronjob) (kube_cronjob_status_last_successful_time{job="kube-state-metrics",namespace="seaweedfs",cronjob="tfstate-backup"}) > 21600
+        or absent(kube_cronjob_status_last_successful_time{job="kube-state-metrics",namespace="seaweedfs",cronjob="tfstate-backup"})
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: tfstate 异地备份超过 6 小时没有成功
+        description: 检查 seaweedfs 命名空间 tfstate-backup Job 的日志和 ExternalSecret；SeaweedFS 丢失时只能靠这份备份恢复。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/seaweedfs/README.md

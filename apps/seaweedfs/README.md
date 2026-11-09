@@ -99,3 +99,42 @@ IAM API（同一端点 `https://s3.ad.ddupan.top`）。已接入 CI（`TF_ROOTS`
 - 内联 policy 的 action 通配：4.48 接受 `s3:Get*`/`s3:Put*`/`s3:List*`，拒绝 `s3:Delete*`
   （MalformedPolicyDocument），删除权限写 `s3:DeleteObject`。
 - 现有 bucket 以 `import` 纳管并 `prevent_destroy`。新 bucket 加到 `local.buckets`。
+
+## tfstate 异地备份
+
+`tfstate-backup` CronJob 每小时用 rclone crypt 把 `tfstate` bucket 复制到 OCI 桶
+`oci-k8s-free-tier-tfstate` 的 `seaweedfs-tfstate/` 前缀下。对象是
+`<root>/terraform.tfstate.bin`，内容加密，路径明文。
+
+只保留最新版：写坏的 state 最多一小时后会覆盖备份，这种情况用 `terraform import` 修。
+用 `copy` 而不是 `sync`，所以源端删除不会同步，退役 root 的旧对象留着无妨。
+
+### 首次设置
+
+1. 本地 apply `infrastructure/oci/terraform`（该 root 未接入 CI），取
+   `tfstate_backup_access_key`、`tfstate_backup_secret_key` 两个 output。
+2. 生成 crypt 密码并用 `rclone obscure -` 处理（从 stdin 读，不进 argv），写入 Bao：
+   `kv/k8s/tfstate-backup` 的 `oci_access_key`、`oci_secret_key`、`crypt_password`。
+3. **把 OCI 的两个值和 crypt 密码存一份到 lab 外**（如密码管理器）。Bao 也在 lab 里，
+   只存 Bao 的话 lab 全挂时备份解不开。
+4. 手动跑一次并确认对象已生成，再做一遍下面的恢复：
+   `kubectl -n seaweedfs create job --from=cronjob/tfstate-backup tfstate-backup-manual`
+
+### 恢复
+
+在任意机器上用 lab 外保存的三个值，先恢复到本地目录：
+
+```bash
+export RCLONE_CONFIG_OCI_TYPE=s3 RCLONE_CONFIG_OCI_PROVIDER=Other
+export RCLONE_CONFIG_OCI_ENDPOINT=https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com
+export RCLONE_CONFIG_OCI_REGION=ap-osaka-1 RCLONE_CONFIG_OCI_NO_CHECK_BUCKET=true
+read -rs RCLONE_CONFIG_OCI_ACCESS_KEY_ID; read -rs RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY
+export RCLONE_CONFIG_OCI_ACCESS_KEY_ID RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY
+export RCLONE_CONFIG_OCICRYPT_TYPE=crypt RCLONE_CONFIG_OCICRYPT_REMOTE=oci:oci-k8s-free-tier-tfstate/seaweedfs-tfstate
+export RCLONE_CONFIG_OCICRYPT_FILENAME_ENCRYPTION=off RCLONE_CONFIG_OCICRYPT_DIRECTORY_NAME_ENCRYPTION=false
+read -rs RCLONE_CONFIG_OCICRYPT_PASSWORD; export RCLONE_CONFIG_OCICRYPT_PASSWORD  # obscure 后的值
+rclone copy ocicrypt: ./tfstate-restore
+jq '.serial' ./tfstate-restore/openbao/terraform.tfstate
+```
+
+然后按原路径传回新的 `tfstate` bucket。

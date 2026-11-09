@@ -1,6 +1,6 @@
 # artifact-keeper 的制品存储（Go/PyPI/Galaxy 等 remote 仓库的缓存与托管制品）。
 # 凭据由此处生成并写入 Bao，是唯一来源；artifact-keeper 的 ExternalSecret 按路径读取。
-# secret key 会进入 tfstate（tfstate bucket 仅 terraform 身份可访问）。
+# secret key 会进入 tfstate（tfstate bucket 仅 terraform 与只读的 tfstate-backup 身份可访问）。
 resource "aws_iam_user" "artifact_keeper" {
   name = "artifact-keeper"
 }
