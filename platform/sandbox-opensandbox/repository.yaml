@@ -7,5 +7,5 @@ metadata:
 spec:
   interval: 1h
   ref:
-    commit: ebba8497a256b673733e89b821f8edce19625207
+    commit: 2f3f0800dbcf196bd47a356ab53f87e753446a05
   url: https://github.com/opensandbox-group/OpenSandbox.git
