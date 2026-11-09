@@ -1,5 +1,5 @@
 {
-  "revision_id": "813f8aa7b3f3062e765036b3184935a768c52b7dc44d2fbca784768c2b073e9a",
+  "revision_id": "f24d65061e02bbaf3bbdf448bce2ba40040766cb71faf5d121794af793a4081d",
   "name": "ayatori-prod",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -54,6 +54,7 @@
       },
       "loadbalancer": {
         "address_pool": "10.62.0.0/24",
+        "agent_convergence": true,
         "dns": {
           "url": "http://192.168.10.127:8053",
           "zone": "lb.lab.ddupan.top"
