@@ -1,5 +1,5 @@
 {
-  "revision_id": "abe46d200c011334537caa16052d7967aa741b4a38b1149ddf4ade298b421a0e",
+  "revision_id": "3e9f0ca53c38a519941364ec556cf27238a463ace5eb2873b5fe9a090ed47315",
   "name": "loadbalancer-dev",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -10,28 +10,28 @@
   ],
   "cookbook_locks": {
     "homelab_base": {
-      "version": "0.4.5",
-      "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
-      "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "version": "0.4.3",
+      "identifier": "d5db93ba7a387b657b778eb3f373f3cea4674f9c",
+      "dotted_decimal_identifier": "60195597574617211.28564726073258867.268068847046556",
+      "cache_key": "homelab_base-43545e529c7a7f33bc28938c849913b5e265f117",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "43545e529c7a7f33bc28938c849913b5e265f117",
+        "tag": "v0.4.8",
         "rel": "cookbooks/homelab_base"
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.4.2",
-      "identifier": "b1a16d476f7757377aad3182bbcb16b67ae26541",
-      "dotted_decimal_identifier": "49998561599780695.15616007997668299.24973001516353",
-      "cache_key": "homelab_loadbalancer-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "version": "0.3.1",
+      "identifier": "6f1d855650c074e6573d80b5fd59e9b8f3d3885b",
+      "dotted_decimal_identifier": "31276180930871412.64835166307482969.256980573980763",
+      "cache_key": "homelab_loadbalancer-43545e529c7a7f33bc28938c849913b5e265f117",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "43545e529c7a7f33bc28938c849913b5e265f117",
+        "tag": "v0.4.8",
         "rel": "cookbooks/homelab_loadbalancer"
       }
     }
@@ -43,9 +43,7 @@
         "password_hash": "$6$MF/KsEARVNZF4Vl2$FC3mfMQnry2uzPdniarOoSncWxR4cFRh9Yrq2/OY3BWnLpjbQg2oD03WiUANMcJRCoKbeRJ6o0lbjJ80XbQHB0"
       },
       "agent": {
-        "version": "0.3.0",
-        "join": true,
-        "converge": true
+        "version": "0.3.0-rc.0"
       },
       "bgp": {
         "local_as": 65101,
@@ -71,10 +69,10 @@
       ]
     ],
     "dependencies": {
-      "homelab_base (0.4.5)": [
+      "homelab_base (0.4.3)": [
 
       ],
-      "homelab_loadbalancer (0.4.2)": [
+      "homelab_loadbalancer (0.3.1)": [
         [
           "homelab_base",
           ">= 0.0.0"
