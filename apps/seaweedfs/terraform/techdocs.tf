@@ -1,7 +1,7 @@
 # Backstage TechDocs：各仓库 CI 经 OpenBao role ci-techdocs-publisher 取 publisher
 # 凭据上传，Backstage 用 reader 只读。凭据由此处生成并写入 Bao，是唯一来源；
 # Backstage ExternalSecret 与 ci-actions/publish-techdocs 按路径读取。
-# secret key 会进入 tfstate（tfstate bucket 仅 terraform 身份可访问）。
+# secret key 会进入 tfstate（tfstate bucket 仅 terraform 与只读的 tfstate-backup 身份可访问）。
 locals {
   techdocs_users = {
     # SeaweedFS 4.48 rejects "s3:Delete*" (MalformedPolicyDocument); Get*/Put*/List*

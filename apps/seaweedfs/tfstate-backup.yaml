@@ -1,0 +1,91 @@
+# tfstate 的异地副本：SeaweedFS 整个丢失时用它恢复。只保留最新版，设置与恢复步骤见 README。
+#
+# k8s/tfstate-backup-source 由 terraform/tfstate-backup.tf 写入。k8s/tfstate-backup 手工维护：
+# crypt 密码不能由 Terraform 生成，否则它会进 state，解开备份要先有被备份的东西。
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: tfstate-backup
+  namespace: seaweedfs
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: tfstate-backup
+    creationPolicy: Owner
+  data:
+    - secretKey: SOURCE_ACCESS_KEY
+      remoteRef: {key: k8s/tfstate-backup-source, property: access_key}
+    - secretKey: SOURCE_SECRET_KEY
+      remoteRef: {key: k8s/tfstate-backup-source, property: secret_key}
+    - secretKey: OCI_ACCESS_KEY
+      remoteRef: {key: k8s/tfstate-backup, property: oci_access_key}
+    - secretKey: OCI_SECRET_KEY
+      remoteRef: {key: k8s/tfstate-backup, property: oci_secret_key}
+    # rclone obscure 处理后的值：rclone 的环境变量只接受这种形式，它可逆，不算保护。
+    - secretKey: CRYPT_PASSWORD
+      remoteRef: {key: k8s/tfstate-backup, property: crypt_password}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tfstate-backup
+  namespace: seaweedfs
+spec:
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      # 失败的 Job 留着会让 KubeJobFailed 一直响，恢复后也不消失，到期删掉。
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: rclone
+              image: docker.io/rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+              # copy 而不是 sync：sync 会同步删除，源桶被清空时备份也跟着没了。
+              # 排除 .tflock：apply 途中备份到的锁文件恢复后会挡住 Terraform。
+              args: [copy, "seaweed:tfstate", "ocicrypt:", --exclude, "*.tflock", --stats-one-line, -v]
+              env:
+                - {name: RCLONE_CONFIG_SEAWEED_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_SEAWEED_PROVIDER, value: SeaweedFS}
+                - {name: RCLONE_CONFIG_SEAWEED_ENDPOINT, value: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"}
+                - name: RCLONE_CONFIG_SEAWEED_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: tfstate-backup, key: SOURCE_ACCESS_KEY}}
+                - name: RCLONE_CONFIG_SEAWEED_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: tfstate-backup, key: SOURCE_SECRET_KEY}}
+                - {name: RCLONE_CONFIG_OCI_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_OCI_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_OCI_ENDPOINT, value: "https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com"}
+                - {name: RCLONE_CONFIG_OCI_REGION, value: ap-osaka-1}
+                # 凭据没有 bucket 权限；不跳过的话 rclone 会先尝试建桶。
+                - {name: RCLONE_CONFIG_OCI_NO_CHECK_BUCKET, value: "true"}
+                - name: RCLONE_CONFIG_OCI_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: tfstate-backup, key: OCI_ACCESS_KEY}}
+                - name: RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: tfstate-backup, key: OCI_SECRET_KEY}}
+                - {name: RCLONE_CONFIG_OCICRYPT_TYPE, value: crypt}
+                - {name: RCLONE_CONFIG_OCICRYPT_REMOTE, value: "oci:oci-k8s-free-tier-tfstate/seaweedfs-tfstate"}
+                # 只加密内容。root 名不敏感，明文路径方便直接确认备份是否更新。
+                - {name: RCLONE_CONFIG_OCICRYPT_FILENAME_ENCRYPTION, value: "off"}
+                - {name: RCLONE_CONFIG_OCICRYPT_DIRECTORY_NAME_ENCRYPTION, value: "false"}
+                - name: RCLONE_CONFIG_OCICRYPT_PASSWORD
+                  valueFrom: {secretKeyRef: {name: tfstate-backup, key: CRYPT_PASSWORD}}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {memory: 128Mi}
