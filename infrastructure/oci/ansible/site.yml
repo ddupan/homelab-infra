@@ -19,7 +19,7 @@
     # 规则必须由 networkd 自己持有：它默认 ManageForeignRoutingPolicyRules=yes，每次重启都会清掉
     # 别人加的 ip rule。原来的 oneshot 脚本只在开机跑一次，2026-11-04 无人值守升级重启 networkd 后
     # 规则全丢，回包改走 Tailscale（52 表），LAN→OCI 不通而服务仍显示 active。
-    - name: networkd drop-in 目录
+    - name: 创建 networkd drop-in 目录
       ansible.builtin.file:
         path: '{{ site_return_dropin_dir }}'
         state: directory
