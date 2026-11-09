@@ -149,3 +149,26 @@ spec:
         kinds:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
+
+    # HTTPS :443 for spire-oidc.ddupan.top, the public SPIRE JWT issuer. In-cluster verifiers
+    # use this path so they keep working when the WAN is down; the internet reaches the same
+    # Service through the Cloudflare tunnel. Only spire-server may attach. Cert:
+    # ../cert-manager/certificate-spire-oidc-ddupan.yaml; route: ../spire/httproute.yaml.
+    - name: https-spire-oidc
+      protocol: HTTPS
+      port: 443
+      hostname: "spire-oidc.ddupan.top"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: spire-oidc-ddupan-top-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: spire-server
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute

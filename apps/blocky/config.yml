@@ -64,6 +64,7 @@ customDNS:
   mapping:
     # BEGIN GENERATED: homelab DNS (blocky)
     sso.ddupan.top: 192.168.10.127
+    spire-oidc.ddupan.top: 192.168.10.127
     obj.ddupan.top: 192.168.10.127
     # END GENERATED: homelab DNS (blocky)
 

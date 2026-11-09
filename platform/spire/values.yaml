@@ -213,6 +213,8 @@ spiffe-csi-driver:
 spiffe-oidc-discovery-provider:
   enabled: true
   config:
+    # Adds "use":"sig" to each JWK. Entra rejects a JWKS without it; other verifiers ignore it.
+    setKeyUse: true
     # Host allowlist: the public JWKS name (cloudflared tunnel,
     # infrastructure/cloudflared/terraform/main.tf). jwt_issuer stays fixed, so the
     # discovery document says the lab issuer whichever name serves it.

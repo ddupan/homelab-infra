@@ -146,6 +146,19 @@ OpenBao 中对应的 Terraform 资源位于
 - PostgreSQL或 SPIRE 不可用时，不得用新的空数据库覆盖现有状态；
 - 当前 Flux root 与本 Kustomization 均保持 `prune: false`，删除资源需单独审计。
 
+## Issuer migration（`spire-oidc.lab` → `spire-oidc.ddupan.top`，2026-11）
+
+外部验证方（Entra、Google、OCI）要从公网取 issuer，`spire-oidc.lab` 公网解析不到。校验 `iss` 的除下文三处外，
+还有 Anthropic Console 里手工维护的 federation issuer。
+
+1. **A** JWKS 加 `use:sig`；新名字在 LAN 可达（`https-spire-oidc` listener、证书、HTTPRoute、split-horizon）；
+   Bao **临时清空 `bound_issuer`**。不改变线上 issuer。
+2. **B** `jwtIssuer` 改新名，`additionalDomains` 改 lab 名；zot 与 iam-login 的 issuer 同步改；
+   同时手工改 Anthropic Console 的 issuer。
+3. **C** Bao `bound_issuer` 设为新名；清理仍写着 LAN-only 的注释。
+
+Bao 的 `jwks_url` 和 iam-login 的 `jwk-set-uri` 继续用 lab 名，它们只取公钥，与 `iss` 无关。
+
 ## Issuer migration（`spire-oidc.ad` → `spire-oidc.lab`，2026-10）
 
 JWT-SVID 只能带一个 `iss`，校验它的有三处：Bao `jwt-spire`（`bound_issuer`）、zot

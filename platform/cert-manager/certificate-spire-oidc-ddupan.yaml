@@ -1,0 +1,27 @@
+# Cert for the public SPIRE JWT issuer hostname, so it can also be served on the LAN.
+#
+# JWT-SVIDs carry one `iss`, and it has to be a name external verifiers can reach. zot does
+# discovery from that URL, so without a LAN path its startup and key refresh would depend on
+# the WAN. `*.lab.ddupan.top` cannot cover this name. Already public in CT via the Cloudflare
+# edge cert, so naming it costs nothing.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: spire-oidc-ddupan-top
+  namespace: envoy-gateway-system
+spec:
+  secretName: spire-oidc-ddupan-top-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: "spire-oidc.ddupan.top"
+  dnsNames:
+    - "spire-oidc.ddupan.top"
+  duration: 2160h    # 90d — Let's Encrypt maximum
+  renewBefore: 720h  # 30d
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always

@@ -9,8 +9,14 @@ spec:
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https-lab
+    # LAN path to the public name. external-dns only writes lab.ddupan.top, so this adds no
+    # record; split-horizon comes from infrastructure/dns/records.yml.
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-spire-oidc
   hostnames:
     - spire-oidc.lab.ddupan.top
+    - spire-oidc.ddupan.top
   rules:
     - backendRefs:
         - name: spire-spiffe-oidc-discovery-provider

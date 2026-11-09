@@ -31,6 +31,8 @@ spec:
         - https://home.lab.ddupan.top/api/healthcheck
         - https://s3.ad.ddupan.top/status
         - https://spire-oidc.lab.ddupan.top/.well-known/openid-configuration
+        # 公网 issuer 名的 LAN 路径（split-horizon 到 Envoy），不经 Cloudflare。
+        - https://spire-oidc.ddupan.top/.well-known/openid-configuration
         - https://spire-bundle.lab.ddupan.top/
         # 匿名 pull token：zot 把无凭据请求转给 oci-token-server，200 说明两者都在。
         - https://zot.ad.ddupan.top/zot/auth/token?service=zot-push.lab.ddupan.top&scope=repository:panxiao81/backstage:pull

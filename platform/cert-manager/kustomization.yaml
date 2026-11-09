@@ -19,3 +19,4 @@ resources:
   - certificate-wildcard-lab.yaml
   - certificate-git-ddupan.yaml
   - certificate-sso-ddupan.yaml
+  - certificate-spire-oidc-ddupan.yaml
