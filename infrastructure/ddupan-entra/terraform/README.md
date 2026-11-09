@@ -29,11 +29,3 @@ apply 后把 secret 交给 Ansible（不经过终端、不进 Bao——Bao 也�
 轮换：`time_rotating` 在首次 apply 后 640 天起的下一次 apply 签发新 secret，每个 secret 有效 730 天。
 这是平时没人用的应急入口，过期也不会有人发现——`terraform output gitea_client_secret_expires_at` 记着到期日，
 在那之前 apply 一次。
-
-## onedrive-gateway.tf：OpenList 用的 OneDrive 应用
-
-先在 Microsoft 365 管理中心手工建账号 `onedrive_gateway_upn`，分配带 OneDrive 的许可证，登录一次让 OneDrive 开通，
-再在 SharePoint 管理中心把它的配额调到 5 TB。然后 `terraform apply`，client 和后续步骤见 `apps/openlist/README.md`。
-应用只分配给这个账号，委托权限的同意也只授给它。
-
-secret 在 `onedrive_gateway_client_secret_expires_at` 前要 apply 一次并更新 OpenList 管理界面。

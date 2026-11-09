@@ -15,21 +15,3 @@ variable "gitea_secret_lifetime" {
   type        = string
   default     = "17520h" # 730 天：轮换到期后还有 90 天
 }
-
-variable "onedrive_gateway_upn" {
-  description = "存放备份的专用账号，需要手工创建并分配带 OneDrive 的许可证（README）。"
-  type        = string
-  default     = "onedrive-gateway@ddupan.top"
-}
-
-variable "onedrive_gateway_secret_rotation_days" {
-  description = "此后第一次 apply 会签发新 secret，需要在 OpenList 管理界面更新。"
-  type        = number
-  default     = 640
-}
-
-variable "onedrive_gateway_secret_lifetime" {
-  description = "每个 secret 的有效期；必须比 rotation_days 多出足够的余量，等人来 apply。"
-  type        = string
-  default     = "17520h" # 730 天：轮换到期后还有 90 天
-}
