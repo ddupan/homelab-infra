@@ -9,14 +9,18 @@
     data_monitor_download_base: https://github.com/prometheus/node_exporter/releases/download
     data_monitor_archive: "node_exporter-{{ data_monitor_exporter_version }}.linux-amd64"
     # collect.py 的唯一来源是 homelab-cookbooks 的 homelab_data（etcd-pve1/2 由 Cinc 部署）；
-    # 这里按 tag 取同一份，升级只改 tag。
+    # 这里按 tag 取同一份，升级时 tag 和摘要一起改。
+    # 走 API 的 raw：Gitea 的 REQUIRE_SIGNIN_VIEW=expensive 让 /raw/ 匿名 303 到登录页，
+    # get_url 会把登录页 HTML 当采集程序写进去；摘要让这类错误在写入前失败。
     data_monitor_collector_url: >-
-      https://git.ddupan.top/panxiao81/homelab-cookbooks/raw/tag/v0.4.10/cookbooks/homelab_data/files/default/collect.py
+      https://git.ddupan.top/api/v1/repos/panxiao81/homelab-cookbooks/raw/cookbooks/homelab_data/files/default/collect.py?ref=v0.4.10
+    data_monitor_collector_sha256: ea2071dedf145e423f252dbfedb9a72bd8ca333c2774b97bb697e00e3b1c8faf
   tasks:
     - name: 检查仅支持 amd64
       ansible.builtin.command: uname -m
       register: data_monitor_arch
       changed_when: false
+      check_mode: false
     - name: 拒绝错误架构
       ansible.builtin.assert:
         that: data_monitor_arch.stdout == 'x86_64'
@@ -51,6 +55,7 @@
       ansible.builtin.get_url:
         url: "{{ data_monitor_collector_url }}"
         dest: "{{ data_monitor_root }}/collect.py"
+        checksum: "sha256:{{ data_monitor_collector_sha256 }}"
         force: true
         owner: root
         group: root
