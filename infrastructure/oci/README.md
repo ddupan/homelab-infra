@@ -56,6 +56,24 @@ terraform apply change.tfplan
 当前 backend 使用远端对象，`.recovery/` 中的副本不再参与日常 plan/apply。
 下载前设置 `umask 077`，并使用 GPG 加密源备份；不要把本地副本上传覆盖远端。
 
+## GitHub 镜像
+
+Gitea 仓库通过服务端推送镜像同步到 GitHub 组织 `ddupan` 的私有仓库，作为 Gitea 不可用时的异地副本。
+镜像会强推远端，所以 GitHub 上的改动会被覆盖；不要在那边提交。
+
+新增仓库后，或更换 token 时运行（需要 `gh`、`tea` 和可读 Bao 的会话）：
+
+```bash
+python3 infrastructure/oci/github-mirror.py           # 补齐缺失的仓库和镜像
+python3 infrastructure/oci/github-mirror.py --rotate  # 用 Bao 里的新 token 重建镜像
+```
+
+- token 是 fine-grained PAT，只限 `ddupan` 组织，存于 Bao `kv/infra/gitea-github-mirror` 的
+  `GITHUB_TOKEN`。最长 366 天，到期前换新并运行 `--rotate`，否则镜像会静默停止更新。
+- 必须在 GitHub 上关闭 Actions，否则镜像过去的 workflow 可能运行；脚本在首次推送前逐仓库关闭。
+- Gitea 拒绝给归档仓库加推送镜像，脚本会跳过并打印出来。
+- 不要从本地 checkout 推送到 GitHub：本地 ref 可能带有从未发布到 Gitea 的历史。
+
 ## 恢复验证记录
 
 Terraform 1.15.8、OCI provider 9.1.0 验证通过。
