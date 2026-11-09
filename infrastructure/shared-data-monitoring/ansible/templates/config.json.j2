@@ -1,19 +1,16 @@
+{# etcd 成员的证书和快照检查都在 homelab_data::monitoring（#570），这里只剩 laptop 的 PostgreSQL。 #}
 {
-  "snapshot_dir": "/var/backups/homelab-etcd",
   "dev": {{ data_monitor_dev | default(false) | to_json }},
   "repository": {{ data_monitor_repository | default(false) | to_json }},
   "renewal_units": {{ data_monitor_renewals | default([]) | to_json }},
   "certificates": [
-{% for name in ['server', 'peer', 'admin', 'gateway', 'ca'] %}
-    {"name": "etcd-{{ name }}", "path": "/etc/homelab-etcd/{{ name }}.crt"}{{ ',' if not loop.last else '' }}
-{% endfor %}
 {% if data_monitor_pg | default(false) %}
-    ,{"name": "pg-prod-server", "path": "/etc/homelab-postgresql/prod/server.crt"}
+    {"name": "pg-prod-server", "path": "/etc/homelab-postgresql/prod/server.crt"}
     ,{"name": "pg-prod-etcd", "path": "/etc/homelab-postgresql/prod/etcd.crt"}
     ,{"name": "pg-prod-ca", "path": "/etc/homelab-postgresql/prod/ca.crt"}
 {% endif %}
 {% if data_monitor_dev | default(false) %}
-    ,{"name": "pg-dev-server", "path": "/etc/homelab-postgresql/dev/server.crt"}
+    {{ ',' if data_monitor_pg | default(false) else '' }}{"name": "pg-dev-server", "path": "/etc/homelab-postgresql/dev/server.crt"}
     ,{"name": "pg-dev-ca", "path": "/etc/homelab-postgresql/dev/ca.crt"}
 {% endif %}
   ]

@@ -13,8 +13,8 @@
     # 走 API 的 raw：Gitea 的 REQUIRE_SIGNIN_VIEW=expensive 让 /raw/ 匿名 303 到登录页，
     # get_url 会把登录页 HTML 当采集程序写进去；摘要让这类错误在写入前失败。
     data_monitor_collector_url: >-
-      https://git.ddupan.top/api/v1/repos/panxiao81/homelab-cookbooks/raw/cookbooks/homelab_data/files/default/collect.py?ref=v0.4.10
-    data_monitor_collector_sha256: ea2071dedf145e423f252dbfedb9a72bd8ca333c2774b97bb697e00e3b1c8faf
+      https://git.ddupan.top/api/v1/repos/panxiao81/homelab-cookbooks/raw/cookbooks/homelab_data/files/default/collect.py?ref=v0.4.12
+    data_monitor_collector_sha256: 24416c1857de0243a9942e6190e245a817040bf1504791baf6af60a499c92b97
   tasks:
     - name: 检查仅支持 amd64
       ansible.builtin.command: uname -m
