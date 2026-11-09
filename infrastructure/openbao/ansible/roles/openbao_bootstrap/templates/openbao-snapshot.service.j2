@@ -7,3 +7,5 @@ Wants=openbao.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/bao-snapshot.sh
+# "-": a failed upload must not mark the local snapshot failed; it has its own alert.
+ExecStartPost=-/usr/local/bin/bao-snapshot-offsite.sh

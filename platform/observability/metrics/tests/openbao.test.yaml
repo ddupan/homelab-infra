@@ -149,3 +149,38 @@ tests:
         node: bao1
         severity: critical
       exp_annotations: *id001
+- name: 50 小时后且持续 15 分钟才报告异地快照超时
+  interval: 1h
+  input_series:
+  - series: openbao_snapshot_offsite_last_success_timestamp_seconds{job="node-exporter",node="bao1"}
+    values: '0x60'
+  alert_rule_test:
+  - eval_time: 50h
+    alertname: OpenBaoSnapshotOffsiteStale
+    exp_alerts: []
+  - eval_time: 51h20m
+    alertname: OpenBaoSnapshotOffsiteStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: bao1
+        severity: warning
+      exp_annotations:
+        summary: OpenBao 异地快照已超时或没有成功记录
+        description: 超过 50 小时没有成功上传到 OCI，或成功指标缺失；检查 openbao-snapshot.service 日志、WAN、GPG 子密钥是否到期和 OCI 凭据。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+- name: 没有异地快照成功记录
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: OpenBaoSnapshotOffsiteStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: bao1
+        severity: warning
+      exp_annotations:
+        summary: OpenBao 异地快照已超时或没有成功记录
+        description: 超过 50 小时没有成功上传到 OCI，或成功指标缺失；检查 openbao-snapshot.service 日志、WAN、GPG 子密钥是否到期和 OCI 凭据。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md

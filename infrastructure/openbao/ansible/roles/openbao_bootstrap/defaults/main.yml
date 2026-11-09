@@ -63,10 +63,17 @@ openbao_pki_allowed_domains: "ad.ddupan.top,lab.ddupan.top"   # comma list; keep
 # bootstrap never risks the listener. Clients must then trust the PKI CA (printed out).
 openbao_pki_replace_listener_cert: false
 
-# --- Raft snapshots (local timer; ship the dir off-box yourself) ---
+# --- Raft snapshots (local timer, then an encrypted copy to OCI) ---
 openbao_snapshot_dir: "/var/backups/openbao"
 openbao_snapshot_keep: 14
 openbao_snapshot_oncalendar: "*-*-* 02:00:00"
+# Bucket and write-only key come from infrastructure/oci/terraform/bao-backup.tf.
+openbao_snapshot_offsite_endpoint: "https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com"
+openbao_snapshot_offsite_region: "ap-osaka-1"
+openbao_snapshot_offsite_bucket: "bao-snapshot"
+openbao_snapshot_offsite_credentials: "/etc/openbao/snapshot-offsite.curl"
+# Installed by the openbao role for the TPM seal escrow.
+openbao_snapshot_offsite_recipient: "/etc/openbao/escrow-recipient.asc"
 
 # ── Terraform / Ansible ownership boundary ───────────────────────────────
 # TRUE (default) = OpenBao's API-level CONFIGURATION lives in ../terraform:

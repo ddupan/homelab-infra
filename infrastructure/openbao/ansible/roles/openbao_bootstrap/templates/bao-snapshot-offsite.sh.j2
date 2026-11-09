@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# 把最新的本地快照加密后传到 OCI。由 openbao-snapshot.service 的 ExecStartPost 调用，只有本地
+# 快照成功才会运行；这里失败不影响本地快照，靠 OpenBaoSnapshotOffsiteStale 发现。
+set -euo pipefail
+umask 077
+
+latest="$(ls -1t "{{ openbao_snapshot_dir }}"/openbao-*.snap | head -n 1)"
+object="$(basename "$latest").gpg"
+work="$(mktemp -d)"
+trap 'rm -rf -- "$work"' EXIT
+
+# 和 TPM 封印密钥托管用同一把公钥：解密靠 YubiKey，不用再保管一个密码。
+# [E] 子密钥到期（2027-04-07）后 gpg 会失败，告警随之触发，轮换子密钥时要更新这个文件。
+gpg --homedir "$work" --batch --quiet \
+  --recipient-file "{{ openbao_snapshot_offsite_recipient }}" \
+  --output "$work/$object" --encrypt "$latest"
+
+# WAN 会随机断，所以重试要覆盖所有错误。凭据放 --config 文件，不进 argv。
+curl --config "{{ openbao_snapshot_offsite_credentials }}" \
+  --aws-sigv4 "aws:amz:{{ openbao_snapshot_offsite_region }}:s3" \
+  --fail --silent --show-error \
+  --retry 10 --retry-delay 60 --retry-all-errors --max-time 120 \
+  --upload-file "$work/$object" \
+  "{{ openbao_snapshot_offsite_endpoint }}/{{ openbao_snapshot_offsite_bucket }}/$object"
+
+metrics_tmp="$(mktemp "{{ openbao_snapshot_metrics_dir }}/.openbao-offsite.XXXXXX")"
+{
+  echo '# HELP openbao_snapshot_offsite_last_success_timestamp_seconds Completion time of the last successful off-site snapshot upload.'
+  echo '# TYPE openbao_snapshot_offsite_last_success_timestamp_seconds gauge'
+  echo "openbao_snapshot_offsite_last_success_timestamp_seconds $(date +%s)"
+} > "$metrics_tmp"
+chmod 644 "$metrics_tmp"
+mv -f -- "$metrics_tmp" "{{ openbao_snapshot_metrics_dir }}/openbao_snapshot_offsite.prom"
