@@ -222,25 +222,3 @@ resource "homelab_machine_client" "dev_panxiao81" {
   spiffe_id = "spiffe://ddupan.top/dev/panxiao81"
   audiences = ["artifact-keeper"]
 }
-
-# OpenList's OIDC login (apps/openlist). It calls back to two paths and sends no PKCE. Its SSO settings live in
-# its own database, so the secret is pasted into the admin UI from kv/k8s/openlist-sso (apps/openlist/README.md).
-resource "homelab_oidc_client" "openlist" {
-  id   = "openlist"
-  name = "OpenList"
-  redirect_uris = [
-    "https://openlist.lab.ddupan.top/api/auth/sso_callback?method=get_sso_id",
-    "https://openlist.lab.ddupan.top/api/auth/sso_callback?method=sso_get_token",
-  ]
-  scopes        = ["openid", "profile", "email"]
-  pkce_required = false
-}
-
-resource "vault_kv_secret_v2" "openlist" {
-  mount = "kv"
-  name  = "k8s/openlist-sso"
-  data_json = jsonencode({
-    client_id     = homelab_oidc_client.openlist.id
-    client_secret = homelab_oidc_client.openlist.secret
-  })
-}
