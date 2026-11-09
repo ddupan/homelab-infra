@@ -13,6 +13,10 @@ import json
 import subprocess
 import sys
 
+# These repositories publish images from GitHub Actions, whose GITHUB_TOKEN is the only
+# short-lived way to push to ghcr.io. Their workflows live in .github/workflows.
+ACTIONS_ALLOWED = {"gitea-dynamic-runner"}
+
 
 def run(*cmd, stdin=None, check=True):
     # Output is captured, never echoed: the mirror token passes through here on stdin.
@@ -83,6 +87,8 @@ def ensure_github_repo(org, name, existing, source):
             "-F", "has_projects=false",
         )
         print(f"{name}: created")
+    if name in ACTIONS_ALLOWED:
+        return
     # Must hold before the first push, or mirrored workflows would run on GitHub.
     # The PUT is refused when the organization already disables Actions, so judge by the GET.
     gh("-X", "PUT", f"repos/{org}/{name}/actions/permissions", "-F", "enabled=false", check=False)
