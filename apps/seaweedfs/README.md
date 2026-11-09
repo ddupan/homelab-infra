@@ -115,14 +115,14 @@ IAM API（同一端点 `https://s3.ad.ddupan.top`）。已接入 CI（`TF_ROOTS`
    `tfstate_backup_access_key`、`tfstate_backup_secret_key` 两个 output。
 2. 生成 crypt 密码并用 `rclone obscure -` 处理（从 stdin 读，不进 argv），写入 Bao：
    `kv/k8s/tfstate-backup` 的 `oci_access_key`、`oci_secret_key`、`crypt_password`。
-3. **把 OCI 的两个值和 crypt 密码存一份到 lab 外**（如密码管理器）。Bao 也在 lab 里，
-   只存 Bao 的话 lab 全挂时备份解不开。
+3. 这三个值在 OCI Vault 有一份（`recovery` vault 的 `tfstate-backup-recovery`，
+   `infrastructure/oci/terraform/tfstate-backup.tf`）。Bao 也在 lab 里，lab 全挂时登录 OCI 控制台取。
 4. 手动跑一次并确认对象已生成，再做一遍下面的恢复：
    `kubectl -n seaweedfs create job --from=cronjob/tfstate-backup tfstate-backup-manual`
 
 ### 恢复
 
-在任意机器上用 lab 外保存的三个值，先恢复到本地目录：
+在任意机器上用 OCI Vault 里的三个值（登录 OCI 控制台取），先恢复到本地目录：
 
 ```bash
 export RCLONE_CONFIG_OCI_TYPE=s3 RCLONE_CONFIG_OCI_PROVIDER=Other

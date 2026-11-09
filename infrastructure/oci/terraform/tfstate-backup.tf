@@ -50,3 +50,42 @@ output "tfstate_backup_secret_key" {
   value     = oci_identity_customer_secret_key.tfstate_backup.key
   sensitive = true
 }
+
+# 恢复 tfstate 备份要用的三个值放一份在 OCI Vault，lab 全挂时登录 OCI 控制台就能取到。
+# 和备份同在一个账号：账号没了备份本来也没了，放这里不损失可用性；代价是 OCI 管理员
+# 能同时拿到密文和密码。tfstate-backup 用户没有这里的权限。
+# DEFAULT vault 和 SOFTWARE 密钥都在 Always Free 内（150 个 secret，软件密钥不限量）。
+resource "oci_kms_vault" "recovery" {
+  compartment_id = var.compartment_ocid
+  display_name   = "recovery"
+  vault_type     = "DEFAULT"
+}
+
+resource "oci_kms_key" "recovery" {
+  compartment_id      = var.compartment_ocid
+  display_name        = "recovery"
+  management_endpoint = oci_kms_vault.recovery.management_endpoint
+  protection_mode     = "SOFTWARE"
+
+  key_shape {
+    algorithm = "AES"
+    length    = 32
+  }
+}
+
+resource "oci_vault_secret" "tfstate_backup_recovery" {
+  compartment_id = var.compartment_ocid
+  vault_id       = oci_kms_vault.recovery.id
+  key_id         = oci_kms_key.recovery.id
+  secret_name    = "tfstate-backup-recovery"
+  description    = "Values needed to restore the encrypted tfstate backup (see apps/seaweedfs/README.md)"
+
+  secret_content {
+    content_type = "BASE64"
+    content = base64encode(jsonencode({
+      oci_access_key = oci_identity_customer_secret_key.tfstate_backup.id
+      oci_secret_key = oci_identity_customer_secret_key.tfstate_backup.key
+      crypt_password = var.tfstate_backup_crypt_password
+    }))
+  }
+}

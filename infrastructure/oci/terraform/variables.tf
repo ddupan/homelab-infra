@@ -25,3 +25,10 @@ variable "instance_metadata" {
   type        = map(string)
   sensitive   = true
 }
+
+# rclone obscure 后的值，和 Bao kv/k8s/tfstate-backup 的 crypt_password 相同。
+# tf.py 从 kv/infra/terraform/oci 注入；这个 root 现在要经 tf.py 运行才有这个值。
+variable "tfstate_backup_crypt_password" {
+  type      = string
+  sensitive = true
+}
