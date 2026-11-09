@@ -136,7 +136,9 @@
   when: not ansible_check_mode
 
 - name: 验证隧道互通
-  ansible.builtin.command: "{{ ('ping -6 -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ bgp_transport_peer) if bgp_transport_peer is defined else ('ping -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ wg_peer_address) }}"
+  ansible.builtin.command: >-
+    {{ ('ping -6 -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ bgp_transport_peer) if bgp_transport_peer is defined
+    else ('ping -I ' ~ wg_interface ~ ' -c 3 -W 3 ' ~ wg_peer_address) }}
   changed_when: false
   when: not ansible_check_mode
 
@@ -147,8 +149,10 @@
   retries: 12
   delay: 5
   until: >-
-    (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_address), {}).get('state') == 'Established'
-    and (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_address), {}).get('pfxRcd', 0) == bgp_import | length
+    (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {})
+    .get(bgp_transport_peer | default(wg_peer_address), {}).get('state') == 'Established'
+    and (bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {})
+    .get(bgp_transport_peer | default(wg_peer_address), {}).get('pfxRcd', 0) == bgp_import | length
   when: not ansible_check_mode
 
 # 收到前缀不等于装进内核：下一跳解析失败时路由只留在 BGP 表里（2026-11-04 断了数天未被发现）。
@@ -169,6 +173,8 @@
   retries: 12
   delay: 5
   until: >-
-    (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('state') == 'Established'
-    and (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {}).get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('pfxRcd', 0) == bgp_import6 | length
+    (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {})
+    .get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('state') == 'Established'
+    and (bgp_summary6.stdout | from_json).get('ipv6Unicast', {}).get('peers', {})
+    .get(bgp_transport_peer | default(wg_peer_ipv6), {}).get('pfxRcd', 0) == bgp_import6 | length
   when: not ansible_check_mode and bgp_import6 is defined
