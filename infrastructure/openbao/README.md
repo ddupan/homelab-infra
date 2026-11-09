@@ -323,7 +323,10 @@ prints it): `cert-authority,principals="<node>",restrict,pty <ca-pubkey>`.
 - **Restarts auto-unseal** via the TPM (bao1 migrated 2026-11-05). Sealed after a restart
   means the TPM side failed: `journalctl -u openbao` (pkcs#11 Login errors), then "TPM seal"
   recovery. `unseal-key.gpg` is now the **recovery** key (`generate-root`, rollback), not an unseal key.
-- **Back up** Raft snapshots off-box once initialized: `bao operator raft snapshot save`
-  (belongs in the bootstrap play — it needs a token).
+- **Raft snapshots** run daily on bao1 (7 kept locally). Each is GPG-encrypted to the YubiKey and
+  uploaded to the OCI bucket `bao-snapshot`, kept 7 days. bao1's key can only create objects. To get
+  one back, as an OCI admin on a machine with the YubiKey:
+  `oci os object get -bn bao-snapshot --name <object> --file s.snap.gpg && gpg -d -o s.snap s.snap.gpg`.
+  Restoring it also needs the seal key: see "TPM seal" recovery.
 - The listener uses a **self-signed bootstrap cert**; replace it with a cert issued by
   OpenBao's own PKI engine in the bootstrap play.

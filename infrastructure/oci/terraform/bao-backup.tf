@@ -20,8 +20,8 @@ resource "oci_objectstorage_object_lifecycle_policy" "bao_snapshot" {
     action     = "DELETE"
     is_enabled = true
     target     = "objects"
-    # 一份约 0.5 MB，30 天不到 20 MB。比 bao1 本地的 14 份留得久，发现得晚也还能回滚。
-    time_amount = 30
+    # 所有备份统一留 7 天，够发现问题并回滚。一份约 0.8 MB。
+    time_amount = 7
     time_unit   = "DAYS"
   }
 

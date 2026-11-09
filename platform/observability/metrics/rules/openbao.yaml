@@ -56,6 +56,17 @@ spec:
         summary: OpenBao 本地快照已超时或没有成功记录
         description: 每日快照超过 36 小时未成功，或成功指标缺失；检查定时器与快照任务。此指标不证明异地备份或恢复可用。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
+    # 50 小时：WAN 会随机断，单日上传失败不告警，连续两天失败才告警。
+    - alert: OpenBaoSnapshotOffsiteStale
+      expr: time() - openbao_snapshot_offsite_last_success_timestamp_seconds{job="node-exporter",node="bao1"} > 50 * 3600
+        or absent(openbao_snapshot_offsite_last_success_timestamp_seconds{job="node-exporter",node="bao1"})
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenBao 异地快照已超时或没有成功记录
+        description: 超过 50 小时没有成功上传到 OCI，或成功指标缺失；检查 openbao-snapshot.service 日志、WAN、GPG 子密钥是否到期和 OCI 凭据。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/openbao-monitoring-maintenance.md
     - alert: OpenBaoSnapshotMetricsUnavailable
       expr: up{job="node-exporter",node="bao1"} == 0 or absent(up{job="node-exporter",node="bao1"}) or node_textfile_scrape_error{job="node-exporter",node="bao1"}
         == 1 or absent(openbao_snapshot_last_run_success{job="node-exporter",node="bao1"}) or absent(openbao_snapshot_last_run_timestamp_seconds{job="node-exporter",node="bao1"})

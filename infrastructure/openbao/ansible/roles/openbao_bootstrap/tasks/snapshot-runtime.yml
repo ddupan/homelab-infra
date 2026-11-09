@@ -15,6 +15,24 @@
     group: root
     mode: "0755"
 
+- name: Install the off-site upload script
+  ansible.builtin.template:
+    src: bao-snapshot-offsite.sh.j2
+    dest: /usr/local/bin/bao-snapshot-offsite.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Store the OCI upload credentials (root-only)
+  ansible.builtin.copy:
+    content: |
+      user = "{{ vault_openbao_snapshot_oci_access_key }}:{{ vault_openbao_snapshot_oci_secret_key }}"
+    dest: "{{ openbao_snapshot_offsite_credentials }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
 - name: Install the snapshot systemd service + timer
   ansible.builtin.template:
     src: "{{ item }}.j2"
