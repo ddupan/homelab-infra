@@ -1,5 +1,5 @@
 {
-  "revision_id": "f5b4020b519fcb8d5fb3cf9d0cb2e65b3b4447ed2d8e491db2eaf1d79540ce55",
+  "revision_id": "684c3c915bb17d425194eb8ccdc0fa6d2edec7ee8a646b549a741aea447da7d6",
   "name": "ayatori-prod",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -45,7 +45,6 @@
       "postgresql_instance": {
         "name": "homelab-prod",
         "host": "pg-prod.lab.ddupan.top",
-        "hostaddr": "192.168.10.2",
         "port": 5432
       },
       "gitops": {
