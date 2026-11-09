@@ -274,3 +274,48 @@ spec:
             summary: Ayatori {{ $labels.cluster }} {{ $labels.job }} 1 小时内重启 3 次以上
             description: 反复退出后被 systemd 重启；查 journalctl 退出原因（选主丢失、OOM、配置错误）。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+    # Compute Agent（ADR-0019 §6）。节点离线由 AyatoriTargetDown 覆盖（job 以 ayatori- 开头）。
+    - name: ayatori-compute
+      interval: 30s
+      rules:
+        - alert: AyatoriComputeLibvirtDown
+          expr: ayatori_compute_agent_libvirt_up{job="ayatori-compute-agent"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: 计算节点 {{ $labels.node }} 的 Agent 连不上 libvirt
+            description: systemctl status libvirtd；连不上期间实例不会被收敛，节点的 compute Ready 也为 False。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriComputeInstanceDown
+          expr: >-
+            max by(cluster,env,namespace,name) (ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent"}) == 1
+            unless on(cluster,env,namespace,name)
+            max by(cluster,env,namespace,name) (ayatori_compute_agent_domain_running{job="ayatori-compute-agent"}) == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: 实例 {{ $labels.namespace }}/{{ $labels.name }} 应当运行，但没有节点在运行它
+            description: 查 LibvirtDomain 的 status.message 与节点上的 virsh domstate --reason。客户机内关机或 destroy 不会触发。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriComputeObjectNotConverging
+          expr: time() - ayatori_compute_agent_object_last_success_timestamp_seconds{job="ayatori-compute-agent"} > 1800
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.kind }} {{ $labels.name }} 在 {{ $labels.node }} 上 30 分钟没有收敛成功"
+            description: 从未成功时同样触发。查对象 status 中的 message 与 journalctl -u ayatori-compute-agent。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        - alert: AyatoriComputePoolAlmostFull
+          expr: >-
+            1 - ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",type="available"}
+            / ignoring(type) ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",type="capacity"} > 0.9
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: 计算节点 {{ $labels.node }} 的存储池 {{ $labels.name }} 使用超过 90%
+            description: 清理不用的卷与镜像，或扩容底层存储。
+            runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
