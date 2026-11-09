@@ -65,10 +65,17 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 ## Secrets
 
 - **OpenBao** (`bao.lab.ddupan.top`, host .8) is the real secrets store and the **internal CA**.
-  Authenticate with `bao login -method=oidc`. ⚠ Always by HOSTNAME — its Let's Encrypt cert
-  has DNS SANs only, so `192.168.10.8` and `127.0.0.1` both fail TLS verification. The old
-  `bao.ad.ddupan.top` stays valid long-term: the AIA/CRL/ACME URLs in certs bao has already
-  issued, and the ACME accounts of cert-manager, PVE and dc1, point at it.
+  ⚠ Always by HOSTNAME — its Let's Encrypt cert has DNS SANs only, so `192.168.10.8` and
+  `127.0.0.1` both fail TLS verification. The old `bao.ad.ddupan.top` stays valid long-term:
+  the AIA/CRL/ACME URLs in certs bao has already issued, and the ACME accounts of
+  cert-manager, PVE and dc1, point at it.
+- **On the dev machine, log in to Bao with SPIRE, and get homelab secrets that way first.**
+  Use `auth/jwt-spire` with role `local-development` (`platform/spire/README.md`). The
+  identity matches uid 1000, so it does not work under `sudo`. The 5-minute token can read and
+  write `kv/k8s/*` and `kv/infra/*` and sign `ai-agent` SSH certs. Agents should not look for
+  the same secret elsewhere or ask for a `BAO_TOKEN` unless this fails.
+  `bao login -method=oidc` is for a person doing what that policy does not allow, such as
+  applying `infrastructure/openbao/terraform` locally.
 - **Kubernetes Secrets come from OpenBao** via External Secrets Operator (`platform/external-secrets/`),
   which authenticates with its own ServiceAccount JWT — no credential is stored in the cluster.
   The gitignored `<svc>/secret.yaml` files remain as **break-glass** for when bao is down.
