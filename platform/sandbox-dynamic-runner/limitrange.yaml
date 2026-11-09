@@ -9,10 +9,13 @@
 # graalvm build runs on its own LXC. Overcommitting memory is deliberate. If a
 # node does run short, the kernel OOM-kills burstable executor processes
 # (oom_score_adj near 1000) before k3s or PostgreSQL; that job fails and can be rerun.
+# That only covers memory: saturation short of OOM starves k3s and PostgreSQL
+# instead (2026-11-06), which is why POD_CAPACITY is set below what fits.
 #
-# Requests still bound scheduling. Allocatable after system pods: sandbox1
-# ~6.7Gi, sandbox2 ~5.4Gi; one ci-vm sandbox (3Gi + kata overhead) must still
-# fit on either node, which leaves room for 16 executors at 512Mi.
+# Requests still bound scheduling. Allocatable after system pods and the 1Gi
+# system-reserved: sandbox1 ~5.7Gi, sandbox2 ~4.4Gi; one ci-vm sandbox (3Gi +
+# kata overhead) must still fit on either node, which leaves room for 13
+# executors at 512Mi.
 # POD_CAPACITY must not exceed what fits, or the extra Pod stays Pending and
 # its task fails after the handoff deadline.
 apiVersion: v1

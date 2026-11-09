@@ -73,8 +73,11 @@ spec:
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
               value: "2000"
+            # 8, not the 16 that fit by memory requests. 2026-11-06 hit 100%
+            # CPU on both PVE hosts near 16 executors and took the K3s
+            # datastore down with them. Excess jobs wait in Gitea's queue instead.
             - name: POD_CAPACITY
-              value: "16"
+              value: "8"
             # See runner-config.yaml.
             - name: POD_RUNNER_CONFIGMAP
               value: gitea-runner-config

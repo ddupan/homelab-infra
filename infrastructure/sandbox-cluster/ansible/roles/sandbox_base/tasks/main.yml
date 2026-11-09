@@ -58,3 +58,26 @@
     dest: /dev/kmsg
     state: link
     force: true
+
+# k3s and Patroni live in system.slice, CI pods in kubepods.slice. The default
+# weights (100 against 157/313) gave the control plane the smaller share when CI
+# saturated the CPU, and PostgreSQL stalled until k3s exited (2026-11-06). Weights
+# only act under contention, so this costs CI nothing on an idle node.
+- name: Create the system.slice drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/system.slice.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Prioritise the control plane over pods for CPU
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/system.slice.d/control-plane-priority.conf
+    content: |
+      [Slice]
+      CPUWeight=1000
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd

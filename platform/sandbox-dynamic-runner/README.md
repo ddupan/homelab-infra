@@ -24,10 +24,11 @@ Gitea 就把 job 交给谁，不需要额外的调度配置（见 gitea-dynamic-
 - **Actions cache**：executor 的 runner 配置来自 `runner-config.yaml`（ConfigMap），cache
   存进 SeaweedFS 的 `ci-cache` bucket，与 homelab 成员共享；S3 key 由 ESO 从
   `kv/k8s/gitea-runner-cache-s3` 同步。
-- **容量按 CPU 调度**：sandbox1 为 4 CPU / 8G（宿主 pve1 的 i3 与 iam-spike-build 共用），
-  sandbox2 为 8 CPU / 6G / 64G rootfs。executor 的 CPU request 等于 limit（2），调度器
-  据此在 sandbox1 放 1 个、sandbox2 放 2 个（sandbox2 上 OpenSandbox 与 controller 已请求约 2.5 CPU），`POD_CAPACITY=3` 与之一致；超出可调度数量
-  的 Pod 会 Pending 并在交接期限后失败，所以改节点规格时两者要一起调。
+- **容量**：sandbox1 为 4 CPU / 8G（宿主 pve1 的 i3 与 iam-spike-build 共用），sandbox2 为
+  8 CPU / 6G / 64G rootfs。executor 的 CPU request 很小，调度只受内存 request 约束
+  （见 `limitrange.yaml`），实际上限是 `POD_CAPACITY=8`，由宿主 CPU 决定：接近 16 个
+  executor 时两台 PVE 宿主 CPU 跑满，K3s 的数据库随之超时（2026-11-06）。
+  超出可调度数量的 Pod 会 Pending 并在交接期限后失败，所以改节点规格时要一起核对。
 
 ## 上线
 
