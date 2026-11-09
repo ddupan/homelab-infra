@@ -19,12 +19,14 @@ resource "powerdns_record" "incus_a" {
   records = ["192.168.10.127"]
 }
 
+# 指向 Ayatori LoadBalancer（clusters/ayatori-prod/pg-prod.yaml）。资源地址保留 pg_prod_a：
+# A 改 CNAME 必须在同一地址上替换才有先删后建的顺序，换地址会与旧 A 冲突并留下 NXDOMAIN。
 resource "powerdns_record" "pg_prod_a" {
   zone    = powerdns_zone.lab.name
   name    = "pg-prod.lab.ddupan.top."
-  type    = "A"
+  type    = "CNAME"
   ttl     = 300
-  records = ["192.168.10.2"]
+  records = ["pg-prod.shared-postgresql.lb.lab.ddupan.top."]
 }
 
 # Patroni dev instance, a host process on the laptop (port 5433).
