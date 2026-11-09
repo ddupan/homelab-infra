@@ -83,6 +83,8 @@ admin:
 worker:
   enabled: true
   replicas: 1
+  # chart 默认连 12535.22535，会被 networkpolicy-admin.yaml 拦下；留给 worker 的 gRPC 端口是 33646。
+  adminServer: seaweedfs-admin.seaweedfs:23646.33646
   jobType: s3_lifecycle
   maxExecute: 1
   resources:
