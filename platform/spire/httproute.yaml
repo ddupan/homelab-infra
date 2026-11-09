@@ -5,7 +5,7 @@ metadata:
   namespace: spire-server
 spec:
   parentRefs:
-    # The issuer host; external-dns publishes it.
+    # Old issuer name, kept for JWKS fetches by Bao and iam-login; external-dns publishes it.
     - name: eg
       namespace: envoy-gateway-system
       sectionName: https-lab

@@ -5,10 +5,12 @@ global:
     clusterName: homelab
     trustDomain: ddupan.top
     # The `iss` of every JWT-SVID. Consumers that check it: Bao jwt-spire
-    # (bound_issuer), zot (bearer.oidc[].issuer) and iam-login (spiffe.issuer).
+    # (bound_issuer), zot (bearer.oidc[].issuer), iam-login (spiffe.issuer) and the Anthropic
+    # Console's federation issuer, which is set by hand.
     # Changing it is a cutover for all three — see README "Issuer migration".
-    # Moved from spire-oidc.ad to spire-oidc.lab on 2026-10-09.
-    jwtIssuer: https://spire-oidc.lab.ddupan.top
+    # Public so verifiers outside the LAN can reach it (Entra, Google, OCI). Moved from
+    # spire-oidc.lab on 2026-11-09.
+    jwtIssuer: https://spire-oidc.ddupan.top
     caSubject:
       country: CN
       organization: ddupan homelab
@@ -215,11 +217,11 @@ spiffe-oidc-discovery-provider:
   config:
     # Adds "use":"sig" to each JWK. Entra rejects a JWKS without it; other verifiers ignore it.
     setKeyUse: true
-    # Host allowlist: the public JWKS name (cloudflared tunnel,
-    # infrastructure/cloudflared/terraform/main.tf). jwt_issuer stays fixed, so the
-    # discovery document says the lab issuer whichever name serves it.
+    # Host allowlist: the lab name stays because Bao (jwks_url) and iam-login (jwk-set-uri)
+    # fetch keys there. jwt_issuer stays fixed, so the discovery document says the public
+    # issuer whichever name serves it.
     additionalDomains:
-      - spire-oidc.ddupan.top
+      - spire-oidc.lab.ddupan.top
   # TLS will terminate at the existing Envoy Gateway when the stable issuer is
   # exposed. The service remains ClusterIP-only during the first deployment.
   tls:

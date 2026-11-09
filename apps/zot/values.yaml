@@ -90,7 +90,7 @@ configFiles:
             },
             "oidc": [
               {
-                "issuer": "https://spire-oidc.lab.ddupan.top",
+                "issuer": "https://spire-oidc.ddupan.top",
                 "audiences": [
                   "zot"
                 ],
