@@ -238,6 +238,8 @@ spec:
         - sandbox-k8s.lab.ddupan.top:6443   # sandbox k3s API
         - sandbox-k8s.lab.ddupan.top:8080   # opensandbox API
         - pg-sandbox.lab.ddupan.top:5432    # sandbox k3s datastore（Patroni 主库）
+        - pg-prod.shared-postgresql.lb.lab.ddupan.top:5432   # pg-prod 直连（Patroni 主库）
+        - pg-prod.shared-postgresql.lb.lab.ddupan.top:6432   # pg-prod 连接池
 ---
 # 连接池（infrastructure/shared-postgresql/ansible/pooler.yml）。直接探成员而不是 VyOS 的 :6432：
 # HAProxy 只看 Patroni /primary，主库上的 PgBouncer 挂了它照样转发，探入口只能证明 HAProxy 在听。
