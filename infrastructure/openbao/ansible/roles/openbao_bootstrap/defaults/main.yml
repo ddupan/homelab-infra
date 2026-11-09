@@ -65,7 +65,7 @@ openbao_pki_replace_listener_cert: false
 
 # --- Raft snapshots (local timer, then an encrypted copy to OCI) ---
 openbao_snapshot_dir: "/var/backups/openbao"
-openbao_snapshot_keep: 14
+openbao_snapshot_keep: 7
 openbao_snapshot_oncalendar: "*-*-* 02:00:00"
 # Bucket and write-only key come from infrastructure/oci/terraform/bao-backup.tf.
 openbao_snapshot_offsite_endpoint: "https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com"
