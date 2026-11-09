@@ -157,11 +157,22 @@ promote、移除标记、确认全部成员健康，没有快照时做首个快�
 pg-prod 主库。已加入的成员重跑只做检查（`changed=0`）；不在集群里却带着旧数据目录的节点会被拒绝，
 清不清空由人判断。
 
-加入后的下一个 PR：etcd-pve3 的 policy 加 `homelab_data::monitoring`，抓取（2381、9109）加 etcd-pve3，
-消费者 endpoint 由 laptop 换成 10.60.0.22（Patroni 逐个重载）；之后移除 laptop 成员并停掉 laptop 上的
-`homelab-etcd`、`homelab-etcd-snapshot.timer`、`homelab-etcd-renew.timer`。
-`members` 去掉 etcd-laptop 后 etcd-pve3 的 etcd.yml 会变（`initial-cluster` 只在首次启动读），
-`homelab_data_restart_pending` 因此为 1；方便时单独重启 etcd-pve3 即可。
+### 移除成员
+
+先把消费者配置（Patroni 的 `etcd3.hosts`）改掉并写到节点上，再运行：
+
+```bash
+cd infrastructure/etcd/ansible
+ansible-playbook member-remove.yml --check -e etcd_remove_member=etcd-laptop
+ansible-playbook member-remove.yml -e etcd_remove_member=etcd-laptop
+```
+
+它在存活的 Cinc 成员上确认移除后仍有至少 3 个健康的投票成员，`member remove`，再停用被移除节点上的
+etcd 和定时任务（目标本身可以已经坏了，第二个 play 不可达时移除已完成，重跑或手动收尾即可）。数据目录保留。
+
+etcd-laptop 移除时 `homelab-etcd-renew.timer` 一并停用，etcd-pve1/2 的证书不再由 laptop 续签，
+要在到期前迁入 Cinc（#570 第 4 步）。`members` 去掉 etcd-laptop 后 etcd-pve3 的 etcd.yml 会变
+（`initial-cluster` 只在首次启动读），`homelab_data_restart_pending` 因此为 1；方便时单独重启 etcd-pve3 即可。
 
 ## 验证
 

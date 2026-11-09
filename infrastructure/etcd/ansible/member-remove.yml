@@ -1,0 +1,100 @@
+---
+# 把成员移出 shared etcd：在存活的 Cinc 成员上 member remove，再停掉被移除节点上的 etcd。
+# 一次性的成员变更，所以不在 site.yml 里；已移除的成员重跑只做检查，changed=0。
+#
+# 前提：消费者（Patroni 的 etcd3.hosts 等）的配置已不含该成员。运行中的 Patroni 从 member list
+# 刷新成员，不受影响；但重启时只读配置里的列表，指向已移除成员的配置会让它连不上。
+#
+# 先移除再停：先停的话 4 成员（quorum 3）只剩 3 个活着，再掉一个就丢 quorum，Patroni 随即降级
+# pg-prod 主库。移除后成员数立刻变 3（quorum 2）。数据目录保留，member-join.yml 会拒绝带旧数据的
+# 节点，清不清空由人判断。Cinc 部署的成员要先从 policy 拿掉，否则下一次收敛会把 unit 启回来。
+#
+#   ansible-playbook member-remove.yml --check -e etcd_remove_member=etcd-laptop
+#   ansible-playbook member-remove.yml -e etcd_remove_member=etcd-laptop
+- name: 从 shared etcd 移除成员
+  # 用 Cinc 成员操作：它们有节点自己的 admin 证书（CN=root），控制端不持有任何 etcd 凭据。
+  hosts: "{{ groups['etcd_cinc'] | difference([etcd_remove_member | default('')]) | first }}"
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_remove_dir: /etc/homelab-etcd
+    etcd_remove_ctl: /opt/homelab-etcd/etcdctl
+    # 低于 3 个投票成员就不再容忍单点故障，这种变更要人先想清楚。
+    etcd_remove_min_voters: 3
+  environment:
+    ETCDCTL_CACERT: "{{ etcd_remove_dir }}/ca.crt"
+    ETCDCTL_CERT: "{{ etcd_remove_dir }}/admin.crt"
+    ETCDCTL_KEY: "{{ etcd_remove_dir }}/admin.key"
+    # 证书 SAN 只有成员名和成员 IP，没有 127.0.0.1。
+    ETCDCTL_ENDPOINTS: "https://{{ etcd_address }}:2379"
+  tasks:
+    - name: 必须指定要移除的成员
+      ansible.builtin.assert:
+        that: etcd_remove_member is defined
+        fail_msg: "用 -e etcd_remove_member=<成员名> 指定"
+        quiet: true
+
+    - name: 读取集群成员
+      ansible.builtin.command:
+        argv: ["{{ etcd_remove_ctl }}", member, list, -w, json]
+      register: etcd_remove_list
+      changed_when: false
+      check_mode: false
+
+    # name 和 isLearner 在 JSON 里是 omitempty：缺省即未启动 / 投票成员。
+    - name: 区分目标与剩余投票成员
+      vars:
+        members: "{{ (etcd_remove_list.stdout | from_json).members }}"
+      ansible.builtin.set_fact:
+        etcd_remove_target: "{{ members | selectattr('name', 'defined') | selectattr('name', 'eq', etcd_remove_member) | first | default({}) }}"
+        etcd_remove_voters: >-
+          {{ members | selectattr('name', 'defined') | rejectattr('name', 'eq', etcd_remove_member)
+             | rejectattr('isLearner', 'true') | map(attribute='clientURLs') | flatten }}
+
+    - name: 移除后仍有足够的投票成员
+      ansible.builtin.assert:
+        that: etcd_remove_voters | length >= etcd_remove_min_voters
+        fail_msg: "移除 {{ etcd_remove_member }} 后只剩 {{ etcd_remove_voters | length }} 个投票成员"
+        quiet: true
+
+    # 目标本身可以不健康（移除坏成员正是常见场景），只要求留下的成员健康。
+    - name: 剩余投票成员全部健康
+      ansible.builtin.command:
+        argv: ["{{ etcd_remove_ctl }}", "--endpoints={{ etcd_remove_voters | join(',') }}", endpoint, health]
+      changed_when: false
+      check_mode: false
+
+    - name: 移除成员
+      ansible.builtin.command:
+        argv:
+          - "{{ etcd_remove_ctl }}"
+          - "--endpoints={{ etcd_remove_voters | join(',') }}"
+          - member
+          - remove
+          - "{{ '%x' | format(etcd_remove_target.ID) }}"
+      when: etcd_remove_target | length > 0
+      changed_when: true
+
+    - name: 集群健康
+      ansible.builtin.command:
+        argv: ["{{ etcd_remove_ctl }}", "--endpoints={{ etcd_remove_voters | join(',') }}", endpoint, health, --cluster]
+      register: etcd_remove_health
+      until: etcd_remove_health.rc == 0
+      retries: 12
+      delay: 5
+      changed_when: false
+      when: not ansible_check_mode
+
+# 移除后 etcd 自己退出，但 unit 的 Restart 会反复拉起并失败；定时任务也要停，否则快照一直报错。
+- name: 停掉被移除成员上的 etcd
+  hosts: "{{ etcd_remove_member | default('none') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: 停用 etcd 与定时任务
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop: "{{ etcd_remove_units | default(['homelab-etcd-snapshot.timer', 'homelab-etcd.service']) }}"
