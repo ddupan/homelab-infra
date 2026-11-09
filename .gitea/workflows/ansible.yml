@@ -87,7 +87,7 @@ jobs:
           # before syntax-check starts. This throwaway value decrypts nothing.
           export ANSIBLE_VAULT_PASSWORD_FILE="$RUNNER_TEMP/ansible-lint-vault-pass"
           printf '%s\n' 'ci-placeholder-not-a-production-secret' > "$ANSIBLE_VAULT_PASSWORD_FILE"
-          # 自己的 collections 优先；没有 requirements.yml 的项目（docker、oci 等）回落到
+          # 自己的 collections 优先；没有 requirements.yml 的项目（docker 等）和没声明的 collection 回落到
           # 其余项目装好的那些。
           others=$(ls -d "$HOME"/.ansible/projects/* 2>/dev/null | tr '\n' ':')
           rc=0
