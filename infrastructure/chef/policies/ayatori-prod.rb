@@ -29,6 +29,8 @@ default['homelab_ayatori']['gitops'] = {
 default['homelab_ayatori']['loadbalancer']['address_pool'] = '10.62.0.0/24'
 # ADR-0022：节点 agent 加入控制面（首次签发见 ../ansible/join.yml）。
 default['homelab_ayatori']['node_agents'] = true
+# ADR-0022：LB 主机的 agent 自己收敛 HAProxy，manager 停止远端写入；随后 loadbalancer-prod 打开 agent.converge。
+default['homelab_ayatori']['loadbalancer']['agent_convergence'] = true
 # Hostname 写入 Ayatori 独占的 zone（infrastructure/dns/terraform/lb-zones.tf）；API key 由 ESO 读取 Bao kv/k8s/powerdns。
 default['homelab_ayatori']['loadbalancer']['dns'] = {
   'url' => 'http://192.168.10.127:8053',
