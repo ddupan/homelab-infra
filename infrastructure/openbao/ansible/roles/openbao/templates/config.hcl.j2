@@ -11,6 +11,9 @@ listener "tcp" {
   tls_cert_file   = "{{ openbao_tls_dir }}/cert.pem"
   tls_key_file    = "{{ openbao_tls_dir }}/key.pem"
   tls_min_version = "tls12"
+{% if not openbao_disable_unauthed_generate_root %}
+  disable_unauthed_generate_root_endpoints = false
+{% endif %}
 }
 
 api_addr     = "{{ openbao_api_addr }}"
