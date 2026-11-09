@@ -43,9 +43,9 @@ sandbox_postgresql_replication_password: "{{ lookup('env', 'SANDBOX_REPLICATION_
 sandbox_patroni_version: 4.1.5
 sandbox_patroni_etcd_user: patroni-pg-sandbox
 sandbox_patroni_etcd_hosts:
-  - 192.168.10.127:2379
   - 10.60.0.20:2379
   - 10.60.0.21:2379
+  - 10.60.0.22:2379
 # Controller-side only: signs the etcd client certificate and reads the etcd
 # account. Never sent to the nodes.
 sandbox_bao_url: https://bao.lab.ddupan.top:8200
