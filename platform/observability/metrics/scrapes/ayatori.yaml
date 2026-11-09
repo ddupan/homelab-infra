@@ -79,3 +79,14 @@ spec:
       labels: {cluster: ayatori-dev, env: dev}
     - targets: ['192.168.10.12:8281']
       labels: {cluster: ayatori-prod, env: prod}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: ayatori-compute-agent
+  namespace: monitoring
+spec:
+  jobName: ayatori-compute-agent
+  targetEndpoints:
+    - targets: ['192.168.10.14:9642']
+      labels: {cluster: ayatori-dev, env: dev, node: compute-dev1}
