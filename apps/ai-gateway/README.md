@@ -20,8 +20,10 @@ export ANTHROPIC_BASE_URL=https://ai.lab.ddupan.top/anthropic
 export ANTHROPIC_API_KEY=<your gateway key>   # NOT an Anthropic key
 ```
 
-OpenAI-compatible clients (both providers): base URL `https://ai.lab.ddupan.top/v1`, but the
-key must still go in an `x-api-key` header — `Authorization: Bearer` is not checked.
+OpenAI-compatible clients: base URL `https://ai.lab.ddupan.top/v1`, key as the usual API key
+(`Authorization: Bearer`; `x-api-key` works too). **GPT models only** — Claude is reachable only
+through `/anthropic`, since Agent Router cannot translate OpenAI-style requests to Anthropic's
+native API. `/anthropic` serves GPT models as well.
 
 ## How it fits
 

@@ -37,8 +37,9 @@ spec:
       name: ai-gateway-envoy
 ---
 # One key per client, from Bao (external-secret.yaml). x-api-key is where Anthropic SDKs and
-# Claude Code (ANTHROPIC_API_KEY) put the key, so clients need only a base URL and a key.
-# sanitize drops it before forwarding; the client's name goes on as x-ai-client.
+# Claude Code (ANTHROPIC_API_KEY) put the key; OpenAI SDKs send `Authorization: Bearer <key>`,
+# whose "Bearer " Envoy strips. Either works, so clients need only a base URL and a key.
+# sanitize drops both headers before forwarding; the client's name goes on as x-ai-client.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -53,6 +54,6 @@ spec:
     credentialRefs:
       - name: client-keys
     extractFrom:
-      - headers: [x-api-key]
+      - headers: [x-api-key, authorization]
     sanitize: true
     forwardClientIDHeader: x-ai-client
