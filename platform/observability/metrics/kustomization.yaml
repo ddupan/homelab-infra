@@ -54,3 +54,5 @@ resources:
   - rules/linstor.yaml
   - scrapes/k3s-components.yaml
   - rules/k3s-components.yaml
+  - exporters/cloud-cost.yaml
+  - rules/cloud-cost.yaml

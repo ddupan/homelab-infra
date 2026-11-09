@@ -1,0 +1,60 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cloud-cost
+  namespace: monitoring
+spec:
+  groups:
+  - name: cloud-cost
+    interval: 5m
+    rules:
+    # 采集器每 3 小时 push 一次，指标不连续，用 last_over_time 跨过两次采集的间隔。
+    # 账单有几小时到一天的延迟，这些告警防的是慢性超支，防不了突发。
+    - alert: CloudCostOverBudget
+      expr: |
+        sum by (provider, currency) (last_over_time(cloud_cost_month_to_date[7h]))
+        > max by (provider, currency) (last_over_time(cloud_cost_budget[7h]))
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: '{{ $labels.provider }} 本月费用已超预算'
+        description: '本月抵扣前费用 {{ printf "%.0f" $value }} {{ $labels.currency }}。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。'
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+    # 按本月日均外推。月初样本太少，前两天不判断；for 6h 跨过两次采集，避免单次账单补录造成抖动。
+    - alert: CloudCostForecastOverBudget
+      expr: |
+        sum by (provider, currency) (last_over_time(cloud_cost_month_to_date[7h]))
+          / scalar(day_of_month()) * scalar(days_in_month())
+        > max by (provider, currency) (last_over_time(cloud_cost_budget[7h]))
+        and on () (day_of_month() >= 3)
+      for: 6h
+      labels:
+        severity: warning
+      annotations:
+        summary: '{{ $labels.provider }} 按当前速度本月会超预算'
+        description: '按日均外推到月底约 {{ printf "%.0f" $value }} {{ $labels.currency }}（抵扣前）。按 service 查看 cloud_cost_month_to_date。'
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+    # 赠金到期后账户关停，云上 CI 池消失，只认 cloud 标签的 job 会一直排队。
+    - alert: CloudCreditExpiringSoon
+      expr: max by (provider) (last_over_time(cloud_credit_expiry_timestamp_seconds[7h])) - time() < 14 * 86400
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: '{{ $labels.provider }} 赠金不到 14 天到期'
+        description: 决定升级付费账户还是把 CI 切回 homelab。升级后硬上限消失，要先确认预算和 runner 并发上限。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/gcp-billing/README.md
+    # 时间戳只在该云采集成功时写入。absent 兜住从未成功的情况。
+    - alert: CloudCostCollectorStale
+      expr: |
+        time() - max by (provider) (last_over_time(cloud_cost_collect_timestamp_seconds[2d])) > 12 * 3600
+        or absent_over_time(cloud_cost_collect_timestamp_seconds{provider="oci"}[2d])
+        or absent_over_time(cloud_cost_collect_timestamp_seconds{provider="gcp"}[2d])
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: '{{ $labels.provider }} 账单采集超过 12 小时没有成功'
+        description: 费用告警此时不可信。检查 monitoring 命名空间 cloud-cost Job 的日志和 ExternalSecret；GCP 还要确认 BigQuery 导出仍在运行。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml

@@ -1,0 +1,341 @@
+# 把 OCI 和 GCP 本月账单写进 VictoriaMetrics，阈值和告警在 ../rules/cloud-cost.yaml，走现有 Alertmanager。
+#
+# 费用：OCI Usage API 不收费；GCP 每次查询按 BigQuery 最低 10 MB 计，一个月约 2.4 GB，在每月 1 TiB
+# 免费额度内。maximumBytesBilled 限制单次查询的上限，账单表异常变大时查询会失败，不会多花钱。
+#
+# 用 OTLP push 而不是 exporter：账单每天只更新几次，常驻进程没有意义。发 OTLP/JSON 给 otel-collector，
+# 由它转成 VictoriaMetrics 要求的 protobuf，这个脚本只需要标准库。
+#
+# 这里的指标只用来告警：每个样本是"采集那一刻看到的本月累计"，云厂商事后修正账单不会改写历史样本，
+# VictoriaMetrics 也只保留 6 个月。账单明细和历史以 BigQuery 导出、OCI Usage API 为准，不要用这些
+# 样本做差分来算日费用：账单补录和月初归零都会让差值失真。
+#
+# 账单有几小时到一天的延迟，这里防的是慢性超支；防突发要靠 quota 和 runner 并发上限。
+#
+# 依赖 Bao kv/k8s/cloud-cost（oci_client_id、oci_client_secret），来自 infrastructure/oci/terraform/finops.tf
+# 的 output。这是采集器专用的 OAuth client，单独拿不到 OCI 权限，还必须持有匹配的 JWT-SVID。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloud-cost
+  namespace: monitoring
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cloud-cost
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: cloud-cost
+    creationPolicy: Owner
+  data:
+    - secretKey: oci_client_id
+      remoteRef:
+        key: k8s/cloud-cost
+        property: oci_client_id
+    - secretKey: oci_client_secret
+      remoteRef:
+        key: k8s/cloud-cost
+        property: oci_client_secret
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloud-cost
+  namespace: monitoring
+data:
+  # 币种必须与账单币种相同，否则采集器报错退出，不会让告警静默失效。
+  # oci：现在只用 Always Free，正常费用是 0，任何真实费用都值得看一眼。
+  # gcp：15,000 约合 $100（按 ¥150/$ 粗算），是 $300 赠金用 90 天的匀速线；按抵扣前的费用比较。
+  #      赠金到期后账户关停，云上 CI 池随之消失，到期前要决定升级还是下线。
+  budgets.json: |
+    {
+      "oci": {"currency": "JPY", "monthly": 200},
+      "gcp": {"currency": "JPY", "monthly": 15000, "credit_expires": "2027-02-08"}
+    }
+  helper.conf: |
+    agent_address = "/run/spire/agent-sockets/spire-agent.sock"
+    daemon_mode = false
+    cert_dir = "/run/cloud-cost"
+    jwt_svids = [
+      { jwt_audience = "oci", jwt_svid_file_name = "oci.jwt" },
+      { jwt_audience = "gcp", jwt_svid_file_name = "gcp.jwt" },
+    ]
+  collect.py: |
+    # 不输出任何 token；错误信息只含状态码和响应开头。
+    import base64, calendar, datetime as dt, email.utils, hashlib, json, os, subprocess, sys, tempfile
+    import time, urllib.error, urllib.request
+
+    RUN = os.environ.get("RUN_DIR", "/run/cloud-cost")
+    CONFIG = os.environ.get("CONFIG_DIR", "/etc/cloud-cost")
+    TENANCY = "ocid1.tenancy.oc1..aaaaaaaalncmdinfnljot5oh7rqleavphhsa6jpyurfu4luztcct3tp5gsfa"
+    IDCS = "https://idcs-15519d43fa4e4b2588e6c0ffa5be9423.identity.oraclecloud.com"
+    OCI_USAGE_HOST = "usageapi.ap-osaka-1.oci.oraclecloud.com"
+    GCP_PROJECT, GCP_NUMBER, GCP_SA = "ddupan-ci", "811223086070", "finops-reader"
+    GCP_TABLE = "ddupan-ci.billing_export.gcp_billing_export_v1_01FFF4_530462_8FC932"
+    OTLP_URL = "http://otel-collector.monitoring.svc:4318/v1/metrics"
+
+    def call(req, tries=4):
+        # WAN 会随机断，网络错误要重试。HTTP 错误不重试：OCI 的 aud/subject 不匹配也返回 500。
+        for i in range(tries):
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    return r.read()
+            except urllib.error.HTTPError as e:
+                raise SystemExit(f"{req.full_url}: HTTP {e.code} {e.read()[:300]!r}") from None
+            except OSError as e:
+                print(f"{req.full_url}: {e}; retry {i + 1}/{tries}", flush=True)
+                time.sleep(2 ** i * 5)
+        raise SystemExit(f"{req.full_url}: giving up")
+
+    def post(url, body, headers):
+        return json.loads(call(urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)))
+
+    def read_jwt(name):
+        with open(f"{RUN}/{name}") as f:
+            return f.read().strip()
+
+    def oci(now):
+        with tempfile.TemporaryDirectory(dir=RUN) as tmp:
+            key = f"{tmp}/key.pem"
+            subprocess.run(["openssl", "genrsa", "-out", key, "2048"], check=True, capture_output=True)
+            der = subprocess.run(["openssl", "rsa", "-in", key, "-pubout", "-outform", "DER"],
+                                 check=True, capture_output=True).stdout
+            basic = base64.b64encode(f"{os.environ['OCI_CLIENT_ID']}:{os.environ['OCI_CLIENT_SECRET']}".encode()).decode()
+            form = "&".join([
+                "grant_type=urn:ietf:params:oauth:grant-type:token-exchange",
+                "requested_token_type=urn:oci:token-type:oci-upst",
+                "public_key=" + urllib.request.quote(base64.b64encode(der).decode(), safe=""),
+                "subject_token=" + read_jwt("oci.jwt"),
+                "subject_token_type=jwt",
+            ]).encode()
+            token = json.loads(call(urllib.request.Request(f"{IDCS}/oauth2/v1/token", data=form, headers={
+                "Authorization": f"Basic {basic}", "Content-Type": "application/x-www-form-urlencoded"})))["token"]
+
+            start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # 结束时间不含当天，必须是 UTC 零点，所以取明天。
+            end = (now + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            body = json.dumps({
+                "tenantId": TENANCY, "granularity": "DAILY", "queryType": "COST", "groupBy": ["service"],
+                "timeUsageStarted": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timeUsageEnded": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }).encode()
+            path = "/20200107/usage"
+            headers = {
+                "date": email.utils.formatdate(usegmt=True), "host": OCI_USAGE_HOST,
+                "x-content-sha256": base64.b64encode(hashlib.sha256(body).digest()).decode(),
+                "content-type": "application/json", "content-length": str(len(body)),
+            }
+            signing = f"(request-target): post {path}\n" + "\n".join(f"{k}: {v}" for k, v in headers.items())
+            signature = subprocess.run(["openssl", "dgst", "-sha256", "-sign", key], input=signing.encode(),
+                                       check=True, capture_output=True).stdout
+            headers["authorization"] = (
+                f'Signature algorithm="rsa-sha256",headers="(request-target) {" ".join(headers)}",'
+                f'keyId="ST${token}",signature="{base64.b64encode(signature).decode()}",version="1"')
+            items = json.loads(call(urllib.request.Request(f"https://{OCI_USAGE_HOST}{path}", data=body, headers=headers)))["items"]
+
+        totals = {}
+        for item in items:
+            # 免费额度内的行 computedAmount 是 null；没有币种的行没有金额，跳过。
+            currency = (item.get("currency") or "").strip()
+            if currency:
+                totals.setdefault(("oci", item["service"], currency), [0.0, 0.0])[0] += item.get("computedAmount") or 0
+        return totals
+
+    def gcp(now):
+        sts = post("https://sts.googleapis.com/v1/token", {
+            "audience": f"//iam.googleapis.com/projects/{GCP_NUMBER}/locations/global/workloadIdentityPools/spire/providers/spire-billing",
+            "grantType": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "requestedTokenType": "urn:ietf:params:oauth:token-type:access_token",
+            "scope": "https://www.googleapis.com/auth/cloud-platform",
+            "subjectToken": read_jwt("gcp.jwt"),
+            "subjectTokenType": "urn:ietf:params:oauth:token-type:jwt",
+        }, {"content-type": "application/json"})["access_token"]
+        token = post(
+            f"https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/{GCP_SA}@{GCP_PROJECT}.iam.gserviceaccount.com:generateAccessToken",
+            {"scope": ["https://www.googleapis.com/auth/bigquery.readonly"], "lifetime": "600s"},
+            {"authorization": f"Bearer {sts}", "content-type": "application/json"})["accessToken"]
+        # 按发票月份汇总，和 GCP 账单的周期一致（太平洋时间）。
+        sql = f"""SELECT service.description, currency, SUM(cost),
+                         SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))
+                  FROM `{GCP_TABLE}`
+                  WHERE invoice.month = FORMAT_DATE('%Y%m', CURRENT_DATE('America/Los_Angeles'))
+                  GROUP BY 1, 2"""
+        result = post(f"https://bigquery.googleapis.com/bigquery/v2/projects/{GCP_PROJECT}/queries", {
+            "query": sql, "useLegacySql": False, "timeoutMs": 60000, "maximumBytesBilled": str(100 * 2 ** 20),
+        }, {"authorization": f"Bearer {token}", "content-type": "application/json"})
+        if not result.get("jobComplete"):
+            raise SystemExit("BigQuery job did not finish in time")
+        totals = {}
+        for row in result.get("rows", []):
+            service, currency, gross, credits = (c["v"] for c in row["f"])
+            totals[("gcp", service, currency)] = [float(gross), float(credits)]
+        return totals
+
+    def otlp(points):
+        stamp, metrics = str(time.time_ns()), {}
+        for name, attributes, value in points:
+            metrics.setdefault(name, []).append({
+                "timeUnixNano": stamp, "asDouble": float(value),
+                "attributes": [{"key": k, "value": {"stringValue": v}} for k, v in attributes.items()],
+            })
+        return {"resourceMetrics": [{
+            "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "cloud-cost"}}]},
+            "scopeMetrics": [{"metrics": [{"name": n, "gauge": {"dataPoints": d}} for n, d in metrics.items()]}],
+        }]}
+
+    def main():
+        with open(f"{CONFIG}/budgets.json") as f:
+            budgets = json.load(f)
+        now = dt.datetime.now(dt.timezone.utc)
+        points, failed = [], False
+        for name, budget in budgets.items():
+            points.append(("cloud_cost_budget", {"provider": name, "currency": budget["currency"]}, budget["monthly"]))
+            if "credit_expires" in budget:
+                expires = calendar.timegm(dt.date.fromisoformat(budget["credit_expires"]).timetuple())
+                points.append(("cloud_credit_expiry_timestamp_seconds", {"provider": name}, expires))
+        for name, fetch in (("oci", oci), ("gcp", gcp)):
+            # 一家失败不影响另一家写入；时间戳只在成功时写，CloudCostCollectorStale 据此告警。
+            try:
+                totals = fetch(now)
+                wrong = {cur for (_, _, cur) in totals} - {budgets[name]["currency"]}
+                if wrong:
+                    raise SystemExit(f"currency {sorted(wrong)} does not match budgets.json")
+            except (SystemExit, Exception) as e:
+                print(f"{name}: {e}", flush=True)
+                failed = True
+                continue
+            for (provider, service, currency), (gross, credits) in totals.items():
+                attributes = {"provider": provider, "service": service, "currency": currency}
+                points.append(("cloud_cost_month_to_date", attributes, gross))
+                points.append(("cloud_cost_credits_month_to_date", attributes, credits))
+            points.append(("cloud_cost_collect_timestamp_seconds", {"provider": name}, time.time()))
+        payload = otlp(points)
+        if os.environ.get("DRY_RUN"):
+            print(json.dumps(payload))
+        else:
+            result = post(OTLP_URL, payload, {"content-type": "application/json"})
+            if result.get("partialSuccess", {}).get("rejectedDataPoints"):
+                raise SystemExit(f"collector rejected points: {result['partialSuccess']}")
+            print(f"pushed {len(points)} points", flush=True)
+        sys.exit(1 if failed else 0)
+
+    main()
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloud-cost
+  namespace: monitoring
+spec:
+  # 账单每天更新几次，3 小时足够；同时把 BigQuery 查询量压到免费额度内很低的位置。
+  schedule: "23 */3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: cloud-cost
+        spec:
+          serviceAccountName: cloud-cost
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # 一次性：把两个 JWT-SVID 写到共享 tmpfs 后退出。
+            - name: jwt-svid
+              image: ghcr.io/spiffe/spiffe-helper:0.12.3@sha256:58f28329f6be32ab5a80248931845157d858f0aebdf7e462217a43f019e3452f
+              args: [-config, /etc/cloud-cost/helper.conf]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/cloud-cost
+                  readOnly: true
+                - name: spire-agent-socket
+                  mountPath: /run/spire/agent-sockets
+                  readOnly: true
+                - name: run
+                  mountPath: /run/cloud-cost
+          containers:
+            - name: collect
+              # 用 slim 不用 alpine：OCI 请求签名和 tf.py 一样调 openssl 命令行，alpine 镜像里没有。
+              image: docker.io/library/python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
+              command: [python3, -I, /etc/cloud-cost/collect.py]
+              env:
+                - name: OCI_CLIENT_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloud-cost
+                      key: oci_client_id
+                - name: OCI_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloud-cost
+                      key: oci_client_secret
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/cloud-cost
+                  readOnly: true
+                - name: run
+                  mountPath: /run/cloud-cost
+          volumes:
+            - name: config
+              configMap:
+                name: cloud-cost
+            - name: spire-agent-socket
+              csi:
+                driver: csi.spiffe.io
+                readOnly: true
+            # 内存盘且只属于这个 Pod：JWT-SVID 和临时私钥不落节点磁盘。
+            - name: run
+              emptyDir:
+                medium: Memory
+                sizeLimit: 1Mi
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: monitoring-cloud-cost
+spec:
+  className: spire-mgmt-spire
+  spiffeIDTemplate: spiffe://ddupan.top/ns/monitoring/sa/cloud-cost
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: monitoring
+  podSelector:
+    matchLabels:
+      app: cloud-cost
+  workloadSelectorTemplates:
+    - k8s:ns:monitoring
+    - k8s:sa:cloud-cost
