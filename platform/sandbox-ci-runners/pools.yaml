@@ -91,7 +91,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.15.5@sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481
+          image: ghcr.io/spiffe/spire-agent:1.16.0@sha256:ab3a8ce70435374cc5d84c81eabf0278dc046ddbc0a736d59694ba9e5975b1b6
           args: [-config, /run/spire/config/agent.conf]
           securityContext:
             allowPrivilegeEscalation: false
@@ -228,7 +228,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.15.5@sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481
+          image: ghcr.io/spiffe/spire-agent:1.16.0@sha256:ab3a8ce70435374cc5d84c81eabf0278dc046ddbc0a736d59694ba9e5975b1b6
           args: [-config, /run/spire/config/agent.conf]
           securityContext:
             allowPrivilegeEscalation: false
@@ -249,7 +249,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: docker
-          image: docker.io/library/docker:29.9.2-dind
+          image: docker.io/library/docker:29.9.3-dind
           command: [/bin/sh, -c]
           args:
             - test -e /dev/kmsg || mknod /dev/kmsg c 1 11; exec dockerd --host=unix:///run/docker/docker.sock --group=2000 --storage-driver=overlay2

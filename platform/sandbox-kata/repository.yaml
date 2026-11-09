@@ -9,6 +9,6 @@ spec:
   ref:
     # Flux pulls by digest when both are set; the tag is only what Renovate needs to find
     # newer versions (this repo has no `latest` tag, so a bare digest cannot be updated).
-    tag: 4.1.0
-    digest: sha256:33f102f6db70083de4fc8238af4439c4245a601bcb6a72e49bc80529098aefc0
+    tag: 4.3.1
+    digest: sha256:8eab352a59b42dc7b3aebe87d4114b936a8576967d4800047ce708fcebb61d2e
   url: oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy
