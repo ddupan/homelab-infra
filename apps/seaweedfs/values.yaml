@@ -77,3 +77,19 @@ admin:
   # The tailnet ingress had no login in front of it; the UI is now httproute-admin.yaml.
   ingress:
     enabled: false
+
+# 执行 S3 lifecycle 规则：bucket 上的规则本身不会删对象，没有 worker 时数据会一直留着。
+# 只跑 s3_lifecycle，不做 vacuum、balance、EC：volume 就在笔记本那块 SSD 上，写高峰时 IO 已经饱和。
+worker:
+  enabled: true
+  replicas: 1
+  # chart 默认连 12535.22535，会被 networkpolicy-admin.yaml 拦下；留给 worker 的 gRPC 端口是 33646。
+  adminServer: seaweedfs-admin.seaweedfs:23646.33646
+  jobType: s3_lifecycle
+  maxExecute: 1
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
