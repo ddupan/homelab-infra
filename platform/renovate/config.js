@@ -14,6 +14,9 @@ module.exports = {
   // Our own hosts (e.g. the terraform.lab.ddupan.top provider registry) resolve to LAN
   // addresses; Renovate is moving to blocking internal hosts by default.
   hostRules: [{ matchHost: 'ddupan.top', allowInternal: true }],
+  // Post-upgrade tasks run in this pod, which holds the token for every repo: allow only exact
+  // commands. ayatori regenerates controller-gen/oapi-codegen output when those tools bump.
+  allowedCommands: ['^make manifests generate generate-dataplaneapi$'],
   // Every PR runs CI on the laptop, which is already the bottleneck.
   prHourlyLimit: 2,
   prConcurrentLimit: 5,
