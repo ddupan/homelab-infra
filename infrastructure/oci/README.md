@@ -86,6 +86,7 @@ python3 infrastructure/oci/github-mirror.py --rotate  # 用 Bao 里的新 token 
 - token 是 fine-grained PAT，只限 `ddupan` 组织，存于 Bao `kv/infra/gitea-github-mirror` 的
   `GITHUB_TOKEN`。最长 366 天，到期前换新并运行 `--rotate`，否则镜像会静默停止更新。
 - 必须在 GitHub 上关闭 Actions，否则镜像过去的 workflow 可能运行；脚本在首次推送前逐仓库关闭。
+  例外见脚本里的 `ACTIONS_ALLOWED`：这些仓库用 GitHub Actions 向 ghcr 发布镜像，脚本不会改动它们的 Actions 开关。
 - Gitea 拒绝给归档仓库加推送镜像，脚本会跳过并打印出来。
 - 不要从本地 checkout 推送到 GitHub：本地 ref 可能带有从未发布到 Gitea 的历史。
 
