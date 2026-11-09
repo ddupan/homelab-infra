@@ -6,7 +6,7 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 %w(homelab_base homelab_ayatori).each do |name|
   cookbook name,
            git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-           tag: 'v0.4.13',
+           tag: 'v0.4.14',
            rel: "cookbooks/#{name}"
 end
 

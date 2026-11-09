@@ -1,5 +1,5 @@
 {
-  "revision_id": "21b32afb20b0639c4522efe8ccf4ab2dc9091b97d3530e6381bb68e5a5cf4913",
+  "revision_id": "34917f9a6432589d8f2a5a453e036f594bc7c539e62aee3b1041e594655711a4",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,15 +11,15 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.1.5",
-      "identifier": "817160cde211079c60ca4b1fc9eaf8d8e80c66f2",
-      "dotted_decimal_identifier": "36434932580618503.44016518326897130.273610489751282",
-      "cache_key": "homelab_ayatori-e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
+      "version": "0.1.6",
+      "identifier": "ebc3625345dcff0948ee414809a1411983f1922b",
+      "dotted_decimal_identifier": "66361446598302975.2613462925052321.71577843634731",
+      "cache_key": "homelab_ayatori-6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
-        "tag": "v0.4.13",
+        "revision": "6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
+        "tag": "v0.4.14",
         "rel": "cookbooks/homelab_ayatori"
       }
     },
@@ -27,12 +27,12 @@
       "version": "0.4.5",
       "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
       "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
+      "cache_key": "homelab_base-6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
-        "tag": "v0.4.13",
+        "revision": "6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
+        "tag": "v0.4.14",
         "rel": "cookbooks/homelab_base"
       }
     }
@@ -77,7 +77,7 @@
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.1.5)": [
+      "homelab_ayatori (0.1.6)": [
         [
           "homelab_base",
           ">= 0.0.0"
