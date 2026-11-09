@@ -73,11 +73,13 @@ spec:
               value: gitea-dynamic-runner
             - name: POD_EXECUTOR_UID
               value: "2000"
-            # 13 is what still fits by memory requests with the 1Gi system-reserved
-            # (see limitrange.yaml). 2026-11-06 hit 100% CPU on both PVE hosts near
-            # 16 executors and took the K3s datastore down with them.
+            # Set by host pressure, not by what fits: memory requests would allow 13
+            # (see limitrange.yaml), but the PVE hosts also carry production etcd.
+            # Over 7 days to 2026-11-09, at 7+ executors median WAL fsync p95 passed
+            # 80ms (4-6: 20-31ms); at 13 pve2 swapped, load reached 210 and etcd
+            # changed leader repeatedly. 2026-11-06 near 16 took the K3s datastore down.
             - name: POD_CAPACITY
-              value: "13"
+              value: "6"
             # See runner-config.yaml.
             - name: POD_RUNNER_CONFIGMAP
               value: gitea-runner-config
