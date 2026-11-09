@@ -31,3 +31,4 @@ resources:
   - apps/tailscale.yaml
   - apps/cloudflared.yaml
   - apps/ai-gateway.yaml
+  - apps/openlist.yaml
