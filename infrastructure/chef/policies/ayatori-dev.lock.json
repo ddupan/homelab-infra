@@ -1,5 +1,5 @@
 {
-  "revision_id": "3c7f69e21ebe360691a77ea5ebf0c29aa99855adae6873310ba7d12bfc476b8c",
+  "revision_id": "5a5c0566cc9c3a27a1791ca8bb136dc482d31e507968a5bd0c47a75377afb5a7",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,15 +11,15 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.1.4",
-      "identifier": "d81d0bc2f36dc85ebcb3fa65ed0a7abbbac8a02b",
-      "dotted_decimal_identifier": "60830531322080712.26666128996953354.134946711183403",
-      "cache_key": "homelab_ayatori-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "version": "0.1.5",
+      "identifier": "817160cde211079c60ca4b1fc9eaf8d8e80c66f2",
+      "dotted_decimal_identifier": "36434932580618503.44016518326897130.273610489751282",
+      "cache_key": "homelab_ayatori-e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
+        "tag": "v0.4.13",
         "rel": "cookbooks/homelab_ayatori"
       }
     },
@@ -27,12 +27,12 @@
       "version": "0.4.5",
       "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
       "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "cache_key": "homelab_base-e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "e2d75d9983f937c14c7bcc0d5e0e5e260307f955",
+        "tag": "v0.4.13",
         "rel": "cookbooks/homelab_base"
       }
     }
@@ -40,8 +40,8 @@
   "default_attributes": {
     "homelab_ayatori": {
       "environment": "dev",
-      "release": "v0.3.0",
-      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:2d68a8e50c33806aa3569fbba376ca96ad66201a4ff1e76e33b410eec8ad77a8",
+      "release": "v0.3.1",
+      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:fa57838cda328b14e6e90f934b17db520d35ab539d20db5e6521369cdd2863b5",
       "postgresql_instance": {
         "name": "homelab-dev",
         "host": "pg-dev.lab.ddupan.top",
@@ -78,7 +78,7 @@
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.1.4)": [
+      "homelab_ayatori (0.1.5)": [
         [
           "homelab_base",
           ">= 0.0.0"
