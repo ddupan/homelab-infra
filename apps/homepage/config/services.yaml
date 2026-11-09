@@ -21,8 +21,13 @@
         href: http://192.168.10.127:3000/
         icon: netbootxyz.svg
         description: 网络启动菜单
-# Helm-chart routes: their charts render the HTTPRoute, so they are listed here.
+# Helm-chart routes (their charts render the HTTPRoute) and off-cluster apps.
 - 应用:
+    # On OCI A1, not k3s, so no namespace/podSelector: there are no pods here to report on.
+    - Gitea:
+        href: https://git.ddupan.top/
+        icon: gitea.svg
+        description: 代码与 CI
     - Artifact Keeper:
         href: https://artifacts.lab.ddupan.top/
         icon: mdi-package-variant
