@@ -259,3 +259,41 @@ tests:
         summary: 计算节点 compute-dev1 的存储池 full 使用超过 90%
         description: 清理不用的卷与镜像，或扩容底层存储。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+- name: pg-prod LB 入口没有 primary 时告警，有一个时安静
+  interval: 30s
+  input_series:
+  - series: ayatori_loadbalancer_port_ready_endpoints{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",port="5432"}
+    values: 1x4 0x6
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: PgProdLbNoPrimary
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: PgProdLbNoPrimary
+    exp_alerts:
+    - exp_labels: {job: ayatori-kube-state-metrics, cluster: ayatori-prod, resource_namespace: shared-postgresql, name: pg-prod, port: "5432", severity: critical, service: shared-postgresql}
+      exp_annotations:
+        summary: pg-prod LB 入口端口 5432 没有可用的 primary
+        description: 所有成员的 Patroni /primary 都不是 200：故障切换进行中，或集群失去 leader。patronictl list；同时看 SharedPostgres* 告警。
+- name: pg-prod LB 同一主机上两个成员 UP 告警，各主机一个 UP 时安静
+  interval: 30s
+  input_series:
+  - series: ayatori_loadbalancer_endpoint_status{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",port="5432",host="lb-prod-1",endpoint="192.168.10.127",state="UP"}
+    values: 1x10
+  - series: ayatori_loadbalancer_endpoint_status{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",port="5432",host="lb-prod-2",endpoint="192.168.10.127",state="UP"}
+    values: 1x10
+  - series: ayatori_loadbalancer_endpoint_status{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",port="5432",host="lb-prod-1",endpoint="10.60.0.20",state="DOWN"}
+    values: 1x4 _x6
+  - series: ayatori_loadbalancer_endpoint_status{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",port="5432",host="lb-prod-1",endpoint="10.60.0.20",state="UP"}
+    values: _x4 1x6
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: PgProdLbMultiplePrimaries
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: PgProdLbMultiplePrimaries
+    exp_alerts:
+    - exp_labels: {host: lb-prod-1, port: "5432", severity: critical, service: shared-postgresql}
+      exp_annotations:
+        summary: pg-prod LB 主机 lb-prod-1 端口 5432 同时把流量送给 2 个 primary
+        description: 疑似脑裂，写入可能分叉。立即 patronictl list，必要时停掉入口止血。

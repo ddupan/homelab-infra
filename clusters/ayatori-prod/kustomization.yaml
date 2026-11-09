@@ -10,6 +10,7 @@ resources:
   - gitea.yaml
   - iam-login.yaml
   - loadbalancer-hosts.yaml
+  - pg-prod.yaml
   - research-auto.yaml
   - sandbox-k8s.yaml
   - sandbox-postgresql.yaml

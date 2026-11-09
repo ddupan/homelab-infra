@@ -319,3 +319,19 @@ spec:
             summary: 计算节点 {{ $labels.node }} 的存储池 {{ $labels.name }} 使用超过 90%
             description: 清理不用的卷与镜像，或扩容底层存储。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
+        # pg-prod 的 Ayatori LoadBalancer 入口（clusters/ayatori-prod/pg-prod.yaml）。/primary 只对 primary 返回 200，
+        # 所以 UP 的成员数就是入口认定的 primary 数；取代 vyos.yaml 的 PgProd* 后者随 VyOS 入口一起删除。
+        - alert: PgProdLbNoPrimary
+          expr: ayatori_loadbalancer_port_ready_endpoints{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod"} == 0
+          for: 1m
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: 'pg-prod LB 入口端口 {{ $labels.port }} 没有可用的 primary'
+            description: 所有成员的 Patroni /primary 都不是 200：故障切换进行中，或集群失去 leader。patronictl list；同时看 SharedPostgres* 告警。
+        - alert: PgProdLbMultiplePrimaries
+          expr: count by (host, port) (ayatori_loadbalancer_endpoint_status{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod",state="UP"}) > 1
+          for: 30s
+          labels: {severity: critical, service: shared-postgresql}
+          annotations:
+            summary: 'pg-prod LB 主机 {{ $labels.host }} 端口 {{ $labels.port }} 同时把流量送给 {{ $value }} 个 primary'
+            description: 疑似脑裂，写入可能分叉。立即 patronictl list，必要时停掉入口止血。
