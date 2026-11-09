@@ -26,8 +26,6 @@
     ETCDCTL_CACERT: "{{ etcd_remove_dir }}/ca.crt"
     ETCDCTL_CERT: "{{ etcd_remove_dir }}/admin.crt"
     ETCDCTL_KEY: "{{ etcd_remove_dir }}/admin.key"
-    # 证书 SAN 只有成员名和成员 IP，没有 127.0.0.1。
-    ETCDCTL_ENDPOINTS: "https://{{ etcd_address }}:2379"
   tasks:
     - name: 必须指定要移除的成员
       ansible.builtin.assert:
@@ -35,9 +33,10 @@
         fail_msg: "用 -e etcd_remove_member=<成员名> 指定"
         quiet: true
 
+    # 用节点自己的地址：证书 SAN 只有成员名和成员 IP，没有 127.0.0.1。
     - name: 读取集群成员
       ansible.builtin.command:
-        argv: ["{{ etcd_remove_ctl }}", member, list, -w, json]
+        argv: ["{{ etcd_remove_ctl }}", "--endpoints=https://{{ etcd_address }}:2379", member, list, -w, json]
       register: etcd_remove_list
       changed_when: false
       check_mode: false
@@ -50,7 +49,7 @@
         etcd_remove_target: "{{ members | selectattr('name', 'defined') | selectattr('name', 'eq', etcd_remove_member) | first | default({}) }}"
         etcd_remove_voters: >-
           {{ members | selectattr('name', 'defined') | rejectattr('name', 'eq', etcd_remove_member)
-             | rejectattr('isLearner', 'true') | map(attribute='clientURLs') | flatten }}
+             | selectattr('isLearner', 'undefined') | map(attribute='clientURLs') | flatten }}
 
     - name: 移除后仍有足够的投票成员
       ansible.builtin.assert:
