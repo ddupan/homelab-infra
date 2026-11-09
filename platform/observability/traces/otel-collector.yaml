@@ -1,5 +1,5 @@
-# OpenTelemetry Collector — OTLP ingress point for app traces. Receives OTLP over
-# gRPC (4317) and HTTP (4318), batches, and exports to VictoriaTraces' OTLP endpoint.
+# OpenTelemetry Collector — OTLP ingress point. Receives OTLP over gRPC (4317) and HTTP
+# (4318), batches, and exports traces to VictoriaTraces and metrics to VictoriaMetrics.
 # Point your apps' OTEL_EXPORTER_OTLP_ENDPOINT at otel-collector.monitoring.svc:4317.
 #
 # :4319 is the PUBLIC door (otlp.ddupan.top via cloudflared, infrastructure/cloudflared):
@@ -50,6 +50,14 @@ data:
         traces_endpoint: http://vtsingle-main.monitoring.svc:10428/insert/opentelemetry/v1/traces
         tls:
           insecure: true
+      otlphttp/victoriametrics:
+        # VictoriaMetrics only accepts protobuf here and answers 400 to JSON; this exporter
+        # converts, so small stdlib-only clients can send OTLP/JSON to :4318.
+        metrics_endpoint: http://vmsingle-main.monitoring.svc:8428/opentelemetry/v1/metrics
+        encoding: proto
+        compression: gzip
+        tls:
+          insecure: true
     service:
       extensions: [bearertokenauth/public]
       pipelines:
@@ -57,6 +65,12 @@ data:
           receivers: [otlp, otlp/public]
           processors: [memory_limiter, batch]
           exporters: [otlphttp/victoriatraces]
+        # In-cluster only: otlp/public stays off this pipeline, or anyone holding the public
+        # trace token could write metrics that drive alerts.
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlphttp/victoriametrics]
       telemetry:
         # `metrics.address` is gone in newer collectors (0.164 refuses to start with it);
         # `readers` is the replacement and is also accepted by 0.119.
@@ -105,6 +119,10 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: otel-collector
+      annotations:
+        # The collector reads its config only at startup and a ConfigMap edit does not restart
+        # the Pod. Bump this whenever config.yaml changes so Flux rolls it.
+        config-revision: "2-metrics-pipeline"
     spec:
       serviceAccountName: otel-collector
       containers:

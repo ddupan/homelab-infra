@@ -62,7 +62,7 @@ resource "oci_identity_domains_identity_propagation_trust" "spire" {
   public_key_endpoint = "${local.spire_issuer}/keys"
   subject_type        = "User"
   active              = true
-  oauth_clients       = [oci_identity_domains_app.spire_exchange.name]
+  oauth_clients       = [oci_identity_domains_app.spire_exchange.name, oci_identity_domains_app.cost_exchange.name]
   allow_impersonation = true
   # 默认读取不返回 impersonation_service_users，不加的话每次 plan 都显示要新增。
   attribute_sets = ["all"]
@@ -77,6 +77,11 @@ resource "oci_identity_domains_identity_propagation_trust" "spire" {
       rule  = "sub eq ${impersonation_service_users.value}"
       value = oci_identity_domains_user.terraform_ci.id
     }
+  }
+
+  impersonation_service_users {
+    rule  = "sub eq ${local.cost_collector_subject}"
+    value = oci_identity_domains_user.cost_reader.id
   }
 }
 

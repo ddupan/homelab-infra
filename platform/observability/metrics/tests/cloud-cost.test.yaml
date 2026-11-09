@@ -1,0 +1,103 @@
+rule_files:
+- rules.yaml
+evaluation_interval: 5m
+tests:
+- name: 超预算才告警，各 service 求和后比较
+  interval: 1h
+  input_series:
+  - series: cloud_cost_month_to_date{provider="gcp",service="GKE",currency="JPY"}
+    values: 10000x24
+  - series: cloud_cost_month_to_date{provider="gcp",service="Storage",currency="JPY"}
+    values: 6000x24
+  - series: cloud_cost_budget{provider="gcp",currency="JPY"}
+    values: 15000x24
+  - series: cloud_cost_month_to_date{provider="oci",service="Compute",currency="JPY"}
+    values: 0x24
+  - series: cloud_cost_budget{provider="oci",currency="JPY"}
+    values: 200x24
+  alert_rule_test:
+  - eval_time: 2h
+    alertname: CloudCostOverBudget
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        provider: gcp
+        currency: JPY
+      exp_annotations:
+        summary: gcp 本月费用已超预算
+        description: 本月抵扣前费用 16000 JPY。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+- name: 预测告警在月初两天不判断，之后按日均外推
+  interval: 1h
+  input_series:
+  - series: cloud_cost_month_to_date{provider="gcp",service="GKE",currency="JPY"}
+    values: 2000x120
+  - series: cloud_cost_budget{provider="gcp",currency="JPY"}
+    values: 15000x120
+  alert_rule_test:
+  - eval_time: 30h
+    alertname: CloudCostForecastOverBudget
+    exp_alerts: []
+  - eval_time: 78h
+    alertname: CloudCostForecastOverBudget
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        provider: gcp
+        currency: JPY
+      exp_annotations:
+        summary: gcp 按当前速度本月会超预算
+        description: 按日均外推到月底约 15500 JPY（抵扣前）。按 service 查看 cloud_cost_month_to_date。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+- name: 赠金到期前 14 天告警
+  interval: 1h
+  input_series:
+  - series: cloud_credit_expiry_timestamp_seconds{provider="gcp"}
+    values: 1296000x30
+  alert_rule_test:
+  - eval_time: 1h
+    alertname: CloudCreditExpiringSoon
+    exp_alerts: []
+  - eval_time: 26h
+    alertname: CloudCreditExpiringSoon
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        provider: gcp
+      exp_annotations:
+        summary: gcp 赠金不到 14 天到期
+        description: 决定升级付费账户还是把 CI 切回 homelab。升级后硬上限消失，要先确认预算和 runner 并发上限。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/gcp-billing/README.md
+- name: 一家采集中断或从未成功都要告警
+  interval: 1h
+  input_series:
+  - series: cloud_cost_collect_timestamp_seconds{provider="oci"}
+    values: 0 3600 7200
+  alert_rule_test:
+  - eval_time: 3h
+    alertname: CloudCostCollectorStale
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        provider: gcp
+      exp_annotations:
+        summary: gcp 账单采集超过 12 小时没有成功
+        description: 费用告警此时不可信。检查 monitoring 命名空间 cloud-cost Job 的日志和 ExternalSecret；GCP 还要确认 BigQuery 导出仍在运行。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+  - eval_time: 15h
+    alertname: CloudCostCollectorStale
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        provider: oci
+      exp_annotations:
+        summary: oci 账单采集超过 12 小时没有成功
+        description: 费用告警此时不可信。检查 monitoring 命名空间 cloud-cost Job 的日志和 ExternalSecret；GCP 还要确认 BigQuery 导出仍在运行。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
+    - exp_labels:
+        severity: warning
+        provider: gcp
+      exp_annotations:
+        summary: gcp 账单采集超过 12 小时没有成功
+        description: 费用告警此时不可信。检查 monitoring 命名空间 cloud-cost Job 的日志和 ExternalSecret；GCP 还要确认 BigQuery 导出仍在运行。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml

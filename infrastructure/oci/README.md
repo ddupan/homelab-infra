@@ -19,6 +19,10 @@ Terraform 管理云 API 资源；实例内的软件、Kubernetes 和操作系统
   入站保留 TCP 22、UDP 41641、ICMP type 3/code 4，出站全部允许。
 - 配额语句保留 A1 2 核 / 12 GB（Always Free 已减半）、10 个卷、200 GB 总存储限制；这些语句不是费用保证。
 - Bucket 自身不在 state 内，不由此根模块管理。
+- 费用告警不用 OCI Budget：`platform/observability/metrics/exporters/cloud-cost.yaml` 经 `finops.tf` 的
+  只读用户读 Usage API，告警走 Alertmanager。账户已升级 PAYG，Always Free 之外的用量直接计费。
+  采集器有自己的 OAuth client，apply 后把 `cost_exchange_client_id`、`cost_exchange_client_secret` 两个
+  output 写进 Bao `kv/k8s/cloud-cost`（`oci_client_id`、`oci_client_secret`）。
 
 ## 恢复设计
 
