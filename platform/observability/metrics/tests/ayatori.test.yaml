@@ -45,13 +45,13 @@ tests:
 - name: 备份服务的 inactive 不算服务未运行，失败与过期单独告警
   interval: 1m
   input_series:
-  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",name="ayatori-backup.service",state="active",type="oneshot"}
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",env="prod",name="ayatori-backup.service",state="active",type="oneshot"}
     values: 0x2500
-  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",name="ayatori-backup.service",state="failed",type="oneshot"}
+  - series: node_systemd_unit_state{job="ayatori-node",cluster="ayatori-prod",env="prod",name="ayatori-backup.service",state="failed",type="oneshot"}
     values: 0x2500
-  - series: up{job="ayatori-node",cluster="ayatori-prod"}
+  - series: up{job="ayatori-node",cluster="ayatori-prod",env="prod"}
     values: 1x2500
-  - series: ayatori_backup_last_success_timestamp_seconds{job="ayatori-node",cluster="ayatori-prod"}
+  - series: ayatori_backup_last_success_timestamp_seconds{job="ayatori-node",cluster="ayatori-prod",env="prod"}
     values: 0x2500
   alert_rule_test:
   - eval_time: 40h
@@ -63,7 +63,7 @@ tests:
   - eval_time: 40h
     alertname: AyatoriBackupStale
     exp_alerts:
-    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, severity: warning}
+    - exp_labels: {job: ayatori-node, cluster: ayatori-prod, env: prod, severity: warning}
       exp_annotations:
         summary: Ayatori ayatori-prod 超过 36 小时没有成功备份
         description: 检查 ayatori-backup.timer 是否排程、最近一次运行结果。
@@ -165,12 +165,12 @@ tests:
         description: 反复退出后被 systemd 重启；查 journalctl 退出原因（选主丢失、OOM、配置错误）。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
 - name: 备份告警只看 prod，dev 不备份
-  interval: 10m
+  interval: 1m
   input_series:
   - series: up{job="ayatori-node",cluster="ayatori-prod",env="prod",instance="192.168.10.12:9100"}
-    values: 1x20
+    values: 1x200
   - series: up{job="ayatori-node",cluster="ayatori-dev",env="dev",instance="192.168.10.11:9100"}
-    values: 1x20
+    values: 1x200
   alert_rule_test:
   - eval_time: 3h
     alertname: AyatoriBackupMetricMissing
