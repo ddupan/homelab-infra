@@ -18,7 +18,6 @@ default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-mana
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-prod',
   'host' => 'pg-prod.lab.ddupan.top',
-  'hostaddr' => '192.168.10.2',
   'port' => 5432,
 }
 default['homelab_ayatori']['gitops'] = {
