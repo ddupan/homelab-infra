@@ -33,6 +33,7 @@ env:
     apps/seaweedfs/terraform
     apps/iam-login/terraform
     infrastructure/oci/terraform
+    infrastructure/gcp-ci/terraform
 
   # 耗时几乎全在解压 provider（aws 解压后 789MB），不在 root 数量。同一 job 内各 root
   # 共用一份，并经 actions/cache 跨运行保留，命中时 init 只建符号链接。

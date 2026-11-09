@@ -43,6 +43,33 @@ def bao_kv(path):
         raise SystemExit(f'读取 kv/{path} 失败：HTTP {e.code}') from None
 
 
+def spire_jwt(env, audience):
+    socket = env.get('SPIRE_AGENT_SOCKET', '/run/spire/agent-sockets/spire-agent.sock')
+    return json.loads(subprocess.run(
+        ['spire-agent', 'api', 'fetch', 'jwt', '-audience', audience, '-socketPath', socket, '-output', 'json'],
+        check=True, capture_output=True).stdout)[0]['svids'][0]['svid']
+
+
+def run_gcp(root, args, env):
+    """用 SPIRE JWT-SVID 经 Workload Identity Federation 以 terraform-ci 运行（gcp-ci/terraform/federation.tf）。"""
+    shm = '/dev/shm' if os.path.isdir('/dev/shm') else None
+    with tempfile.TemporaryDirectory(dir=shm) as directory:
+        Path(f'{directory}/jwt').write_text(spire_jwt(env, 'gcp'))
+        Path(f'{directory}/credentials.json').write_text(json.dumps({
+            'type': 'external_account',
+            'audience': '//iam.googleapis.com/projects/811223086070/locations/global'
+                        '/workloadIdentityPools/spire/providers/spire',
+            'subject_token_type': 'urn:ietf:params:oauth:token-type:jwt',
+            'token_url': 'https://sts.googleapis.com/v1/token',
+            'credential_source': {'file': f'{directory}/jwt', 'format': {'type': 'text'}},
+            'service_account_impersonation_url': 'https://iamcredentials.googleapis.com/v1/projects/-'
+                                                 '/serviceAccounts/terraform-ci@ddupan-ci.iam.gserviceaccount.com'
+                                                 ':generateAccessToken',
+        }))
+        env['GOOGLE_APPLICATION_CREDENTIALS'] = f'{directory}/credentials.json'
+        return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
+
+
 def run_oci(root, args, env):
     """用 SPIRE JWT-SVID 换 OCI UPST 后执行 terraform（infrastructure/oci/terraform/spire-federation.tf）。
 
@@ -52,11 +79,8 @@ def run_oci(root, args, env):
     client = bao_kv('infra/oci-token-exchange')
     if not client:
         raise SystemExit('kv/infra/oci-token-exchange 不存在：先按 infrastructure/oci/README.md 写入。')
-    socket = env.get('SPIRE_AGENT_SOCKET', '/run/spire/agent-sockets/spire-agent.sock')
     # aud 必须是 oci：trust 用 client_claim 绑定了它。
-    svid = json.loads(subprocess.run(
-        ['spire-agent', 'api', 'fetch', 'jwt', '-audience', 'oci', '-socketPath', socket, '-output', 'json'],
-        check=True, capture_output=True).stdout)[0]['svids'][0]['svid']
+    svid = spire_jwt(env, 'oci')
 
     shm = '/dev/shm' if os.path.isdir('/dev/shm') else None
     with tempfile.TemporaryDirectory(dir=shm) as home:
@@ -137,6 +161,8 @@ def run(root, args):
 
     if name == 'oci':
         return run_oci(root, args, env)
+    if name == 'gcp-ci':
+        return run_gcp(root, args, env)
 
     if name != 'incus':
         return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
