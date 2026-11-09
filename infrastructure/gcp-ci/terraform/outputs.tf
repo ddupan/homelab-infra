@@ -6,6 +6,11 @@ output "cache_bucket" {
   value = google_storage_bucket.ci_cache.name
 }
 
+output "ghcr_mirror" {
+  description = "Prefix that replaces ghcr.io in image references."
+  value       = "${google_artifact_registry_repository.ghcr.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.ghcr.repository_id}"
+}
+
 output "project_number" {
   value = google_project.ci.number
 }

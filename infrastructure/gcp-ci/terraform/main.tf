@@ -8,6 +8,7 @@ resource "google_project" "ci" {
 
 resource "google_project_service" "this" {
   for_each = toset([
+    "artifactregistry.googleapis.com",
     "cloudbilling.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "container.googleapis.com",
@@ -39,6 +40,52 @@ resource "google_container_cluster" "ci" {
   }
 
   depends_on = [google_project_service.this]
+}
+
+# 镜像只发布到 ghcr.io，节点经这个同区域的远程仓库拉取。Cloud Run 也能用，且不需要直接访问 ghcr。
+resource "google_artifact_registry_repository" "ghcr" {
+  repository_id = "ghcr"
+  location      = var.region
+  format        = "DOCKER"
+  mode          = "REMOTE_REPOSITORY"
+
+  remote_repository_config {
+    common_repository {
+      uri = "https://ghcr.io"
+    }
+  }
+
+  # 免费额度只有 0.5 GB。这里只是 ghcr 的缓存，删掉后下次拉取会重新回源。
+  cleanup_policy_dry_run = false
+  cleanup_policies {
+    id     = "expire-cached-images"
+    action = "DELETE"
+    condition {
+      tag_state  = "ANY"
+      older_than = "7d"
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}
+
+# 集群没有指定节点 SA，用的是默认 Compute SA，它在这个项目上默认没有任何角色。
+locals {
+  node_service_account = "serviceAccount:${google_project.ci.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_artifact_registry_repository_iam_member" "ghcr_node_reader" {
+  repository = google_artifact_registry_repository.ghcr.name
+  location   = google_artifact_registry_repository.ghcr.location
+  role       = "roles/artifactregistry.reader"
+  member     = local.node_service_account
+}
+
+# 节点上报日志和指标需要这个角色。
+resource "google_project_iam_member" "node_default" {
+  project = google_project.ci.project_id
+  role    = "roles/container.defaultNodeServiceAccount"
+  member  = local.node_service_account
 }
 
 # Actions cache for the cloud pool, the counterpart of the SeaweedFS ci-cache
