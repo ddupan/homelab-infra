@@ -13,5 +13,5 @@ terraform {
 }
 
 # Azure CLI auth (`az login`)。不进 CI 的 TF_ROOTS：与 e5renew / smtp-relay 同理，CI 没有可用的
-# Azure 身份（spire-oidc 只在 LAN 内，Entra 无法与 runner 的 JWT-SVID 联合）。
+# Azure 身份（尚未配置 Entra 与 runner JWT-SVID 的联合）。
 provider "azuread" {}

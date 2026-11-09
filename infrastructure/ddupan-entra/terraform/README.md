@@ -3,7 +3,7 @@
 `ddupan.top` 租户是 Microsoft 365 订阅账号。以后用 Terraform 做的租户变更都放这个 root，每个用途一个文件。
 早于本 root 的 `apps/e5renew/terraform` 和 `apps/smtp-relay/terraform` 也动这个租户，目前保持原样。
 
-本地运行，不进 CI：CI 没有可用的 Azure 身份（spire-oidc 只在 LAN 内，Entra 无法与 runner 的 JWT-SVID 联合）。
+本地运行，不进 CI：CI 没有可用的 Azure 身份（尚未配置 Entra 与 runner JWT-SVID 的联合）。
 需要 `az login`（有权管理应用注册的账号）和 tfstate 的 S3 凭据（`kv/k8s/seaweedfs-s3` 的 `terraform`
 身份，见 `apps/nexus/README.md`）。
 

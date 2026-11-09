@@ -4,16 +4,11 @@
 # Keys come straight from the JWKS rather than discovery (platform/spire/README.md,
 # "Issuer migration"): a fixed key URL keeps working through any future issuer change,
 # where discovery would fail the moment the document's issuer and the URL differ.
-#
-# bound_issuer is EMPTY while the issuer moves to spire-oidc.ddupan.top: CI's Terraform logs in
-# through this backend, so Bao must accept the new issuer before SPIRE switches, or the apply
-# that would fix it cannot log in. Signatures still verify against the JWKS and every role
-# keeps bound_audiences. Step C of "Issuer migration" sets it again.
 resource "vault_jwt_auth_backend" "spire" {
   path         = "jwt-spire"
   description  = "SPIFFE JWT-SVID workload authentication"
   jwks_url     = "https://spire-oidc.lab.ddupan.top/keys"
-  bound_issuer = ""
+  bound_issuer = "https://spire-oidc.ddupan.top"
 }
 
 # First end-to-end identity. Keep the subject exact: this role is deliberately
