@@ -1,9 +1,8 @@
 # 集群外 SPIRE Agent
 
-给不在任何 Kubernetes 集群里的主机发 SPIFFE 身份。当前只有 iam-login 的构建 runner：
-pve1 LXC 104（`iam-spike-build`，Gitea runner 标签 `iam-build`，以 root 运行）。CI 用它取
-`aud=zot` 的 JWT-SVID，把通过 Native 浏览器测试的同一个二进制推到
-`zot-push.ad.ddupan.top/iam/iam-login`，发布不再单独编译。
+给不在任何 Kubernetes 集群里的主机发 SPIFFE 身份。目前没有工作负载在用：iam-login 的 native
+构建和发布 2026-11-09 迁回了 Pod，身份由 dynamic-runner 按 job 下发。pve1 LXC 104
+（`iam-spike-build`，Gitea runner 标签 `iam-build`）还在跑 conformance，但不需要身份。
 
 ## 证明方式：join token
 
@@ -45,7 +44,5 @@ kubectl -n spire-server exec spire-server-0 -c spire-server -- \
 
 ## 身份
 
-`iam-build-ci-publish.yaml`：`spiffe://ddupan.top/ci/panxiao81/iam-login/publish`，parent 为
-上面的 Agent ID，selector `unix:uid:0`。runner 以 root 运行全部 job，因此该 LXC 上任何 root 进程
-（包括 PR 触发的 job）都能取得这个身份；它只能 create/update zot 的 `iam/iam-login`，不能删除，
-部署仍以 homelab-infra 中固定的 digest 为准。runner 换成非 root 用户后应收紧 selector。
+每个身份一个 `ClusterStaticEntry`，parent 为上面的 Agent ID，selector 用 `unix:uid` 限定到需要它的
+用户。如果 runner 以 root 运行全部 job，`unix:uid:0` 等于把身份给该主机上所有 job，包括 PR 触发的。
