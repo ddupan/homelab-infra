@@ -53,8 +53,8 @@ CA 公钥证书来自 trust-manager 分发的 ConfigMap `internal-ca`（`platfor
 
 ## 镜像
 
-iam-login main 的 CI 在 Native 浏览器测试通过后，用其 `Dockerfile` 打包同一个二进制，以 runner 的
-SPIFFE 身份推到 `zot-push.lab.ddupan.top/iam/iam-login:<commit>`（见 `platform/spire/external-agent/`）。
+iam-login main 的 CI 在 Native 浏览器测试通过后，用其 `Dockerfile` 打包同一个二进制，以 executor
+Pod 的 SPIFFE 身份推到 `zot-push.lab.ddupan.top/iam/iam-login:<commit>`（`publish` job，见 `platform/dynamic-runner/`）。
 部署从 `zot.lab.ddupan.top` 匿名拉取，按 commit tag 固定版本；升级由 PR 把 `deployment.yaml` 的 tag 改成新的 commit。
 
 ## Passkey 与管理
