@@ -7,6 +7,8 @@
 
 依赖 spiffe-openbao-login 写入的 BAO_ADDR/BAO_TOKEN（role ci-terraform）。
 """
+import base64
+import hashlib
 import json
 import os
 import tempfile
@@ -14,6 +16,7 @@ from pathlib import Path
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 MARKER = '<!-- terraform-plan -->'
@@ -38,6 +41,63 @@ def bao_kv(path):
         if e.code == 404:
             return None
         raise SystemExit(f'读取 kv/{path} 失败：HTTP {e.code}') from None
+
+
+def run_oci(root, args, env):
+    """用 SPIRE JWT-SVID 换 OCI UPST 后执行 terraform（infrastructure/oci/terraform/spire-federation.tf）。
+
+    私钥和 token 只放在 tmpfs，terraform 结束即删。OCI 只从 $HOME/.oci/config 读配置，
+    所以给子进程换 HOME，不碰真实的 ~/.oci/config（本地运行时它是 API key）。
+    """
+    client = bao_kv('infra/oci-token-exchange')
+    if not client:
+        raise SystemExit('kv/infra/oci-token-exchange 不存在：先按 infrastructure/oci/README.md 写入。')
+    socket = env.get('SPIRE_AGENT_SOCKET', '/run/spire/agent-sockets/spire-agent.sock')
+    # aud 必须是 oci：trust 用 client_claim 绑定了它。
+    svid = json.loads(subprocess.run(
+        ['spire-agent', 'api', 'fetch', 'jwt', '-audience', 'oci', '-socketPath', socket, '-output', 'json'],
+        check=True, capture_output=True).stdout)[0]['svids'][0]['svid']
+
+    shm = '/dev/shm' if os.path.isdir('/dev/shm') else None
+    with tempfile.TemporaryDirectory(dir=shm) as home:
+        key = f'{home}/key.pem'
+        subprocess.run(['openssl', 'genrsa', '-out', key, '2048'], check=True, capture_output=True)
+        der = subprocess.run(['openssl', 'rsa', '-in', key, '-pubout', '-outform', 'DER'],
+                             check=True, capture_output=True).stdout
+        form = urllib.parse.urlencode({
+            'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange',
+            'requested_token_type': 'urn:oci:token-type:oci-upst',
+            'public_key': base64.b64encode(der).decode(),
+            'subject_token': svid,
+            'subject_token_type': 'jwt',
+        }).encode()
+        basic = base64.b64encode(f"{client['client_id']}:{client['client_secret']}".encode()).decode()
+        req = urllib.request.Request(
+            'https://idcs-15519d43fa4e4b2588e6c0ffa5be9423.identity.oraclecloud.com/oauth2/v1/token', form,
+            {'Authorization': f'Basic {basic}', 'Content-Type': 'application/x-www-form-urlencoded'})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                token = json.load(response)['token']
+        except urllib.error.HTTPError as e:
+            # aud 或 subject 不匹配时 OCI 返回 500，不是 4xx，不要当作临时错误重试。
+            raise SystemExit(f'换 OCI token 失败：HTTP {e.code} {e.read().decode()[:200]}') from None
+
+        Path(f'{home}/token').write_text(token)
+        fingerprint = hashlib.md5(der).hexdigest()
+        fingerprint = ':'.join(fingerprint[i:i + 2] for i in range(0, len(fingerprint), 2))
+        os.makedirs(f'{home}/.oci', mode=0o700)
+        Path(f'{home}/.oci/config').write_text(
+            f'[DEFAULT]\ntenancy=ocid1.tenancy.oc1..aaaaaaaalncmdinfnljot5oh7rqleavphhsa6jpyurfu4luztcct3tp5gsfa\n'
+            f'region=ap-osaka-1\nfingerprint={fingerprint}\nkey_file={key}\nsecurity_token_file={home}/token\n')
+
+        terraformrc = Path.home() / '.terraformrc'
+        if terraformrc.exists():
+            env.setdefault('TF_CLI_CONFIG_FILE', str(terraformrc))
+        env['HOME'] = env['TF_HOME_OVERRIDE'] = home
+        env['TF_VAR_oci_auth'] = 'SecurityToken'
+        if args[0] == 'init':
+            args = [*args, '-backend-config=auth=SecurityToken']
+        return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
 
 
 def run(root, args):
@@ -74,6 +134,9 @@ def run(root, args):
             raise SystemExit('kv/infra/nexus-ldap 不存在：先运行 samba-ad provision-dc.yml --tags accounts。')
         env['TF_VAR_ldap_bind_username'] = bind['username']
         env['TF_VAR_ldap_bind_password'] = bind['password']
+
+    if name == 'oci':
+        return run_oci(root, args, env)
 
     if name != 'incus':
         return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode

@@ -21,7 +21,7 @@ on:
 env:
   # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd、
   # shared-postgresql 与 incus（凭 pki-incus 签发的短期客户端证书访问）。未接入的
-  # 缺前置条件：smtp-relay 没有 Azure SP，oci 需要 OCI API key 与独立 backend 凭据。
+  # 缺前置条件：smtp-relay 没有 Azure SP。
   TF_ROOTS: >-
     infrastructure/openbao/terraform
     infrastructure/etcd/terraform
@@ -32,6 +32,7 @@ env:
     apps/nexus/terraform
     apps/seaweedfs/terraform
     apps/iam-login/terraform
+    infrastructure/oci/terraform
 
   # 耗时几乎全在解压 provider（aws 解压后 789MB），不在 root 数量。同一 job 内各 root
   # 共用一份，并经 actions/cache 跨运行保留，命中时 init 只建符号链接。

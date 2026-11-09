@@ -40,7 +40,18 @@ State、plan、metadata 变量与 `.terraform/` 都不得提交；plan JSON 同�
 
 旧 Terraform/CI 已由维护者确认停用，当前仓库已接管原 OCI Object Storage state。
 `versions.tf` 使用 OCI backend，直接连接原对象，未迁移本地恢复副本。
-认证沿用本机 OCI CLI 的 `DEFAULT` profile；不要在配置中写密钥。
+
+已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有 API key：`.gitea/scripts/tf.py` 用 SPIRE JWT-SVID
+（`aud=oci`）换 1 小时的 UPST，以 `terraform-ci` 服务用户运行（`terraform/spire-federation.tf`）。
+依赖 Bao 的 `kv/infra/oci-token-exchange`（`client_id`、`client_secret`）和
+`kv/infra/terraform/oci`（`instance_metadata`，JSON 字符串）。
+
+- OCI 对 aud 或 subject 不匹配返回 500，不是 4xx。换 token 报 500 时先查这两项，不要重试。
+- 更换 trust 引用的服务用户要分两步：先 `-target` 更新 trust，再删旧用户。OCI 不允许删除被
+  trust 引用的用户，Terraform 也不知道这层依赖。
+- 新建的 Customer Secret Key 要约 10 分钟才完全生效，期间请求时好时坏。IAM 策略约 1.5 分钟生效。
+
+本地手动运行时认证沿用本机 OCI CLI 的 `DEFAULT` profile；不要在配置中写密钥。
 
 ```bash
 cd infrastructure/oci/terraform
