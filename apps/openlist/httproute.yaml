@@ -1,0 +1,26 @@
+# No SecurityPolicy: OpenList does OIDC itself, and one at the gateway would also send
+# WebDAV clients (/dav/) to a login page.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openlist
+  namespace: openlist
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "OpenList"
+    gethomepage.dev/group: "平台"
+    gethomepage.dev/icon: "openlist.svg"
+    gethomepage.dev/description: "OneDrive 网关"
+    gethomepage.dev/href: "https://openlist.lab.ddupan.top/"
+    gethomepage.dev/pod-selector: "app=openlist"
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - openlist.lab.ddupan.top
+  rules:
+    - backendRefs:
+        - name: openlist
+          port: 5244
