@@ -4,6 +4,13 @@ global:
       repository: ""
       name: chrislusf/seaweedfs
       tag: latest
+    # worker 连 admin、调 S3 LifecycleDelete 都要靠 jwt.filer_signing.key，没有 key 时只放行本机客户端。
+    # 代价是 filer 的 HTTP 写入要带 JWT；S3 自己会签名，集群里没有别的客户端直接写 filer。
+    securityConfig:
+      jwtSigning:
+        # chart 默认 true；这里只需要 filer 的 key，不给 volume 写入加认证。
+        volumeWrite: false
+        filerWrite: true
 
 master:
   enabled: true
