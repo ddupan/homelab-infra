@@ -67,6 +67,11 @@ openbao_pkcs11_escrow_pubkey: "escrow-recipient.asc"   # role files/ (or an abso
 openbao_pkcs11_import_key: ""
 openbao_pkcs11_escrow_dest: "{{ playbook_dir }}/../tpm-seal-key.gpg"
 
+# false opens /sys/generate-root, the only way to turn the recovery key into a root token
+# (closed by default since 2.5.3). Anyone can cancel an attempt there, so set it only for
+# the recovery itself, then set it back.
+openbao_disable_unauthed_generate_root: true
+
 # --- Optional host firewall ---
 openbao_manage_firewall: false
 openbao_allowed_cidrs:

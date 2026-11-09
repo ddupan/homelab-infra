@@ -240,6 +240,17 @@ cd ansible && ansible-playbook tpm-seal.yml -e openbao_pkcs11_import_key=/run/tp
 # then provision-openbao.yml (renders the new PIN and restarts bao → unsealed)
 ```
 
+**Restore drill:** rebuilds bao from the repo in a throwaway VM and restores the newest off-site
+snapshot, without touching bao1. On a machine with the YubiKey, run `./restore-drill.sh` (Linux,
+macOS) or `restore-drill.ps1` (Windows). It runs `provision-openbao.yml` and `tpm-seal.yml` against
+an Incus VM with a vTPM on the laptop (`inventory/drill.yml`), removes the VM's NIC before the
+snapshot arrives (a restored bao holds real leases and would try to revoke them), restores, checks
+that it unseals by itself after a restart, gets a token with the recovery key, prints names and
+counts only, and deletes the VM.
+
+**Using the recovery key on a real node:** set `openbao_disable_unauthed_generate_root: false` and
+run `provision-openbao.yml` (restarts bao); set it back afterwards.
+
 **Upgrades:** bump `openbao_pkcs11_plugin_version` with BOTH checksums (tarball for the
 download, binary for the `sha256sum` bao re-verifies before exec).
 

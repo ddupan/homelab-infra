@@ -1,0 +1,17 @@
+---
+# The throwaway VM of the restore drill (README "Restore drill"), reached through the Incus
+# agent so Ansible keeps working after its NIC is removed. The host is called bao1 because
+# tpm-seal.yml targets bao1: the drill runs the real playbooks, unchanged.
+all:
+  children:
+    openbao:
+      hosts:
+        bao1:
+          ansible_connection: community.general.incus
+          ansible_host: bao-restore-drill
+          ansible_become: false          # the agent is already root
+          # restore-drill.yml refuses to run on anything without this.
+          openbao_restore_drill: true
+          openbao_node_id: bao1          # the snapshot's Raft config names it as the only voter
+          # The recovery key cannot be used without it. Safe here: the VM has no network.
+          openbao_disable_unauthed_generate_root: false

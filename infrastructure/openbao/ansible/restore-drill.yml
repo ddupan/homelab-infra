@@ -1,0 +1,220 @@
+---
+# Restores a snapshot over whatever bao this runs on, so it refuses anything but the drill VM.
+# Run by ../restore-drill-host.sh once provision-openbao.yml and tpm-seal.yml have rebuilt
+# bao, the VM has lost its NIC, and the decrypted files are in /run/drill. README "Restore drill".
+- name: Restore the snapshot into the drill VM and check it
+  hosts: openbao
+  gather_facts: false
+  environment:
+    BAO_ADDR: "{{ drill_addr }}"
+    BAO_SKIP_VERIFY: "true"              # the bootstrap listener cert is self-signed
+  vars:
+    drill_addr: "https://127.0.0.1:{{ openbao_api_port | default(8200) }}"
+    drill_headers:
+      X-Vault-Token: "{{ drill_token }}"
+  module_defaults:
+    ansible.builtin.uri:
+      validate_certs: false
+  tasks:
+    - name: Only ever on the drill VM
+      ansible.builtin.assert:
+        that:
+          - openbao_restore_drill | default(false) | bool
+          - ansible_connection == 'community.general.incus'
+
+    # A restored bao holds real leases and would try to revoke them against real backends.
+    - name: Interfaces in the VM
+      ansible.builtin.command: ls /sys/class/net
+      register: drill_nics
+      changed_when: false
+
+    - name: The VM has no network
+      ansible.builtin.assert:
+        that: drill_nics.stdout_lines == ['lo']
+
+    - name: Wait for the rebuilt, uninitialized bao
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/seal-status"
+      register: drill_status
+      until: drill_status.json is defined and not drill_status.json.initialized
+      retries: 30
+      delay: 2
+
+    # Restoring needs a running cluster to restore into. This token dies with the restore.
+    - name: Initialize a throwaway cluster
+      ansible.builtin.command: bao operator init -recovery-shares=1 -recovery-threshold=1 -format=json
+      register: drill_init
+      changed_when: true
+      no_log: true
+
+    - name: Wait for the throwaway cluster to be active
+      ansible.builtin.command: bao operator raft list-peers
+      environment:
+        BAO_TOKEN: "{{ (drill_init.stdout | from_json).root_token }}"
+      register: drill_peers
+      until: drill_peers.rc == 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      no_log: true
+
+    - name: Restore the snapshot
+      ansible.builtin.command: bao operator raft snapshot restore -force /run/drill/snapshot
+      environment:
+        BAO_TOKEN: "{{ (drill_init.stdout | from_json).root_token }}"
+      changed_when: true
+      no_log: true
+
+    - name: Restored data unseals
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/seal-status"
+      register: drill_status
+      until: drill_status.json is defined and drill_status.json.initialized and not drill_status.json.sealed
+      retries: 45
+      delay: 2
+
+    # The actual claim: it comes back by itself from the imported seal key.
+    - name: Restart bao
+      ansible.builtin.systemd:
+        name: openbao
+        state: restarted
+
+    - name: Unseals by itself after the restart
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/seal-status"
+      register: drill_status
+      until: drill_status.json is defined and drill_status.json.initialized and not drill_status.json.sealed
+      retries: 45
+      delay: 2
+
+    # A token from the recovery key proves that path too, and does not depend on any token
+    # in the snapshot still being valid. It only ever exists inside this VM.
+    - name: Start root generation
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/generate-root/attempt"
+        method: PUT
+        body_format: json
+        body: {}
+      register: drill_attempt
+      until: drill_attempt.status == 200
+      retries: 15
+      delay: 2
+      no_log: true
+
+    - name: Read the recovery key
+      ansible.builtin.slurp:
+        src: /run/drill/recovery
+      register: drill_recovery
+      no_log: true
+
+    - name: Submit the recovery key
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/generate-root/update"
+        method: PUT
+        body_format: json
+        body:
+          key: "{{ drill_recovery.content | b64decode | trim }}"
+          nonce: "{{ drill_attempt.json.nonce }}"
+      register: drill_generated
+      no_log: true
+
+    # Not `bao operator generate-root -decode`: since 2.6 it first calls the authenticated
+    # endpoint, and there is no token yet. The encoding is a plain XOR with the OTP.
+    - name: Decode the generated token
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import base64, os
+            e = os.environ["ENCODED"]
+            raw = base64.b64decode(e + "=" * (-len(e) % 4), altchars=b"-_")
+            print(bytes(a ^ b for a, b in zip(raw, os.environ["OTP"].encode())).decode())
+      environment:
+        ENCODED: "{{ drill_generated.json.encoded_token }}"
+        OTP: "{{ drill_attempt.json.otp }}"
+      register: drill_decoded
+      changed_when: false
+      no_log: true
+
+    - name: Keep the token for the checks
+      ansible.builtin.set_fact:
+        drill_token: "{{ drill_decoded.stdout }}"
+      no_log: true
+
+    # From here on: names and counts only, the values are real secrets.
+    - name: List mounts
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/mounts"
+        headers: "{{ drill_headers }}"
+      register: drill_mounts
+      no_log: true
+
+    - name: List auth methods
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/sys/auth"
+        headers: "{{ drill_headers }}"
+      register: drill_auth
+      no_log: true
+
+    - name: List the top of kv
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/kv/metadata?list=true"
+        headers: "{{ drill_headers }}"
+      register: drill_kv_top
+      no_log: true
+
+    - name: List each kv folder
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/kv/metadata/{{ item }}?list=true"
+        headers: "{{ drill_headers }}"
+      loop: "{{ drill_kv_top.json.data['keys'] | select('match', '.*/$') | list }}"
+      register: drill_kv_folders
+      no_log: true
+
+    - name: Collect the kv entries
+      ansible.builtin.set_fact:
+        drill_kv_entries: >-
+          {{ drill_kv_entries | default([])
+             + (item.json.data['keys'] | reject('match', '.*/$') | map('regex_replace', '^', item.item) | list) }}
+      loop: "{{ drill_kv_folders.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: kv has data
+      ansible.builtin.assert:
+        that: drill_kv_entries | default([]) | length > 0
+
+    - name: Read one kv entry
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/kv/data/{{ drill_kv_entries[0] }}"
+        headers: "{{ drill_headers }}"
+      register: drill_kv_entry
+      no_log: true
+
+    - name: Keep only its field names
+      ansible.builtin.set_fact:
+        drill_kv_fields: "{{ drill_kv_entry.json.data.data | list }}"
+      no_log: true
+
+    - name: Fetch the internal CA
+      ansible.builtin.uri:
+        url: "{{ drill_addr }}/v1/pki/ca/pem"
+        return_content: true
+      register: drill_ca
+
+    - name: Read the internal CA
+      community.crypto.x509_certificate_info:
+        content: "{{ drill_ca.content }}"
+      register: drill_ca_info
+
+    - name: DRILL PASSED
+      ansible.builtin.debug:
+        msg:
+          seal: "{{ drill_status.json.type }}, recovery_seal={{ drill_status.json.recovery_seal }}, sealed={{ drill_status.json.sealed }}"
+          version: "{{ drill_status.json.version }}"
+          mounts: "{{ drill_mounts.json.data | list | sort }}"
+          auth: "{{ drill_auth.json.data | list | sort }}"
+          kv_entries: "{{ drill_kv_entries | length }}"
+          kv_sample: "{{ drill_kv_entries[0] }}: {{ drill_kv_fields | sort }}"
+          ca: "{{ drill_ca_info.subject }}, until {{ drill_ca_info.not_after }}"
