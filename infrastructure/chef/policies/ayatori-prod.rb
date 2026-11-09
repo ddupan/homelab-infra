@@ -6,15 +6,15 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 %w(homelab_base homelab_ayatori).each do |name|
   cookbook name,
            git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-           tag: 'v0.4.11',
+           tag: 'v0.4.14',
            rel: "cookbooks/#{name}"
 end
 
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
 # Dev（policies/ayatori-dev.rb）已验收的 release。
-default['homelab_ayatori']['release'] = 'v0.3.0'
-default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:2d68a8e50c33806aa3569fbba376ca96ad66201a4ff1e76e33b410eec8ad77a8'
+default['homelab_ayatori']['release'] = 'v0.3.1'
+default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:fa57838cda328b14e6e90f934b17db520d35ab539d20db5e6521369cdd2863b5'
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-prod',
   'host' => 'pg-prod.lab.ddupan.top',
