@@ -39,15 +39,15 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:47a64f11e2b51e19bcdadd47b7934042dc8a642f8b57d2e66663a129b4941089
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:49fab60e9efef0a15851cb768f3bc69960d8a770e084a3616370823dc2142b30
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
-            # Member of the vm pool only, fetching from Gitea with its own
-            # registration. Pod jobs run on sandbox (pod-sandbox) to keep CI
-            # load off the laptop; the POD_* settings stay for a quick rollback.
+            # Member of the vm pool, plus a Pod worker that only takes jobs too
+            # big for sandbox (see POD_RUNNER_LABELS). Ordinary pod jobs run on
+            # sandbox (pod-sandbox) to keep CI load off the laptop.
             - name: COMPONENTS
-              value: opensandbox-worker
+              value: kubernetes-worker,opensandbox-worker
             - name: TASK_SOURCE
               value: gitea
             - name: GITEA_INSTANCE_URL
@@ -81,7 +81,18 @@ spec:
             - name: POD_EXECUTOR_UID
               value: "2000"
             - name: POD_CAPACITY
-              value: "4"
+              value: "1"
+            # Deliberately without "pod": Gitea matches a job only if the runner
+            # has all of its labels, so [self-hosted, pod] jobs stay on sandbox.
+            # Jobs reach this worker with runs-on: [self-hosted, container, large].
+            # The worker adds the label of each profile below by itself.
+            - name: POD_RUNNER_LABELS
+              value: self-hosted,container
+            # The largest job has to fit: sandbox nodes have 8G and 6G in total,
+            # so these jobs can only run here. iam-login's native build takes 7g
+            # for its compile container; dockerd shares the same Pod cgroup.
+            - name: POD_RESOURCE_PROFILES
+              value: '{"large":{"requests":{"cpu":"4","memory":"9Gi"},"limits":{"cpu":"4","memory":"9Gi"}}}'
             # See runner-config.yaml.
             - name: POD_RUNNER_CONFIGMAP
               value: gitea-runner-config
