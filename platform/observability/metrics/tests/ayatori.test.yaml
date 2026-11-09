@@ -218,7 +218,7 @@ tests:
   - eval_time: 11m
     alertname: AyatoriComputeInstanceDown
     exp_alerts:
-    - exp_labels: {cluster: ayatori-dev, namespace: default, name: down, severity: warning}
+    - exp_labels: {cluster: ayatori-dev, env: dev, namespace: default, name: down, severity: warning}
       exp_annotations:
         summary: 实例 default/down 应当运行，但没有节点在运行它
         description: 查 LibvirtDomain 的 status.message 与节点上的 virsh domstate --reason。客户机内关机或 destroy 不会触发。

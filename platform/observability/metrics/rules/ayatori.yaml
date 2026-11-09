@@ -289,9 +289,9 @@ spec:
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         - alert: AyatoriComputeInstanceDown
           expr: >-
-            max by(cluster,namespace,name) (ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent"}) == 1
-            unless on(cluster,namespace,name)
-            max by(cluster,namespace,name) (ayatori_compute_agent_domain_running{job="ayatori-compute-agent"}) == 1
+            max by(cluster,env,namespace,name) (ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent"}) == 1
+            unless on(cluster,env,namespace,name)
+            max by(cluster,env,namespace,name) (ayatori_compute_agent_domain_running{job="ayatori-compute-agent"}) == 1
           for: 10m
           labels:
             severity: warning
