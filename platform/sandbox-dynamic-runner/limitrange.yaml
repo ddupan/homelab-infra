@@ -10,7 +10,7 @@
 # node does run short, the kernel OOM-kills burstable executor processes
 # (oom_score_adj near 1000) before k3s or PostgreSQL; that job fails and can be rerun.
 # That only covers memory: saturation short of OOM starves k3s and PostgreSQL
-# instead (2026-11-06), which is why POD_CAPACITY is set below what fits.
+# instead (2026-11-06); the system.slice CPU weight in sandbox_base covers that.
 #
 # Requests still bound scheduling. Allocatable after system pods and the 1Gi
 # system-reserved: sandbox1 ~5.7Gi, sandbox2 ~4.4Gi; one ci-vm sandbox (3Gi +
