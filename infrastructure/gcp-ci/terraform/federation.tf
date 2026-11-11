@@ -21,7 +21,7 @@ resource "google_iam_workload_identity_pool_provider" "spire" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.spire.workload_identity_pool_id
   workload_identity_pool_provider_id = "spire"
   attribute_mapping                  = { "google.subject" = "assertion.sub" }
-  attribute_condition                = "assertion.sub in ${jsonencode(tolist(local.terraform_ci_subjects))}"
+  attribute_condition                = "assertion.sub in ${jsonencode(concat(tolist(local.terraform_ci_subjects), [local.scheduler_subject]))}"
 
   oidc {
     issuer_uri        = "https://spire-oidc.ddupan.top"

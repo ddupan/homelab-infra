@@ -9,3 +9,4 @@ resources:
   - service.yaml
   - runner-config.yaml
   - limitrange.yaml
+  - gke-ci.yaml

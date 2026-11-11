@@ -39,6 +39,12 @@ resource "google_container_cluster" "ci" {
     channel = "REGULAR"
   }
 
+  # Pod labels (ci.ddupan.top/repo, size, ...) reach the Detailed billing
+  # export, so CI cost splits by repository (../../gcp-billing).
+  cost_management_config {
+    enabled = true
+  }
+
   depends_on = [google_project_service.this]
 }
 
@@ -152,15 +158,4 @@ resource "google_storage_hmac_key" "ci_cache" {
   service_account_email = google_service_account.ci_cache.email
 
   depends_on = [google_org_policy_policy.allow_cache_hmac_key]
-}
-
-# Same fields as k8s/gitea-runner-cache-s3. Host-mode jobs can read them, so
-# every repository in the cloud pool shares one cache trust domain.
-resource "vault_kv_secret_v2" "ci_cache" {
-  mount = "kv"
-  name  = "k8s/gitea-runner-cache-gcs"
-  data_json = jsonencode({
-    access_key = google_storage_hmac_key.ci_cache.access_id
-    secret_key = google_storage_hmac_key.ci_cache.secret
-  })
 }
