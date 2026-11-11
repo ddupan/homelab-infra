@@ -56,8 +56,10 @@ resource "google_container_cluster" "ci" {
     managed_prometheus {
       enabled = true
     }
+    # Autopilot keeps these on whatever is requested; nothing scrapes them, so
+    # they ingest no samples. false only left a permanent plan diff.
     advanced_datapath_observability_config {
-      enable_metrics = false
+      enable_metrics = true
       enable_relay   = false
     }
   }
