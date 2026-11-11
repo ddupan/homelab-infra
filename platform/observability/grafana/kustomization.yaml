@@ -269,6 +269,15 @@ configMapGenerator:
   options:
     labels:
       grafana_dashboard: '1'
+- name: grafana-dashboard-gitea-cloud
+  namespace: monitoring
+  files:
+  - gitea-cloud.json=dashboards/gitea-cloud.json
+  options:
+    labels:
+      grafana_dashboard: '1'
+    annotations:
+      grafana_folder: CI
 resources:
 - helmrelease.yaml
 - httproute.yaml
