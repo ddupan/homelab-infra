@@ -11,5 +11,11 @@
 
 区域按价格选（见 `variables.tf`），赠金 2027-02-08 到期，到期前要升级付费账号，否则资源会被关停。
 
+`scheduler.tf` 是 homelab 里 cloud-scheduler（`platform/dynamic-runner`）的 GCP 身份，以及集群里
+executor Pod 所需的 namespace、ServiceAccount、runner ConfigMap 和 cache Secret（`kubernetes` provider）。
+
+费用：总额、预算告警和账单导出见 `../../gcp-billing`。集群开了 GKE cost allocation，Detailed 导出里带
+Pod label，可以按仓库和规格拆实际费用。实时情况看 Grafana 的“CI 云端执行”面板（cloud-scheduler 指标）。
+
 `google_storage_hmac_key` 的 secret 会明文进 state，和 `apps/e5renew/terraform` 的 client secret 一样，
 靠 tfstate bucket 的访问控制保护。

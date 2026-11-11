@@ -23,7 +23,8 @@ resource "google_project_service" "bigquery" {
 # 费用：导出写入免费；存储每月前 10 GiB 免费，超出约 $0.01/GiB 起；查询每月前 1 TiB 免费，超出约
 # $6.25/TiB（2026-11 官方定价页）。单项目的 Standard 导出是 MB 级，CronJob 每 3 小时查一次，每次按
 # 最低 10 MB 计，一个月约 2.4 GB，预期一直是 ¥0。
-# 没开 Detailed 导出：只有一个 CI 项目，SKU 级够用，Detailed 的表更大、查询也更贵。
+# Detailed 导出也开：GKE cost allocation 把 Pod label（ci.ddupan.top/repo、size）带进 Detailed 表，
+# 按仓库拆的是实际账单，不用自己维护会浮动的 Spot 单价。单项目每月 MB 级，查询量由下面的 quota 封顶。
 resource "google_bigquery_dataset" "billing" {
   project     = var.project_id
   dataset_id  = "billing_export"
@@ -35,6 +36,21 @@ resource "google_bigquery_dataset" "billing" {
 
   # 账单历史无法重新导出，不随 destroy 删除。
   delete_contents_on_destroy = false
+
+  depends_on = [google_project_service.bigquery]
+}
+
+# 免费额度是每月 1 TiB 查询。项目默认上限是 200 TiB/天（单位 MiB），压到 30 GiB/天：31 天合计
+# 930 GiB，手写的全表扫描只会被拒绝，不会产生费用。采集器自己另有 maximumBytesBilled。
+# 降幅超过 10% 必须 force。
+resource "google_service_usage_consumer_quota_override" "query_usage" {
+  provider       = google-beta
+  project        = var.project_id
+  service        = "bigquery.googleapis.com"
+  metric         = urlencode("bigquery.googleapis.com/quota/query/usage")
+  limit          = urlencode("/d/project")
+  override_value = 30 * 1024
+  force          = true
 
   depends_on = [google_project_service.bigquery]
 }

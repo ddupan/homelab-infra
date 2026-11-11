@@ -62,6 +62,20 @@ controller）；它只挂载到 controller，不会进入 executor。facade capa
 32 字节，controller 为每个 assignment 确定性生成独立 capability。不要打印 Secret、创建静态 Bao token或把 credential 写入
 Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` token。
 
+## 云端池（cloud-scheduler）
+
+`runs-on: [cloud]` 的 job 由 `cloud-scheduler` 为每个排队 job 注册一个 ephemeral runner，
+并在 GKE Autopilot（`infrastructure/gcp-ci/terraform`）创建一次性 Pod，Pod 直连 Gitea。
+设计见 gitea-dynamic-runner `docs/cloud-executor.md`。
+
+- GKE 访问：SPIRE JWT-SVID（`aud=gcp`）经联邦换成 `dynamic-runner-controller` GCP 服务账号，
+  没有密钥。API 地址在 Deployment，CA 在 `gke-ci.yaml`（公开数据，集群重建时更新）。
+- runner 注册在 admin 层（`CLOUD_GITEA_SCOPE=admin`），和 `pod-laptop`、`vm` 一样对整个实例生效。
+- `kv/k8s/dynamic-runner:cloud_gitea_token`：Gitea API token（`write:admin`），用于列出 job、
+  注册和删除 runner。它必须先写入 Bao，否则 ExternalSecret 失败。
+- 云端 Pod 的 runner 配置、cache Secret 和 namespace 由 `gcp-ci` 的 Terraform 创建。
+- 停用：从 `COMPONENTS` 去掉 `cloud-scheduler`；剩下的 runner 在 Gitea 里删除即可。
+
 ## Workflow 身份与依赖配置
 
 workflow 可复用 [`panxiao81/ci-actions`](https://git.ddupan.top/panxiao81/ci-actions)

@@ -39,15 +39,17 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:49fab60e9efef0a15851cb768f3bc69960d8a770e084a3616370823dc2142b30
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:0bd9726cfea7b01458dff1c466f3b9ec2eb2cdf1760aa8a22246a2f6d6b2b497
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
             # Member of the vm pool, plus a Pod worker that only takes jobs too
             # big for sandbox (see POD_RUNNER_LABELS). Ordinary pod jobs run on
             # sandbox (pod-sandbox) to keep CI load off the laptop.
+            # cloud-scheduler runs runs-on: [cloud] jobs as one-off Pods on GKE
+            # Autopilot (infrastructure/gcp-ci/terraform).
             - name: COMPONENTS
-              value: kubernetes-worker,opensandbox-worker
+              value: kubernetes-worker,opensandbox-worker,cloud-scheduler
             - name: TASK_SOURCE
               value: gitea
             - name: GITEA_INSTANCE_URL
@@ -110,6 +112,37 @@ spec:
               value: vm
             - name: VM_TIMEOUT_SECONDS
               value: "14400"
+            # Instance-wide like pod-laptop and vm: runners are platform
+            # infrastructure, usage is a cost-attribution question.
+            - name: CLOUD_GITEA_SCOPE
+              value: admin
+            # Gitea API token (write:admin) for listing jobs and managing the
+            # scheduler's ephemeral runners.
+            - name: CLOUD_GITEA_TOKEN_FILE
+              value: /run/dynamic-runner-secrets/cloud-gitea-token
+            - name: CLOUD_KUBE_SERVER
+              value: https://34.72.192.4
+            - name: CLOUD_KUBE_CA_FILE
+              value: /run/gke-ci/ca.pem
+            # SPIRE JWT-SVID (aud=gcp) -> federation -> this service account.
+            - name: CLOUD_GCP_WIF_AUDIENCE
+              value: //iam.googleapis.com/projects/811223086070/locations/global/workloadIdentityPools/spire/providers/spire
+            - name: CLOUD_GCP_SERVICE_ACCOUNT
+              value: dynamic-runner-controller@ddupan-ci.iam.gserviceaccount.com
+            # ghcr.io through the Artifact Registry remote repository next to the cluster.
+            - name: CLOUD_EXECUTOR_IMAGE
+              value: us-central1-docker.pkg.dev/ddupan-ci/ghcr/ddupan/gitea-dynamic-runner-runner@sha256:f11370b1730fdf7ad4e0314281460ea62c209febd28f2760449e640410adc9f7
+            - name: CLOUD_CAPACITY
+              value: "2"
+            # Billed per request on Autopilot, so every value is explicit.
+            # Go lint/test peaks at 1.3-2.5 GiB (p95, 30 days).
+            - name: CLOUD_RESOURCE_PROFILES
+              value: '{"default":{"requests":{"cpu":"1500m","memory":"3Gi","ephemeral-storage":"10Gi"},"limits":{"cpu":"1500m","memory":"3Gi","ephemeral-storage":"10Gi"}}}'
+            # Created in GKE by infrastructure/gcp-ci/terraform/scheduler.tf.
+            - name: CLOUD_RUNNER_CONFIGMAP
+              value: gitea-runner-config
+            - name: CLOUD_RUNNER_CACHE_SECRET
+              value: gitea-runner-cache-gcs
             - name: SPIRE_CLUSTER
               value: homelab
             - name: SPIRE_CLASS
@@ -162,6 +195,9 @@ spec:
             - name: spire-agent-socket
               mountPath: /run/spire/agent-sockets
               readOnly: true
+            - name: gke-ci
+              mountPath: /run/gke-ci
+              readOnly: true
       securityContext:
         fsGroup: 65532
         fsGroupChangePolicy: OnRootMismatch
@@ -179,3 +215,6 @@ spec:
           csi:
             driver: csi.spiffe.io
             readOnly: true
+        - name: gke-ci
+          configMap:
+            name: gke-ci

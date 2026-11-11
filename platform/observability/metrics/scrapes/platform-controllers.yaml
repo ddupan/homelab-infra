@@ -55,3 +55,25 @@ spec:
     interval: 30s
     scrapeTimeout: 10s
     honorLabels: true
+---
+# gitea-dynamic-runner cloud-scheduler: GKE executor Pods and their running
+# time by size and repository (platform/dynamic-runner).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: dynamic-runner-controller
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - dynamic-runner
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dynamic-runner-controller
+  jobLabel: app.kubernetes.io/name
+  podMetricsEndpoints:
+  - port: health
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
