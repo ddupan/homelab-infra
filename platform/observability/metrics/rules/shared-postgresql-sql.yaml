@@ -66,6 +66,15 @@ spec:
           labels: {severity: warning, service: shared-postgresql}
           annotations:
             summary: '共享 PG {{ $labels.env }} {{ $labels.member }} WAL 归档失败，PITR 链可能中断'
+        # 50 小时：WAN 会随机断，单日上传失败不告警，连续两天失败才告警。
+        - alert: SharedPostgresOffsiteDumpStale
+          expr: >-
+            time() - homelab_pg_offsite_dump_last_success_timestamp_seconds{job="node-exporter",node="etcd-pve2"} > 50 * 3600
+            or absent(homelab_pg_offsite_dump_last_success_timestamp_seconds{job="node-exporter",node="etcd-pve2"})
+          for: 15m
+          labels: {severity: warning, service: shared-postgresql}
+          annotations:
+            summary: 'pg-prod 异地 dump 已超过 50 小时没有成功，或没有成功记录'
         # XID/MXID 上限约 2^31；超过一半说明 freeze 跟不上，超过 75% 已接近强制停写；critical 时不重复 warning。
         - alert: SharedPostgresWraparoundRisk
           expr: >-

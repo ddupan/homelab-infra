@@ -1,0 +1,10 @@
+[Unit]
+Description=Shared PostgreSQL off-site dump
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-postgresql-offsite-dump.sh
+TimeoutStartSec=1h
+UMask=0077
+Nice=10

@@ -132,7 +132,12 @@ infrastructure/shared-postgresql/switchover.py --run    # 执行并等待候选�
 查看仓库 `homelab-postgresql-backup.timer/service` 与
 `pgbackrest --config=/etc/homelab-pgbackrest/repository.conf --stanza=prod info/check`。
 首次实际 full 的 DB 22.7 MB、仓库备份集约 2.7 MB，仅代表当前空实例，不是未来业务容量估算。
-独立的 dev 实例当前不备份。异地备份按维护者决定后置；本地 PVE 仓库不是异地或离线副本。
+独立的 dev 实例当前不备份。本地 PVE 仓库不是异地或离线副本。
+
+**异地 dump（紧急恢复用）：** `offsite-dump.yml` 让仓库主机每天 04:30 UTC 在当前主库上跑 `pg_dumpall`，压缩后用
+YubiKey 公钥加密，传到 OCI 桶 `pg-dump`，保留 7 天。上传 key 只能新建对象。没有 PITR，最多丢一天。恢复时用 OCI
+管理员身份下载，在有 YubiKey 的机器上解密后导入：
+`oci os object get -bn pg-dump --name <object> --file d.gpg && gpg -d d.gpg | zstd -d | psql ...`。
 
 `tests/live_restore.py --run` 从真实仓库恢复到新临时目录，用私有 Unix socket 验证恢复实例可写与
 Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复不由此脚本自动执行。
