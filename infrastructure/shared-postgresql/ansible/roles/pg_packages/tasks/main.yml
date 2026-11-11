@@ -25,7 +25,8 @@
         mode: '0644'
     - name: 安装明确的 PG 主版本与备份工具
       ansible.builtin.apt:
-        name: ['postgresql-18', 'postgresql-client-18', pgbackrest]
+        # 直接装固定版本：装最新版后 pgbackrest.yml 再固定就是降级，apt 拒绝（2026-11-11 演练新主机时发现）。
+        name: ['postgresql-18', 'postgresql-client-18', 'pgbackrest={{ pg_pgbackrest_version }}']
         state: present
         install_recommends: false
   always:

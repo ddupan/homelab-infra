@@ -1,0 +1,15 @@
+---
+# 恢复演练的一次性 VM（README「恢复演练」），经 Incus agent 连接，拔掉网卡后 Ansible 仍可用。
+# 只声明 dev 规格：prod 规格的 Patroni 会用生产 etcd 前缀注册，演练机会直接加入生产集群。
+# dev 是同一套角色搭出的单机实例，异地 dump 本来就是导入一个空实例，不依赖 Patroni。
+# pg_address 由 restore-drill-host.sh 在 VM 拿到地址后用 -e 传入。
+all:
+  children:
+    pg_hosts:
+      hosts:
+        pg-drill:
+          ansible_connection: community.general.incus
+          ansible_host: pg-restore-drill
+          pg_instances: [dev]
+          # restore-drill.yml 只在带这个标记的主机上跑。
+          pg_restore_drill: true
