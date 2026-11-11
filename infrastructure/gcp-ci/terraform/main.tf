@@ -49,10 +49,12 @@ resource "google_container_cluster" "ci" {
   # Dataplane V2 metrics. They are billed per sample and were nearly all of the
   # trial credit spent (2026-11); the cloud pool is watched from homelab through
   # cloud-scheduler's metrics instead. System metrics are free and stay.
+  # Managed Prometheus itself cannot be turned off on Autopilot (1.25+, the API
+  # rejects it); with no components and no PodMonitoring it ingests nothing.
   monitoring_config {
     enable_components = ["SYSTEM_COMPONENTS"]
     managed_prometheus {
-      enabled = false
+      enabled = true
     }
     advanced_datapath_observability_config {
       enable_metrics = false
