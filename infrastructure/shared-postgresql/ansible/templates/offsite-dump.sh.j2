@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# dump 经管道直接压缩并加密，明文不落盘。以 root 运行，只有 ssh 这一步用 pgbackup 的专用通道，
+# 上传 key 不交给 pgbackup。失败时不写成功指标，由 SharedPostgresOffsiteDumpStale 发现。
+set -euo pipefail
+umask 077
+
+primary=""
+for host in {{ groups['pg_hosts'] | map('extract', hostvars, 'pg_address') | join(' ') }}; do
+  if curl -fsS -o /dev/null --max-time 5 "http://${host}:{{ pg_profiles.prod.api_port }}/primary"; then
+    primary="$host"
+    break
+  fi
+done
+[ -n "$primary" ] || { echo "没有找到 pg-prod 主库" >&2; exit 1; }
+
+object="pg-prod-$(date -u +%Y%m%dT%H%M%SZ).sql.zst.gpg"
+work="$(mktemp -d)"
+trap 'rm -rf -- "$work"' EXIT
+
+# 和 TPM 封印密钥托管用同一把公钥：解密靠 YubiKey，不用再保管一个密码。
+# [E] 子密钥到期（2027-04-07）后 gpg 会失败，告警随之触发，轮换子密钥时要更新这个文件。
+runuser -u {{ pg_repo_user }} -- ssh -F {{ pg_repo_path }}/.ssh/config "{{ pg_profiles.prod.user }}@${primary}" \
+    "{{ pg_bin_dir }}/pg_dumpall -h /run/homelab-postgresql-prod -p {{ pg_profiles.prod.port }} -U {{ pg_profiles.prod.user }}" \
+  | zstd -q \
+  | gpg --homedir "$work" --batch --quiet \
+      --recipient-file {{ pg_offsite_recipient }} --output "$work/$object" --encrypt
+
+# WAN 会随机断，所以重试要覆盖所有错误。凭据放 --config 文件，不进 argv。
+curl --config {{ pg_offsite_credentials }} \
+  --aws-sigv4 "aws:amz:{{ pg_offsite_region }}:s3" \
+  --fail --silent --show-error \
+  --retry 10 --retry-delay 60 --retry-all-errors --max-time 300 \
+  --upload-file "$work/$object" \
+  "{{ pg_offsite_endpoint }}/{{ pg_offsite_bucket }}/$object"
+
+metrics_tmp="$(mktemp {{ pg_offsite_metrics_dir }}/.pg-offsite.XXXXXX)"
+{
+  echo '# HELP homelab_pg_offsite_dump_last_success_timestamp_seconds Completion time of the last successful off-site pg-prod dump.'
+  echo '# TYPE homelab_pg_offsite_dump_last_success_timestamp_seconds gauge'
+  echo "homelab_pg_offsite_dump_last_success_timestamp_seconds $(date +%s)"
+} > "$metrics_tmp"
+chmod 644 "$metrics_tmp"
+mv -f -- "$metrics_tmp" {{ pg_offsite_metrics_dir }}/homelab_pg_offsite_dump.prom

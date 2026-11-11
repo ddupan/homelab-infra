@@ -1,0 +1,70 @@
+---
+# 每日把 pg-prod 的 pg_dumpall 加密后传到 OCI，只用于紧急恢复；平时的 PITR 走本地 pgBackRest。
+# 不用 pgBackRest 第二仓库：异地写入失败不能影响 WAL 归档，家里的 WAN 会随机断。
+#   python3 ../run.py --spiffe ansible offsite-dump.yml --check --diff
+- name: 读取上传凭据
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: 要求有效的显式 Bao 身份
+      ansible.builtin.assert:
+        that:
+          - pg_bao_token | length > 0
+      no_log: true
+    - name: 读取只写 key（infrastructure/oci/terraform/pg-backup.tf）
+      ansible.builtin.uri:
+        url: "{{ pg_bao_url }}/v1/kv/data/{{ pg_offsite_secret_path }}"
+        headers:
+          X-Vault-Token: "{{ pg_bao_token }}"
+      register: pg_offsite_secret
+      no_log: true
+      check_mode: false      # 只读 GET；否则 --check 时后面的模板拿不到值
+
+- name: 配置仓库主机上的异地 dump
+  hosts: pg_repository
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: 安装上传工具
+      ansible.builtin.apt:
+        name: [curl, gnupg, zstd]
+        state: present
+        install_recommends: false
+        update_cache: true
+        cache_valid_time: 3600
+      register: pg_offsite_apt
+      retries: 3             # WAN 会随机断
+      until: pg_offsite_apt is succeeded
+    - name: 安装 YubiKey 加密公钥
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../openbao/ansible/roles/openbao/files/escrow-recipient.asc"
+        dest: "{{ pg_offsite_recipient }}"
+        mode: '0644'
+    - name: 保存上传凭据（仅 root）
+      ansible.builtin.copy:
+        content: |
+          user = "{{ hostvars.localhost.pg_offsite_secret.json.data.data.access_key }}:{{ hostvars.localhost.pg_offsite_secret.json.data.data.secret_key }}"
+        dest: "{{ pg_offsite_credentials }}"
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+    - name: 安装 dump 脚本
+      ansible.builtin.template:
+        src: templates/offsite-dump.sh.j2
+        dest: /usr/local/bin/homelab-postgresql-offsite-dump.sh
+        mode: '0755'
+    - name: 安装服务和 timer
+      ansible.builtin.template:
+        src: "templates/offsite-dump.{{ item }}.j2"
+        dest: "/etc/systemd/system/homelab-postgresql-offsite-dump.{{ item }}"
+        mode: '0644'
+      loop: [service, timer]
+    - name: 启用 timer
+      ansible.builtin.systemd:
+        name: homelab-postgresql-offsite-dump.timer
+        state: started
+        enabled: true
+        daemon_reload: true

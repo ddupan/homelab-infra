@@ -50,6 +50,14 @@ pg_replication_addresses: ['192.168.10.127/32', '10.60.0.20/32']
 pg_repo_host: 10.60.0.21
 pg_repo_user: pgbackup
 pg_repo_path: /var/lib/homelab-pgbackrest
+# 异地 dump（offsite-dump.yml）。桶和只写 key 来自 infrastructure/oci/terraform/pg-backup.tf。
+pg_offsite_secret_path: infra/postgresql/offsite
+pg_offsite_endpoint: https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com
+pg_offsite_region: ap-osaka-1
+pg_offsite_bucket: pg-dump
+pg_offsite_credentials: /etc/homelab-pgbackrest/offsite.curl
+pg_offsite_recipient: /etc/homelab-pgbackrest/escrow-recipient.asc
+pg_offsite_metrics_dir: /var/lib/prometheus/node-exporter
 # SQL 指标：exporter 以实例 OS 用户经本地 socket 连接，peer + ident 映射到只读监控角色，
 # 因此无需密码或 Bao；角色仅有 pg_monitor，不复用实例管理账号。
 pg_monitor_user: homelab_monitor

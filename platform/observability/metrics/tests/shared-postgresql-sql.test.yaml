@@ -193,3 +193,36 @@ tests:
   - eval_time: 85m
     alertname: SharedPostgresCheckpointsRequested
     exp_alerts: []
+- name: 异地 dump 50 小时后且持续 15 分钟才告警
+  interval: 1h
+  input_series:
+  - series: homelab_pg_offsite_dump_last_success_timestamp_seconds{job="node-exporter",node="etcd-pve2"}
+    values: '0x60'
+  alert_rule_test:
+  - eval_time: 50h
+    alertname: SharedPostgresOffsiteDumpStale
+    exp_alerts: []
+  - eval_time: 51h20m
+    alertname: SharedPostgresOffsiteDumpStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: etcd-pve2
+        severity: warning
+        service: shared-postgresql
+      exp_annotations:
+        summary: pg-prod 异地 dump 已超过 50 小时没有成功，或没有成功记录
+- name: 没有异地 dump 成功记录
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: SharedPostgresOffsiteDumpStale
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        node: etcd-pve2
+        severity: warning
+        service: shared-postgresql
+      exp_annotations:
+        summary: pg-prod 异地 dump 已超过 50 小时没有成功，或没有成功记录
