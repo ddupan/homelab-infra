@@ -122,11 +122,9 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: gitea
-  description: Deployed by Flux from apps/gitea
+  description: Docker Compose on oci-arm, infrastructure/oci/ansible (role gitea)
   annotations:
-    backstage.io/kubernetes-namespace: gitea
-    backstage.io/kubernetes-label-selector: "!backstage.io/none"
-    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/gitea/
+    backstage.io/source-location: url:https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/oci/ansible/roles/gitea/
   links:
     - url: https://git.ddupan.top
       title: Gitea
@@ -137,8 +135,6 @@ spec:
   lifecycle: production
   system: delivery
   dependsOn:
-    - resource:shared-postgresql
-    - component:smtp-relay
     - component:iam-login
 ---
 apiVersion: backstage.io/v1alpha1

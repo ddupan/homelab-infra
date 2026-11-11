@@ -7,7 +7,6 @@ resources:
   - artifact-keeper.yaml
   - backstage.yaml
   - e5renew.yaml
-  - gitea.yaml
   - iam-login.yaml
   - loadbalancer-hosts.yaml
   - pg-prod.yaml

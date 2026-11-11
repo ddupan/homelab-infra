@@ -85,14 +85,6 @@ spec:
           - group: gateway.networking.k8s.io
             kind: HTTPRoute
 
-    # HTTPS :443 for git.ddupan.top. Its own listener: one hostname per listener,
-    # and the *.ad.ddupan.top wildcard cannot match a name in the ddupan.top zone
-    # (different zone, one label shallower). Envoy picks between listeners by SNI.
-    #
-    # Exists so `git push` stays on the LAN instead of going out to Cloudflare and
-    # back down the tunnel into this same cluster. The repo is what you need during
-    # an incident, so it must not depend on the WAN. Cert:
-    # ../cert-manager/certificate-git-ddupan.yaml; route: ../../apps/gitea/httproute.yaml.
     # TLS :443 passthrough for SPIRE's SPIFFE Bundle Endpoint. SPIRE terminates TLS itself
     # (https_web profile, its own cert for this one name), so this listener holds no cert.
     # The exact hostname wins over the *.lab.ddupan.top listener by SNI.
@@ -113,26 +105,10 @@ spec:
           - group: gateway.networking.k8s.io
             kind: TLSRoute
 
-    - name: https-git
-      protocol: HTTPS
-      port: 443
-      hostname: "git.ddupan.top"
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: git-ddupan-top-tls
-      allowedRoutes:
-        namespaces:
-          from: All
-        kinds:
-          - group: gateway.networking.k8s.io
-            kind: HTTPRoute
-
-    # HTTPS :443 for sso.ddupan.top, the iam-login issuer. Same reason as the
-    # auth/git listeners: one hostname per listener, outside the *.ad.ddupan.top
-    # wildcard. Without it, Gitea's token exchange and its pod-start discovery
-    # fetch would hairpin through Cloudflare. Cert:
+    # HTTPS :443 for sso.ddupan.top, the iam-login issuer. Its own listener: one
+    # hostname per listener, outside the *.ad.ddupan.top wildcard. Without it,
+    # in-cluster RPs' token exchange and discovery fetch would hairpin through
+    # Cloudflare. Cert:
     # ../cert-manager/certificate-sso-ddupan.yaml; route: ../../apps/iam-login/httproute.yaml.
     - name: https-sso
       protocol: HTTPS

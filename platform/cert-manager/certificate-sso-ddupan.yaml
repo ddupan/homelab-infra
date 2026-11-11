@@ -2,7 +2,7 @@
 #
 # Same reasoning as certificate-auth-ddupan.yaml: `*.ad.ddupan.top` cannot cover
 # `sso.ddupan.top`, and the issuer must be one name everywhere — the browser
-# reaches it through the Cloudflare tunnel, in-cluster RPs (Gitea) through Envoy.
+# reaches it through the Cloudflare tunnel, in-cluster RPs through Envoy.
 # Already public in CT via the Cloudflare edge cert, so naming it costs nothing.
 ---
 apiVersion: cert-manager.io/v1
