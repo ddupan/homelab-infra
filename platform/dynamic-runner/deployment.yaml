@@ -135,9 +135,11 @@ spec:
             - name: CLOUD_CAPACITY
               value: "2"
             # Billed per request on Autopilot, so every value is explicit.
-            # Go lint/test peaks at 1.3-2.5 GiB (p95, 30 days).
+            # Ayatori lint (2026-11-11) held 1.5 vCPU flat out and peaked at
+            # 2.75 GiB of 3 GiB. More CPU shortens the job about as much as it
+            # costs, so only the memory headroom adds to the bill.
             - name: CLOUD_RESOURCE_PROFILES
-              value: '{"default":{"requests":{"cpu":"1500m","memory":"3Gi","ephemeral-storage":"10Gi"},"limits":{"cpu":"1500m","memory":"3Gi","ephemeral-storage":"10Gi"}}}'
+              value: '{"default":{"requests":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"},"limits":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"}}}'
             # Created in GKE by infrastructure/gcp-ci/terraform/scheduler.tf.
             - name: CLOUD_RUNNER_CONFIGMAP
               value: gitea-runner-config
