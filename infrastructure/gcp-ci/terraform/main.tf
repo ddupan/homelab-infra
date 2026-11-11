@@ -45,6 +45,21 @@ resource "google_container_cluster" "ci" {
     enabled = true
   }
 
+  # Autopilot turns on Managed Prometheus with cAdvisor, kubelet, kube-state and
+  # Dataplane V2 metrics. They are billed per sample and were nearly all of the
+  # trial credit spent (2026-11); the cloud pool is watched from homelab through
+  # cloud-scheduler's metrics instead. System metrics are free and stay.
+  monitoring_config {
+    enable_components = ["SYSTEM_COMPONENTS"]
+    managed_prometheus {
+      enabled = false
+    }
+    advanced_datapath_observability_config {
+      enable_metrics = false
+      enable_relay   = false
+    }
+  }
+
   depends_on = [google_project_service.this]
 }
 
