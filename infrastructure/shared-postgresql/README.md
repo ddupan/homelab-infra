@@ -139,6 +139,13 @@ YubiKey 公钥加密，传到 OCI 桶 `pg-dump`，保留 7 天。上传 key 只�
 管理员身份下载，在有 YubiKey 的机器上解密后导入：
 `oci os object get -bn pg-dump --name <object> --file d.gpg && gpg -d d.gpg | zstd -d | psql ...`。
 
+**异地 dump 恢复演练：** 在插着 YubiKey 的机器上跑 `./restore-drill.sh`（Linux、macOS）或 `restore-drill.ps1`
+（Windows）。它在 laptop 上建一台一次性 Incus VM（`ansible/inventory/drill.yml`），用 `packages.yml`、`site.yml`、
+`bootstrap.yml` 搭出空实例，拔掉 VM 网卡后取 OCI 上最新的 dump，在本机解密（碰一下 YubiKey），直接送进 VM 的
+tmpfs，由 `restore-drill.yml` 导入，核对 dump 里的库都在且有表，只输出库名、表数和行数，最后删除 VM。
+演练机用 dev 规格：prod 规格的 Patroni 会用生产 etcd 前缀注册，等于加入生产集群。所以演练不覆盖 Patroni 集群重建，
+只证明 dump、密钥和建实例的 play 可用。`KEEP=1` 保留 VM 排障，用完务必删，里面是真实数据。
+
 `tests/live_restore.py --run` 从真实仓库恢复到新临时目录，用私有 Unix socket 验证恢复实例可写与
 Ayatori 角色，随后停库清理；不覆盖生产 PGDATA。全站恢复不由此脚本自动执行。
 

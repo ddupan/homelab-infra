@@ -1,0 +1,107 @@
+---
+# 把异地 dump 导入演练 VM 上由 bootstrap.yml 建好的空实例并核对。由 ../restore-drill-host.sh 调用：
+# 此时实例已由真实 play 搭好，VM 已拔掉网卡，解密后的 dump（仍是 zstd）在 /run/drill/dump。
+# 只输出库名、表数和行数，数据是真的。
+- name: 导入异地 dump 并核对
+  hosts: pg_hosts
+  gather_facts: false
+  vars:
+    drill_profile: "{{ pg_profiles.dev }}"
+    drill_psql: >-
+      {{ pg_bin_dir }}/psql -X -q -h /run/homelab-postgresql-dev -p {{ drill_profile.port }}
+  tasks:
+    - name: 只在演练 VM 上运行
+      ansible.builtin.assert:
+        that:
+          - pg_restore_drill | default(false) | bool
+          - ansible_connection == 'community.general.incus'
+          - pg_instances == ['dev']
+
+    # 导入后 VM 里是生产的角色和密码哈希，不应能被网络上任何东西连到。
+    - name: 列出网卡
+      ansible.builtin.command: ls /sys/class/net
+      register: drill_nics
+      changed_when: false
+
+    - name: VM 没有网络
+      ansible.builtin.assert:
+        that: drill_nics.stdout_lines == ['lo']
+
+    - name: 读出 dump 里的库名
+      ansible.builtin.shell: |
+        set -o pipefail
+        zstd -dc /run/drill/dump | sed -n 's/^CREATE DATABASE \([^ ]*\) .*/\1/p' | tr -d '"'
+      args:
+        executable: /bin/bash
+      register: drill_dumped
+      changed_when: false
+
+    - name: dump 里有库
+      ansible.builtin.assert:
+        that: drill_dumped.stdout_lines | length > 0
+
+    # 不用 ON_ERROR_STOP：bootstrap.yml 已经建了 ayatori，dump 里的 CREATE ROLE ayatori 必然报错，
+    # 随后的 ALTER ROLE 换成生产的属性和密码哈希。其余报错都算演练失败。
+    - name: 导入
+      ansible.builtin.shell: |
+        set -o pipefail
+        zstd -dc /run/drill/dump | {{ drill_psql }} -d postgres 2>&1 >/dev/null | grep '^psql:.*ERROR:' || true
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ drill_profile.user }}"
+      register: drill_import
+      changed_when: true
+
+    - name: 只有预期的报错
+      ansible.builtin.assert:
+        that: drill_errors | length == 0
+        fail_msg: "{{ drill_errors }}"
+      vars:
+        drill_errors: "{{ drill_import.stdout_lines | reject('search', 'role \"ayatori\" already exists') | list }}"
+
+    - name: 统计信息（行数估算用）
+      ansible.builtin.command: >-
+        {{ pg_bin_dir }}/vacuumdb --all --analyze-only --quiet
+        -h /run/homelab-postgresql-dev -p {{ drill_profile.port }}
+      become: true
+      become_user: "{{ drill_profile.user }}"
+      changed_when: false
+
+    - name: 每个库的表数和行数
+      ansible.builtin.shell: |
+        set -o pipefail
+        for db in $({{ drill_psql }} -At -d postgres -c "SELECT datname FROM pg_database WHERE NOT datistemplate"); do
+          {{ drill_psql }} -At -d "$db" -c \
+            "SELECT '$db', count(*), coalesce(sum(n_live_tup), 0) FROM pg_stat_user_tables"
+        done
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ drill_profile.user }}"
+      register: drill_tables
+      changed_when: false
+
+    - name: 角色数
+      ansible.builtin.command: >-
+        {{ drill_psql }} -At -d postgres -c "SELECT count(*) FROM pg_roles WHERE rolname !~ '^pg_'"
+      become: true
+      become_user: "{{ drill_profile.user }}"
+      register: drill_roles
+      changed_when: false
+
+    - name: 整理结果
+      ansible.builtin.set_fact:
+        drill_restored: "{{ drill_tables.stdout_lines | map('split', '|') | list }}"
+
+    - name: dump 里的库都恢复了，且有表
+      ansible.builtin.assert:
+        that:
+          - drill_dumped.stdout_lines | difference(drill_restored | map('first') | list) | length == 0
+          - drill_restored | map(attribute=1) | map('int') | sum > 0
+
+    - name: DRILL PASSED
+      ansible.builtin.debug:
+        msg:
+          roles: "{{ drill_roles.stdout | trim }}"
+          databases (name|tables|rows): "{{ drill_tables.stdout_lines }}"
