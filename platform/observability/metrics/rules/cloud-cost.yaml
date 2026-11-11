@@ -19,7 +19,7 @@ spec:
         severity: warning
       annotations:
         summary: '{{ $labels.provider }} 本月费用已超预算'
-        description: '本月抵扣前费用 {{ printf "%.0f" $value }} {{ $labels.currency }}。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。'
+        description: '本月费用（未扣赠金） {{ printf "%.0f" $value }} {{ $labels.currency }}。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。'
         runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
     # 按本月日均外推。月初样本太少，前两天不判断；for 6h 跨过两次采集，避免单次账单补录造成抖动。
     - alert: CloudCostForecastOverBudget
@@ -33,7 +33,7 @@ spec:
         severity: warning
       annotations:
         summary: '{{ $labels.provider }} 按当前速度本月会超预算'
-        description: '按日均外推到月底约 {{ printf "%.0f" $value }} {{ $labels.currency }}（抵扣前）。按 service 查看 cloud_cost_month_to_date。'
+        description: '按日均外推到月底约 {{ printf "%.0f" $value }} {{ $labels.currency }}（未扣赠金）。按 service 查看 cloud_cost_month_to_date。'
         runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
     # 赠金到期后账户关停，云上 CI 池消失，只认 cloud 标签的 job 会一直排队。
     - alert: CloudCreditExpiringSoon
