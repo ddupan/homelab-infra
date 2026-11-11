@@ -52,7 +52,7 @@ metadata:
 data:
   # 币种必须与账单币种相同，否则采集器报错退出，不会让告警静默失效。
   # oci：现在只用 Always Free，正常费用是 0，任何真实费用都值得看一眼。
-  # gcp：15,000 约合 $100（按 ¥150/$ 粗算），是 $300 赠金用 90 天的匀速线；按抵扣前的费用比较。
+  # gcp：15,000 约合 $100（按 ¥150/$ 粗算），是 $300 赠金用 90 天的匀速线；按扣除长期折扣、未扣赠金的费用比较。
   #      赠金到期后账户关停，云上 CI 池随之消失，到期前要决定升级还是下线。
   budgets.json: |
     {
@@ -162,8 +162,14 @@ data:
             {"scope": ["https://www.googleapis.com/auth/bigquery.readonly"], "lifetime": "600s"},
             {"authorization": f"Bearer {sts}", "content-type": "application/json"})["accessToken"]
         # 按发票月份汇总，和 GCP 账单的周期一致（太平洋时间）。
-        sql = f"""SELECT service.description, currency, SUM(cost),
-                         SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))
+        # 只有 PROMOTION（赠金）算作抵扣。DISCOUNT、FREE_TIER 等是长期折扣，赠金到期后还在，
+        # 先从费用里扣掉，否则 GKE 管理费（每月约 $74，由 GKE 免费额度全额抵扣）会让预算告警
+        # 为一笔不用付的钱报警。
+        sql = f"""SELECT service.description, currency,
+                         SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c
+                                                 WHERE c.type != 'PROMOTION'), 0)),
+                         SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c
+                                     WHERE c.type = 'PROMOTION'), 0))
                   FROM `{GCP_TABLE}`
                   WHERE invoice.month = FORMAT_DATE('%Y%m', CURRENT_DATE('America/Los_Angeles'))
                   GROUP BY 1, 2"""
