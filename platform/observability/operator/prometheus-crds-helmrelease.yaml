@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: prometheus-community
         namespace: monitoring
-      version: 33.0.1
+      version: 33.0.2
   install:
     crds: CreateReplace
     strategy:
