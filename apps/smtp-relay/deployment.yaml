@@ -7,8 +7,6 @@ metadata:
     app: smtp-relay
 spec:
   replicas: 1
-  strategy:
-    type: Recreate          # single writer on the token PVC (RWO)
   selector:
     matchLabels:
       app: smtp-relay
@@ -19,54 +17,44 @@ spec:
     spec:
       containers:
         - name: postfix
-          # Postfix + sasl-xoauth2 (OAuth2/XOAUTH2 to M365). Refreshes tokens in the
-          # SASL layer — no sidecar. https://github.com/mauroreggio/postfix-365
-          image: ghcr.io/mauroreggio/postfix-365:1.0.0
+          # Stock Postfix relay with SASL user/password to OCI Email Delivery. The queue is
+          # in the container: mail queued at restart is lost, as it was with the M365 image.
+          image: docker.io/boky/postfix:5.2.1-alpine@sha256:f88cc3667ca4f48e0f96edc63fb1689b8f47430724b383938908449d17aa060b
           envFrom:
             - secretRef:
-                name: smtp-relay-secret   # CLIENT_ID, CLIENT_SECRET, TENANT_ID
+                name: smtp-relay-secret   # RELAYHOST_USERNAME, RELAYHOST_PASSWORD
           env:
-            - name: TIMEZONE
+            - name: TZ
               value: 'Asia/Shanghai'
-            - name: HOSTNAME
+            - name: POSTFIX_myhostname
               value: 'smtp-relay.ddupan.top'   # HELO name
-            - name: DOMAIN_NAME
+            # Same region as Gitea's mailer (infrastructure/oci/ansible/roles/gitea).
+            - name: RELAYHOST
+              value: '[smtp.email.ap-osaka-1.oci.oraclecloud.com]:587'
+            # Default is `may`: a stripped STARTTLS would send the SASL password in clear.
+            - name: POSTFIX_smtp_tls_security_level
+              value: 'encrypt'
+            # Email Delivery rejects any From that is not an approved sender
+            # (noreply@ddupan.top, infrastructure/oci/terraform/gitea-mail.tf); the image
+            # also refuses to start without this list.
+            # NOTE: with this set the image relays for ANY client that reaches the port
+            # (smtpd_relay_restrictions=permit). Access control is the network:
+            # ClusterIP in-cluster, and loadBalancerSourceRanges in service-lan.yaml.
+            - name: ALLOWED_SENDER_DOMAINS
               value: 'ddupan.top'
-            # Submitters trusted without SMTP AUTH. k3s pod + service CIDRs, plus the
-            # three Proxmox nodes by /32 so they can relay system mail (PVE alerts,
-            # smartd, cron) to M365 — they have no other way off a residential IP.
-            # Deliberately /32s, NOT 192.168.10.0/24: everything else on the LAN still
-            # hits `defer_unauth_destination`, so this stays a closed relay.
-            # Exposed to those nodes via service-lan.yaml (LoadBalancer :25).
-            - name: MY_NETWORK
-              value: '10.42.0.0/16, 10.43.0.0/16, 192.168.10.4/32, 192.168.10.7/32, 192.168.10.9/32'
-            - name: DISABLE_SMTP_AUTH_ON_PORT_25
-              value: 'true'
-            - name: MESSAGE_SIZE_LIMIT
+            - name: POSTFIX_message_size_limit
               value: '26214400'                # 25 MiB
-            # The M365 mailbox we authenticate + send AS (device-code refresh token
-            # lives at /etc/tokens/<AUTH_USER> on the PVC).
-            - name: AUTH_USER
-              value: 'noreply@ddupan.top'
-            - name: RELAY_HOST
-              value: 'smtp.office365.com'
-            - name: RELAY_HOST_PORT
-              value: '587'
           ports:
             - name: smtp
-              containerPort: 25
-          volumeMounts:
-            # Writable + persistent: sasl-xoauth2 rewrites the token file on refresh.
-            - name: tokens
-              mountPath: /etc/tokens
+              containerPort: 587
           readinessProbe:
             tcpSocket:
-              port: 25
+              port: 587
             initialDelaySeconds: 10
             periodSeconds: 15
           livenessProbe:
             tcpSocket:
-              port: 25
+              port: 587
             initialDelaySeconds: 30
             periodSeconds: 30
           resources:
@@ -75,7 +63,3 @@ spec:
               memory: 64Mi
             limits:
               memory: 256Mi
-      volumes:
-        - name: tokens
-          persistentVolumeClaim:
-            claimName: smtp-relay-tokens

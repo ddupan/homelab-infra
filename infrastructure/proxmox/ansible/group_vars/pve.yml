@@ -38,11 +38,11 @@ pve_remove_subscription_nag: true
 pve_dist_upgrade: false
 
 # ── outbound mail ───────────────────────────────────────────────────────
-# These nodes cannot hand mail to M365 directly from a residential IP, so all
-# mail relays through the k3s smtp-relay on the laptop. See services/smtp-relay/.
+# These nodes cannot deliver mail directly from a residential IP, so all mail
+# relays through the k3s smtp-relay on the laptop. See apps/smtp-relay/.
 pve_mail_relayhost: "[192.168.10.127]:25"
-# M365 authenticates as this mailbox and REFUSES to send as anything else
-# (5.7.60 SendAsDenied), so every local sender is rewritten to it.
+# OCI Email Delivery sends only as approved senders, so every local sender is
+# rewritten to this one.
 pve_mail_from: noreply@ddupan.top
 
 # ── internal PKI ────────────────────────────────────────────────────────

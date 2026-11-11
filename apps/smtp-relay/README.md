@@ -1,134 +1,56 @@
-# SMTP relay (Postfix + sasl-xoauth2 → Microsoft 365)
+# SMTP relay (Postfix → OCI Email Delivery)
 
-One internal SMTP endpoint that in-cluster apps use for outbound mail. It authenticates
-to Exchange Online with **OAuth2 (XOAUTH2)** via [`mauroreggio/postfix-365`], which bundles
-[`sasl-xoauth2`] — tokens are refreshed **inside the SASL layer**, no sidecar/cron. Basic-auth
-SMTP (app passwords) is being retired by Microsoft; this is the modern replacement.
+lab 内部统一的出站 SMTP 入口。客户端不认证、明文提交到 :25，relay 用 SASL 用户名密码经
+STARTTLS（强制）转发到 OCI Email Delivery。只能以 **`noreply@ddupan.top`** 发信（OCI 的已批准发件人）。
 
 ```
-Gitea / … ──plain SMTP :25 (in-cluster, no auth)──▶ smtp-relay ──587 STARTTLS + XOAUTH2──▶ smtp.office365.com
+k3s 内的应用 ─┐
+              ├─ :25 明文 ─▶ smtp-relay（boky/postfix）─ 587 STARTTLS + SASL ─▶ smtp.email.ap-osaka-1.oci.oraclecloud.com
+PVE 节点 ─────┘   （LAN：192.168.10.127:25，service-lan.yaml）
 ```
 
-Reach it at: `smtp-relay.smtp-relay.svc.cluster.local:25`. Sends **as** `noreply@ddupan.top`.
+- 集群内：`smtp-relay.smtp-relay.svc.cluster.local:25`。
+- PVE 节点：`infrastructure/proxmox/ansible/roles/pve_mail_relay`（relayhost 加发件人改写）。
+- 2026-11 前转发到 M365（sasl-xoauth2 加 Entra 应用），ddupan.top 的 M365 开发者沙盒约 2027-01-23
+  被清退，随之改为 OCI。
 
-[`mauroreggio/postfix-365`]: https://github.com/mauroreggio/postfix-365
-[`sasl-xoauth2`]: https://github.com/tarickb/sasl-xoauth2
+## 凭据
 
----
-
-## Prerequisites (Microsoft 365 / Entra — mostly interactive, one-time)
-
-1. **`ddupan.top` is a verified domain** in the tenant (Admin center → Settings → Domains,
-   Status = Healthy). If not, add it and complete the TXT verification (DNS is Cloudflare —
-   can be done in `../../../infrastructure/cloudflared/terraform/`).
-2. **Mailbox `noreply@ddupan.top`** exists with an **Exchange Online license**.
-3. **Authenticated SMTP enabled** on it: Admin center → Users → that user → Mail →
-   *Manage email apps* → tick **Authenticated SMTP**. (OAuth won't work without this.)
-
-## Step 1 — Entra app registration (as code)
+用户、SMTP 凭据、发件人和 DKIM 都在 `infrastructure/oci/terraform`（`smtp-relay-mail.tf`、`gitea-mail.tf`），
+随 CI apply。凭据只在创建时返回，apply 后由人写进 Bao，ESO 同步给 relay：
 
 ```bash
-cd terraform
-az login          # account that can create app regs AND grant admin consent (Global Admin)
-terraform init
-terraform apply   # creates the app, delegated Graph SMTP.Send + admin consent, a client secret
+cd infrastructure/oci/terraform   # 按该 root 的 README 准备 state 与 OCI 凭据
+U=$(terraform output -raw smtp_relay_smtp_username)
+P=$(terraform output -raw smtp_relay_smtp_password)
+bao kv put kv/k8s/smtp-relay RELAYHOST_USERNAME="$U" RELAYHOST_PASSWORD="$P"
+unset U P
+kubectl --context default -n smtp-relay annotate externalsecret smtp-relay-secret force-sync=$(date +%s) --overwrite
+kubectl --context default -n smtp-relay rollout restart deploy/smtp-relay
 ```
 
-Grab the three values for the k8s secret:
+Bao 不可用时：`secret.example.yaml` 复制成 `secret.yaml`（gitignored）填值后 `kubectl apply`。
+
+## 访问控制
+
+设了 `ALLOWED_SENDER_DOMAINS` 后，镜像对**任何能连上端口的客户端**放行（`smtpd_relay_restrictions=permit`），
+只检查发件人域名。所以真正的访问控制在网络层：
+
+- `service.yaml`：ClusterIP，仅集群内。
+- `service-lan.yaml`：`loadBalancerSourceRanges` 只放三台 PVE。klipper 会把 LAN 客户端 SNAT 成
+  `10.42.0.1`，Postfix 分不清来源，**这里的源地址列表是唯一的门**，不要删。验证时要从被移出列表的
+  那台 PVE 上实测被拒，在 k3s 本机上测走的是另一条 iptables 路径，会得出错误结论。
+
+## 测试
 
 ```bash
-terraform output -raw client_id
-terraform output -raw tenant_id
+kubectl --context default -n smtp-relay exec deploy/smtp-relay -- sh -c \
+  'printf "Subject: relay test\n\nhello\n" | sendmail -f noreply@ddupan.top you@example.com'
+kubectl --context default -n smtp-relay logs deploy/smtp-relay --tail=40   # 找 status=sent
 ```
 
-> This is a **PUBLIC** client (device-code flow) — there is **no client secret**. Leave
-> `CLIENT_SECRET` empty in `secret.yaml`. Presenting a secret makes Entra reject the token
-> refresh with `AADSTS700025 "Client is public..."`.
+## 送达
 
-## Step 2 — Deploy the relay
-
-由 Flux 管理（`clusters/homelab/apps/smtp-relay.yaml` → 本目录 `kustomization.yaml`），提交 Git 即部署。
-凭据由 ESO 从 Bao `kv/k8s/smtp-relay` 同步；Bao 不可用时才 `kubectl apply -f secret.yaml` 作 break-glass。
-
-```bash
-flux reconcile kustomization smtp-relay --with-source
-kubectl -n smtp-relay rollout status deploy/smtp-relay
-```
-
-At this point Postfix runs but has **no token yet**, so relaying fails until step 3.
-
-## Step 3 — Bootstrap the token (one-time, interactive device-code)
-
-The image's `sasl-xoauth2-tool` needs the `msal` Python module, which isn't bundled.
-Install it ephemerally (only needed for this one mint; the C++ SASL plugin refreshes
-without it):
-
-```bash
-POD=$(kubectl get pod -n smtp-relay -l app=smtp-relay -o name | head -1 | cut -d/ -f2)
-kubectl exec -n smtp-relay $POD -- sh -c 'python3 -m ensurepip >/dev/null 2>&1; python3 -m pip install -q msal'
-```
-
-Mint the token (env vars come from the pod's secret; `CLIENT_SECRET` is empty → public flow):
-
-```bash
-kubectl exec -n smtp-relay -it deploy/smtp-relay -- sh -c \
-  'sasl-xoauth2-tool get-token outlook /etc/tokens/noreply@ddupan.top \
-     --client-id="$CLIENT_ID" --tenant="$TENANT_ID" --client-secret="$CLIENT_SECRET" --use-device-flow'
-```
-
-It prints a URL + code — open <https://microsoft.com/devicelogin> and **sign in as the SENDER
-mailbox `noreply@ddupan.top`** (NOT yourself/the admin — a token minted for the wrong user gives
-`535 5.7.3`). If prompted for a client secret, press Enter. Then fix ownership so Postfix can
-read/rewrite it:
-
-```bash
-kubectl exec -n smtp-relay $POD -- chown postfix:postfix /etc/tokens/noreply@ddupan.top
-```
-
-Verify identity if unsure: decode the token and check `upn` == `noreply@ddupan.top`. The token
-persists on the PVC; sasl-xoauth2 refreshes it automatically thereafter.
-
-## Step 4 — Test
-
-```bash
-kubectl exec -n smtp-relay $POD -- sh -c \
-  'echo "Subject: relay test\n\nhello" | sendmail -f noreply@ddupan.top you@example.com'
-kubectl exec -n smtp-relay $POD -- tail -n 40 /var/log/maillog   # look for "status=sent"
-```
-
-## Step 5 — Point apps at it
-
-- **Gitea** — `mailer` in `../gitea/gitea-values.yaml` (plain SMTP, port 25).
-- Any future app: address `smtp-relay.smtp-relay.svc.cluster.local:25`, no TLS (plain
-  in-cluster hop), **From = `noreply@ddupan.top`** (O365 rejects other senders
-  with `5.7.60` unless a send-as alias is configured in Exchange).
-
-## Deliverability (keep mail out of Junk)
-
-- **SPF / MX / DMARC** for `ddupan.top` already exist (M365 domain setup).
-- **DKIM**: ✅ **enabled 2026-07-28** (`Enabled: True`, `Status: Valid`). CNAMEs are in
-  `../../infrastructure/cloudflared/terraform/` (`selector1/2._domainkey`); signing was turned on with
-  `scripts/enable-dkim.ps1` then `scripts/enable-dkim-finish.ps1`.
-  - ⚠️ **The CNAME target is NXDOMAIN until signing is enabled.** Microsoft creates the
-    tenant host (`<tenant>.d-v1.dkim.mail.microsoft`) only at enable time, so a correct
-    CNAME looks broken beforehand and `Get-DkimSigningConfig` reports `CnameMissing`.
-    **Do not go hunting for the "real" CNAME value** — run step 2 and re-check DNS.
-  - ⚠️ **Both scripts deadlock if run via `!` or with output redirected to a file** — the
-    device code never becomes visible. Run under a PTY:
-    `DOTNET_SYSTEM_NET_DISABLEIPV6=1 script -qfc "pwsh -NoProfile -File scripts/enable-dkim.ps1" /tmp/dkim.log`
-    The `DISABLEIPV6` is required on the laptop — see the IPv6 trap in the root `CLAUDE.md`;
-    without it `Connect-ExchangeOnline` hangs in `SYN-SENT` with no output at all.
-- **Still soft**: SPF is `~all` and DMARC is `p=none`. Harden to `-all` / `p=quarantine`
-  once aggregate reports confirm DKIM passes — not before, or you quarantine your own mail.
-
-## Notes / gotchas
-
-- **PUBLIC client, no secret** — see Step 1. `CLIENT_SECRET` stays empty.
-- **Sign in as `noreply@` (the sender), not the admin**, during the Step 3 device login — a
-  token minted for the wrong identity fails with `535 5.7.3`.
-- **`msal` is ephemeral** — reinstall it in the pod (Step 3) before any re-mint; it's gone after
-  a restart but only the one-time mint needs it.
-- **Token PVC is writable state, not in Git.** The refresh token rotates; it lives only on
-  the PVC. Back it up if you want to avoid re-running step 3.
-- **Refresh-token longevity**: Azure AD refresh tokens renew on use but can expire under
-  Conditional Access / long idle — if relaying suddenly fails auth, re-run step 3.
+- DKIM：`oci-kix-202611._domainkey`（OCI 签名，d=ddupan.top），记录在 `infrastructure/cloudflared/terraform/mail.tf`。
+- SPF 不含 OCI：信封发件人是 Oracle 的域名，SPF 本来就对不齐，DMARC 靠 DKIM 对齐通过。
+- 免费额度每月 3000 封，与 Gitea 共用。

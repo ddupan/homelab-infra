@@ -21,7 +21,7 @@ on:
 env:
   # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd、
   # shared-postgresql 与 incus（凭 pki-incus 签发的短期客户端证书访问）。未接入的
-  # 缺前置条件：smtp-relay 没有 Azure SP。
+  # 缺前置条件：动 Entra 租户的 root（ddupan-entra、e5renew）没有 Azure 身份。
   TF_ROOTS: >-
     infrastructure/openbao/terraform
     infrastructure/etcd/terraform

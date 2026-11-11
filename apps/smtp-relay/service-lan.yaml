@@ -1,6 +1,6 @@
 # LAN-facing SMTP endpoint for hosts OUTSIDE the k3s cluster — specifically the
 # three Proxmox nodes (pve1 .4, pve2 .7, pve3 .9), which relay their system mail
-# (PVE notifications, smartd, cron) through here to M365.
+# (PVE notifications, smartd, cron) through here to OCI Email Delivery.
 #
 # Kept SEPARATE from service.yaml on purpose: that ClusterIP service is what
 # Gitea addresses by DNS name (smtp-relay.smtp-relay.svc.cluster.local),
@@ -36,5 +36,5 @@ spec:
   ports:
     - name: smtp
       port: 25
-      targetPort: 25
+      targetPort: 587   # the image's submission listener; PVE keeps relayhost :25
       protocol: TCP
