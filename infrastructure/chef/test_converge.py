@@ -1,5 +1,9 @@
 """python3 -m pytest infrastructure/chef/test_converge.py (or run directly)."""
+import re
+from pathlib import Path
+
 import pytest
+from packaging.version import Version
 
 from converge import changed_resources, load_nodes, parse_omnitruck, scope_from_changes, select, updated_count
 
@@ -55,6 +59,34 @@ def test_changed_resources():
            "    - update new lists of packages\n"
            "[2026-11-03T15:10:19+00:00] ERROR: shard_seed - noise\n")
     assert changed_resources(out) == ['- execute ["apt-get", "-q", "update"]', "- update new lists of packages"]
+
+
+# Ayatori 版本偏差（ayatori ADR-0024）：LB agent 不新于 manager 的 release，最多落后一个 minor。
+# 放在这个文件里而不是新文件：改 chef.yml 的测试命令会让合并时 apply 全部节点。
+def within_skew(manager, agent):
+    return agent <= manager and agent.major == manager.major and agent.minor >= manager.minor - 1
+
+
+def pinned(policy, attr):
+    text = (Path(__file__).parent / "policies" / f"{policy}.rb").read_text()
+    return Version(re.search(rf"^default{re.escape(attr)} = '([^']+)'", text, re.M).group(1))
+
+
+def test_within_skew():
+    assert within_skew(Version("v0.3.1"), Version("0.3.0"))
+    assert within_skew(Version("v0.4.0"), Version("0.3.9"))
+    assert within_skew(Version("v0.3.0"), Version("0.3.0-rc.3"))
+    assert not within_skew(Version("v0.3.0"), Version("0.3.1"))  # agent 新于 manager
+    assert not within_skew(Version("v0.3.0-rc.3"), Version("0.3.0"))
+    assert not within_skew(Version("v0.5.0"), Version("0.3.9"))  # 落后两个 minor
+    assert not within_skew(Version("v1.0.0"), Version("0.9.0"))  # 跨 major
+
+
+@pytest.mark.parametrize("env", ["dev", "prod"])
+def test_ayatori_agent_within_skew(env):
+    manager = pinned(f"ayatori-{env}", "['homelab_ayatori']['release']")
+    agent = pinned(f"loadbalancer-{env}", "['homelab_loadbalancer']['agent']['version']")
+    assert within_skew(manager, agent), f"{env}: manager {manager} 与 LB agent {agent} 超出版本偏差，见 ayatori ADR-0024"
 
 
 if __name__ == "__main__":
