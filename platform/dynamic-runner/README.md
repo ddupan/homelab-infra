@@ -74,6 +74,9 @@ Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` 
 - `kv/k8s/dynamic-runner:cloud_gitea_token`：Gitea API token（`write:admin`），用于列出 job、
   注册和删除 runner。它必须先写入 Bao，否则 ExternalSecret 失败。
 - 云端 Pod 的 runner 配置、cache Secret 和 namespace 由 `gcp-ci` 的 Terraform 创建。
+- 规格（`CLOUD_RESOURCE_PROFILES`）：默认 2 vCPU / 4 GiB；`runs-on: [cloud, small]` 是
+  0.5 vCPU / 1 GiB，给 security-scan 这类轻量 job，能和默认规格的 job 挤在同一个节点上。
+  试用账号的 GCE 配额（全局 12 vCPU、SSD 250 GB）是实际的并发上限。
 - 停用：从 `COMPONENTS` 去掉 `cloud-scheduler`；剩下的 runner 在 Gitea 里删除即可。
 
 ## Workflow 身份与依赖配置
