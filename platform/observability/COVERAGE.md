@@ -122,6 +122,7 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 - [ ] **R3** 其余 CronJob / systemd timer 的"最后成功时间"统一告警（`node_systemd_timer_last_trigger_seconds` 已有数据）
 - [x] **R5** tfstate 异地备份新鲜度（`TfstateBackupStale`）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
+  - ✅ k3s（laptop）：每日 state.db + token，本地 7 份 + OCI `k3s-backup` 7 天（`infrastructure/host-backup/`）
   - ⚠ **PVE 上 9 个客户机全部没有备份**（`pve_not_backed_up_total` = 9，2026-10-05）。未设告警，留给备份梳理
   - 2026-11-12 备份评审：OCI 免费额度 10 GB 里 Gitea 占了 6.4 GB → Gitea 在 OCI 只留 2 天，
     30 天历史放 Google Drive（`apps/gitea-backup-drive/`）。其余缺口按优先级：dc1、k3s server
