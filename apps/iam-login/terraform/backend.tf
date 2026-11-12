@@ -1,4 +1,4 @@
-# Remote state like the other roots (see apps/smtp-relay/terraform/backend.tf). Client secrets
+# Remote state like the other roots (see apps/seaweedfs/terraform/backend.tf). Client secrets
 # obtained by this root end up in state; the tfstate bucket is readable only by the terraform and read-only tfstate-backup identities.
 terraform {
   backend "s3" {

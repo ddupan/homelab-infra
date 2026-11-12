@@ -9,7 +9,8 @@ spec:
   selector:
     app: smtp-relay
   ports:
-    # In-cluster apps send here: smtp-relay.smtp-relay.svc.cluster.local:25
+    # In-cluster apps send here: smtp-relay.smtp-relay.svc.cluster.local:25.
+    # The image listens on 587 (submission); clients keep using :25.
     - name: smtp
       port: 25
-      targetPort: 25
+      targetPort: 587

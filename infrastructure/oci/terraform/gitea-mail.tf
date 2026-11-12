@@ -1,5 +1,5 @@
-# Gitea（oci-arm）的发信：OCI Email Delivery（Always Free 每月 3000 封）。不走 lab 的 smtp-relay（M365），
-# 因为 Gitea 已经搬出 lab，通知邮件不该依赖 lab。
+# Gitea（oci-arm）的发信：OCI Email Delivery（Always Free 每月 3000 封）。不走 lab 的 smtp-relay，
+# 因为 Gitea 已经搬出 lab，通知邮件不该依赖 lab。lab 的 smtp-relay 见 smtp-relay-mail.tf。
 #
 # 只做 DKIM，不改 ddupan.top 的 SPF：SPF 是 Cloudflare 面板里手工维护的记录（icloud + outlook），再
 # include 一个 Oracle 会逼近 10 次查询上限；DMARC 只需 SPF 或 DKIM 之一对齐，DKIM（d=ddupan.top）就够。
