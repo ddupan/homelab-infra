@@ -132,14 +132,19 @@ spec:
             # ghcr.io through the Artifact Registry remote repository next to the cluster.
             - name: CLOUD_EXECUTOR_IMAGE
               value: us-central1-docker.pkg.dev/ddupan-ci/ghcr/ddupan/gitea-dynamic-runner-runner@sha256:f11370b1730fdf7ad4e0314281460ea62c209febd28f2760449e640410adc9f7
+            # Pending Pods cost nothing; the trial account's GCE quotas (12 vCPU,
+            # 250 GB SSD) are what actually limit concurrent jobs.
             - name: CLOUD_CAPACITY
-              value: "2"
+              value: "4"
             # Billed per request on Autopilot, so every value is explicit.
             # Ayatori lint (2026-11-11) held 1.5 vCPU flat out and peaked at
             # 2.75 GiB of 3 GiB. More CPU shortens the job about as much as it
             # costs, so only the memory headroom adds to the bill.
+            # small (runs-on: [cloud, small]) is for light jobs such as
+            # security-scan, whose scanners peak around 300 MiB; it fits next
+            # to a default job on the same node instead of waiting for a new one.
             - name: CLOUD_RESOURCE_PROFILES
-              value: '{"default":{"requests":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"},"limits":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"}}}'
+              value: '{"default":{"requests":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"},"limits":{"cpu":"2","memory":"4Gi","ephemeral-storage":"10Gi"}},"small":{"requests":{"cpu":"500m","memory":"1Gi","ephemeral-storage":"5Gi"},"limits":{"cpu":"500m","memory":"1Gi","ephemeral-storage":"5Gi"}}}'
             # Created in GKE by infrastructure/gcp-ci/terraform/scheduler.tf.
             - name: CLOUD_RUNNER_CONFIGMAP
               value: gitea-runner-config
