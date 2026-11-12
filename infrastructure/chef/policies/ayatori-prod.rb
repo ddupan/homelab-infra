@@ -13,8 +13,8 @@ end
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
 # Dev（policies/ayatori-dev.rb）已验收的 release。
-default['homelab_ayatori']['release'] = 'v0.3.1'
-default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:fa57838cda328b14e6e90f934b17db520d35ab539d20db5e6521369cdd2863b5'
+default['homelab_ayatori']['release'] = 'v0.4.0'
+default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:8ec7f7b6deb62c7e26f95c881f0a3a7d34333fb79564fd23c1f51132d31409c9'
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-prod',
   'host' => 'pg-prod.lab.ddupan.top',
