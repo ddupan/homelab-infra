@@ -15,17 +15,18 @@ spec:
         namespace: monitoring
       version: 9.0.1
   install:
-    strategy:
-      name: RetryOnFailure
-      retryInterval: 5m
+    remediation:
+      retries: 3
   interval: 30m
   releaseName: kube-state-metrics
   targetNamespace: monitoring
   timeout: 10m
   upgrade:
-    strategy:
-      name: RetryOnFailure
-      retryInterval: 5m
+    # 无状态、不带 CRD：升级失败（timeout 内未 Ready）自动回滚到上一版。有状态或带 CRD 的
+    # release 保持 RetryOnFailure，回滚撤不回数据库 migration 和 CRD。重试用尽后 HelmRelease
+    # 停在 Ready=False。⚠ sandbox 尚未采集 gotk_resource_info，FluxResourceNotReady 覆盖不到这里。
+    remediation:
+      retries: 3
   values:
     prometheus:
       monitor:

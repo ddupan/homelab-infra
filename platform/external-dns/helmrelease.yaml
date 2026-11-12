@@ -18,13 +18,14 @@ spec:
   driftDetection:
     mode: enabled
   install:
-    strategy:
-      name: RetryOnFailure
-      retryInterval: 5m
+    remediation:
+      retries: 3
   upgrade:
-    strategy:
-      name: RetryOnFailure
-      retryInterval: 5m
+    # 无状态、不带 CRD：升级失败（timeout 内未 Ready）自动回滚到上一版。有状态或带 CRD 的
+    # release 保持 RetryOnFailure，回滚撤不回数据库 migration 和 CRD。重试用尽后 HelmRelease
+    # 停在 Ready=False，由 FluxResourceNotReady 告警。
+    remediation:
+      retries: 3
   valuesFrom:
     - kind: ConfigMap
       name: external-dns-values
