@@ -19,6 +19,9 @@
       - '^homelab-postgresql-'   # Patroni：重启 leader 即触发故障转移
       - '^homelab-etcd\.service' # Patroni 的 DCS 成员
       - '^nfs-'                  # PVE 存储 "laptop" 与 k8s 的 NFS
+      # nfs-server BindsTo fsidd：重启 fsidd 会连带停掉 nfs-server，而 fsidd 的名字不匹配 ^nfs-。
+      # 2026-11-12 升级 libsqlite3 时 needrestart 重启了 fsidd，nfs-server 再起时内存不足失败，NFS 断了约 20 分钟。
+      - '^fsidd\.service'
       - '^k3s\.service'          # 重启会让所有 Pod 跟着重建
       - '^containerd\.service'
       - '^docker\.service'
