@@ -1,0 +1,82 @@
+---
+# 把 Flux 清单在 PR 的 merge-base 与 head 各渲染一遍（含 Helm chart 展开），diff 贴到 PR 上。
+# 合并 main 即由 Flux 上线，而 lint.yml 只校验 YAML 语法：一行 chart 版本升级实际改了
+# 哪些对象，只有渲染后才看得到。Renovate PR 的人工 review 与后续自动判断都以这份 diff 为输入。
+# 报告模式：diff 本身不阻塞合并；渲染失败（清单坏了或 chart 拉不到）才让 job 失败。
+name: flux-diff
+
+on:
+  pull_request:
+    paths:
+      - 'clusters/**'
+      - 'platform/**'
+      - 'apps/**'
+      # clusters/homelab 唯一引用到 infrastructure/ 下的 Flux 路径。
+      - 'infrastructure/cloudflared/**'
+      - '.gitea/workflows/flux-diff.yml'
+
+env:
+  # flate 是 flux-local 的继任者（后者已 sunset）。版本与校验和一起钉死；
+  # 升级时从 release 的 .sha256 资产同时更新两者。
+  FLATE_VERSION: 0.7.3
+  FLATE_SHA256: 05d3c79447647e95329aa45c7035e7ebac3a120942972e78819deadc3bf0afeb
+  # sandbox 的 root sync 由 Ansible 创建、不在仓库里，自动探测认不出它，所以逐个指定入口。
+  # ayatori-dev/prod 下是 Ayatori 资源，不经 Flux。
+  CLUSTERS: clusters/homelab clusters/sandbox
+
+jobs:
+  diff:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # flate 要在本地找到 base 分支算 merge-base。
+          fetch-depth: 0
+
+      - name: Install flate
+        # WAN 随机断（见 CLAUDE.md），下载要重试。
+        run: |
+          tgz=$RUNNER_TEMP/flate.tgz
+          curl -fsSL --retry 5 --retry-all-errors -o "$tgz" \
+            "https://github.com/home-operations/flate/releases/download/v$FLATE_VERSION/flate_${FLATE_VERSION}_linux_amd64.tar.gz"
+          echo "$FLATE_SHA256  $tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" flate
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: diff
+        env:
+          GITEA_TOKEN: ${{ github.token }}
+        run: |
+          md=$RUNNER_TEMP/diff.md; rc=0
+          # 显式取 merge-base：--base <分支> 比的是分支最新提交，PR 开出后 main 上的
+          # 合并会以反向变更混进 diff。
+          base=$(git merge-base HEAD "origin/$GITHUB_BASE_REF")
+          echo '## Flux 渲染 diff' >"$md"
+          for c in $CLUSTERS; do
+            echo "::group::$c"
+            out=$RUNNER_TEMP/out.md; err=$RUNNER_TEMP/err.log; code=0
+            # chart 直连上游仓库拉取，WAN 断时渲染失败；重试后仍失败才算清单或上游 chart
+            # 的问题（例：上游替换已发布的 tarball，flate 校验 index digest 不符而拒绝）。
+            for i in 1 2 3; do
+              code=0
+              flate diff -p "$c" --base "$base" -o github >"$out" 2>"$err" || code=$?
+              [ $code = 0 ] && break
+              sleep 10
+            done
+            cat "$out" "$err"
+            printf '\n### `%s`\n\n' "$c" >>"$md"
+            if [ $code != 0 ]; then
+              rc=1
+              printf '❌ 渲染失败\n\n```\n%s\n```\n\n' "$(tail -n 50 "$err")" >>"$md"
+            fi
+            # flate 的 github 输出是裸文本，`# <对象>` 与 `- 旧值` 会被 Markdown 当成标题和列表。
+            if [ -s "$out" ]; then
+              printf '```diff\n%s\n```\n' "$(cat "$out")" >>"$md"
+            else
+              echo '无渲染变更' >>"$md"
+            fi
+            echo "::endgroup::"
+          done
+          python3 .gitea/scripts/tf.py comment "$md" '<!-- flux-diff -->'
+          exit $rc
