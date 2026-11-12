@@ -126,7 +126,8 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
   - 2026-11-12 备份评审：OCI 免费额度 10 GB 里 Gitea 占了 6.4 GB → Gitea 在 OCI 只留 2 天，
     30 天历史放 Google Drive（`apps/gitea-backup-drive/`）。其余缺口按优先级：dc1、k3s server
     状态（CA/token）、etcd 与 Ayatori 快照的异地副本、retro-pdc/retrolab 的 vzdump、Nexus（待确认内容）、SPIRE
-  - ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无
+  - ✅ dc1：每日 `samba-tool domain backup offline`，本地 7 份 + OCI `dc1-backup` 7 天（`backup-dc.yml`，告警 `SambaBackupStale`）。原记录：
+    ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无
     `samba-tool domain backup`、无 libvirt 快照。samba-ad README 写着"在域成为承重之前做"，现在已经是 SSO 底座
 
 ## 10. 收尾（P3）

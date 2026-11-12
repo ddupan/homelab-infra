@@ -1,0 +1,16 @@
+---
+# 本地副本：恢复的常规路径。和其他备份一样留 7 份（一天一份）。
+samba_ad_backup_dir: /var/backups/samba
+samba_ad_backup_keep: 7
+
+# 异地副本：infrastructure/oci/terraform/dc1-backup.tf 的桶，只能新建对象，7 天过期。
+samba_ad_backup_oci_endpoint: https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com
+samba_ad_backup_oci_region: ap-osaka-1
+samba_ad_backup_oci_bucket: dc1-backup
+
+# Bao 里的 oci_access_key / oci_secret_key / crypt_password（crypt_password 是 rclone obscure 后的值）。
+# 读取需要 VAULT_TOKEN，同 samba_ad_dc 的 bao_path 账号。
+samba_ad_backup_bao_path: infra/dc1-backup
+
+# homelab_base 给 node_exporter 开的 textfile 目录；写最近一次成功的时间戳，供 SambaBackupStale 告警。
+samba_ad_backup_textfile_dir: /var/lib/prometheus/node-exporter
