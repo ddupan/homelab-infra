@@ -1,26 +1,38 @@
-#!/bin/sh
+#!/bin/bash
 # {{ ansible_managed }}
 # samba-tool domain backup offline → {{ samba_ad_backup_dir }}（留 {{ samba_ad_backup_keep }} 份）+ 加密传 OCI。
-set -eu
+set -euo pipefail
 umask 077
 
 dir={{ samba_ad_backup_dir }}
+conf={{ samba_ad_backup_conf_dir }}
 # samba-tool 在 targetdir 里自己起文件名；用独立的工作目录，才能确定拿到的是这次的那一份。
-work=$(mktemp -d "$dir/.work.XXXXXX")
-trap 'rm -rf "$work"' EXIT
+work="$(mktemp -d "$dir/.work.XXXXXX")"
+trap 'rm -rf -- "$work"' EXIT
 
 # offline 直接读数据库文件（加锁），不需要域管理员密码，DC 照常服务。
 samba-tool domain backup offline --targetdir="$work"
+# 不用 bash 数组：数组长度写法含 Jinja 的注释起始符（左花括号加井号），模板会渲染失败。
 set -- "$work"/samba-backup-*.tar.bz2
 if [ $# -ne 1 ] || [ ! -f "$1" ]; then
     echo "expected exactly one archive in $work, got: $*" >&2
     exit 1
 fi
-name=$(basename "$1")
-mv "$1" "$dir/$name"
+name="$(basename "$1")"
+mv -- "$1" "$dir/$name"
 
-# --no-check-dest：新文件名不会和已有的冲突，也省掉一次 HEAD。
-rclone copyto "$dir/$name" "offsite:$name" --no-check-dest --retries 5 --stats-one-line -v
+# 和 pg-prod、k3s 用同一把公钥：解密靠 YubiKey。[E] 子密钥到期（2027-04-07）后 gpg 会失败，
+# SambaBackupStale 随之触发，轮换子密钥时要更新 escrow-recipient.asc。
+gpg --homedir "$work" --batch --quiet --recipient-file "$conf/escrow-recipient.asc" \
+    --output "$work/$name.gpg" --encrypt "$dir/$name"
+
+# WAN 会随机断，所以重试要覆盖所有错误。凭据放 --config 文件，不进 argv。
+curl --config "$conf/offsite.curl" \
+    --aws-sigv4 "aws:amz:{{ samba_ad_backup_oci_region }}:s3" \
+    --fail --silent --show-error \
+    --retry 10 --retry-delay 60 --retry-all-errors --max-time 300 \
+    --upload-file "$work/$name.gpg" \
+    "{{ samba_ad_backup_oci_endpoint }}/{{ samba_ad_backup_oci_bucket }}/$name.gpg"
 
 # 上传成功才清理本地旧份：传不出去时本地会多留，不会少留。
 ls -1t "$dir"/samba-backup-*.tar.bz2 | tail -n +{{ samba_ad_backup_keep + 1 }} | while read -r old; do
@@ -30,4 +42,4 @@ done
 m={{ samba_ad_backup_textfile_dir }}/samba_backup.prom
 printf 'samba_backup_last_success_timestamp_seconds %s\n' "$(date +%s)" > "$m.$$"
 chmod 0644 "$m.$$"   # umask 077 下 node_exporter 读不了
-mv "$m.$$" "$m"
+mv -- "$m.$$" "$m"
