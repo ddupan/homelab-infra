@@ -23,6 +23,10 @@ env:
   # sandbox 的 root sync 由 Ansible 创建、不在仓库里，自动探测认不出它，所以逐个指定入口。
   # ayatori-dev/prod 下是 Ayatori 资源，不经 Flux。
   CLUSTERS: clusters/homelab clusters/sandbox
+  # WAN 随机断（见 CLAUDE.md）。flate 的源缓存与二进制经 actions/cache 跨运行保留，
+  # 未变的 chart 不再走 WAN，只有新版本需要下载。
+  FLATE_CACHE_DIR: /tmp/flate-cache
+  FLATE_BIN: /tmp/flate-bin
 
 jobs:
   diff:
@@ -33,16 +37,27 @@ jobs:
           # flate 要在本地找到 base 分支算 merge-base。
           fetch-depth: 0
 
+      - uses: actions/cache@v6
+        with:
+          path: |
+            /tmp/flate-cache
+            /tmp/flate-bin
+          # 清单一变就存一份新的；restore-keys 取最近一份作起点。与 terraform.yml 不同，
+          # 这里允许从旧缓存恢复：保存前 flate cache gc 会清掉 7 天未用的条目，旧 chart
+          # 不会随着恢复再保存而一直留着。
+          key: flate-${{ env.FLATE_VERSION }}-${{ hashFiles('clusters/**', 'platform/**', 'apps/**', 'infrastructure/cloudflared/**') }}
+          restore-keys: flate-${{ env.FLATE_VERSION }}-
+
       - name: Install flate
-        # WAN 随机断（见 CLAUDE.md），下载要重试。
         run: |
+          echo "$FLATE_BIN" >> "$GITHUB_PATH"
+          [ -x "$FLATE_BIN/flate" ] && exit 0
           tgz=$RUNNER_TEMP/flate.tgz
           curl -fsSL --retry 5 --retry-all-errors -o "$tgz" \
             "https://github.com/home-operations/flate/releases/download/v$FLATE_VERSION/flate_${FLATE_VERSION}_linux_amd64.tar.gz"
           echo "$FLATE_SHA256  $tgz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/bin"
-          tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" flate
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          mkdir -p "$FLATE_BIN"
+          tar -xzf "$tgz" -C "$FLATE_BIN" flate
 
       - name: diff
         env:
@@ -58,17 +73,20 @@ jobs:
             out=$RUNNER_TEMP/out.md; err=$RUNNER_TEMP/err.log; code=0
             # chart 直连上游仓库拉取，WAN 断时渲染失败；重试后仍失败才算清单或上游 chart
             # 的问题（例：上游替换已发布的 tarball，flate 校验 index digest 不符而拒绝）。
-            for i in 1 2 3; do
+            # 退避重试（30s…120s，共约 5 分钟）以跨过短时断网；代价是真正的渲染错误也要等满
+            # 这 5 分钟才报。
+            for i in 1 2 3 4 5; do
               code=0
               flate diff -p "$c" --base "$base" -o github >"$out" 2>"$err" || code=$?
               [ $code = 0 ] && break
-              sleep 10
+              [ $i = 5 ] || sleep $((i * 30))
             done
             cat "$out" "$err"
             printf '\n### `%s`\n\n' "$c" >>"$md"
             if [ $code != 0 ]; then
               rc=1
-              printf '❌ 渲染失败\n\n```\n%s\n```\n\n' "$(tail -n 50 "$err")" >>"$md"
+              printf '❌ 渲染失败（重试 5 次后仍失败；若下方是网络错误，re-run 即可）\n\n```\n%s\n```\n\n' \
+                "$(tail -n 50 "$err")" >>"$md"
             fi
             # flate 的 github 输出是裸文本，`# <对象>` 与 `- 旧值` 会被 Markdown 当成标题和列表。
             if [ -s "$out" ]; then
@@ -78,5 +96,7 @@ jobs:
             fi
             echo "::endgroup::"
           done
+          # actions/cache 在 job 结束时保存；先清掉 7 天未用的条目，缓存不随 restore-keys 无限增长。
+          flate cache gc --cache-dir "$FLATE_CACHE_DIR" --max-age 168h || true
           python3 .gitea/scripts/tf.py comment "$md" '<!-- flux-diff -->'
           exit $rc
