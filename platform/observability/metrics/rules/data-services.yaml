@@ -77,3 +77,15 @@ spec:
         summary: tfstate 异地备份超过 6 小时没有成功
         description: 检查 seaweedfs 命名空间 tfstate-backup Job 的日志和 ExternalSecret；SeaweedFS 丢失时只能靠这份备份恢复。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/seaweedfs/README.md
+    # Job 每 6 小时一次，OCI 只留 2 天：24 小时没成功就报，还剩一天去修，Drive 上不缺日期。
+    - alert: GiteaBackupDriveStale
+      expr: |
+        time() - max by (cluster,namespace,cronjob) (kube_cronjob_status_last_successful_time{job="kube-state-metrics",namespace="gitea-backup-drive",cronjob="gitea-backup-drive"}) > 86400
+        or absent(kube_cronjob_status_last_successful_time{job="kube-state-metrics",namespace="gitea-backup-drive",cronjob="gitea-backup-drive"})
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: Gitea 备份超过 24 小时没有拷到 Google Drive
+        description: 检查 gitea-backup-drive Job 的日志。"跳过清理"表示 Gitea 本身没出新 dump（查 oci-arm 上的 gitea-backup.timer）；Drive 授权失败要重新 rclone authorize。OCI 只留 2 天，超过就会缺日期。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/apps/gitea-backup-drive/README.md

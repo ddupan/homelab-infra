@@ -293,6 +293,7 @@ repo 放在 lab 之外是为了重建顺序：lab 全挂时 repo 仍在，所以
   证书由那边的 `gitea-origin.tf` 签出（15 年），写进 `host_vars/oci_arm/gitea.yml` 的 `gitea_tls_cert`。
 - 四个应用密钥是 k3s 时期的原值；`SECRET_KEY` 加密库内 2FA 种子与 OAuth secret，不能换。
 - 备份：`gitea-backup.timer` 每天 `gitea dump` → Object Storage `gitea-backup`（instance principal，
-  只能新建对象，14 天过期）。恢复：OCI 控制台或 `oci os object get` 取回后解包，见迁移方案第 2 步。
+  只能新建对象，2 天过期）；lab 的 CronJob 再加密拷到 Google Drive 留 30 天（`apps/gitea-backup-drive/`）。
+  恢复：OCI 控制台或 `oci os object get` 取回后解包，见迁移方案第 2 步。
 - 升级：Renovate 改 `roles/gitea/defaults/main.yml` 的 tag+digest → 合并 → `ansible-playbook gitea.yml`。
   不交给 CI：runner 在 lab 里，又要连这个正在重启的 Gitea。
