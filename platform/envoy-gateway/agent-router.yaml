@@ -46,9 +46,17 @@ spec:
     mode: enabled
   install:
     createNamespace: true
+    remediation:
+      retries: 3
   interval: 30m
   releaseName: ai-gateway
   targetNamespace: envoy-ai-gateway-system
+  upgrade:
+    # 无状态、不带 CRD：升级失败（timeout 内未 Ready）自动回滚到上一版。有状态或带 CRD 的
+    # release 保持 RetryOnFailure，回滚撤不回数据库 migration 和 CRD。重试用尽后 HelmRelease
+    # 停在 Ready=False，由 FluxResourceNotReady 告警。
+    remediation:
+      retries: 3
   values:
     # GenAI tracing → otel-collector → VictoriaTraces, next to the Claude API's own spans
     # (service.name claude-platform). The ext_proc sidecar propagates traceparent upstream,
