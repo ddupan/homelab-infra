@@ -12,7 +12,10 @@ on:
 
 jobs:
   security-scan:
-    runs-on: [self-hosted, pod]
+    # 云端池（GKE Autopilot）：扫描器直接装在 runner 上，不需要 Docker 和内网。
+    runs-on: [cloud]
     steps:
       - uses: actions/checkout@v7
       - uses: https://git.ddupan.top/panxiao81/ci-actions/security-scan@v1
+        with:
+          cloud: 'true'
