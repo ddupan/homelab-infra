@@ -49,14 +49,18 @@ jobs:
           GITEA_TOKEN: ${{ github.token }}
         run: |
           md=$RUNNER_TEMP/diff.md; rc=0
+          # 显式取 merge-base：--base <分支> 比的是分支最新提交，PR 开出后 main 上的
+          # 合并会以反向变更混进 diff。
+          base=$(git merge-base HEAD "origin/$GITHUB_BASE_REF")
           echo '## Flux 渲染 diff' >"$md"
           for c in $CLUSTERS; do
             echo "::group::$c"
             out=$RUNNER_TEMP/out.md; err=$RUNNER_TEMP/err.log; code=0
-            # chart 直连上游仓库拉取，WAN 断时渲染失败；重试后仍失败才算清单问题。
+            # chart 直连上游仓库拉取，WAN 断时渲染失败；重试后仍失败才算清单或上游 chart
+            # 的问题（例：上游替换已发布的 tarball，flate 校验 index digest 不符而拒绝）。
             for i in 1 2 3; do
               code=0
-              flate diff -p "$c" --base "origin/$GITHUB_BASE_REF" -o github >"$out" 2>"$err" || code=$?
+              flate diff -p "$c" --base "$base" -o github >"$out" 2>"$err" || code=$?
               [ $code = 0 ] && break
               sleep 10
             done
