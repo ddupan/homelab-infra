@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Back up the Samba AD database and upload it offsite
+After=samba-ad-dc.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/samba-backup.sh
+EnvironmentFile=/etc/samba-backup.env
+Environment=RCLONE_CONFIG_OCI_TYPE=s3
+Environment=RCLONE_CONFIG_OCI_PROVIDER=Other
+Environment=RCLONE_CONFIG_OCI_ENDPOINT={{ samba_ad_backup_oci_endpoint }}
+Environment=RCLONE_CONFIG_OCI_REGION={{ samba_ad_backup_oci_region }}
+# 凭据没有 bucket 权限，也没有读权限：不跳过的话 rclone 会尝试建桶、上传后 HEAD 校验。
+Environment=RCLONE_CONFIG_OCI_NO_CHECK_BUCKET=true
+Environment=RCLONE_CONFIG_OCI_NO_HEAD=true
+Environment=RCLONE_CONFIG_OFFSITE_TYPE=crypt
+Environment=RCLONE_CONFIG_OFFSITE_REMOTE=oci:{{ samba_ad_backup_oci_bucket }}
+# 只加密内容。文件名只是域名加时间戳，明文方便在控制台确认备份是否更新。
+Environment=RCLONE_CONFIG_OFFSITE_FILENAME_ENCRYPTION=off
+Environment=RCLONE_CONFIG_OFFSITE_DIRECTORY_NAME_ENCRYPTION=false
+Nice=10
+IOSchedulingClass=idle

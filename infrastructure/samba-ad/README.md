@@ -308,13 +308,49 @@ An entry with `password` takes it from `vault.yml` (and the consumer holds a cop
 create/read there. If the account exists but Bao has no password, the play stops rather than invent one: rotate
 with `samba-tool user setpassword` and write the new value to that path.
 
-### Backups — do this before the domain becomes load-bearing
+### Backups (`backup-dc.yml`, role `samba_ad_backup`)
+
+dc1 is the only DC. The domain SID, accounts, password hashes and krbtgt keys cannot be rebuilt from code,
+so this backup is the only way back after losing the VM.
+
+`samba-backup.timer` runs `samba-tool domain backup offline` every day at about 03:30. Offline mode reads the
+database files directly under a lock. It needs no admin password, and the DC keeps serving while it runs.
+
+| copy | where | kept |
+|---|---|---|
+| local | dc1 `/var/backups/samba/` | 7 newest |
+| offsite | OCI bucket `dc1-backup` (rclone crypt) | 7 days, lifecycle rule |
+
+dc1 can only *create* objects in that bucket (`infrastructure/oci/terraform/dc1-backup.tf`), so a compromised DC
+cannot delete or overwrite older backups. After each successful upload, the script writes
+`samba_backup_last_success_timestamp_seconds` to the node_exporter textfile directory.
+`SambaBackupStale` fires when that is more than 36 h old, or when it is missing.
+
+**First setup.** Bao `kv/infra/dc1-backup` holds `oci_access_key`, `oci_secret_key` and `crypt_password`.
+`crypt_password` is a random password passed through `rclone obscure -`. The same value goes into
+`kv/infra/terraform/oci` as `dc1_backup_crypt_password`, and the CI plan fails without it. Terraform also copies
+it into OCI Vault `recovery` → `dc1-backup-recovery`, for when Bao is gone. After CI applies the OCI root, copy
+the outputs `dc1_backup_access_key` and `dc1_backup_secret_key` into Bao. Then:
 
 ```bash
-samba-tool domain backup offline --targetdir=/var/backups/samba
+VAULT_TOKEN=... ansible-playbook backup-dc.yml --check --diff && VAULT_TOKEN=... ansible-playbook backup-dc.yml
+ssh dc1 sudo systemctl start samba-backup.service   # first run; check the OCI console
 ```
 
-Schedule it (cron/systemd timer) and ship the tarball off-box.
+**Restore** (new DC VM from `create-dc-vm.yml`, no `provision-dc.yml`):
+
+1. Take the newest local archive, or download the `.bin` object from the OCI console and decrypt it:
+   ```bash
+   export RCLONE_CONFIG_D_TYPE=crypt RCLONE_CONFIG_D_REMOTE=/path/to/download/dir
+   export RCLONE_CONFIG_D_FILENAME_ENCRYPTION=off RCLONE_CONFIG_D_DIRECTORY_NAME_ENCRYPTION=false
+   read -rs RCLONE_CONFIG_D_PASSWORD; export RCLONE_CONFIG_D_PASSWORD   # the obscured value
+   rclone copy d: ./dc1-restore
+   ```
+2. On the new VM (samba installed, not provisioned):
+   `samba-tool domain backup restore --backup-file=<archive> --newservername=dc1 --targetdir=/var/lib/samba-restore`,
+   then point smb.conf / the systemd unit at the restored tree. See the Samba wiki page
+   "Back up and Restoring a Samba AD DC". The new server name must be one the domain has not seen before;
+   if `dc1` is refused, use `dc2`.
 
 ### Monitoring — Cinc policy `samba-dc`
 

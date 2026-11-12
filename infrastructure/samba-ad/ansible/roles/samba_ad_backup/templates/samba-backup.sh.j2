@@ -1,0 +1,33 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# samba-tool domain backup offline → {{ samba_ad_backup_dir }}（留 {{ samba_ad_backup_keep }} 份）+ 加密传 OCI。
+set -eu
+umask 077
+
+dir={{ samba_ad_backup_dir }}
+# samba-tool 在 targetdir 里自己起文件名；用独立的工作目录，才能确定拿到的是这次的那一份。
+work=$(mktemp -d "$dir/.work.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+# offline 直接读数据库文件（加锁），不需要域管理员密码，DC 照常服务。
+samba-tool domain backup offline --targetdir="$work"
+set -- "$work"/samba-backup-*.tar.bz2
+if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+    echo "expected exactly one archive in $work, got: $*" >&2
+    exit 1
+fi
+name=$(basename "$1")
+mv "$1" "$dir/$name"
+
+# --no-check-dest：新文件名不会和已有的冲突，也省掉一次 HEAD。
+rclone copyto "$dir/$name" "offsite:$name" --no-check-dest --retries 5 --stats-one-line -v
+
+# 上传成功才清理本地旧份：传不出去时本地会多留，不会少留。
+ls -1t "$dir"/samba-backup-*.tar.bz2 | tail -n +{{ samba_ad_backup_keep + 1 }} | while read -r old; do
+    rm -f -- "$old"
+done
+
+m={{ samba_ad_backup_textfile_dir }}/samba_backup.prom
+printf 'samba_backup_last_success_timestamp_seconds %s\n' "$(date +%s)" > "$m.$$"
+chmod 0644 "$m.$$"   # umask 077 下 node_exporter 读不了
+mv "$m.$$" "$m"

@@ -1,0 +1,81 @@
+---
+# 每日 samba-tool domain backup offline → 本地留 N 份 + rclone crypt 加密传 OCI。幂等。
+
+# Ubuntu 24.04 的 1.60：s3/crypt/no_check_bucket/no_head 都有，够用，不必另装发行版。
+- name: Install rclone
+  ansible.builtin.apt:
+    name: rclone
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: _rclone_apt
+  retries: 3
+  delay: 10
+  until: _rclone_apt is succeeded
+
+- name: Create the local backup directory
+  ansible.builtin.file:
+    path: "{{ samba_ad_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Read offsite credentials from Bao
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ samba_ad_bao_url }}"
+    engine_mount_point: "{{ samba_ad_bao_kv_mount }}"
+    path: "{{ samba_ad_backup_bao_path }}"
+    auth_method: token
+  delegate_to: localhost
+  become: false
+  register: _backup_bao
+  check_mode: false
+  no_log: true
+
+- name: Check that all three credentials are present
+  ansible.builtin.assert:
+    that: _backup_bao.secret[item] | default('') | length > 0
+    fail_msg: "kv/{{ samba_ad_backup_bao_path }} 缺 {{ item }}，步骤见 infrastructure/samba-ad/README.md 的 Backups。"
+    quiet: true
+  loop: [oci_access_key, oci_secret_key, crypt_password]
+
+# 只放凭据；其余 rclone 配置在 unit 里，不是秘密，方便直接读。
+# diff: false / no_log：--diff 会把凭据打到终端和日志里。
+- name: Write the rclone credentials file
+  ansible.builtin.copy:
+    dest: /etc/samba-backup.env
+    content: |
+      RCLONE_CONFIG_OCI_ACCESS_KEY_ID={{ _backup_bao.secret.oci_access_key }}
+      RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY={{ _backup_bao.secret.oci_secret_key }}
+      RCLONE_CONFIG_OFFSITE_PASSWORD={{ _backup_bao.secret.crypt_password }}
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+
+- name: Install the backup script
+  ansible.builtin.template:
+    src: samba-backup.sh.j2
+    dest: /usr/local/bin/samba-backup.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the backup service + timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [samba-backup.service, samba-backup.timer]
+  register: _backup_units
+
+- name: Enable the backup timer
+  ansible.builtin.systemd_service:
+    name: samba-backup.timer
+    daemon_reload: "{{ _backup_units is changed }}"
+    enabled: true
+    state: started

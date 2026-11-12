@@ -65,3 +65,18 @@ spec:
         summary: dc1 的 samba-acme.timer 超过 2 天没有触发
         description: 每日续期 timer 停了，证书会在约 3 周后静默到期。systemctl list-timers samba-acme.timer。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 时间戳由 samba-backup.sh 在上传 OCI 成功后写入（textfile collector）。每天一次，36 小时
+    # 留出一次失败的余量。absent 兜住从未成功过、或 textfile 被删的情况。
+    - alert: SambaBackupStale
+      expr: |
+        time() - samba_backup_last_success_timestamp_seconds{job="node-exporter",node="dc1"} > 36 * 3600
+        or absent(samba_backup_last_success_timestamp_seconds{job="node-exporter",node="dc1"})
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: dc1 的 AD 备份超过 36 小时没有成功传到 OCI
+        description: >-
+          dc1 上 journalctl -u samba-backup。本地 /var/backups/samba 有新文件而这里仍报警，是 OCI 上传失败
+          （凭据在 Bao kv/infra/dc1-backup）。dc1 是唯一的 DC，没有这份备份就无法重建域。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/samba-ad/README.md

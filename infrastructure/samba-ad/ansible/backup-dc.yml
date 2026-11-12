@@ -1,0 +1,8 @@
+---
+# Daily Samba AD backup on the DC: local copies + encrypted offsite copy in OCI.
+#   VAULT_TOKEN=... ansible-playbook backup-dc.yml   (reads kv/infra/dc1-backup)
+- name: Samba AD DC backups
+  hosts: samba_dc
+  become: true
+  roles:
+    - samba_ad_backup
