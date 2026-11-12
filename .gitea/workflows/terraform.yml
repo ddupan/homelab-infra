@@ -55,7 +55,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
-          terraform_version: v1.17.1
+          terraform_version: v1.17.2
           terraform_wrapper: false
       - uses: actions/cache@v6
         with:
@@ -128,7 +128,7 @@ jobs:
           terraform: 'true'
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: v1.17.1
+          terraform_version: v1.17.2
           terraform_wrapper: false
       - uses: actions/cache@v6
         with:
