@@ -20,6 +20,15 @@
   ],
   "packageRules": [
     {
+      "description": "Automerge digest bumps of floating Docker Hub tags (e.g. postgres:18-alpine) once CI passes. No minimumReleaseAge: floating tags are rebuilt for security patches, and Docker Hub restarts the age on every re-push, so a tag rebuilt more often than the delay would never merge. Docker Hub only because those are the images reviewed for this; our own zot images may have another writer (see the backstage rule below). Full-version tags excluded: a new digest there means upstream re-pushed a released version, which a human should see. platformAutomerge off: main requires no status checks, so Gitea-native automerge would merge before CI (flux-diff, lint) finishes; Renovate's own automerge waits for every check to pass.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
+      "matchPackageNames": ["/^(docker\\.io/|[^/.]+(/[^/]+)?$)/"],
+      "matchCurrentValue": "!/^v?\\d+\\.\\d+\\.\\d+/",
+      "automerge": true,
+      "platformAutomerge": false
+    },
+    {
       "description": "Flux image automation owns this digest (platform/flux-image-automation); two writers would fight.",
       "matchPackageNames": ["zot.ad.ddupan.top/panxiao81/backstage"],
       "enabled": false
