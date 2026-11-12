@@ -14,7 +14,7 @@ jobs:
   security-scan:
     # 云端池（GKE Autopilot）：扫描器直接装在 runner 上，不需要 Docker 和内网；
     # 扫描器峰值约 300 MiB，用 small 规格（0.5 vCPU / 1 GiB），和其他云端 job 挤在同一节点上。
-    runs-on: [cloud, small]
+    runs-on: [cloud-small]
     steps:
       - uses: actions/checkout@v7
       - uses: https://git.ddupan.top/panxiao81/ci-actions/security-scan@v1

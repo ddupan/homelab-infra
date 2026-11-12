@@ -39,7 +39,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:23c6dcc85e9f96f74c972de4882cebbd2438dfb805057e3cd5734e7ccc86d40a
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:304695b915c3e46953a0557c1aee0e3fa5290b30a252c1191bbfe8a79344552c
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -140,7 +140,7 @@ spec:
             # Ayatori lint (2026-11-11) held 1.5 vCPU flat out and peaked at
             # 2.75 GiB of 3 GiB. More CPU shortens the job about as much as it
             # costs, so only the memory headroom adds to the bill.
-            # small (runs-on: [cloud, small]) is for light jobs such as
+            # small (runs-on: [cloud-small]) is for light jobs such as
             # security-scan, whose scanners peak around 300 MiB; it fits next
             # to a default job on the same node instead of waiting for a new one.
             - name: CLOUD_RESOURCE_PROFILES
