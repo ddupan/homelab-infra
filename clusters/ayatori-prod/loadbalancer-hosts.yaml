@@ -1,8 +1,12 @@
-# LB 主机（Ayatori ADR-0018）。原由部署 role 按 inventory 生成；控制面迁入 Chef 后在这里声明。
+# LB 主机（Ayatori ADR-0018）。ADR-0022 起由各主机的 lb-agent 加入控制面后自行注册并写 status；
+# Prod 已切到 agent 收敛，确认下面的 prune: disabled 生效后删除本文件。
+# prune: disabled —— 从这里删除时 Flux 不得删掉对象：删除 LoadBalancerHost 会清除主机上的全部配置。
 apiVersion: network.ayatori.ddupan.top/v1alpha1
 kind: LoadBalancerHost
 metadata:
   name: lb-prod-1
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   dataPlaneURL: https://lb-prod-1.lab.ddupan.top:5555
 ---
@@ -10,5 +14,7 @@ apiVersion: network.ayatori.ddupan.top/v1alpha1
 kind: LoadBalancerHost
 metadata:
   name: lb-prod-2
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   dataPlaneURL: https://lb-prod-2.lab.ddupan.top:5555
