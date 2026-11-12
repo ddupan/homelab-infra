@@ -1,5 +1,5 @@
 {
-  "revision_id": "abe46d200c011334537caa16052d7967aa741b4a38b1149ddf4ade298b421a0e",
+  "revision_id": "cd84cbbc60cecab2d279b15a7246d20f824a4410357b5d978ea12f764293cf3d",
   "name": "loadbalancer-dev",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -13,25 +13,25 @@
       "version": "0.4.5",
       "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
       "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "cache_key": "homelab_base-b36d29b671b937009706b93acea0559a49ab416a",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "b36d29b671b937009706b93acea0559a49ab416a",
+        "tag": "v0.4.15",
         "rel": "cookbooks/homelab_base"
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.4.2",
-      "identifier": "b1a16d476f7757377aad3182bbcb16b67ae26541",
-      "dotted_decimal_identifier": "49998561599780695.15616007997668299.24973001516353",
-      "cache_key": "homelab_loadbalancer-a41591690009b8c7b2058e02c280f8f59850f67a",
+      "version": "0.4.3",
+      "identifier": "cc4355610df1178f9182ce13ea17202df827f133",
+      "dotted_decimal_identifier": "57494929228558615.40410912658811415.35381808984371",
+      "cache_key": "homelab_loadbalancer-b36d29b671b937009706b93acea0559a49ab416a",
       "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
       "source_options": {
         "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "a41591690009b8c7b2058e02c280f8f59850f67a",
-        "tag": "v0.4.11",
+        "revision": "b36d29b671b937009706b93acea0559a49ab416a",
+        "tag": "v0.4.15",
         "rel": "cookbooks/homelab_loadbalancer"
       }
     }
@@ -43,7 +43,8 @@
         "password_hash": "$6$MF/KsEARVNZF4Vl2$FC3mfMQnry2uzPdniarOoSncWxR4cFRh9Yrq2/OY3BWnLpjbQg2oD03WiUANMcJRCoKbeRJ6o0lbjJ80XbQHB0"
       },
       "agent": {
-        "version": "0.3.0",
+        "version": "0.4.0",
+        "graceful_restart_time": "30s",
         "join": true,
         "converge": true
       },
@@ -74,7 +75,7 @@
       "homelab_base (0.4.5)": [
 
       ],
-      "homelab_loadbalancer (0.4.2)": [
+      "homelab_loadbalancer (0.4.3)": [
         [
           "homelab_base",
           ">= 0.0.0"
