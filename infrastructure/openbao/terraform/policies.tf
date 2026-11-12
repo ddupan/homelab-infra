@@ -83,6 +83,11 @@ resource "vault_policy" "ci_converge" {
   policy = file("${path.module}/policies/ci-converge.hcl")
 }
 
+resource "vault_policy" "ci_upgrade_review" {
+  name   = "ci-upgrade-review"
+  policy = file("${path.module}/policies/ci-upgrade-review.hcl")
+}
+
 resource "vault_policy" "ai_gateway_keys" {
   name   = "ai-gateway-keys"
   policy = file("${path.module}/policies/ai-gateway-keys.hcl")
