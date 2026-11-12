@@ -128,3 +128,16 @@ spec:
         summary: cloudflared 只剩 {{ $value }} 条隧道连接（正常 4 条）
         description: 再断一条就全断。通常是 WAN 抖动或 QUIC 被阻断，会自行恢复；持续则重启 Pod。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # laptop 的 node-exporter 没开 textfile collector，所以看 timer 有没有触发；备份失败本身
+    # 由 HostSystemdUnitFailed（k3s-backup.service failed）发现。absent 兜住 timer 不存在。
+    - alert: K3sBackupTimerStale
+      expr: |
+        time() - node_systemd_timer_last_trigger_seconds{job="node-exporter",node="laptop",name="k3s-backup.timer"} > 2 * 86400
+        or absent(node_systemd_timer_last_trigger_seconds{job="node-exporter",node="laptop",name="k3s-backup.timer"})
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: laptop 的 k3s-backup.timer 超过 2 天没有触发
+        description: systemctl list-timers k3s-backup.timer；没有这份备份，丢了 laptop 就要重建整个集群的身份（CA、token）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/infrastructure/host-backup/README.md

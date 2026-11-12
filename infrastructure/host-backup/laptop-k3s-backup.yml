@@ -1,0 +1,167 @@
+---
+# laptop 上 k3s 的每日备份：SQLite 数据存储 + server token，本地留 7 份，GPG 加密给 YubiKey 后传 OCI。
+#   VAULT_TOKEN=... ansible-playbook -i localhost, infrastructure/host-backup/laptop-k3s-backup.yml --check --diff
+# 只写 key 来自 infrastructure/oci/terraform/k3s-backup.tf，存在 Bao kv/infra/k3s-backup。
+- name: laptop 上 k3s 的每日备份
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    k3s_backup_dir: /var/backups/k3s
+    k3s_backup_keep: 7
+    k3s_backup_conf_dir: /etc/k3s-backup
+    k3s_backup_bao_url: https://bao.lab.ddupan.top:8200
+    k3s_backup_bao_path: infra/k3s-backup
+    k3s_backup_endpoint: https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com
+    k3s_backup_region: ap-osaka-1
+    k3s_backup_bucket: k3s-backup
+  tasks:
+    - name: 确认目标是 laptop
+      ansible.builtin.assert:
+        that: ansible_facts.hostname == 'laptop'
+        fail_msg: 此 play 仅用于 laptop 上的 k3s server。
+
+    - name: 读取只写 key
+      ansible.builtin.uri:
+        url: "{{ k3s_backup_bao_url }}/v1/kv/data/{{ k3s_backup_bao_path }}"
+        headers:
+          X-Vault-Token: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') }}"
+      register: k3s_backup_secret
+      become: false
+      no_log: true
+      check_mode: false      # 只读 GET；否则 --check 时后面拿不到值
+
+    # sqlite3：用在线备份接口取一致快照。k3s 不停机、WAL 模式下直接 cp 文件会拿到撕裂的数据库。
+    - name: 安装备份工具
+      ansible.builtin.apt:
+        name: [sqlite3, zstd, gnupg, curl]
+        state: present
+        install_recommends: false
+        update_cache: true
+        cache_valid_time: 3600
+      register: k3s_backup_apt
+      retries: 3             # WAN 会随机断
+      delay: 10
+      until: k3s_backup_apt is succeeded
+
+    - name: 创建目录（仅 root）
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      loop: ["{{ k3s_backup_dir }}", "{{ k3s_backup_conf_dir }}"]
+
+    # 和 pg-prod 异地 dump、TPM 封印密钥托管同一把公钥：解密靠 YubiKey，不用再保管一个密码。
+    - name: 安装 YubiKey 加密公钥
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../openbao/ansible/roles/openbao/files/escrow-recipient.asc"
+        dest: "{{ k3s_backup_conf_dir }}/escrow-recipient.asc"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: 保存上传凭据（仅 root）
+      ansible.builtin.copy:
+        content: |
+          user = "{{ k3s_backup_secret.json.data.data.access_key }}:{{ k3s_backup_secret.json.data.data.secret_key }}"
+        dest: "{{ k3s_backup_conf_dir }}/offsite.curl"
+        owner: root
+        group: root
+        mode: '0600'
+      diff: false
+      no_log: true
+
+    - name: 安装备份脚本
+      ansible.builtin.copy:
+        dest: /usr/local/bin/k3s-backup.sh
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/usr/bin/env bash
+          # Ansible managed: infrastructure/host-backup/laptop-k3s-backup.yml
+          # 失败时 unit 进入 failed，由 HostSystemdUnitFailed 发现；timer 停了由 K3sBackupTimerStale 发现。
+          set -euo pipefail
+          umask 077
+
+          dir={{ k3s_backup_dir }}
+          work="$(mktemp -d /var/tmp/k3s-backup.XXXXXX)"
+          trap 'rm -rf -- "$work"' EXIT
+
+          # .backup 走 SQLite 在线备份接口：读事务内的一致快照，不阻塞 k3s 写入。
+          sqlite3 /var/lib/rancher/k3s/server/db/state.db ".backup '$work/state.db'"
+          check="$(sqlite3 "$work/state.db" 'PRAGMA quick_check')"
+          [ "$check" = ok ] || { echo "快照校验失败：$check" >&2; exit 1; }
+          # 没有 token 的数据库恢复不了：bootstrap 数据（CA 等）用它加密。
+          cp /var/lib/rancher/k3s/server/token "$work/token"
+
+          name="k3s-laptop-$(date -u +%Y%m%dT%H%M%SZ).tar.zst"
+          tar -C "$work" -cf - state.db token | zstd -q -T0 -o "$dir/$name"
+
+          gpg --homedir "$work" --batch --quiet \
+            --recipient-file {{ k3s_backup_conf_dir }}/escrow-recipient.asc \
+            --output "$work/$name.gpg" --encrypt "$dir/$name"
+
+          # WAN 会随机断，所以重试要覆盖所有错误。凭据放 --config 文件，不进 argv。
+          curl --config {{ k3s_backup_conf_dir }}/offsite.curl \
+            --aws-sigv4 "aws:amz:{{ k3s_backup_region }}:s3" \
+            --fail --silent --show-error \
+            --retry 10 --retry-delay 60 --retry-all-errors --max-time 600 \
+            --upload-file "$work/$name.gpg" \
+            "{{ k3s_backup_endpoint }}/{{ k3s_backup_bucket }}/$name.gpg"
+
+          # 上传成功才清理本地旧份：传不出去时本地会多留，不会少留。
+          ls -1t "$dir"/k3s-laptop-*.tar.zst | tail -n +{{ k3s_backup_keep + 1 }} | while read -r old; do
+            rm -f -- "$old"
+          done
+
+    - name: 安装服务和 timer
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: "{{ item.content }}"
+      loop:
+        - name: k3s-backup.service
+          content: |
+            # Ansible managed: infrastructure/host-backup/laptop-k3s-backup.yml
+            [Unit]
+            Description=Back up the k3s datastore and token, upload offsite
+            After=k3s.service network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/bin/k3s-backup.sh
+            # 整台机器只有一块 SATA SSD，Bao Raft 对 fsync 延迟敏感。
+            Nice=10
+            IOSchedulingClass=idle
+        - name: k3s-backup.timer
+          content: |
+            # Ansible managed: infrastructure/host-backup/laptop-k3s-backup.yml
+            [Unit]
+            Description=Daily k3s datastore backup
+
+            [Timer]
+            OnCalendar=*-*-* 04:15:00
+            RandomizedDelaySec=30m
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: "{{ item.name }}"
+      register: k3s_backup_units
+
+    - name: 启用 timer
+      ansible.builtin.systemd_service:
+        name: k3s-backup.timer
+        daemon_reload: "{{ k3s_backup_units is changed }}"
+        enabled: true
+        state: started
+      # 首次 --check 时 unit 文件并没有真的写下去，systemd 找不到它会让整个 check 失败。
+      when: not (ansible_check_mode and k3s_backup_units is changed)
