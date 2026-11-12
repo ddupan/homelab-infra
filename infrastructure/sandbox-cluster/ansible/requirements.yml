@@ -9,7 +9,7 @@ collections:
   - name: ansible.posix
     version: 2.2.2
   - name: community.general
-    version: 14.0.0
+    version: 14.0.1
   - name: community.library_inventory_filtering_v1
     version: 1.1.5
   # Collection name + `source`, not the URL as `name`: Renovate maps a URL `name` to
