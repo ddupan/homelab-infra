@@ -24,6 +24,7 @@ resources:
   - apps/research-auto.yaml
   - apps/e5renew.yaml
   - apps/seaweedfs.yaml
+  - apps/gitea-backup-drive.yaml
   - apps/iam-login.yaml
   - apps/poweradmin.yaml
   - apps/homepage.yaml

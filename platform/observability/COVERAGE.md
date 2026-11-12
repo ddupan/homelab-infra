@@ -123,6 +123,9 @@ kube-state-metrics 的 Pod/Deployment 告警能兜住"进程挂了"，兜不住"
 - [x] **R5** tfstate 异地备份新鲜度（`TfstateBackupStale`）
 - [ ] **R4** 盘点：还有哪些数据没有备份（这本身不是监控，但监控会暴露出来）
   - ⚠ **PVE 上 9 个客户机全部没有备份**（`pve_not_backed_up_total` = 9，2026-10-05）。未设告警，留给备份梳理
+  - 2026-11-12 备份评审：OCI 免费额度 10 GB 里 Gitea 占了 6.4 GB → Gitea 在 OCI 只留 2 天，
+    30 天历史放 Google Drive（`apps/gitea-backup-drive/`）。其余缺口按优先级：dc1、k3s server
+    状态（CA/token）、etcd 与 Ayatori 快照的异地副本、retro-pdc/retrolab 的 vzdump、Nexus（待确认内容）、SPIRE
   - ⚠ **dc1 没有任何备份**（2026-10-05）：唯一的 DC，磁盘是 zvol `data/vm/dc1`，无 ZFS 快照、无
     `samba-tool domain backup`、无 libvirt 快照。samba-ad README 写着"在域成为承重之前做"，现在已经是 SSO 底座
 

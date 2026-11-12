@@ -1,0 +1,112 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitea-backup-drive
+  namespace: gitea-backup-drive
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: gitea-backup-drive
+    creationPolicy: Owner
+  data:
+    - secretKey: OCI_ACCESS_KEY
+      remoteRef: {key: k8s/gitea-backup-drive, property: oci_access_key}
+    - secretKey: OCI_SECRET_KEY
+      remoteRef: {key: k8s/gitea-backup-drive, property: oci_secret_key}
+    # rclone authorize 输出的整段 JSON（含 refresh_token），步骤见 README。
+    - secretKey: DRIVE_TOKEN
+      remoteRef: {key: k8s/gitea-backup-drive, property: drive_token}
+    # rclone obscure 处理后的值：rclone 的环境变量只接受这种形式，它可逆，不算保护。
+    - secretKey: CRYPT_PASSWORD
+      remoteRef: {key: k8s/gitea-backup-drive, property: crypt_password}
+---
+# OCI 的 gitea-backup 桶只留 2 天；这个 Job 把 dump 加密后拷到 Google Drive，在那边留 30 天。
+# 由 lab 而不是 Gitea 主机来拷：主机对 OCI 只有新建权限，被攻破也删不掉备份；
+# 要是让它自己传 Drive，它就得持有能删 Drive 文件的 token，这条保证就没了。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gitea-backup-drive
+  namespace: gitea-backup-drive
+spec:
+  # Gitea 每天 00:00–01:00 UTC 出一份 dump。每 6 小时跑一次，lab 短暂停机或 WAN 抖动
+  # 后自己补上；已经在 Drive 上的文件 copy 会跳过，空跑只有两次列目录。
+  schedule: "41 */6 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # 一份约 0.8 GB，WAN 慢时上传要几分钟到几十分钟。
+      activeDeadlineSeconds: 3600
+      # 失败的 Job 留着会让 KubeJobFailed 一直响，恢复后也不消失，到期删掉。
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: rclone
+              image: docker.io/rclone/rclone:1.76.0@sha256:7cbeec24a44f206067597c0368be4de90ae19a64d5113c7d1938bd737a81e466
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  # 只看最近 3 天的源对象：OCI 只留 2 天，再早的本来也不在。
+                  # copy 而不是 sync：sync 会让 Drive 跟着 OCI 的过期一起删。
+                  rclone copy oci:gitea-backup drive: --max-age 3d --stats-one-line -v
+                  # 只有 Drive 上确实有 2 天内的新 dump 才清理旧的。否则 Gitea 备份停了的时候，
+                  # 按时间清理会在 30 天后把 Drive 上的最后几份也删光。
+                  if [ -z "$(rclone lsf drive: --files-only --max-age 2d)" ]; then
+                    echo "Drive 上没有 2 天内的 dump，跳过清理" >&2
+                    exit 1
+                  fi
+                  rclone delete drive: --min-age 30d -v
+              env:
+                # 默认配置路径在只读根文件系统上；rclone 刷新 access token 后要写回配置，写到 emptyDir。
+                # refresh_token 本身不变，丢掉写回的内容无妨。
+                - {name: RCLONE_CONFIG, value: /config/rclone.conf}
+                - {name: RCLONE_CONFIG_OCI_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_OCI_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_OCI_ENDPOINT, value: "https://axckv9ylwqxr.compat.objectstorage.ap-osaka-1.oraclecloud.com"}
+                - {name: RCLONE_CONFIG_OCI_REGION, value: ap-osaka-1}
+                # 只读凭据没有 bucket 权限；不跳过的话 rclone 会先尝试建桶。
+                - {name: RCLONE_CONFIG_OCI_NO_CHECK_BUCKET, value: "true"}
+                - name: RCLONE_CONFIG_OCI_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: gitea-backup-drive, key: OCI_ACCESS_KEY}}
+                - name: RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: gitea-backup-drive, key: OCI_SECRET_KEY}}
+                - {name: RCLONE_CONFIG_GDRIVE_TYPE, value: drive}
+                # drive.file：token 只能看到、删除 rclone 自己建的文件，碰不到 Drive 里的其他东西。
+                # 必须和 rclone authorize 时的 scope 一致。
+                - {name: RCLONE_CONFIG_GDRIVE_SCOPE, value: drive.file}
+                # 直接删除而不是进回收站：回收站也占配额，要 30 天后才清。
+                - {name: RCLONE_CONFIG_GDRIVE_USE_TRASH, value: "false"}
+                - name: RCLONE_CONFIG_GDRIVE_TOKEN
+                  valueFrom: {secretKeyRef: {name: gitea-backup-drive, key: DRIVE_TOKEN}}
+                - {name: RCLONE_CONFIG_DRIVE_TYPE, value: crypt}
+                - {name: RCLONE_CONFIG_DRIVE_REMOTE, value: "gdrive:homelab-backup/gitea"}
+                # 只加密内容。文件名只是时间戳，明文方便在 Drive 网页上确认备份是否更新。
+                - {name: RCLONE_CONFIG_DRIVE_FILENAME_ENCRYPTION, value: "off"}
+                - {name: RCLONE_CONFIG_DRIVE_DIRECTORY_NAME_ENCRYPTION, value: "false"}
+                - name: RCLONE_CONFIG_DRIVE_PASSWORD
+                  valueFrom: {secretKeyRef: {name: gitea-backup-drive, key: CRYPT_PASSWORD}}
+              volumeMounts:
+                - {name: config, mountPath: /config}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {memory: 256Mi}
+          volumes:
+            - name: config
+              emptyDir: {sizeLimit: 1Mi}
