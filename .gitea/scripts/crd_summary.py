@@ -59,7 +59,7 @@ def summarize(doc):
         rows.append(f"| {'⚠️ ' if danger else ''}`{c['name']}` | {'<br>'.join(notes)} |")
     if not rows:
         return ''
-    return '#### CRD 变更\n\n| CRD | 变化 |\n|---|---|\n' + '\n'.join(rows) + '\n'
+    return '#### CRD 变更\n\n| CRD | 变化 |\n|---|---|\n' + '\n'.join(rows) + '\n\n'
 
 
 if __name__ == '__main__':
