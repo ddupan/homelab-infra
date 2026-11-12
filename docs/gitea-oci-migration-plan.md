@@ -155,6 +155,8 @@ kubectl --context default -n gitea cp -c gitea <pod>:/tmp/gitea-dump.zip ./gitea
 
 ### 5. 收尾（观察 2 周后）
 
+2026-11-11 完成（提前：切换后远端已有新写入，旧数据回滚已无意义）。
+
 - 删除 `apps/gitea`（HelmRelease、HTTPRoute、ExternalSecret、`database.yaml`）、
   `platform/cert-manager/certificate-git-ddupan.yaml`，以及 cloudflared 里旧的 ingress。
 - PVC `gitea-shared-storage` 等 2 周后再删；pg-prod 的 `gitea` 租户库通过

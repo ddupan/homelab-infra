@@ -7,7 +7,6 @@ resources:
   - apps/trust-manager.yaml
   - apps/envoy-gateway.yaml
   - apps/external-secrets.yaml
-  - apps/gitea.yaml
   - apps/backstage.yaml
   - apps/flux-image-automation.yaml
   - apps/renovate.yaml

@@ -11,7 +11,6 @@ locals {
     artifact-keeper = "d4a890b8-7a34-4108-aa24-e94eb4127939"
     backstage       = "16837b48-acc9-42f0-8fb9-acfff9582943"
     e5renew         = "f05cbf75-e4d1-47c7-a4af-9fa2e7f7e2f5"
-    gitea           = "72876404-f261-43e4-aa04-4324df6af93f"
     research-auto   = "1fde1e74-c2fa-4580-a7f0-93513bbee433"
     spire-server    = "3c561678-1239-4d57-9ace-54c309926fc8"
   }
