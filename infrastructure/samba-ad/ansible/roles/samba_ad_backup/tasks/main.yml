@@ -79,3 +79,5 @@
     daemon_reload: "{{ _backup_units is changed }}"
     enabled: true
     state: started
+  # 首次 --check 时 unit 文件并没有真的写下去，systemd 找不到它会让整个 check 失败。
+  when: not (ansible_check_mode and _backup_units is changed)
