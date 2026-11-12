@@ -20,10 +20,12 @@ spec:
         summary: 主机 {{ $labels.instance }} 可用内存不足 10%
         description: 检查主机内存、Swap、进程 PSS；仅使用 node-exporter job，避免重复采集统计。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # 三条文件系统规则共用选择器。/var/lib/incus/devices/<vm>/config.mount 是 Incus 有意只读挂载的 VM 配置，
+    # 不排除就会在每次 laptop 重启后误报 critical 的 HostFilesystemReadOnly（2026-11-07）。
     - alert: HostFilesystemSpaceLow
-      expr: (node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
-        / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
-        < 0.10) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+      expr: (node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
+        / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
+        < 0.10) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
         == 0)
       for: 15m
       labels:
@@ -33,10 +35,10 @@ spec:
         description: 检查文件系统和 ZFS dataset 容量，清理前确认数据归属。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: HostFilesystemInodesLow
-      expr: (node_filesystem_files_free{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
-        / node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
-        < 0.10) and on(instance,device,mountpoint) (node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
-        > 0) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+      expr: (node_filesystem_files_free{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
+        / node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
+        < 0.10) and on(instance,device,mountpoint) (node_filesystem_files{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
+        > 0) and on(instance,device,mountpoint) (node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
         == 0)
       for: 15m
       labels:
@@ -46,7 +48,7 @@ spec:
         description: 检查小文件数量，确认 filesystem 是否耗尽 inode。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: HostFilesystemReadOnly
-      expr: node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*"}
+      expr: node_filesystem_readonly{job="node-exporter",fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|fuse.*",mountpoint!~"/run(/.*)?|/var/lib/kubelet/.*|/var/lib/docker/.*|/var/lib/incus/devices/.*"}
         == 1
       for: 5m
       labels:

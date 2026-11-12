@@ -2,6 +2,30 @@ rule_files:
 - rules.yaml
 evaluation_interval: 1m
 tests:
+- name: 真实挂载点变只读才告警，Incus 的 VM config.mount 本来就只读
+  interval: 1m
+  input_series:
+  - series: node_filesystem_readonly{job="node-exporter",instance="laptop",fstype="zfs",mountpoint="/var/lib/incus/devices/compute-dev1/config.mount"}
+    values: 1x10
+  - series: node_filesystem_readonly{job="node-exporter",instance="laptop",fstype="ext4",mountpoint="/"}
+    values: 0 0 0 1x8
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: HostFilesystemReadOnly
+    exp_alerts: []
+  - eval_time: 9m
+    alertname: HostFilesystemReadOnly
+    exp_alerts:
+    - exp_labels:
+        job: node-exporter
+        instance: laptop
+        fstype: ext4
+        mountpoint: /
+        severity: critical
+      exp_annotations:
+        summary: 主机 laptop / 变为只读
+        description: 排查磁盘和文件系统错误；不要直接强制重新挂载。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
 - name: 交流电断开两分钟触发，USB-C 口离线不触发
   interval: 1m
   input_series:
