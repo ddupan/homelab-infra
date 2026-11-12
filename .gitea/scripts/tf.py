@@ -3,7 +3,7 @@
 
   tf.py run <root> <terraform args...>   取 state 与 root 凭据后执行 terraform
   tf.py comment <markdown-file> [marker]  在当前 PR 上新建或更新唯一一条带 marker 的评论
-                                         （默认 terraform plan；chef.yml 用自己的 marker）
+                                         （默认 terraform plan；chef.yml、flux-diff.yml 用自己的 marker）
 
 依赖 spiffe-openbao-login 写入的 BAO_ADDR/BAO_TOKEN（role ci-terraform）。
 """
@@ -190,7 +190,7 @@ def run(root, args):
 def comment(markdown_file, marker=MARKER):
     body = marker + '\n' + Path(markdown_file).read_text()
     if len(body) > MAX_COMMENT:
-        body = body[:MAX_COMMENT] + '\n```\n\n…已截断，完整 plan 见 job 日志。'
+        body = body[:MAX_COMMENT] + '\n```\n\n…已截断，完整输出见 job 日志。'
     event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
     api = f"{os.environ['GITHUB_SERVER_URL']}/api/v1/repos/{os.environ['GITHUB_REPOSITORY']}"
     auth = {'Authorization': f"token {os.environ['GITEA_TOKEN']}"}
