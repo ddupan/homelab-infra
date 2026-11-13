@@ -5,6 +5,12 @@
 `0.2.2`；该源码渲染结果已与 release `opensandbox-0.2.2.tgz` 对比一致。不要改为跟随
 浮动 branch 或 tag。
 
+**pin 被冻结在 `8f01e93`。** 上游 2026-09-16 把所有 chart 挪到 `manifests/charts/`（#1857），新
+umbrella chart 是 1.x，子 chart 拆分与 values 结构都变了。2026-11-02 起 Renovate 把 pin 升过了这次重构，
+`./kubernetes/charts/opensandbox` 不复存在，HelmRelease 一直无法收敛、旧版本继续运行；sandbox 集群没有
+Flux 告警，11 天后才由 flux-diff 渲染失败暴露。`renovate.json` 已禁止升级这个 pin，迁移到新结构（选正式
+release、重写 values）另行进行。
+
 server 只提供集群内 `opensandbox-server.opensandbox-system.svc:80` ClusterIP，不部署
 Gateway、Ingress 或 LoadBalancer。sandbox workload 位于 `opensandbox` namespace，
 默认使用 `kata-clh-runtime-rs`；CI Pool、runner 镜像、动态 SPIFFE registration 均由
