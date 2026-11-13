@@ -152,6 +152,22 @@ resource "homelab_oidc_client" "incus" {
   audiences            = ["https://incus.lab.ddupan.top", "https://incus.ad.ddupan.top"]
 }
 
+# The Ayatori API (Ayatori ADR-0016) for people, through kubectl with kubelogin (`kubectl oidc-login`): the
+# browser code flow on its default local ports, or the device grant on hosts without a browser. Public, PKCE.
+# One client per environment: the apiserver's structured authentication (homelab_ayatori, policy oidc.audiences)
+# accepts only its own environment's client as aud, so a Dev token is refused by Prod. Who may do what is the
+# API's RBAC (groups prefixed "oidc:"), not this client's.
+resource "homelab_oidc_client" "ayatori" {
+  for_each = toset(["dev", "prod"])
+
+  id                   = "ayatori-${each.key}"
+  name                 = "Ayatori (${each.key})"
+  redirect_uris        = ["http://localhost:8000", "http://localhost:18000"]
+  scopes               = ["openid", "profile", "groups", "offline_access"]
+  public_client        = true
+  device_authorization = true
+}
+
 # artifact-keeper's env-bootstrapped OIDC provider (apps/artifact-keeper/values.yaml). It sends PKCE by default.
 resource "homelab_oidc_client" "artifact_keeper" {
   id            = "artifact-keeper"
