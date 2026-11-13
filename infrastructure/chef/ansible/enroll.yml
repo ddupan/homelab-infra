@@ -29,9 +29,12 @@
         # The certificate CN is <hostname>.lab.ddupan.top (cookbook convention) and the
         # node alias matches on it; a name that resolves elsewhere would enroll the
         # wrong host, or fail http-01 against someone else's port 80.
+        # Resolved on the controller, through DNS as Bao's http-01 check sees it: on the node,
+        # /etc/hosts may map its own name to 127.0.1.1 (cloud-init's manage_etc_hosts).
         - name: Lab name resolves to this node
           ansible.builtin.command: getent ahostsv4 {{ ansible_hostname }}.lab.ddupan.top
           register: cinc_lab_name
+          delegate_to: localhost
           changed_when: false
           failed_when: >-
             cinc_lab_name.rc != 0 or
