@@ -1,0 +1,22 @@
+---
+# Debian 13 genericcloud，固定到一次构建并校验 SHA512；镜像放共享 NFS（laptop 存储的 import），下载一次。
+compute_image_build: 20261103-2651
+compute_image_name: "debian-13-genericcloud-amd64-{{ compute_image_build }}.qcow2"
+compute_image_url: "https://cloud.debian.org/images/cloud/trixie/{{ compute_image_build }}/{{ compute_image_name }}"
+compute_image_sha512: d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535
+compute_shared_storage: laptop
+# 根盘：local-lvm 每台只剩十几 GiB，放 DRBD 的 HDD 资源组。节点无状态（Cinc 重建配置，实例归
+# Ayatori），不进 PVE HA。
+compute_storage: pve-rg-hdd
+compute_cloudinit_storage: local-lvm
+compute_bridge: labnet
+compute_gateway: 10.60.0.1
+compute_nameserver: 192.168.10.5
+compute_searchdomain: lab.ddupan.top
+# cloud-init 用户：免密 sudo；首次 Cinc converge 装上 Bao SSH CA 信任之前只有这把公钥能登录。
+compute_user: panxiao81
+compute_pubkey: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+compute_bao_url: https://bao.lab.ddupan.top:8200
+compute_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
+compute_pdns_zone_url: http://192.168.10.127:8053/api/v1/servers/localhost/zones/lab.ddupan.top.

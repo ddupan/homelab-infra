@@ -1,0 +1,281 @@
+---
+# 只创建已声明且尚不存在的计算节点 VM；不接管未知 VMID，不改运行中 VM 的配置。
+# 与 loadbalancer/ansible/lxc.yml 同一套做法，区别：实例要跑在里面，所以是 VM（嵌套 KVM，CPU host），
+# 由 Debian genericcloud 镜像加 PVE 自带的 cloud-init 起步；SSH host key 经 qemu-guest-agent 在 PVE 上读取。
+- name: 创建 Ayatori 计算节点 VM
+  hosts: compute
+  gather_facts: false
+  vars:
+    compute_ip: "{{ compute_address.split('/')[0] }}"
+    compute_image: "{{ compute_shared_storage }}:import/{{ compute_image_name }}"
+    compute_snippet: compute-guest-agent.yaml
+  tasks:
+    # 创建者自己注册 DNS：lab zone 才是已用地址的完整集合，IPAM 的 --next-free 从这里读。
+    # 一开始就读：等 VM 起来要几分钟，SPIFFE 登录得到的 BAO_TOKEN 只有 5 分钟。
+    - name: 读取 PowerDNS API key
+      ansible.builtin.uri:
+        url: "{{ compute_bao_url }}/v1/kv/data/k8s/powerdns"
+        headers:
+          X-Vault-Token: "{{ compute_bao_token }}"
+      delegate_to: localhost
+      register: compute_pdns_secret
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    - name: 读取 lab zone
+      ansible.builtin.uri:
+        url: "{{ compute_pdns_zone_url }}"
+        headers:
+          X-API-Key: "{{ compute_pdns_secret.json.data.data.api_key }}"
+      delegate_to: localhost
+      register: compute_pdns_zone
+      no_log: true
+      check_mode: false
+      run_once: true
+
+    # 镜像与 snippet 都在共享 NFS 上，处理一次即可。
+    - name: 读取 PVE 节点名
+      ansible.builtin.command: hostname
+      delegate_to: "{{ compute_pve }}"
+      register: compute_pve_name
+      changed_when: false
+      check_mode: false
+
+    - name: 列出已导入的镜像
+      ansible.builtin.command:
+        argv: [pvesm, list, "{{ compute_shared_storage }}", --content, import]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_images
+      changed_when: false
+      check_mode: false
+      run_once: true
+
+    # PVE 下载并校验 SHA512；WAN 不稳，带重试。
+    - name: 下载 Debian 13 genericcloud 镜像
+      ansible.builtin.command:
+        argv: [pvesh, create, "/nodes/{{ compute_pve_name.stdout }}/storage/{{ compute_shared_storage }}/download-url",
+               --content, import, --filename, "{{ compute_image_name }}", --url, "{{ compute_image_url }}",
+               --checksum, "{{ compute_image_sha512 }}", --checksum-algorithm, sha512]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_image_download
+      retries: 5
+      delay: 10
+      until: compute_image_download.rc == 0
+      changed_when: true
+      run_once: true
+      when: compute_image not in compute_images.stdout and not ansible_check_mode
+
+    # vendor-data：装 qemu-guest-agent，PVE 经它读取 host key。用户、网络与公钥由 PVE 生成的 user-data 给出。
+    - name: 写入 cloud-init vendor-data
+      ansible.builtin.copy:
+        dest: "/mnt/pve/{{ compute_shared_storage }}/snippets/{{ compute_snippet }}"
+        content: |
+          #cloud-config
+          # owner: homelab-infra infrastructure/compute/ansible/vm.yml
+          # WAN 不稳，apt 下载失败时重试：packages 模块每个实例只跑一次，失败了就没有 guest agent。
+          apt:
+            conf: |
+              Acquire::Retries "10";
+          packages: [qemu-guest-agent]
+          runcmd:
+            - [systemctl, start, qemu-guest-agent]
+        mode: '0644'
+      delegate_to: "{{ compute_pve }}"
+      run_once: true
+
+    - name: 读取全局资源，避免 VMID 在其他节点已占用
+      ansible.builtin.command:
+        argv: [pvesh, get, /cluster/resources, --type, vm, --output-format, json]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_resources
+      changed_when: false
+      check_mode: false
+
+    - name: 保存同号资源
+      ansible.builtin.set_fact:
+        compute_existing: >-
+          {{ compute_resources.stdout | from_json | selectattr('vmid', 'equalto', compute_vmid) | list }}
+
+    - name: 拒绝接管未知资源
+      ansible.builtin.assert:
+        that:
+          - >-
+            compute_existing | length == 0 or
+            (compute_existing[0].type == 'qemu' and compute_existing[0].name == inventory_hostname
+             and 'compute' in (compute_existing[0].tags | default('')))
+
+    - name: 新建 VM
+      when: compute_existing | length == 0 and not ansible_check_mode
+      delegate_to: "{{ compute_pve }}"
+      block:
+        - name: 暂存 SSH 公钥
+          ansible.builtin.copy:
+            content: "{{ compute_pubkey }}\n"
+            dest: "/run/{{ inventory_hostname }}-bootstrap.pub"
+            mode: '0600'
+        # 导入到同一个共享存储要拿集群锁，并发会超时：逐台创建。
+        - name: 创建声明的 VM
+          throttle: 1
+          ansible.builtin.command:
+            argv:
+              - qm
+              - create
+              - "{{ compute_vmid }}"
+              - --name
+              - "{{ inventory_hostname }}"
+              - --ostype
+              - l26
+              - --machine
+              - q35
+              # 实例是嵌套 KVM：必须把宿主机 CPU 特性（vmx/svm）交给 VM。
+              - --cpu
+              - host
+              - --cores
+              - "{{ compute_cores }}"
+              - --memory
+              - "{{ compute_memory }}"
+              - --balloon
+              - "{{ (compute_memory | int / 2) | int }}"
+              - --scsihw
+              - virtio-scsi-single
+              - --scsi0
+              - "{{ compute_storage }}:0,import-from={{ compute_image }},discard=on,iothread=1"
+              - --boot
+              - order=scsi0
+              - --ide2
+              - "{{ compute_cloudinit_storage }}:cloudinit"
+              # genericcloud 的控制台在 ttyS0。
+              - --serial0
+              - socket
+              - --vga
+              - serial0
+              - --net0
+              - "virtio,bridge={{ compute_bridge }}"
+              - --ipconfig0
+              - "ip={{ compute_address }},gw={{ compute_gateway }}"
+              - --nameserver
+              - "{{ compute_nameserver }}"
+              - --searchdomain
+              - "{{ compute_searchdomain }}"
+              - --ciuser
+              - "{{ compute_user }}"
+              - --sshkeys
+              - "/run/{{ inventory_hostname }}-bootstrap.pub"
+              - --cicustom
+              - "vendor={{ compute_shared_storage }}:snippets/{{ compute_snippet }}"
+              - --agent
+              - enabled=1
+              - --onboot
+              - '1'
+              - --tags
+              - ansible;compute
+          changed_when: true
+        # 刚导入完就扩容，DRBD 存储上偶尔返回成功却没有生效：核对配置中的大小，不对就重试。
+        # 客户机里的分区与文件系统由 cloud-init 的 growpart 在启动时扩大。
+        - name: 扩大根盘
+          ansible.builtin.shell: >-
+            qm disk resize {{ compute_vmid }} scsi0 {{ compute_disk_gb }}G &&
+            qm config {{ compute_vmid }} | grep -q '^scsi0: .*size={{ compute_disk_gb }}G'
+          register: compute_resize
+          retries: 5
+          delay: 10
+          until: compute_resize.rc == 0
+          changed_when: true
+      always:
+        - name: 删除暂存公钥
+          ansible.builtin.file:
+            path: "/run/{{ inventory_hostname }}-bootstrap.pub"
+            state: absent
+
+    - name: 读取 VM 配置
+      ansible.builtin.command:
+        argv: [qm, config, "{{ compute_vmid }}"]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_config
+      changed_when: false
+      when: not ansible_check_mode or compute_existing | length > 0
+
+    - name: 配置漂移先报错，不直接改运行中的网络/资源
+      ansible.builtin.assert:
+        that:
+          - "('ip=' ~ compute_address ~ ',') in compute_config.stdout"
+          - "('bridge=' ~ compute_bridge) in compute_config.stdout"
+          - "'cpu: host' in compute_config.stdout"
+          - "('memory: ' ~ compute_memory) in compute_config.stdout"
+          - "('scsi0: ' ~ compute_storage ~ ':') in compute_config.stdout"
+          - "('size=' ~ compute_disk_gb ~ 'G') in compute_config.stdout"
+      when: compute_config is not skipped
+
+    - name: 读取 VM 运行状态
+      ansible.builtin.command:
+        argv: [qm, status, "{{ compute_vmid }}"]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_status
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: 启动 VM
+      ansible.builtin.command:
+        argv: [qm, start, "{{ compute_vmid }}"]
+      delegate_to: "{{ compute_pve }}"
+      changed_when: true
+      when: not ansible_check_mode and 'running' not in compute_status.stdout
+
+    # 首次启动时 cloud-init 要先装 qemu-guest-agent，给足时间。
+    - name: 通过可信宿主机取得 VM SSH 公钥
+      ansible.builtin.command:
+        argv: [qm, guest, exec, "{{ compute_vmid }}", --, cat, /etc/ssh/ssh_host_ed25519_key.pub]
+      delegate_to: "{{ compute_pve }}"
+      register: compute_hostkey_exec
+      changed_when: false
+      retries: 60
+      delay: 10
+      until: compute_hostkey_exec.rc == 0 and (compute_hostkey_exec.stdout | from_json)['exitcode'] == 0
+      when: not ansible_check_mode
+
+    # 按 lab 名记录：converge.yml 以 DNS 名连接。
+    - name: 保存经宿主机验证的 SSH host key
+      ansible.builtin.known_hosts:
+        name: "{{ inventory_hostname }}.lab.ddupan.top"
+        key: >-
+          {{ inventory_hostname }}.lab.ddupan.top,{{ compute_ip }}
+          {{ (compute_hostkey_exec.stdout | from_json)['out-data'] | trim }}
+      delegate_to: localhost
+      when: not ansible_check_mode
+
+    - name: 计算本主机的 A 记录差异
+      ansible.builtin.set_fact:
+        compute_dns_name: "{{ inventory_hostname }}.{{ compute_pdns_zone.json.name }}"
+        compute_dns_current: >-
+          {{ compute_pdns_zone.json.rrsets
+             | selectattr('name', 'equalto', inventory_hostname ~ '.' ~ compute_pdns_zone.json.name)
+             | selectattr('type', 'equalto', 'A')
+             | map(attribute='records') | flatten | map(attribute='content') | list }}
+
+    - name: 注册 A 记录
+      ansible.builtin.uri:
+        url: "{{ compute_pdns_zone_url }}"
+        method: PATCH
+        headers:
+          X-API-Key: "{{ compute_pdns_secret.json.data.data.api_key }}"
+        body_format: json
+        body:
+          rrsets:
+            - name: "{{ compute_dns_name }}"
+              type: A
+              ttl: 300
+              changetype: REPLACE
+              records: [{content: "{{ compute_ip }}", disabled: false}]
+              comments: [{content: "owner: infrastructure/compute/ansible/vm.yml", account: ansible}]
+        status_code: 204
+      delegate_to: localhost
+      no_log: true
+      changed_when: true
+      when: compute_dns_current != [compute_ip] and not ansible_check_mode
+
+    - name: Check 模式下报告将注册的记录
+      ansible.builtin.debug:
+        msg: "将注册 {{ compute_dns_name }} A {{ compute_ip }}（当前 {{ compute_dns_current }}）"
+      changed_when: true
+      when: compute_dns_current != [compute_ip] and ansible_check_mode

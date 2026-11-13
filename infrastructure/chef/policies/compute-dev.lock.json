@@ -1,0 +1,44 @@
+{
+  "revision_id": "314fa1663d6bb7ce7f04e8b14ac3d9354a3829475ed3cd8cecec39f5195c306b",
+  "name": "compute-dev",
+  "run_list": [
+    "recipe[homelab_base::default]"
+  ],
+  "included_policy_locks": [
+
+  ],
+  "cookbook_locks": {
+    "homelab_base": {
+      "version": "0.4.5",
+      "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
+      "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
+      "cache_key": "homelab_base-b36d29b671b937009706b93acea0559a49ab416a",
+      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "source_options": {
+        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+        "revision": "b36d29b671b937009706b93acea0559a49ab416a",
+        "tag": "v0.4.15",
+        "rel": "cookbooks/homelab_base"
+      }
+    }
+  },
+  "default_attributes": {
+
+  },
+  "override_attributes": {
+
+  },
+  "solution_dependencies": {
+    "Policyfile": [
+      [
+        "homelab_base",
+        ">= 0.0.0"
+      ]
+    ],
+    "dependencies": {
+      "homelab_base (0.4.5)": [
+
+      ]
+    }
+  }
+}
