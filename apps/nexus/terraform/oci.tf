@@ -120,3 +120,10 @@ import {
   to = sonatyperepo_repository_oci_group.public
   id = "oci-public"
 }
+
+# 2026-11-12 节点故障后 Nexus 启动时 DNS 解析失败，这个 proxy 没被加载；apply 刷新读到
+# 404，把它从 state 里删掉了。仓库本身一直在（重启 Nexus 后恢复），导回 state。
+import {
+  to = sonatyperepo_repository_oci_proxy.k8s
+  id = "oci-proxy-k8s"
+}
