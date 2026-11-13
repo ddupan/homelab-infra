@@ -6,6 +6,10 @@ metadata:
   namespace: opensandbox-system
 spec:
   interval: 1h
+  # 钉在上游 2026-09-16 把 chart 挪到 manifests/（#1857）之前：HelmRelease 的
+  # ./kubernetes/charts/opensandbox 在之后的 commit 里不存在。2026-11-02 起 Renovate 把 pin
+  # 升到了重构之后，期望状态连续 11 天无法收敛（sandbox 无 Flux 告警，未被发现），这里回退到
+  # 实际在运行的版本。迁移到新 chart 结构前，renovate.json 禁止升级这个 pin（README）。
   ref:
-    commit: 658aa63fe58eea82aedb1f4e31a3ec131407b90f
+    commit: 8f01e935c2cabba778cf37a152033fae062fa0f4
   url: https://github.com/opensandbox-group/OpenSandbox.git
