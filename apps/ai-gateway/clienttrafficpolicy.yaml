@@ -1,0 +1,17 @@
+---
+# Agent Router 的 ext_proc 要缓冲整个请求体才能读出模型名做路由，而 Envoy 默认的连接缓冲区
+# 只有 32KiB：超过的请求直接 413 Payload Too Large（2026-11-13 实测 30KiB 通过、34KiB 413），
+# 长对话、带代码或 diff 的请求都过不去。上限取 Anthropic API 自身的请求体上限 32MB；缓冲只在
+# 请求到来时按需分配，不是每个连接常驻。
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: ai-request-body
+  namespace: ai-gateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai
+  connection:
+    bufferLimit: 32Mi
