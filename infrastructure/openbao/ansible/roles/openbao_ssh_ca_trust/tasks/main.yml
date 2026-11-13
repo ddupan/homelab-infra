@@ -8,6 +8,9 @@
   delegate_to: localhost
   run_once: true
   become: false
+  # A read-only GET. uri does not support check mode, so without this --check skips it and
+  # the assert below fails: the role could never be previewed with --check --diff.
+  check_mode: false
   register: _ssh_ca_fetch
   when: openbao_ssh_ca_pubkey | length == 0
 
@@ -39,6 +42,9 @@
   register: _sshd_dropins
   changed_when: false
   failed_when: false
+  # Read-only; skipped under --check it would leave rc unset and the preview would pick the
+  # wrong branch (drop-in vs main sshd_config).
+  check_mode: false
 
 - name: Trust the CA via an sshd drop-in
   ansible.builtin.copy:
