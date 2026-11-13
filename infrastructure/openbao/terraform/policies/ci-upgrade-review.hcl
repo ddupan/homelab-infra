@@ -8,3 +8,8 @@ path "kv/data/k8s/ai-gateway-keys/upgrade-agent" {
 path "auth/token/revoke-self" {
   capabilities = ["update"]
 }
+
+# 评审的 trace 经 otlp.lab.ddupan.top 发到 collector 的 4319（bearer token，只进 traces 管道）。
+path "kv/data/k8s/otel-collector" {
+  capabilities = ["read"]
+}
