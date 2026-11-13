@@ -15,6 +15,7 @@ on:
       - 'infrastructure/cloudflared/**'
       - '.gitea/workflows/flux-diff.yml'
       - '.gitea/scripts/*crd_summary.py'
+      - '.gitea/upgrade-review/**'
 
 env:
   # flate 是 flux-local 的继任者（后者已 sunset）。版本与校验和一起钉死；
@@ -117,3 +118,44 @@ jobs:
           flate cache gc --cache-dir "$FLATE_CACHE_DIR" --max-age 168h || true
           python3 .gitea/scripts/tf.py comment "$md" '<!-- flux-diff -->'
           exit $rc
+
+  # Renovate PR 的升级评审（.gitea/upgrade-review/）：在 PR 检出上运行 pi（coding agent），读 PR diff、
+  # release notes、上面贴出的渲染 diff，自己读仓库配置与上游 changelog，给出 verdict 并评论。
+  # 报告模式：不合并，也不让 job 变红——Renovate 的 automerge 要求全部 check 通过，评审失败
+  # 不能挡住它。每次评审一条 trace（otel-collector → VictoriaTraces）。
+  # job id 是 SPIFFE ID 的一部分：bao role ci-upgrade-review 只接受
+  # spiffe://ddupan.top/ci/panxiao81/homelab-infra/upgrade-review，改名会登录失败。
+  upgrade-review:
+    needs: diff
+    # 渲染失败也评审：失败本身是评审要看的信息。
+    if: always() && github.event.pull_request.user.login == 'renovate-bot'
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # agent 能读工作目录：不让 checkout 把 token 写进 .git/config。
+          persist-credentials: false
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+          npm: 'true'
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+        continue-on-error: true
+        with:
+          role: ci-upgrade-review
+      - name: review
+        env:
+          GITEA_TOKEN: ${{ github.token }}
+          # 由 key UI 签发（apps/ai-gateway/README.md）；吊销即停用评审。
+          UPGRADE_REVIEW_KEY_ID: upgrade-agent
+          # 经网关 /v1（OpenAI 兼容端点）。
+          UPGRADE_REVIEW_MODEL: gpt-6-luna
+        # 每一步失败都只打 warning 并退出 0（报告模式）。
+        run: |
+          skip() { echo "::warning::升级评审跳过：$1"; exit 0; }
+          node -e 'process.exit(+process.versions.node.split(".")[0] >= 22 ? 0 : 1)' ||
+            skip "pi 需要 Node >= 22，runner 上是 $(node --version 2>&1)"
+          (cd .gitea/upgrade-review && npm ci --no-audit --no-fund --loglevel=error) || skip 'npm ci 失败'
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7 || skip '安装 uv 失败'
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run --script .gitea/upgrade-review/review.py || skip 'uv run 失败'

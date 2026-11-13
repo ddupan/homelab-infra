@@ -13,3 +13,8 @@ path "auth/token/revoke-self" {
 path "kv/data/k8s/otel-collector" {
   capabilities = ["read"]
 }
+
+# 评审评论以 Bot 账号 upgrade-agent 发出（.gitea/upgrade-review/README.md 的 Bootstrap）。
+path "kv/data/k8s/upgrade-agent" {
+  capabilities = ["read"]
+}
