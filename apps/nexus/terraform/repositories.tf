@@ -68,3 +68,15 @@ resource "sonatyperepo_repository_go_group" "public" {
   }
   storage = local.repository_storage
 }
+
+# 2026-11-12 节点故障后 Nexus 启动时 DNS 解析失败，这两个 proxy 没被加载；apply 刷新读到
+# 404，把它们从 state 里删掉了。仓库本身一直在（重启 Nexus 后恢复），导回 state。
+import {
+  to = sonatyperepo_repository_ansiblegalaxy_proxy.galaxy
+  id = "ansible-galaxy-proxy"
+}
+
+import {
+  to = sonatyperepo_repository_go_proxy.public
+  id = "go-proxy"
+}
