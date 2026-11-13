@@ -92,6 +92,7 @@ ansible-playbook join.yml -l lb-dev-1.lab.ddupan.top \
 | ayatori-dev | ayatori-dev | 2026-11-03 |
 | ayatori-prod | ayatori-prod | 2026-11-03 |
 | dc1 | samba-dc | 2026-11-04 |
+| compute-dev-1、compute-dev-2、compute-dev-3 | compute-dev（暂只有节点基线） | 2026-11-13 |
 
 新节点：加进 `ansible/inventory/hosts.yml` 和 `known_hosts`，并把 `<名字>:9100` 加进
 `platform/observability/metrics/scrapes/cinc-nodes.yaml`。

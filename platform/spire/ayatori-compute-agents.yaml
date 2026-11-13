@@ -1,0 +1,31 @@
+# Ayatori Compute Agent identity (Ayatori ADR-0016): root on each compute node that runs
+# instances gets spiffe://ddupan.top/node/<node>/ayatori-compute-agent and serves the
+# console relay with it. The console proxy checks this ID against the instance's node,
+# so each node's agent has its own. Root already owns the node and every instance on it,
+# so unix:uid:0 grants nothing new. The DRBD tiebreaker (compute-dev-3) runs no instances.
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ayatori-compute-agent-compute-dev-1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/compute-dev-1
+  spiffeID: spiffe://ddupan.top/node/compute-dev-1/ayatori-compute-agent
+  selectors:
+    - unix:uid:0
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ayatori-compute-agent-compute-dev-2
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/compute-dev-2
+  spiffeID: spiffe://ddupan.top/node/compute-dev-2/ayatori-compute-agent
+  selectors:
+    - unix:uid:0

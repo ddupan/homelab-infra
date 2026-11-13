@@ -131,3 +131,42 @@ spec:
   spiffeID: spiffe://ddupan.top/node/dc1
   selectors:
     - x509pop:subject:cn:dc1.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-compute-dev-1
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/compute-dev-1
+  selectors:
+    - x509pop:subject:cn:compute-dev-1.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-compute-dev-2
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/compute-dev-2
+  selectors:
+    - x509pop:subject:cn:compute-dev-2.lab.ddupan.top
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-compute-dev-3
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/compute-dev-3
+  selectors:
+    - x509pop:subject:cn:compute-dev-3.lab.ddupan.top

@@ -11,3 +11,6 @@ lb-dev-2.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJw+dEvMjFyhe8q25BJc
 lb-prod-1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDM1efKw/buswfKlCIgtJaIyhtmgl0+e7lejS3BGjMSE
 lb-prod-2.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMQ0RE/DrkfsdUKLvrxzmTz972WRVsdxIFoAg8ywb4ky
 dc1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMmwby83wEwYK8mt05ZCtZCxCtfGjHwYKKEIofr6twk4
+compute-dev-1.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC5OuKh7sVZl5r2ZMMyvO5xszrKM6SoB+Y05yRdiGZVN
+compute-dev-2.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAkIXexQ5222qBQUEWJRs1KzLibSoZPHKbPwenRFJ820
+compute-dev-3.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOvzT+kbsL+ZDioq3zHS3ac6CB/KyMggEXu2I7lctSJ0
