@@ -139,6 +139,8 @@ spec:
         summary: ClusterSecretStore {{ $labels.name }} 未就绪
         description: 检查 OpenBao 可达性与 ESO 身份鉴权；可能影响多个命名空间。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    # homelab 与 sandbox（vmagent-sandbox 写入，带 cluster="sandbox"）共用这条；Ayatori 集群的 Flux
+    # 由 ayatori.yaml 按 job="ayatori-kube-state-metrics" 覆盖。
     - alert: FluxResourceNotReady
       expr: gotk_resource_info{job="kube-state-metrics",ready!="True",suspended!="true",repository_type!="oci"}
         == 1
@@ -146,16 +148,60 @@ spec:
       labels:
         severity: warning
       annotations:
-        summary: Flux {{ $labels.customresource_kind }} {{ $labels.resource_namespace
-          }}/{{ $labels.name }} 未就绪
+        summary: Flux {{ with $labels.cluster }}[{{ . }}] {{ end }}{{ $labels.customresource_kind
+          }} {{ $labels.resource_namespace }}/{{ $labels.name }} 未就绪
         description: 检查对象 conditions、依赖和 controller 日志；主动 suspend 不触发，不自动解除暂停。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    # 按集群分别判缺失：absent() 不分集群，一个集群有数据就会掩盖另一个集群的缺失。homelab 的
+    # kube-state-metrics 由本地 vmagent 抓取，没有 cluster 标签（cluster="" 即标签不存在）。
     - alert: FluxStateMetricsMissing
-      expr: absent(gotk_resource_info{job="kube-state-metrics",customresource_kind="Kustomization",resource_namespace="flux-system",name="flux-system"})
+      expr: absent(gotk_resource_info{job="kube-state-metrics",cluster="",customresource_kind="Kustomization",resource_namespace="flux-system",name="flux-system"})
       for: 5m
       labels:
         severity: warning
       annotations:
         summary: Flux 对象状态指标缺失
         description: 检查 kube-state-metrics 自定义资源配置、RBAC 与采集；不能把空结果当作健康。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: FluxStateMetricsMissing
+      expr: absent(gotk_resource_info{job="kube-state-metrics",cluster="sandbox",customresource_kind="Kustomization",resource_namespace="flux-system",name="flux-system"})
+      for: 5m
+      labels:
+        severity: warning
+        cluster: sandbox
+      annotations:
+        summary: Flux [sandbox] 对象状态指标缺失
+        description: 检查 sandbox 的 kube-state-metrics 自定义资源配置（platform/sandbox-monitoring/workloads）、vmagent-sandbox
+          的 remote write；不能把空结果当作健康。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    # OpenSandbox controller（sandbox 集群，platform/sandbox-opensandbox/monitor-scrape.yaml）。只有
+    # controller-runtime 标准指标；server 与 egress sidecar 的 OTLP 指标待升级 1.x 时接入。
+    - alert: PlatformControllerMetricsUnavailable
+      expr: up{job="monitoring/opensandbox-controller"} == 0 or absent(up{job="monitoring/opensandbox-controller"})
+      for: 5m
+      labels:
+        severity: warning
+        job: monitoring/opensandbox-controller
+      annotations:
+        summary: 控制器 {{ $labels.job }} 指标不可用
+        description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: OpenSandboxReconcileErrors
+      expr: sum by (controller) (rate(controller_runtime_reconcile_errors_total{job="monitoring/opensandbox-controller"}[15m]))
+        > 0
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenSandbox controller {{ $labels.controller }} 持续 reconcile 出错
+        description: 连续 30 分钟有 reconcile 错误：查 opensandbox-system 的 controller 日志与对应 BatchSandbox/Pool 状态；沙箱创建（CI vm 池、升级评审）可能失败。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    - alert: OpenSandboxReconcilePanics
+      expr: sum by (controller) (increase(controller_runtime_reconcile_panics_total{job="monitoring/opensandbox-controller"}[10m]))
+        > 0
+      labels:
+        severity: warning
+      annotations:
+        summary: OpenSandbox controller {{ $labels.controller }} 发生 panic
+        description: reconcile panic 意味着 controller 代码缺陷或遇到异常对象；查 controller 日志中的堆栈。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md

@@ -243,6 +243,27 @@ spec:
         - pg-prod.shared-postgresql.lb.lab.ddupan.top:5432   # pg-prod 直连（Patroni 主库）
         - pg-prod.shared-postgresql.lb.lab.ddupan.top:6432   # pg-prod 连接池
 ---
+# 明文 HTTP 的健康端点。ayatori-lb-entrypoints 的 TCP 探测只证明 LB 与端口在听；这里证明后面的进程健康。
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: lan-http
+  namespace: monitoring
+spec:
+  jobName: probe-lan-http
+  module: http_plain_2xx
+  interval: 60s
+  scrapeTimeout: 15s
+  prober:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: lan
+      static:
+        # OpenSandbox server：沙箱的创建、执行都经它（CI vm 池、升级评审）。/health 不需要 API key。
+        - http://sandbox-k8s.lab.ddupan.top:8080/health
+---
 # 连接池（infrastructure/shared-postgresql/ansible/pooler.yml）。直接探成员而不是 VyOS 的 :6432：
 # HAProxy 只看 Patroni /primary，主库上的 PgBouncer 挂了它照样转发，探入口只能证明 HAProxy 在听。
 # standby 上的池平时空闲，但 failover 后立刻接流量，所以两个都要在。

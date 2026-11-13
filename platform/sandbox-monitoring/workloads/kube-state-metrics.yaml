@@ -24,10 +24,210 @@ spec:
   upgrade:
     # 无状态、不带 CRD：升级失败（timeout 内未 Ready）自动回滚到上一版。有状态或带 CRD 的
     # release 保持 RetryOnFailure，回滚撤不回数据库 migration 和 CRD。重试用尽后 HelmRelease
-    # 停在 Ready=False。⚠ sandbox 尚未采集 gotk_resource_info，FluxResourceNotReady 覆盖不到这里。
+    # 停在 Ready=False，由 FluxResourceNotReady（cluster=sandbox）告警。
     remediation:
       retries: 3
   values:
+    # Flux 对象状态（gotk_resource_info）：与 homelab 的 kube-state-metrics 同一份配置
+    # （platform/observability/metrics/exporters/kube-state-metrics-helmrelease.yaml），改一处要同步另一处。
+    # 2026-11 OpenSandbox 的 HelmRelease 在这里连续 11 天无法收敛却没有告警，就是因为缺这份配置。
+    rbac:
+      extraRules:
+      - apiGroups:
+        - kustomize.toolkit.fluxcd.io
+        resources:
+        - kustomizations
+        verbs:
+        - list
+        - watch
+      - apiGroups:
+        - helm.toolkit.fluxcd.io
+        resources:
+        - helmreleases
+        verbs:
+        - list
+        - watch
+      - apiGroups:
+        - source.toolkit.fluxcd.io
+        resources:
+        - gitrepositories
+        - helmrepositories
+        - helmcharts
+        - ocirepositories
+        verbs:
+        - list
+        - watch
+    customResourceState:
+      enabled: true
+      config:
+        kind: CustomResourceStateMetrics
+        spec:
+          resources:
+          - groupVersionKind:
+              group: kustomize.toolkit.fluxcd.io
+              version: v1
+              kind: Kustomization
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
+          - groupVersionKind:
+              group: helm.toolkit.fluxcd.io
+              version: v2
+              kind: HelmRelease
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
+          - groupVersionKind:
+              group: source.toolkit.fluxcd.io
+              version: v1
+              kind: GitRepository
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
+          - groupVersionKind:
+              group: source.toolkit.fluxcd.io
+              version: v1
+              kind: HelmRepository
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
+                repository_type:
+                - spec
+                - type
+          - groupVersionKind:
+              group: source.toolkit.fluxcd.io
+              version: v1
+              kind: HelmChart
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
+          - groupVersionKind:
+              group: source.toolkit.fluxcd.io
+              version: v1
+              kind: OCIRepository
+            metricNamePrefix: gotk
+            metrics:
+            - name: resource_info
+              help: The current state of a GitOps Toolkit resource.
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name:
+                    - metadata
+                    - name
+              labelsFromPath:
+                resource_namespace:
+                - metadata
+                - namespace
+                suspended:
+                - spec
+                - suspend
+                ready:
+                - status
+                - conditions
+                - '[type=Ready]'
+                - status
     prometheus:
       monitor:
         enabled: false
