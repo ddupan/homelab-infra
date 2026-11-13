@@ -183,36 +183,36 @@ tests:
 - name: Agent 连不上 libvirt 时告警
   interval: 1m
   input_series:
-  - series: ayatori_compute_agent_libvirt_up{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1"}
+  - series: ayatori_compute_agent_libvirt_up{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1"}
     values: 0x10
   alert_rule_test:
   - eval_time: 6m
     alertname: AyatoriComputeLibvirtDown
     exp_alerts:
-    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev1, severity: warning}
+    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev-1, severity: warning}
       exp_annotations:
-        summary: 计算节点 compute-dev1 的 Agent 连不上 libvirt
+        summary: 计算节点 compute-dev-1 的 Agent 连不上 libvirt
         description: systemctl status libvirtd；连不上期间实例不会被收敛，节点的 compute Ready 也为 False。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
 - name: 应当运行的实例没有节点在运行时告警，换节点或有意关机不告警
   interval: 1m
   input_series:
   # down：应当运行，没有节点在运行。
-  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="down"}
+  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="down"}
     values: 1x20
-  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="down"}
+  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="down"}
     values: 0x20
   # moved：旧节点上没运行，另一个节点在运行。
-  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="moved"}
+  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="moved"}
     values: 1x20
-  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="moved"}
+  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="moved"}
     values: 0x20
   - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev2",namespace="default",name="moved"}
     values: 1x20
   # off：客户机内关机，should_run 为 0。
-  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="off"}
+  - series: ayatori_compute_agent_domain_should_run{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="off"}
     values: 0x20
-  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",namespace="default",name="off"}
+  - series: ayatori_compute_agent_domain_running{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",namespace="default",name="off"}
     values: 0x20
   alert_rule_test:
   - eval_time: 11m
@@ -226,37 +226,37 @@ tests:
 - name: 对象长时间没有收敛成功时告警，从未成功同样告警，持续成功不告警
   interval: 1m
   input_series:
-  - series: ayatori_compute_agent_object_last_success_timestamp_seconds{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",kind="LibvirtDomain",namespace="default",name="never"}
+  - series: ayatori_compute_agent_object_last_success_timestamp_seconds{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",kind="LibvirtDomain",namespace="default",name="never"}
     values: 0x40
-  - series: ayatori_compute_agent_object_last_success_timestamp_seconds{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",kind="LibvirtDomain",namespace="default",name="healthy"}
+  - series: ayatori_compute_agent_object_last_success_timestamp_seconds{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",kind="LibvirtDomain",namespace="default",name="healthy"}
     values: 0+60x40
   alert_rule_test:
   - eval_time: 36m
     alertname: AyatoriComputeObjectNotConverging
     exp_alerts:
-    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev1, kind: LibvirtDomain, namespace: default, name: never, severity: warning}
+    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev-1, kind: LibvirtDomain, namespace: default, name: never, severity: warning}
       exp_annotations:
-        summary: LibvirtDomain never 在 compute-dev1 上 30 分钟没有收敛成功
+        summary: LibvirtDomain never 在 compute-dev-1 上 30 分钟没有收敛成功
         description: 从未成功时同样触发。查对象 status 中的 message 与 journalctl -u ayatori-compute-agent。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
 - name: 存储池使用超过 90% 时告警
   interval: 1m
   input_series:
-  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",name="full",type="capacity"}
+  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",name="full",type="capacity"}
     values: 100x40
-  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",name="full",type="available"}
+  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",name="full",type="available"}
     values: 5x40
-  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",name="ok",type="capacity"}
+  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",name="ok",type="capacity"}
     values: 100x40
-  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev1",name="ok",type="available"}
+  - series: ayatori_compute_agent_pool_bytes{job="ayatori-compute-agent",cluster="ayatori-dev",env="dev",node="compute-dev-1",name="ok",type="available"}
     values: 50x40
   alert_rule_test:
   - eval_time: 31m
     alertname: AyatoriComputePoolAlmostFull
     exp_alerts:
-    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev1, name: full, severity: warning}
+    - exp_labels: {job: ayatori-compute-agent, cluster: ayatori-dev, env: dev, node: compute-dev-1, name: full, severity: warning}
       exp_annotations:
-        summary: 计算节点 compute-dev1 的存储池 full 使用超过 90%
+        summary: 计算节点 compute-dev-1 的存储池 full 使用超过 90%
         description: 清理不用的卷与镜像，或扩容底层存储。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
 - name: pg-prod LB 入口没有 primary 时告警，有一个时安静
