@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 import subprocess
 import sys
@@ -99,12 +100,21 @@ def run_oci(root, args, env):
         req = urllib.request.Request(
             'https://idcs-15519d43fa4e4b2588e6c0ffa5be9423.identity.oraclecloud.com/oauth2/v1/token', form,
             {'Authorization': f'Basic {basic}', 'Content-Type': 'application/x-www-form-urlencoded'})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                token = json.load(response)['token']
-        except urllib.error.HTTPError as e:
-            # aud 或 subject 不匹配时 OCI 返回 500，不是 4xx，不要当作临时错误重试。
-            raise SystemExit(f'换 OCI token 失败：HTTP {e.code} {e.read().decode()[:200]}') from None
+        # WAN 随机断（CLAUDE.md）：连不上或超时就重试；sandbox 的 pod runner 上 2026-11-13 连续
+        # 三次 apply 在这里超时，后面的 root 全部没跑到。
+        for attempt in range(1, 4):
+            try:
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    token = json.load(response)['token']
+                break
+            except urllib.error.HTTPError as e:
+                # aud 或 subject 不匹配时 OCI 返回 500，不是 4xx，不要当作临时错误重试。
+                raise SystemExit(f'换 OCI token 失败：HTTP {e.code} {e.read().decode()[:200]}') from None
+            except (urllib.error.URLError, TimeoutError) as e:
+                if attempt == 3:
+                    raise SystemExit(f'换 OCI token 失败：{e}') from None
+                print(f'换 OCI token 第 {attempt} 次失败（{e}），10 秒后重试', file=sys.stderr)
+                time.sleep(10)
 
         Path(f'{home}/token').write_text(token)
         fingerprint = hashlib.md5(der).hexdigest()
