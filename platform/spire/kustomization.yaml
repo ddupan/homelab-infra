@@ -9,6 +9,14 @@ configMapGenerator:
     namespace: spire-mgmt
     files:
       - values.yaml=values.yaml
+  # OCI region roots for the oci_instance NodeAttestor (values.yaml customPlugins). Public certs,
+  # as returned by GET auth.ap-osaka-1.oraclecloud.com/v1/instancePrincipalRootCACertificates on
+  # 2026-11-13 (base64 DER wrapped in PEM). The plugin re-reads the file on every attestation, so a
+  # rotation is: fetch again, replace the file, merge; no spire-server restart.
+  - name: oci-instance-roots
+    namespace: spire-server
+    files:
+      - roots.pem=oci-instance-roots.pem
 resources:
   - namespaces.yaml
   - helmrepository.yaml

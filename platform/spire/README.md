@@ -28,6 +28,20 @@ kubeconfig。Sandbox 不运行第二套 Server 或 OIDC Provider。
 集群外主机（当前只有 iam-login 构建 runner）以 `join_token` 证明，见
 [external-agent/README.md](external-agent/README.md)。
 
+OCI 实例使用自写插件 `oci_instance` 证明，插件仓库为
+[panxiao81/spire-plugin-oci](https://github.com/panxiao81/spire-plugin-oci)，设计讨论见 #642。
+- **证明方式**：agent 从 IMDS 取实例身份证书，server 用 `oci-instance-roots.pem` 验证证书链和
+  `tenancy_allow_list`，再要求 agent 用 IMDS 私钥签名一次随机挑战。
+- **Agent ID**：`spiffe://ddupan.top/spire/agent/oci_instance/<实例 OCID>`，叶证书轮换后不变，
+  entry 可以直接以它为 parent。
+- **Selector**：`oci_instance:{tenancy,compartment,instance,region}:<值>`。
+- **升级插件**：同时修改 `values.yaml` 里的镜像 digest 和 `plugin_checksum`（取自 release 的
+  `SHA256SUMS` 中 `server-linux-amd64` 那一行）。两者不一致时 spire-server 无法启动。
+- **根证书轮换**：OCI 的接口带 `refreshIn`，说明会换根；当前根 2029-06-03 到期。轮换时用已认证的
+  OCI 主体重新请求 `GET https://auth.ap-osaka-1.oraclecloud.com/v1/instancePrincipalRootCACertificates`，
+  把返回的裸 base64 DER 包成 PEM，替换 `oci-instance-roots.pem` 后合并即可。目录挂载会跟随
+  ConfigMap 更新，插件每次证明都会重新读取文件，不需要重启。
+
 内部 fork 仅在上游 `spire-0.30.2` 基础上暴露
 `use_pod_uid_for_agent_id`。现有 `sandbox` profile 保持 node UID 模式，供 DaemonSet
 Agent 使用；独立的 `sandbox-kata` profile 复用同一 kubeconfig，但启用 Pod UID 模式，
