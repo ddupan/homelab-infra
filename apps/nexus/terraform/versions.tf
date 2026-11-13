@@ -4,7 +4,7 @@ terraform {
   required_providers {
     sonatyperepo = {
       source  = "sonatype-nexus-community/sonatyperepo"
-      version = "1.22.0"
+      version = "1.22.1"
     }
   }
 }
