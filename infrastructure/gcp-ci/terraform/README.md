@@ -1,6 +1,6 @@
 # GCP CI 执行环境
 
-`gitea-dynamic-runner` 云端池的 GCP 资源：GKE Autopilot 集群，以及 Actions cache 用的 GCS bucket。
+`gitea-dynamic-runner` 云端池的 GCP 资源：GKE Autopilot 集群，以及 Actions cache 服务（`cache-server.tf`，免费额度的 e2-micro）。
 只放不需要 Docker、也不访问内网的 job。
 
 已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有服务账号密钥：`.gitea/scripts/tf.py` 用 SPIRE JWT-SVID
@@ -17,5 +17,5 @@ executor Pod 所需的 namespace、ServiceAccount、runner ConfigMap 和 cache S
 费用：总额、预算告警和账单导出见 `../../gcp-billing`。集群开了 GKE cost allocation，Detailed 导出里带
 Pod label，可以按仓库和规格拆实际费用。实时情况看 Grafana 的“CI 云端执行”面板（cloud-scheduler 指标）。
 
-`google_storage_hmac_key` 的 secret 会明文进 state，和 `apps/e5renew/terraform` 的 client secret 一样，
+cache-server 的共享密钥（`random_password`）会明文进 state，和 `apps/e5renew/terraform` 的 client secret 一样，
 靠 tfstate bucket 的访问控制保护。

@@ -22,8 +22,9 @@ Gitea 就把 job 交给谁，不需要额外的调度配置（见 gitea-dynamic-
 - **executor 身份**：parent 由 `SPIRE_CLUSTER=sandbox` 与 Pod 所在节点 UID 推导，
   ClusterStaticEntry 由 central SPIRE controller-manager 的 sandbox 集群配置处理。
 - **Actions cache**：executor 的 runner 配置来自 `runner-config.yaml`（ConfigMap），cache
-  存进 SeaweedFS 的 `ci-cache` bucket，与 homelab 成员共享；S3 key 由 ESO 从
-  `kv/k8s/gitea-runner-cache-s3` 同步。
+  经 LAN 网关（`runner-cache.lab.ddupan.top`）走 homelab 的 cache-server
+  （`platform/dynamic-runner/cache-server.yaml`），与 homelab 成员共享；共享密钥由 ESO 从
+  `kv/k8s/gitea-runner-cache-s3` 的 `external_secret` 同步。
 - **容量**：sandbox1 为 4 CPU / 8G（宿主 pve1 的 i3 与 iam-spike-build 共用），sandbox2 为
   8 CPU / 6G / 64G rootfs。executor 的 CPU request 很小，调度只受内存 request 约束
   （见 `limitrange.yaml`），预留内存后放得下 13 个，但实际上限是 `POD_CAPACITY=6`：两台 PVE

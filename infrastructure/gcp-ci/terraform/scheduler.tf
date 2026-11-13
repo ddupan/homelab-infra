@@ -55,16 +55,10 @@ resource "kubernetes_config_map_v1" "runner_config" {
         timeout          = "3h"
         shutdown_timeout = "1m"
       }
+      # cache-server.tf：runner 把 job 的 token 注册过去并转发 job 的缓存请求。
       cache = {
-        s3 = {
-          endpoint        = "https://storage.googleapis.com"
-          region          = var.region
-          bucket          = google_storage_bucket.ci_cache.name
-          prefix          = "gitea-runner-cache"
-          path_style      = true
-          access_key_file = "/run/gitea-runner-cache/access_key"
-          secret_key_file = "/run/gitea-runner-cache/secret_key"
-        }
+        external_server      = "http://${google_compute_address.cache_server.address}:${local.cache_server_port}/"
+        external_secret_file = "/run/gitea-runner-cache/external_secret"
       }
       host = {
         workdir_parent = "/workspace"
@@ -77,13 +71,13 @@ resource "kubernetes_config_map_v1" "runner_config" {
   }
 }
 
+# 名字沿用 GCS 时代（controller 的 CLOUD_RUNNER_CACHE_SECRET 引用它），现在只放 cache-server 的共享密钥。
 resource "kubernetes_secret_v1" "runner_cache" {
   metadata {
     name      = "gitea-runner-cache-gcs"
     namespace = kubernetes_namespace_v1.executor.metadata[0].name
   }
   data = {
-    access_key = google_storage_hmac_key.ci_cache.access_id
-    secret_key = google_storage_hmac_key.ci_cache.secret
+    external_secret = random_password.cache_server_secret.result
   }
 }

@@ -8,5 +8,6 @@ resources:
   - deployment.yaml
   - service.yaml
   - runner-config.yaml
+  - cache-server.yaml
   - limitrange.yaml
   - gke-ci.yaml
