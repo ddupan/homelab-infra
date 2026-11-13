@@ -46,3 +46,18 @@ resource "oci_core_network_security_group_security_rule" "dn42_first_peer" {
     }
   }
 }
+
+# oci-arm reaches the LAN via AMD (the VCN route to the home prefixes points at AMD's VNIC), so
+# its packets must pass AMD's ingress filter with their real destination port. Without this only
+# TCP 22 got through (the security list's 0.0.0.0/0 rule): spire-agent (.127:8081), Bao (.8:8200)
+# and lab DNS (.127:53) were silently dropped. Mirrors the "WireGuard routed homelab traffic"
+# rule for the opposite direction; scoped to oci-arm's NSG rather than the whole subnet.
+resource "oci_core_network_security_group_security_rule" "arm_routed_home" {
+  network_security_group_id = oci_core_network_security_group.wireguard.id
+  direction                 = "INGRESS"
+  protocol                  = "all"
+  source                    = oci_core_network_security_group.gitea.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  stateless                 = false
+  description               = "oci-arm traffic routed home via AMD"
+}
