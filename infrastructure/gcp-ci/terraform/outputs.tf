@@ -2,8 +2,8 @@ output "cluster_endpoint" {
   value = google_container_cluster.ci.endpoint
 }
 
-output "cache_bucket" {
-  value = google_storage_bucket.ci_cache.name
+output "cache_server_address" {
+  value = google_compute_address.cache_server.address
 }
 
 output "ghcr_mirror" {

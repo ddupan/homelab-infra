@@ -75,11 +75,22 @@ Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` 
 - runner 注册在 admin 层（`CLOUD_GITEA_SCOPE=admin`），和 `pod-laptop`、`vm` 一样对整个实例生效。
 - `kv/k8s/dynamic-runner:cloud_gitea_token`：Gitea API token（`write:admin`），用于列出 job、
   注册和删除 runner。它必须先写入 Bao，否则 ExternalSecret 失败。
-- 云端 Pod 的 runner 配置、cache Secret 和 namespace 由 `gcp-ci` 的 Terraform 创建。
+- 云端 Pod 的 runner 配置、cache Secret 和 namespace 由 `gcp-ci` 的 Terraform 创建；云端的 Actions
+  cache 是 `gcp-ci` 里的 cache-server（e2-micro），不走下面这个。
 - 规格（`CLOUD_RESOURCE_PROFILES`）：默认 2 vCPU / 4 GiB；`runs-on: [cloud-small]` 是
   0.5 vCPU / 1 GiB，给 security-scan 这类轻量 job，能和默认规格的 job 挤在同一个节点上。
   试用账号的 GCE 配额（全局 12 vCPU、SSD 250 GB）是实际的并发上限。
 - 停用：从 `COMPONENTS` 去掉 `cloud-scheduler`；剩下的 runner 在 Gitea 里删除即可。
+
+## Actions cache
+
+`cache-server.yaml` 常驻一个官方 runner 的 `cache-server`（PVC 40Gi，7 天没访问的条目淘汰），
+laptop 与 sandbox 的 executor 都指向它（`runner-config.yaml` 的 `cache.external_server`）。
+runner 把每个 job 的 token 注册过去，job 的缓存请求经 runner 转发。之前 executor 直接用
+SeaweedFS `ci-cache`：runner 启动后才在后台导入 bucket 的 metadata，job 开头的 restore 常常 miss。
+
+共享密钥在 `kv/k8s/gitea-runner-cache-s3` 的 `external_secret`。轮换时先改 Bao，等两个集群的
+ESO 都同步后重启 cache-server；executor 每个 job 重新读取。
 
 ## Workflow 身份与依赖配置
 
