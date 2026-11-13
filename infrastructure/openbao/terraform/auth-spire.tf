@@ -126,6 +126,27 @@ resource "vault_jwt_auth_backend_role" "ci_terraform" {
   token_max_ttl = 3600
 }
 
+# Renovate PR 升级评审（.gitea/workflows/flux-diff.yml 的 upgrade-review job）：只能读它自己那一把
+# AI 网关 key。PR 由 renovate-bot 开，但能在本仓库开 PR 的人都能改 workflow 以此身份运行——
+# 拿到的也只是一把调用模型的 key，可在 key UI 随时吊销。
+resource "vault_jwt_auth_backend_role" "ci_upgrade_review" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "ci-upgrade-review"
+  role_type = "jwt"
+
+  user_claim        = "sub"
+  bound_audiences   = ["openbao"]
+  bound_claims_type = "string"
+  bound_claims = {
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/upgrade-review"
+  }
+
+  token_policies          = [vault_policy.ci_upgrade_review.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}
+
 # Cinc converge CI (infrastructure/chef/): job keys converge-* (why-run on PRs, apply
 # on main). Only an SSH signer for root on the converged nodes; the policy archive is
 # built in the job and needs no secret. Like ci-terraform, anyone who can open a PR
