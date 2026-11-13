@@ -112,3 +112,18 @@ resource "google_project_iam_member" "node_default" {
   role    = "roles/container.defaultNodeServiceAccount"
   member  = local.node_service_account
 }
+
+# ponytail: cache 已不用 HMAC key，这条例外可以删了，但删除要组织级 orgpolicy.policies.delete，CI 的
+# terraform-ci 没有（#768 的 apply 因此中断）。留着它，等本地用组织管理员身份删除（../../gcp-org/terraform）。
+resource "google_org_policy_policy" "allow_cache_hmac_key" {
+  name   = "projects/${google_project.ci.project_id}/policies/iam.disableServiceAccountKeyCreation"
+  parent = "projects/${google_project.ci.project_id}"
+
+  spec {
+    rules {
+      enforce = "FALSE"
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}
