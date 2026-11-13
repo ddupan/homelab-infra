@@ -100,6 +100,29 @@ spire-server:
             - spire-smoke:spire-smoke
             - opensandbox:gitea-ci
           usePodUIDForAgentID: true
+  # OCI instances (oci-arm first; homelab-infra #642): attest with the instance identity certificate
+  # from IMDS, via our own plugin (github.com/panxiao81/spire-plugin-oci). SPIRE has no OCI attestor,
+  # and x509pop rejects OCI's leaf (no KeyUsage). The agent ID is .../spire/agent/oci_instance/<instance
+  # OCID> and stays stable across the ~2h leaf rotation, so entries parent to it directly.
+  # The chart copies plugin_cmd out of the image in an init container (it supplies busybox itself,
+  # so a scratch image works). Pinned by digest, pulled straight from ghcr like spire-server's own
+  # image; once pulled, containerd's cache covers restarts. plugin_checksum is the server-amd64 line
+  # of the release's SHA256SUMS; bump image digest and checksum together.
+  customPlugins:
+    nodeAttestor:
+      oci_instance:
+        plugin_cmd: /spire-plugin-oci-server
+        plugin_checksum: ea3792fb27f47d391b2e657f0f495ea3715c7f39ecc9a3c8412d541a7ea51645
+        image:
+          registry: ghcr.io
+          repository: panxiao81/spire-plugin-oci
+          tag: v0.1.1@sha256:94eef6462e88496b88670d4868d6186d3e0882648c519024d42d3677e3845b1e
+          pullPolicy: IfNotPresent
+        plugin_data:
+          trust_bundle_path: /etc/oci-instance-roots/roots.pem
+          # The roots are shared by every OCI customer in the region; this is the actual gate.
+          tenancy_allow_list:
+            - ocid1.tenancy.oc1..aaaaaaaalncmdinfnljot5oh7rqleavphhsa6jpyurfu4luztcct3tp5gsfa
   externalControllerManagers:
     enabled: true
     clusters:
@@ -170,9 +193,17 @@ spire-server:
     - name: internal-ca
       configMap:
         name: internal-ca
+    - name: oci-instance-roots
+      configMap:
+        name: oci-instance-roots
   extraVolumeMounts:
     - name: internal-ca
       mountPath: /etc/internal-ca
+      readOnly: true
+    # A directory mount, not subPath: subPath mounts never see ConfigMap updates, and root
+    # rotation relies on the file changing under the running server.
+    - name: oci-instance-roots
+      mountPath: /etc/oci-instance-roots
       readOnly: true
   # SPIFFE Bundle Endpoint (WebPKI) for relying parties that verify SVIDs without being in the
   # trust domain: iam-login's JWT-SVID client authentication (draft-ietf-oauth-spiffe-client-auth
