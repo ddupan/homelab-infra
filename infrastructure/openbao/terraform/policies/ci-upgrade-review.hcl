@@ -3,3 +3,8 @@
 path "kv/data/k8s/ai-gateway-keys/upgrade-agent" {
   capabilities = ["read"]
 }
+
+# spiffe-openbao-login 在 job 结束时撤销自己的 token；缺这条会 403，token 只能等 TTL 过期。
+path "auth/token/revoke-self" {
+  capabilities = ["update"]
+}
