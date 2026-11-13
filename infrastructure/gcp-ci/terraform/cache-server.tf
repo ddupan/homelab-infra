@@ -13,6 +13,61 @@ locals {
   cache_server_image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.dockerhub.repository_id}/gitea/runner:6.0.0@sha256:f9a1f17484398b861c25a763b81febfb394b17b72e0522c25d8067d7b484f347"
 }
 
+# COS 每次开机都重跑 cloud-init，/etc 下的文件随之重建；缓存数据在 stateful 分区。
+# 只在开机时生效，所以内容变了就重建 VM（replace_triggered_by），缓存可以丢。
+locals {
+  cache_server_user_data = <<-EOT
+    #cloud-config
+    write_files:
+      - path: /etc/gitea-runner-cache/config.yaml
+        permissions: "0644"
+        content: |
+          log:
+            level: info
+          cache:
+            dir: /data
+            port: ${local.cache_server_port}
+            external_secret_file: /etc/gitea-runner-cache/secret
+            retention: 168h
+            repo_size_limit: 10GB
+            # 30 GB 盘扣掉 COS 自身和镜像。
+            size_limit: 15GB
+      - path: /etc/gitea-runner-cache/secret
+        permissions: "0644"
+        content: ${random_password.cache_server_secret.result}
+      - path: /etc/systemd/system/gitea-runner-cache.service
+        permissions: "0644"
+        content: |
+          [Unit]
+          Wants=gcr-online.target network-online.target
+          After=gcr-online.target network-online.target
+          [Service]
+          Environment=HOME=/home/gitea-runner-cache
+          ExecStartPre=/bin/mkdir -p /home/gitea-runner-cache /mnt/stateful_partition/gitea-runner-cache
+          ExecStartPre=/usr/bin/docker-credential-gcr configure-docker --registries=${var.region}-docker.pkg.dev
+          ExecStartPre=-/usr/bin/docker rm -f gitea-runner-cache
+          # COS 的主机防火墙默认只放行 SSH 入站，VPC 防火墙之外还要在这里开端口。
+          ExecStartPre=/bin/sh -c 'iptables -w -C INPUT -p tcp --dport ${local.cache_server_port} -j ACCEPT || iptables -w -A INPUT -p tcp --dport ${local.cache_server_port} -j ACCEPT'
+          ExecStart=/usr/bin/docker run --rm --name gitea-runner-cache --network host \
+            --user 0 --entrypoint /usr/local/bin/gitea-runner \
+            -v /etc/gitea-runner-cache:/etc/gitea-runner-cache:ro \
+            -v /mnt/stateful_partition/gitea-runner-cache:/data \
+            ${local.cache_server_image} cache-server -c /etc/gitea-runner-cache/config.yaml
+          ExecStop=/usr/bin/docker stop gitea-runner-cache
+          Restart=always
+          RestartSec=10
+          [Install]
+          WantedBy=multi-user.target
+    runcmd:
+      - systemctl daemon-reload
+      - systemctl start gitea-runner-cache.service
+  EOT
+}
+
+resource "terraform_data" "cache_server_user_data" {
+  input = sha256(local.cache_server_user_data)
+}
+
 # 节点不能直连 Docker Hub（没有外网 IP），同 ghcr 远程仓库。
 resource "google_artifact_registry_repository" "dockerhub" {
   repository_id = "dockerhub"
@@ -96,51 +151,11 @@ resource "google_compute_instance" "cache_server" {
   }
 
   metadata = {
-    # COS 每次开机都重跑 cloud-init，/etc 下的文件随之重建；缓存数据在 stateful 分区。
-    user-data = <<-EOT
-      #cloud-config
-      write_files:
-        - path: /etc/gitea-runner-cache/config.yaml
-          permissions: "0644"
-          content: |
-            log:
-              level: info
-            cache:
-              dir: /data
-              port: ${local.cache_server_port}
-              external_secret_file: /etc/gitea-runner-cache/secret
-              retention: 168h
-              repo_size_limit: 10GB
-              # 30 GB 盘扣掉 COS 自身和镜像。
-              size_limit: 15GB
-        - path: /etc/gitea-runner-cache/secret
-          permissions: "0644"
-          content: ${random_password.cache_server_secret.result}
-        - path: /etc/systemd/system/gitea-runner-cache.service
-          permissions: "0644"
-          content: |
-            [Unit]
-            Wants=gcr-online.target network-online.target
-            After=gcr-online.target network-online.target
-            [Service]
-            Environment=HOME=/home/gitea-runner-cache
-            ExecStartPre=/bin/mkdir -p /home/gitea-runner-cache /mnt/stateful_partition/gitea-runner-cache
-            ExecStartPre=/usr/bin/docker-credential-gcr configure-docker --registries=${var.region}-docker.pkg.dev
-            ExecStartPre=-/usr/bin/docker rm -f gitea-runner-cache
-            ExecStart=/usr/bin/docker run --rm --name gitea-runner-cache --network host \
-              --user 0 --entrypoint /usr/local/bin/gitea-runner \
-              -v /etc/gitea-runner-cache:/etc/gitea-runner-cache:ro \
-              -v /mnt/stateful_partition/gitea-runner-cache:/data \
-              ${local.cache_server_image} cache-server -c /etc/gitea-runner-cache/config.yaml
-            ExecStop=/usr/bin/docker stop gitea-runner-cache
-            Restart=always
-            RestartSec=10
-            [Install]
-            WantedBy=multi-user.target
-      runcmd:
-        - systemctl daemon-reload
-        - systemctl start gitea-runner-cache.service
-    EOT
+    user-data = local.cache_server_user_data
+  }
+
+  lifecycle {
+    replace_triggered_by = [terraform_data.cache_server_user_data]
   }
 
   depends_on = [google_artifact_registry_repository_iam_member.cache_server_reader]
