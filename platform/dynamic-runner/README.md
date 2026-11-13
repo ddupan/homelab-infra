@@ -2,8 +2,10 @@
 
 本目录部署单副本 Go controller，在同一进程运行原生 Kubernetes worker、OpenSandbox
 worker 和 SPIFFE mTLS facade。两个 worker 各自是一个 Gitea runner 池的成员
-（`TASK_SOURCE=gitea`）：`pod-laptop` 与 sandbox 的 `pod-sandbox` 声明相同 label，
-组成 pod 池；`vm` 组成 vm 池。每个成员只在本地容量池有空位时用自己的 registration
+（`TASK_SOURCE=gitea`）。每个池只声明一个 label，job 的 `runs-on` 也只写这一个：
+sandbox 的 `pod-sandbox` 是 `[self-hosted]`（迁移期间另带别名 `pod`），`pod-laptop` 是
+`[self-hosted-large]`，`vm` 是 `[self-hosted-vm]`，云端是 `[cloud]`/`[cloud-small]`
+（见 gitea-dynamic-runner `docs/design-principles.md`）。每个成员只在本地容量池有空位时用自己的 registration
 `FetchTask`，Gitea 在池内分发：
 
 ```text
@@ -118,8 +120,7 @@ ClusterStaticEntry 全部消失；完整自动清理通过前不得提高 `POD_C
 `VM_CAPACITY`。
 
 VM backend 已通过 `vm-dev` canary 完成 Docker、kind、SPIFFE 和完整生命周期测试。
-生产规范标签为 `[self-hosted, vm, opensandbox]`，旧 `[self-hosted, vm]` 仍严格映射到
-同一 placement。初始保持 `VM_CAPACITY=1`；扩容前先观察实际任务的
+生产标签为 `[self-hosted-vm]`。初始保持 `VM_CAPACITY=1`；扩容前先观察实际任务的
 资源水位、等待时间以及 OpenSandbox 是否存在 terminal sandbox 残留。
 
 ## 回滚

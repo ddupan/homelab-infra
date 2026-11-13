@@ -39,7 +39,7 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:47a64f11e2b51e19bcdadd47b7934042dc8a642f8b57d2e66663a129b4941089
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:67324362d0a7941ee9cc2cf30437390b493824b1e42d63e045f713c1213cd88f
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
@@ -67,6 +67,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            # runs-on: [self-hosted]. "pod" is an alias while workflows still say
+            # [self-hosted, pod]; drop it once none do. No other pool may declare
+            # either label.
+            - name: POD_RUNNER_LABELS
+              value: self-hosted,pod
             - name: POD_EXECUTOR_IMAGE
               value: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-runner@sha256:ebfb927739c3100e7cbcb5e356cad8d830cc8e2f8b28a034ab36dc66f55ed186
             - name: POD_SERVICE_ACCOUNT

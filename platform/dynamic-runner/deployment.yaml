@@ -39,13 +39,13 @@ spec:
               mountPath: /trust
       containers:
         - name: controller
-          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:304695b915c3e46953a0557c1aee0e3fa5290b30a252c1191bbfe8a79344552c
+          image: zot.lab.ddupan.top/panxiao81/gitea-dynamic-runner-controller@sha256:67324362d0a7941ee9cc2cf30437390b493824b1e42d63e045f713c1213cd88f
           imagePullPolicy: IfNotPresent
           args: [controller]
           env:
             # Member of the vm pool, plus a Pod worker that only takes jobs too
-            # big for sandbox (see POD_RUNNER_LABELS). Ordinary pod jobs run on
-            # sandbox (pod-sandbox) to keep CI load off the laptop.
+            # big for sandbox (runs-on: [self-hosted-large]). Ordinary
+            # [self-hosted] jobs run on sandbox to keep CI load off the laptop.
             # cloud-scheduler runs runs-on: [cloud] jobs as one-off Pods on GKE
             # Autopilot (infrastructure/gcp-ci/terraform).
             - name: COMPONENTS
@@ -84,17 +84,15 @@ spec:
               value: "2000"
             - name: POD_CAPACITY
               value: "1"
-            # Deliberately without "pod": Gitea matches a job only if the runner
-            # has all of its labels, so [self-hosted, pod] jobs stay on sandbox.
-            # Jobs reach this worker with runs-on: [self-hosted, container, large].
-            # The worker adds the label of each profile below by itself.
+            # One label only: Gitea gives a job to any runner holding all of its
+            # labels, so a second label here would pull other pools' jobs in.
             - name: POD_RUNNER_LABELS
-              value: self-hosted,container
+              value: self-hosted-large
             # The largest job has to fit: sandbox nodes have 8G and 6G in total,
             # so these jobs can only run here. iam-login's native build takes 7g
             # for its compile container; dockerd shares the same Pod cgroup.
-            - name: POD_RESOURCE_PROFILES
-              value: '{"large":{"requests":{"cpu":"4","memory":"9Gi"},"limits":{"cpu":"4","memory":"9Gi"}}}'
+            - name: POD_RESOURCES
+              value: '{"requests":{"cpu":"4","memory":"9Gi"},"limits":{"cpu":"4","memory":"9Gi"}}'
             # See runner-config.yaml.
             - name: POD_RUNNER_CONFIGMAP
               value: gitea-runner-config
@@ -108,8 +106,8 @@ spec:
               value: ci-vm
             - name: VM_CAPACITY
               value: "1"
-            - name: VM_RUNNER_LABEL
-              value: vm
+            - name: VM_RUNNER_LABELS
+              value: self-hosted-vm
             - name: VM_TIMEOUT_SECONDS
               value: "14400"
             # Instance-wide like pod-laptop and vm: runners are platform
