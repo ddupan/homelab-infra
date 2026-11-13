@@ -40,6 +40,11 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 
 ## Tooling
 
+- **CI 的依赖下载经 Artifact Keeper**（`ci-actions/setup-artifact-keeper`，`https://artifacts.lab.ddupan.top`）：
+  pypi、npm、Go 模块、Ansible Galaxy、Terraform provider 都走内部 pull-through 缓存。lockfile 里**写公共
+  registry 的地址是标准形式**，不是绕过代理：npm 按 `.npmrc` 的 `registry=` 把 `package-lock.json` 里的
+  `registry.npmjs.org` 改写到代理，uv 用 `UV_DEFAULT_INDEX`。Renovate 生成的 lockfile 就是公共地址；
+  lockfile 的 resolved 地址在公共 registry 与代理之间切换不改变实际下载路径，不算供应链变化。
 - Python CLIs via **uv**. Ansible specifically:
   `uv tool install ansible-core --with ansible --with paramiko --with pywinrm --with hvac`
   ⚠️ `uv tool install ansible` alone exposes only `ansible-community`, **not** `ansible-playbook`.

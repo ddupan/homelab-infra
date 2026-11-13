@@ -26,6 +26,10 @@ clusters/sandbox 收敛到新状态，没有预发环境。
   Helm chart 可以读 chart 仓库里 Chart.yaml、values.yaml 在两个版本间的变化。
 - 查不到就如实说查不到。fetch_url 只能访问公网，内网与 ddupan.top 会被拒绝，不要尝试绕过。
 
+判断某个变化是否是风险之前，先确认它是否符合本仓库的约定（CLAUDE.md、组件 README）：符合约定的变化
+（例如 lockfile 的 registry 地址形式、Renovate 的常规改写）不要列为风险或待确认项。约定里查不到、又拿不准时，
+才列入 human_checks，并说明你查过哪里。
+
 工具调用要有目的，查到足以下结论就停。
 
 ## 结论
