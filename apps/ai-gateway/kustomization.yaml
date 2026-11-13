@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - external-secret.yaml
   - gateway.yaml
+  - clienttrafficpolicy.yaml
   - anthropic.yaml
   - anthropic-wif.yaml
   - cliproxyapi.yaml
