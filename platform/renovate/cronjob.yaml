@@ -24,7 +24,7 @@ spec:
             seccompProfile: {type: RuntimeDefault}
           containers:
             - name: renovate
-              image: ghcr.io/renovatebot/renovate:44.235.1@sha256:b84e0630ca478e0318b85512e510b61f55a00b30b5b039585be2cb8460cce188
+              image: ghcr.io/renovatebot/renovate:44.236.5@sha256:935fc7f1de18fdde6cc40c9dd57cc06a4300251b4997e3841ffd9b1e84972767
               env:
                 - {name: RENOVATE_CONFIG_FILE, value: /config/config.js}
                 - {name: LOG_LEVEL, value: info}
