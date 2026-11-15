@@ -63,6 +63,13 @@ spec:
             fail_if_not_ssl: true
             valid_status_codes: [401]
         # 外网出口：只关心通不通，跟随跳转、接受任意 2xx/3xx。
+        # 只开了明文 HTTP 的内网健康端点（如 OpenSandbox server，经 Ayatori LB 暴露在 :8080）。
+        http_plain_2xx:
+          prober: http
+          timeout: 10s
+          http:
+            preferred_ip_protocol: ip4
+            follow_redirects: false
         http_egress:
           prober: http
           timeout: 10s
