@@ -40,3 +40,29 @@
         description: OCI 镜像仓库
         namespace: zot
         podSelector: app.kubernetes.io/instance=zot
+# Vendor consoles: nothing to discover and no pods, so links only. Each logs in on its own.
+- 公有云:
+    - Oracle Cloud:
+        href: https://cloud.oracle.com/?region=ap-osaka-1
+        icon: oracle-cloud.svg
+        description: OCI 大阪（Gitea、备份桶、邮件）
+    - Google Cloud:
+        href: https://console.cloud.google.com/?organizationId=74885522592
+        icon: google-cloud.svg
+        description: GCP 组织
+    - Microsoft Entra:
+        href: https://entra.microsoft.com/
+        icon: entra-id.svg
+        description: Entra 租户
+    - Microsoft 365:
+        href: https://admin.microsoft.com/
+        icon: microsoft-365-admin-center.svg
+        description: M365 管理中心
+    - Cloudflare:
+        href: https://dash.cloudflare.com/
+        icon: cloudflare.svg
+        description: DNS 与隧道
+    - Claude Console:
+        href: https://platform.claude.com/
+        icon: anthropic.svg
+        description: Anthropic API 与额度
