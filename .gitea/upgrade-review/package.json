@@ -1,8 +1,0 @@
-{
-  "name": "upgrade-review",
-  "private": true,
-  "description": "Renovate PR 升级评审所用的 pi（coding agent），版本由 package-lock.json 锁定",
-  "dependencies": {
-    "@earendil-works/pi-coding-agent": "1.5.2"
-  }
-}
