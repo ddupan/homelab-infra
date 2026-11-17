@@ -3,7 +3,7 @@
 
 # --- lego (ACME client) release ---
 # renovate: datasource=github-releases depName=go-acme/lego
-openbao_acme_version: "5.3.1"
+openbao_acme_version: "5.6.0"
 openbao_acme_checksum: "sha256:b3c71b122ee1947eacfe0b809b955647f6377239fe4bfc49f73b1a091ae1252a"
 openbao_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ openbao_acme_version }}/lego_v{{ openbao_acme_version }}_linux_amd64.tar.gz"
 openbao_acme_bin: "/usr/local/bin/lego"
