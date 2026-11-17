@@ -1,15 +1,16 @@
 # Sandbox OpenSandbox
 
 本目录在独立 sandbox k3s 集群部署 OpenSandbox controller、server 与 CRD。Flux 从
-上游 commit `8f01e935c2cabba778cf37a152033fae062fa0f4` 构建官方 umbrella chart
-`0.2.2`；该源码渲染结果已与 release `opensandbox-0.2.2.tgz` 对比一致。不要改为跟随
-浮动 branch 或 tag。
+上游 release tag 构建官方 umbrella chart（见下方版本）。不要改为跟随 branch 或 rc tag。
 
-**pin 被冻结在 `8f01e93`。** 上游 2026-09-16 把所有 chart 挪到 `manifests/charts/`（#1857），新
-umbrella chart 是 1.x，子 chart 拆分与 values 结构都变了。2026-11-02 起 Renovate 把 pin 升过了这次重构，
-`./kubernetes/charts/opensandbox` 不复存在，HelmRelease 一直无法收敛、旧版本继续运行；sandbox 集群没有
-Flux 告警，11 天后才由 flux-diff 渲染失败暴露。`renovate.json` 已禁止升级这个 pin，迁移到新结构（选正式
-release、重写 values）另行进行。
+**版本：OpenSandbox `release-1.2.1`**（tag 指向 `db708c218771a8d311356f0e96552c15df6e097a`），chart 在
+`manifests/charts/opensandbox`。上游从 1.1.0 起所有组件（server、chart、execd/egress 镜像、SDK）共用一个平台版本；
+GitRepository 跟随正式 `release-x.y.z` tag，不跟 rc。`values.yaml` 的 server `configToml` 必须显式写 execd 与
+egress 镜像，`renovate.json` 用同一个 depName 让它们与 tag 在同一个 PR 里一起升级。
+
+历史：0.2.2 时期钉 commit `8f01e93`。上游 2026-09-16 把 chart 挪到 `manifests/charts/`（#1857），2026-11-02 起
+Renovate 把 commit pin 升过了这次重构，HelmRelease 连续 11 天无法收敛（当时 sandbox 没有 Flux 告警），由此
+迁移到 1.x 并改为跟 release tag。
 
 server 只提供集群内 `opensandbox-server.opensandbox-system.svc:80` ClusterIP，不部署
 Gateway、Ingress 或 LoadBalancer。sandbox workload 位于 `opensandbox` namespace，
