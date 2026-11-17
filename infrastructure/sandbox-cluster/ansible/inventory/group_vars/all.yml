@@ -40,6 +40,7 @@ sandbox_postgresql_replication_password: "{{ lookup('env', 'SANDBOX_REPLICATION_
 
 # Patroni leader election runs on the shared etcd (infrastructure/etcd), with
 # its own account and prefix /homelab/patroni/pg-sandbox/.
+# renovate: datasource=pypi depName=patroni
 sandbox_patroni_version: 4.1.5
 sandbox_patroni_etcd_user: patroni-pg-sandbox
 sandbox_patroni_etcd_hosts:
@@ -75,6 +76,7 @@ server_config_yaml: |
     - system-reserved=memory=1Gi
 user_kubectl: false
 
+# renovate: datasource=github-releases depName=fluxcd/flux2
 sandbox_flux_version: v2.9.5
 sandbox_flux_install_url: >-
   https://github.com/fluxcd/flux2/releases/download/{{ sandbox_flux_version }}/install.yaml

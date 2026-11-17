@@ -12,10 +12,12 @@ retro_86box_dir: /opt/86box
 
 # Pinned. Bump deliberately — a silent upstream change to the emulator is not
 # something you want arriving with an unrelated play run.
+# renovate: datasource=github-releases depName=86Box/86Box
 retro_86box_version: "6.0"
 retro_86box_build: "b9001"
 retro_86box_url: "https://github.com/86Box/86Box/releases/download/v{{ retro_86box_version }}/86Box-Linux-x86_64-{{ retro_86box_build }}.AppImage"
 
+# renovate: datasource=github-releases depName=notBald/Avalonia86
 retro_86box_mgr_version: "1.5.1"
 retro_86box_mgr_url: "https://github.com/notBald/Avalonia86/releases/download/v{{ retro_86box_mgr_version }}/Avalonia-86-for-Linux-x64-{{ retro_86box_mgr_version }}.AppImage"
 

@@ -7,6 +7,7 @@
 # at once — a year later, with no memory of how it got there.
 
 # --- lego (ACME client). Same pinned release as openbao_acme, deliberately. ---
+# renovate: datasource=github-releases depName=go-acme/lego
 samba_ad_acme_version: "5.3.1"
 samba_ad_acme_checksum: "sha256:b3c71b122ee1947eacfe0b809b955647f6377239fe4bfc49f73b1a091ae1252a"
 samba_ad_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ samba_ad_acme_version }}/lego_v{{ samba_ad_acme_version }}_linux_amd64.tar.gz"

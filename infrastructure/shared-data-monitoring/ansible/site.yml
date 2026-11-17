@@ -5,6 +5,7 @@
   gather_facts: false
   vars:
     data_monitor_root: /opt/homelab-data-monitoring
+    # renovate: datasource=github-releases depName=prometheus/node_exporter
     data_monitor_exporter_version: 1.9.1
     data_monitor_download_base: https://github.com/prometheus/node_exporter/releases/download
     data_monitor_archive: "node_exporter-{{ data_monitor_exporter_version }}.linux-amd64"
