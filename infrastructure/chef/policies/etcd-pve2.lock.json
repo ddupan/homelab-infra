@@ -1,5 +1,5 @@
 {
-  "revision_id": "bfdee8109e988336e7e259df7ab2664bd6137f1b73aded176579d532c94d06ce",
+  "revision_id": "e9456e9621cda652dec18864bfb2c1ec287952fe3ba12141758c4d2a669da339",
   "name": "etcd-pve2",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -10,29 +10,25 @@
   ],
   "cookbook_locks": {
     "homelab_base": {
-      "version": "0.4.4",
-      "identifier": "996830448fc36d8a26246d0e9fbb0238e7c2afb8",
-      "dotted_decimal_identifier": "43180227954721645.38885484676423611.2443429719992",
-      "cache_key": "homelab_base-e806f68234050c13d6b74d4edf886e3111fa9937",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "version": "0.4.5",
+      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
+      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
+      "cache_key": "homelab_base-0.4.5-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "e806f68234050c13d6b74d4edf886e3111fa9937",
-        "tag": "v0.4.10",
-        "rel": "cookbooks/homelab_base"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
+        "version": "0.4.5"
       }
     },
     "homelab_data": {
-      "version": "0.1.0",
-      "identifier": "ee9b8aadc061609e0226da0e48bf439412263e28",
-      "dotted_decimal_identifier": "67162064379994464.44475412210665663.74303238716968",
-      "cache_key": "homelab_data-e806f68234050c13d6b74d4edf886e3111fa9937",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "version": "0.2.0",
+      "identifier": "d06dc70021ec705639e142bba5a86f461c275f1e",
+      "dotted_decimal_identifier": "58667496623959152.24270487647135144.122346910736158",
+      "cache_key": "homelab_data-0.2.0-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_data/versions/0.2.0/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "e806f68234050c13d6b74d4edf886e3111fa9937",
-        "tag": "v0.4.10",
-        "rel": "cookbooks/homelab_data"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_data/versions/0.2.0/download",
+        "version": "0.2.0"
       }
     }
   },
@@ -48,19 +44,22 @@
     "Policyfile": [
       [
         "homelab_base",
-        ">= 0.0.0"
+        "= 0.4.5"
       ],
       [
         "homelab_data",
-        ">= 0.0.0"
+        "= 0.2.0"
       ]
     ],
     "dependencies": {
-      "homelab_base (0.4.4)": [
+      "homelab_base (0.4.5)": [
 
       ],
-      "homelab_data (0.1.0)": [
-
+      "homelab_data (0.2.0)": [
+        [
+          "homelab_base",
+          ">= 0.0.0"
+        ]
       ]
     }
   }

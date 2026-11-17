@@ -3,13 +3,9 @@
 # themselves are still deployed by infrastructure/etcd/ and shared-postgresql/.
 name 'etcd-pve1'
 run_list 'homelab_base::default', 'homelab_data::monitoring'
-cookbook 'homelab_base',
-         git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-         tag: 'v0.4.10',
-         rel: 'cookbooks/homelab_base'
-cookbook 'homelab_data',
-         git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-         tag: 'v0.4.10',
-         rel: 'cookbooks/homelab_data'
+# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+cookbook 'homelab_base', '= 0.4.5'
+cookbook 'homelab_data', '= 0.2.0'
 
 default['homelab_data']['postgresql_prod'] = true
