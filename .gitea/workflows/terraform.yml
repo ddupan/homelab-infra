@@ -60,8 +60,8 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: /tmp/tf-plugin-cache
-          # 不设 restore-keys：从旧缓存恢复再存，会把旧版本 provider 带进新对象，躲过 ci-cache
-          # bucket 的 7 天过期（apps/seaweedfs/terraform/ci-cache.tf）。lockfile 一变就冷装一次。
+          # 不设 restore-keys：从旧缓存恢复再存，会把旧版本 provider 带进新对象，躲过 cache-server
+          # 的 7 天淘汰（platform/dynamic-runner/cache-server.yaml）。lockfile 一变就冷装一次。
           key: tf-providers-${{ hashFiles('**/.terraform.lock.hcl') }}
       - name: fmt and validate
         # 重试同 init：provider 走 WAN 镜像，会随机失败。
@@ -133,8 +133,8 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: /tmp/tf-plugin-cache
-          # 不设 restore-keys：从旧缓存恢复再存，会把旧版本 provider 带进新对象，躲过 ci-cache
-          # bucket 的 7 天过期（apps/seaweedfs/terraform/ci-cache.tf）。lockfile 一变就冷装一次。
+          # 不设 restore-keys：从旧缓存恢复再存，会把旧版本 provider 带进新对象，躲过 cache-server
+          # 的 7 天淘汰（platform/dynamic-runner/cache-server.yaml）。lockfile 一变就冷装一次。
           key: tf-providers-${{ hashFiles('**/.terraform.lock.hcl') }}
       - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
         with:

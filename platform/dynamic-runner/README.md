@@ -87,7 +87,7 @@ Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` 
 `cache-server.yaml` 常驻一个官方 runner 的 `cache-server`（PVC 40Gi，7 天没访问的条目淘汰），
 laptop 与 sandbox 的 executor 都指向它（`runner-config.yaml` 的 `cache.external_server`）。
 runner 把每个 job 的 token 注册过去，job 的缓存请求经 runner 转发。之前 executor 直接用
-SeaweedFS `ci-cache`：runner 启动后才在后台导入 bucket 的 metadata，job 开头的 restore 常常 miss。
+SeaweedFS `ci-cache`（已删除）：runner 启动后才在后台导入 bucket 的 metadata，job 开头的 restore 常常 miss。
 
 共享密钥在 `kv/k8s/gitea-runner-cache-s3` 的 `external_secret`。轮换时先改 Bao，等两个集群的
 ESO 都同步后重启 cache-server；executor 每个 job 重新读取。
