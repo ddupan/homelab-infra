@@ -1,10 +1,12 @@
 ---
 pg_major: 18
+# renovate: datasource=pypi depName=patroni
 pg_patroni_version: 4.1.5
 # pgBackRest 要求数据库主机与仓库主机版本完全一致（协议握手比对 version），否则 archive-push
 # 报 [103] "expected value 'X' for greeting key 'version'"、WAL 归档中断。未固定时，2026-10-11
 # laptop 的一次 apt upgrade 单独升到 2.59.3，主库回切 laptop 后归档立即失败。升级改这里并在
 # 三台（pg_hosts + pg_repository）一起跑；包被 hold，平时的 apt upgrade 不会再动它。
+# renovate: datasource=deb depName=pgbackrest
 pg_pgbackrest_version: 2.59.3-1.pgdg24.04+1
 pg_bao_url: https://bao.lab.ddupan.top:8200
 pg_bao_token: "{{ lookup('env', 'BAO_TOKEN') }}"
@@ -62,6 +64,7 @@ pg_offsite_metrics_dir: /var/lib/prometheus/node-exporter
 # 因此无需密码或 Bao；角色仅有 pg_monitor，不复用实例管理账号。
 pg_monitor_user: homelab_monitor
 # 升级只改版本；安装包与同版本官方 sha256sums.txt 一起下载校验，不写死摘要。
+# renovate: datasource=github-releases depName=prometheus-community/postgres_exporter
 pg_exporter_version: 0.20.1
 # 连接池：每个 prod 成员一个 PgBouncer，经本机 socket 连本机实例；VyOS 的 pg-prod:6432 跟随 /primary。
 # 起因：CNPG 迁入后各应用自带连接池（backstage ~22、spire 20…）会把 max_connections=80 吃光，
@@ -70,6 +73,7 @@ pg_exporter_version: 0.20.1
 # 需要会话级特性（LISTEN/NOTIFY、会话 advisory lock）或长期占满连接的客户端（backstage）不走池，
 # 直连 5432 并收紧自身池；迁移、pg_dump、Ayatori 管理同样直连。
 # 版本固定理由同 pgBackRest：两成员行为必须一致，平时 apt upgrade 不动它。
+# renovate: datasource=deb depName=pgbouncer
 pg_pgbouncer_version: 1.26.0-4.pgdg24.04+1
 pg_pooler_user: homelab_pooler
 pg_pooler:

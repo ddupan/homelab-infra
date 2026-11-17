@@ -3,6 +3,7 @@
 # Secrets (openbao_transit_token) MUST come from an Ansible Vault file, not here.
 
 # --- Release ---
+# renovate: datasource=github-releases depName=openbao/openbao
 openbao_version: "2.7.2"
 openbao_download_checksum: ""           # "sha256:..."  REQUIRED — set in group_vars
 openbao_download_url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_version }}/openbao_{{ openbao_version }}_linux_amd64.tar.gz"
@@ -52,6 +53,7 @@ openbao_pkcs11_seal: false
 openbao_pkcs11_seal_disabled: false
 # Not writable by openbao: bao executes whatever sits here.
 openbao_plugin_dir: "/opt/openbao/plugins"
+# renovate: datasource=github-releases depName=openbao/openbao-plugins
 openbao_pkcs11_plugin_version: "0.3.0"
 openbao_pkcs11_plugin_url: "https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{{ openbao_pkcs11_plugin_version }}/openbao-plugin-kms-pkcs11_linux_amd64_v1.tar.gz"
 openbao_pkcs11_plugin_checksum: ""      # "sha256:..." of the tarball — set in group_vars
