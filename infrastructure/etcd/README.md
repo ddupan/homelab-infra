@@ -1,7 +1,9 @@
 # Homelab shared etcd
 
-独立于 PostgreSQL 与 k3s 的三成员协调服务。Ansible 管主机、证书文件和 etcd 账号；
-独立 Terraform root 管现有 Bao PKI 下的签发角色与 policy，不管理 CA 或秘密值。
+独立于 PostgreSQL 与 k3s 的三成员协调服务。三个成员都由 Cinc（homelab-cookbooks 的
+`homelab_data::etcd`，policy 在 `infrastructure/chef/policies/etcd-pve*.rb`）安装、配置并在本机续签证书；
+Ansible 管 LXC、etcd 账号与成员增删；独立 Terraform root 管现有 Bao PKI 下的签发角色与 policy，
+不管理 CA 或秘密值。
 旧 Ansible Vault 不在本次迁移范围。
 
 状态：2026-09-25 已部署三成员 etcd，启用 Bao mTLS 和 RBAC；三个端点健康检查通过。
@@ -10,9 +12,9 @@ PVE 两个 LXC 的 rootfs 已通过 `pct move-volume` 从 local-lvm 迁入 `pve-
 
 | 成员 | 承载 | 地址 | 资源 |
 | --- | --- | --- | --- |
-| etcd-laptop | laptop systemd | 192.168.10.127 | MemoryHigh 256 MiB / MemoryMax 384 MiB |
 | etcd-pve1 | pve1 新无特权 LXC 150 | 10.60.0.20 | 1 core / 1536 MiB / 8 GiB SSD DRBD |
 | etcd-pve2 | pve2 新无特权 LXC 151 | 10.60.0.21 | 1 core / 768 MiB / 8 GiB SSD DRBD |
+| etcd-pve3 | pve3 LXC 152 | 10.60.0.22 | 取代 etcd-laptop（#570） |
 
 资源限额是初始测试预算，不是已测容量。LXC 已增加 PG standby/备份的独立 HDD mp0 与内存上限，生产 PG standby 与备份仓库已启动。
 etcd 自身的 MemoryHigh/MemoryMax 仍为 256/384 MiB。labnet 依赖现有 VyOS 路由；切换 bare-metal 时复用服务角色，更换主机 inventory。
@@ -81,20 +83,19 @@ Terraform 使用现有 S3 tfstate bucket，独立 key `etcd/terraform.tfstate`�
 不默默扩大权限。账号删除、prefix 迁移和密码轮换均不包含在普通收敛里。
 密码使用 stdin 送给 etcdctl，涉及秘密的任务 `no_log: true`；禁止用 `--diff` 打印未来消费者秘密文件。
 
-证书有效期 60 天，`site.yml` 在剩余不足 14 天时续签；需要 Bao 的控制端身份。
-续签 IaC 已实现于 `terraform/renewal.tf`、`controller/` 和 `ansible/controller.yml`：
-独立 cert auth 挂载信任中央 CA，并限制 laptop 的 DNS SAN；用现有 peer 客户端证书登录，
-换取 10 分钟 token，仅允许签发 server/peer/admin/gateway 四类证书，不授予 KV 读取权限。
-控制端每日运行现有健康检查与串行部署，结束撤销 token；不保存长期 token，不依赖人工 OIDC 会话。
-控制程序安装为 root 管理的固定副本，以 panxiao81 身份复用现有 Ansible/SSH/sudo 环境。
+证书有效期 60 天，剩余不足 14 天时续签。**每个成员自己续签**（2026-11-17 起三个成员都是）：
+`homelab_data::etcd` 装的 `homelab-etcd-cert.timer` 每天运行 `/usr/local/sbin/homelab-etcd-cert`，
+用节点的 SPIFFE 身份 `spiffe://ddupan.top/node/<成员>/etcd` 登录 Bao `jwt-spire` 角色
+`homelab-etcd-member`（`terraform/member.tf`），只能签四类成员证书。私钥不离开节点，复用现有私钥，
+原子替换；etcd 每个新连接都重新读取证书，**续签不需要重启**。手动触发：
+`systemctl start homelab-etcd-cert`，再用 `openssl x509 -enddate` 和 `endpoint health` 核对。
 
-**机器身份和 timer 已启用**（2026-09-25）：维护者恢复 OIDC 登录后，Terraform 新增三个
-续签资源，`controller.yml` 登录预检通过。首次实际运行三成员均 `changed=0`，服务 Result=success。
-Bao cert auth 需要非空 CN 作为 identity alias，不能使用无 CN 的 gateway 证书；因此登录使用
-同一主机已有 peer 证书，仍由 `allowed_dns_sans=etcd-laptop` 限制身份，未扩大到其他成员。
-手动触发 `systemctl start homelab-etcd-renew.service`，检查 journal 和
-`/var/lib/homelab-etcd-controller/last-success`；每日 timer 04:10 UTC 加随机延迟。
-本流程也续签自身登录所用 peer 证书；若超过有效期仍未修复，则需要管理身份重新签发。
+Cinc 不重启 etcd：etcd.yml、unit 或二进制变化后 `homelab_data_restart_pending` 为 1
+（`SharedDataRestartPending`），逐个成员手动重启，每次确认全部端点健康、raft 追平后再下一个。
+
+旧的 laptop 续签控制端（`terraform/renewal.tf`、`controller/`、`ansible/controller.yml`，
+`homelab-etcd-renew.timer`）随 etcd-laptop 退出停用；它停用后 etcd-pve1/2 的证书一度无人续签，
+直到 #791 把它们迁入 Cinc。
 成员启动本身仅用本地证书，不实时依赖 Bao。
 
 ## 备份与故障处理
@@ -170,9 +171,8 @@ ansible-playbook member-remove.yml -e etcd_remove_member=etcd-laptop
 它在存活的 Cinc 成员上确认移除后仍有至少 3 个健康的投票成员，`member remove`，再停用被移除节点上的
 etcd 和定时任务（目标本身可以已经坏了，第二个 play 不可达时移除已完成，重跑或手动收尾即可）。数据目录保留。
 
-etcd-laptop 移除时 `homelab-etcd-renew.timer` 一并停用，etcd-pve1/2 的证书不再由 laptop 续签，
-要在到期前迁入 Cinc（#570 第 4 步）。`members` 去掉 etcd-laptop 后 etcd-pve3 的 etcd.yml 会变
-（`initial-cluster` 只在首次启动读），`homelab_data_restart_pending` 因此为 1；方便时单独重启 etcd-pve3 即可。
+etcd-laptop 移除时 `homelab-etcd-renew.timer` 一并停用。etcd-pve1/2 于 2026-11-17 迁入 Cinc（#791，
+#570 第 4 步）：recipe 路径与原 Ansible role 相同，原地接管，随后逐个重启以应用新的 etcd.yml。
 
 ## 验证
 
