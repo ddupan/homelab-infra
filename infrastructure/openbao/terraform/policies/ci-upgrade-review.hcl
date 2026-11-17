@@ -1,5 +1,5 @@
-# Renovate PR 升级评审（.gitea/workflows/flux-diff.yml 的 upgrade-review job）。只读它自己那一把
-# AI 网关 key：key 由 key UI 签发与吊销（apps/ai-gateway/README.md），吊销后这里读到 404，评审停用。
+# 依赖升级评审（ci-actions/upgrade-review）。只读它自己那一把 AI 网关 key：key 由 key UI 签发与吊销
+# （apps/ai-gateway/README.md），吊销后这里读到 404，评审停用。
 path "kv/data/k8s/ai-gateway-keys/upgrade-agent" {
   capabilities = ["read"]
 }
@@ -14,7 +14,12 @@ path "kv/data/k8s/otel-collector" {
   capabilities = ["read"]
 }
 
-# 评审评论以 Bot 账号 upgrade-agent 发出（.gitea/upgrade-review/README.md 的 Bootstrap）。
+# 评审评论以 Bot 账号 upgrade-agent 发出（ci-actions upgrade-review/README.md 的 Bootstrap）。
 path "kv/data/k8s/upgrade-agent" {
+  capabilities = ["read"]
+}
+
+# agent 的 shell 跑在一次性 OpenSandbox VM 里（评审时创建、结束删除）。OpenSandbox 只有这一把 key。
+path "kv/data/k8s/opensandbox-api" {
   capabilities = ["read"]
 }
