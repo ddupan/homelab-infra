@@ -126,9 +126,10 @@ resource "vault_jwt_auth_backend_role" "ci_terraform" {
   token_max_ttl = 3600
 }
 
-# Renovate PR 升级评审（.gitea/workflows/flux-diff.yml 的 upgrade-review job）：只能读它自己那一把
-# AI 网关 key。PR 由 renovate-bot 开，但能在本仓库开 PR 的人都能改 workflow 以此身份运行——
-# 拿到的也只是一把调用模型的 key，可在 key UI 随时吊销。
+# 依赖升级评审（ci-actions/upgrade-review）：panxiao81 下任何仓库里名为 upgrade-review 的 job。
+# PR 由 renovate-bot 开，但能在这些仓库开 PR 的人都能改 workflow 以此身份运行，拿到的是一把可吊销的
+# 模型 key 和 OpenSandbox API key——后者能创建不带 egress 策略的 sandbox（可达内网），所以这些仓库
+# 不能接受外部 PR。
 resource "vault_jwt_auth_backend_role" "ci_upgrade_review" {
   backend   = vault_jwt_auth_backend.spire.path
   role_name = "ci-upgrade-review"
@@ -136,9 +137,9 @@ resource "vault_jwt_auth_backend_role" "ci_upgrade_review" {
 
   user_claim        = "sub"
   bound_audiences   = ["openbao"]
-  bound_claims_type = "string"
+  bound_claims_type = "glob"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/upgrade-review"
+    sub = "spiffe://ddupan.top/ci/panxiao81/*/upgrade-review"
   }
 
   token_policies          = [vault_policy.ci_upgrade_review.name]
