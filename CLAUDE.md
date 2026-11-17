@@ -45,6 +45,10 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
   registry 的地址是标准形式**，不是绕过代理：npm 按 `.npmrc` 的 `registry=` 把 `package-lock.json` 里的
   `registry.npmjs.org` 改写到代理，uv 用 `UV_DEFAULT_INDEX`。Renovate 生成的 lockfile 就是公共地址；
   lockfile 的 resolved 地址在公共 registry 与代理之间切换不改变实际下载路径，不算供应链变化。
+- **PR 上的 flux-diff 评论**是 flate 在合并基线与 PR 上分别渲染后的差异。合并 main 即由 Flux 上线，
+  没有预发环境；HelmRelease 的 upgrade 策略决定失败后自动回滚（remediation）还是原样重试
+  （RetryOnFailure），回滚撤不回数据库 migration 和 CRD。CRD 也会渲染比较，但只有 CRD 真的变化时才有
+  "CRD 变更"小节，没有这一小节就表示 CRD 没变。
 - Python CLIs via **uv**. Ansible specifically:
   `uv tool install ansible-core --with ansible --with paramiko --with pywinrm --with hvac`
   ⚠️ `uv tool install ansible` alone exposes only `ansible-community`, **not** `ansible-playbook`.
