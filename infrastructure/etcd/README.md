@@ -42,39 +42,34 @@ Patroni 走 etcd3 gateway，使用无 CN 的客户端证书及独立 username/pa
 
 ## 安装与维护入口
 
-需要 Ansible、community.crypto，以及目标机 Python/systemd。当前二进制固定为 etcd 3.7.2
-linux-amd64，并固定官方发布资产 SHA-256；版本升级必须单独评估兼容性、备份与 quorum。
-Terraform 使用已登录的 Vault 兼容 provider 身份；Ansible 读取控制端 `BAO_TOKEN` 环境变量，
-token 不下发目标机。`homelab-etcd-provisioner` policy 不自动绑定到现有身份，先由 Bao 管理流程授权。
+成员的安装、配置、证书和快照都由 Cinc（`homelab_data::etcd`）负责，etcd 版本也在 cookbook 里固定
+（Renovate 跟踪；升级要逐个成员重启）。这里只剩 Terraform（Bao PKI 角色、成员 SPIFFE 登录角色、
+consumer policy）和几个 Ansible 运维入口，都不装软件、不需要额外 collection：
+
+| playbook | 作用 |
+|---|---|
+| `lxc.yml` | 在 PVE 上创建成员 LXC 并登记 `etcd-pveN.lab.ddupan.top`；只创建不存在的 VMID |
+| `member-join.yml` / `member-remove.yml` | 成员增删（见下文） |
+| `bootstrap-auth.yml` | 一次性启用认证（`-e etcd_bootstrap_auth=true`）；已启用时不重建 |
+| `consumers.yml` | 收敛消费者账号与 prefix，密码存 Bao |
+| `verify.yml` | 用管理员证书检查全部端点 |
+
+账号相关入口在第一个成员（`etcd[0]`）上用它本机的 admin 证书执行，控制端不持有 etcd 凭据；
+需要 `BAO_TOKEN`（laptop 上 SPIFFE `local-development` 登录即可），token 不下发目标机。
 
 ```bash
-cd infrastructure/etcd/terraform
-terraform init
-terraform plan
-# 审阅计划后 apply；只新增此服务的 PKI roles/policies。
-
-cd ../ansible
-ansible-galaxy collection install -r requirements.yml
-ansible-playbook lxc.yml --check
-ansible-playbook lxc.yml
-ansible-playbook site.yml
-ansible-playbook bootstrap-auth.yml -e etcd_bootstrap_auth=true
-ansible-playbook consumers.yml
+cd infrastructure/etcd/ansible
 ansible-playbook verify.yml
+BAO_TOKEN=... ansible-playbook consumers.yml --check
+BAO_TOKEN=... ansible-playbook consumers.yml
 ```
 
-Terraform 使用现有 S3 tfstate bucket，独立 key `etcd/terraform.tfstate`，启用原生 lockfile；不复用 Bao 的 state。
-从仓库根目录运行 `python3 infrastructure/etcd/run.py terraform <子命令>` 或
-`python3 infrastructure/etcd/run.py ansible <playbook.yml>`，复用当前 Bao 会话并在内存中取得所需凭据。
-`lxc.yml` 是创建入口，不接管已有未知 VMID，也不自动调整运行中容器的网络与容量；配置漂移会报错。
-`lxc.yml` 同时把成员注册为 `etcd-pve{1,2}.lab.ddupan.top`（PowerDNS API，带 owner 注释）；
-这是 IPAM 看到这两个地址的唯一途径，见 `infrastructure/dns/README.md`。
-部署前核对模板与 `pve-rg` 存储可用性、IP 冲突、SSH host key、laptop sudo 和网络访问控制。
-数据库角色不会创建/删除这些 LXC 或 etcd 成员。
-
-`site.yml` 管安装、CSR 本地生成、Bao 签发、配置和逐成员激活。全体健康检查通过才记录激活指纹；
-上次中断后重跑仍能识别尚未激活的磁盘配置。已有集群每个成员激活后检查健康，再处理下一个。
-首次建群先让三个服务启动，再检查 quorum。`bootstrap-auth.yml` 与日常收敛分开，认证已启用时不重建。
+Terraform root 在 CI 的 `TF_ROOTS` 里，合并即 apply；state 在现有 S3 tfstate bucket，独立 key
+`etcd/terraform.tfstate`，启用原生 lockfile。本地可从仓库根目录运行
+`python3 infrastructure/etcd/run.py terraform <子命令>` 或 `python3 infrastructure/etcd/run.py ansible <playbook.yml>`，
+复用当前 Bao 会话并在内存中取得所需凭据。
+`lxc.yml` 不接管已有未知 VMID，也不自动调整运行中容器的网络与容量；配置漂移会报错。它登记的 lab 名是
+IPAM 看到这些地址的唯一途径，见 `infrastructure/dns/README.md`。数据库角色不会创建/删除这些 LXC 或 etcd 成员。
 首次认证启用前应限制客户端网络，不能把“已有中央 CA 签名”当作业务授权。
 
 `consumers.yml` 首次生成 48 字符随机密码并以 KV v2 CAS=0 写入，之后只复用。
@@ -93,9 +88,8 @@ Terraform 使用现有 S3 tfstate bucket，独立 key `etcd/terraform.tfstate`�
 Cinc 不重启 etcd：etcd.yml、unit 或二进制变化后 `homelab_data_restart_pending` 为 1
 （`SharedDataRestartPending`），逐个成员手动重启，每次确认全部端点健康、raft 追平后再下一个。
 
-旧的 laptop 续签控制端（`terraform/renewal.tf`、`controller/`、`ansible/controller.yml`，
-`homelab-etcd-renew.timer`）随 etcd-laptop 退出停用；它停用后 etcd-pve1/2 的证书一度无人续签，
-直到 #791 把它们迁入 Cinc。
+原来的 laptop 续签控制端随 etcd-laptop 退出停用（etcd-pve1/2 的证书因此一度无人续签，直到 #791
+迁入 Cinc），它和 Ansible 的安装 role（`site.yml`、`shared_etcd`）已从仓库删除。
 成员启动本身仅用本地证书，不实时依赖 Bao。
 
 ## 备份与故障处理
@@ -177,15 +171,13 @@ etcd-laptop 移除时 `homelab-etcd-renew.timer` 一并停用。etcd-pve1/2 于 
 ## 验证
 
 ```bash
-# 本机 loopback 三节点，临时测试 CA 与假的 Bao HTTP 服务，不接触线上秘密。
-ETCD_TEST_BIN=/path/to/etcd-v3.7.2-linux-amd64 python3 tests/integration.py
 cd terraform && terraform validate
-cd ../ansible && ansible-playbook --syntax-check site.yml
+cd ../ansible && ansible-playbook --syntax-check verify.yml consumers.yml member-join.yml
+ansible-playbook verify.yml
 ```
 
-集成测试验证实际模板启动、mTLS、认证初始化幂等、消费者幂等、CAS 首次创建、秘密缺失失败关闭、
-prefix 隔离、gateway 账号登录和单成员故障。假 Bao 不验证真实 PKI 签发或中央 policy 的权限，
-也不证明 PVE SSD DRBD 在业务负载下的延迟、systemd 内存预算、在线证书轮换和生产网络符合要求。
+成员本身的测试在 homelab-cookbooks 的 `homelab_data`（ChefSpec + Kitchen）。原来对 Ansible 模板的
+loopback 三成员集成测试随 role 一起删除；下面 2026-09-25 的记录是当时的结果。
 
 源码边界与 PostgreSQL 后续设计见 [研究记录](../shared-postgresql/RESEARCH.md)。
 

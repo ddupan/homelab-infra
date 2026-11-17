@@ -11,7 +11,6 @@ import time
 import urllib.request
 
 import jinja2
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 ETCD = Path(os.environ.get('ETCD_TEST_BIN', '/tmp/etcd-v3.7.2-linux-amd64'))
@@ -58,16 +57,26 @@ def main():
             # 独立三成员 DCS，绝不复用生产 prefix 或端点。
             names = ['e1','e2','e3']
             hosts = {n:{'etcd_address':f'127.0.1.{i+1}'} for i,n in enumerate(names)}
-            et = jinja2.Environment(loader=jinja2.FileSystemLoader(ROOT.parent/'etcd/ansible/roles/shared_etcd/templates'),undefined=jinja2.StrictUndefined)
-            et.filters['to_json']=json.dumps
-            defaults=yaml.safe_load((ROOT.parent/'etcd/ansible/roles/shared_etcd/defaults/main.yml').read_text())
+            # 生产成员的配置由 Cinc（homelab_data::etcd）渲染；这里只需一个同样开 mTLS 的测试集群。
+            cluster=','.join(f"{n}=https://{hosts[n]['etcd_address']}:23380" for n in names)
+            def etcd_config(name, ip, d):
+                return '\n'.join([f'name: {name}', f'data-dir: {d}/data',
+                    f'listen-client-urls: https://{ip}:23379', f'advertise-client-urls: https://{ip}:23379',
+                    f'listen-peer-urls: https://{ip}:23380', f'initial-advertise-peer-urls: https://{ip}:23380',
+                    f'initial-cluster: {cluster}', 'initial-cluster-state: new', 'initial-cluster-token: fixture',
+                    'client-transport-security:', f'  cert-file: {d}/server.crt', f'  key-file: {d}/server.key',
+                    f'  client-cert-file: {d}/gateway.crt', f'  client-key-file: {d}/gateway.key',
+                    f'  trusted-ca-file: {d}/ca.crt', '  client-cert-auth: true',
+                    'peer-transport-security:', f'  cert-file: {d}/peer.crt', f'  key-file: {d}/peer.key',
+                    f'  trusted-ca-file: {d}/ca.crt', '  client-cert-auth: true', '  allowed-cn: [homelab-etcd-peer]',
+                    f'listen-metrics-urls: http://{ip}:23381', ''])
             cert(w,'admin','root','clientAuth')
             for name in names:
                 d=w/name; ip=hosts[name]['etcd_address']
                 cert(d,'server',name,'serverAuth',f'IP:{ip},IP:127.0.0.1')
                 cert(d,'peer','homelab-etcd-peer','serverAuth,clientAuth',f'IP:{ip},IP:127.0.0.1')
                 cert(d,'gateway','','clientAuth')
-                cfg=et.get_template('etcd.yml.j2').render(**dict(defaults,inventory_hostname=name,groups={'etcd':names},hostvars=hosts,etcd_address=ip,etcd_config_dir=str(d),etcd_data_dir=str(d/'data'),etcd_client_port=23379,etcd_peer_port=23380,etcd_metrics_urls=f'http://{ip}:23381'))
+                cfg=etcd_config(name,ip,d)
                 (d/'config.yml').write_text(cfg); log=(d/'log').open('w');handles.append(log)
                 processes.append(subprocess.Popen([str(ETCD/'etcd'),'--config-file='+str(d/'config.yml')],stdout=log,stderr=log))
             ctlbase=[ETCD/'etcdctl','--endpoints=https://127.0.1.1:23379','--cacert='+str(w/'ca.crt'),'--cert='+str(w/'admin.crt'),'--key='+str(w/'admin.key'),'--command-timeout=3s']

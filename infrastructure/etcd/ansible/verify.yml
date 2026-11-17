@@ -3,11 +3,6 @@
   hosts: etcd[0]
   become: true
   gather_facts: false
-  pre_tasks:
-    - name: 加载共享默认参数
-      ansible.builtin.import_role:
-        name: shared_etcd
-        tasks_from: context
   tasks:
     - name: 通过管理员 mTLS 检查所有端点健康
       ansible.builtin.command:
