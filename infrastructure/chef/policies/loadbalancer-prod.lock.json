@@ -1,5 +1,5 @@
 {
-  "revision_id": "7067ddd5b0ddd2dc3d7d4764e5e23e1452d639ea51c42c9603282da02fb7eb05",
+  "revision_id": "658eb001212a8d7ae6e66bbeca254a37281da37132bc5badc5252f90f79bf8a4",
   "name": "loadbalancer-prod",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -11,28 +11,24 @@
   "cookbook_locks": {
     "homelab_base": {
       "version": "0.4.5",
-      "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
-      "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-b36d29b671b937009706b93acea0559a49ab416a",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
+      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
+      "cache_key": "homelab_base-0.4.5-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "b36d29b671b937009706b93acea0559a49ab416a",
-        "tag": "v0.4.15",
-        "rel": "cookbooks/homelab_base"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
+        "version": "0.4.5"
       }
     },
     "homelab_loadbalancer": {
       "version": "0.4.3",
-      "identifier": "cc4355610df1178f9182ce13ea17202df827f133",
-      "dotted_decimal_identifier": "57494929228558615.40410912658811415.35381808984371",
-      "cache_key": "homelab_loadbalancer-b36d29b671b937009706b93acea0559a49ab416a",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "identifier": "a28d40677fb8e954893addbe795e306798d3ce61",
+      "dotted_decimal_identifier": "45754253980973289.23794783965051230.53221503782497",
+      "cache_key": "homelab_loadbalancer-0.4.3-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.4.3/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "b36d29b671b937009706b93acea0559a49ab416a",
-        "tag": "v0.4.15",
-        "rel": "cookbooks/homelab_loadbalancer"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.4.3/download",
+        "version": "0.4.3"
       }
     }
   },
@@ -64,11 +60,11 @@
     "Policyfile": [
       [
         "homelab_base",
-        ">= 0.0.0"
+        "= 0.4.5"
       ],
       [
         "homelab_loadbalancer",
-        ">= 0.0.0"
+        "= 0.4.3"
       ]
     ],
     "dependencies": {

@@ -1,5 +1,5 @@
 {
-  "revision_id": "c7809ca79972f4224de0d4f5cb730662d3efa6fbf288781898df2e6f741774b1",
+  "revision_id": "9cabb5b379c271492c8b39e8fa8393e2de7e6ca077845af286415a476e6aa8d7",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -12,28 +12,24 @@
   "cookbook_locks": {
     "homelab_ayatori": {
       "version": "0.1.6",
-      "identifier": "ebc3625345dcff0948ee414809a1411983f1922b",
-      "dotted_decimal_identifier": "66361446598302975.2613462925052321.71577843634731",
-      "cache_key": "homelab_ayatori-6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "identifier": "accf62b63c285182d91ca508119c153ec31f14a7",
+      "dotted_decimal_identifier": "48641718865373265.36830464023466396.23359305749671",
+      "cache_key": "homelab_ayatori-0.1.6-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.1.6/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
-        "tag": "v0.4.14",
-        "rel": "cookbooks/homelab_ayatori"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.1.6/download",
+        "version": "0.1.6"
       }
     },
     "homelab_base": {
       "version": "0.4.5",
-      "identifier": "ce618961ae60d62101410384f548db3ed11f5682",
-      "dotted_decimal_identifier": "58091087879626966.9290052974998856.241062842947202",
-      "cache_key": "homelab_base-6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
-      "origin": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
+      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
+      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
+      "cache_key": "homelab_base-0.4.5-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
       "source_options": {
-        "git": "https://git.ddupan.top/panxiao81/homelab-cookbooks.git",
-        "revision": "6c7284f9d4fd99a5dd8c0060e3591ef28784b897",
-        "tag": "v0.4.14",
-        "rel": "cookbooks/homelab_base"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
+        "version": "0.4.5"
       }
     }
   },
@@ -69,11 +65,11 @@
     "Policyfile": [
       [
         "homelab_ayatori",
-        ">= 0.0.0"
+        "= 0.1.6"
       ],
       [
         "homelab_base",
-        ">= 0.0.0"
+        "= 0.4.5"
       ]
     ],
     "dependencies": {
