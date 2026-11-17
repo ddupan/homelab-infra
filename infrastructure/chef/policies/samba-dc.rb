@@ -2,10 +2,9 @@
 # (Ansible, ansible-vault secrets); this replaces samba-ad's monitoring-dc.yml.
 name 'samba-dc'
 run_list 'homelab_base::default'
-cookbook 'homelab_base',
-         git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-         tag: 'v0.4.9',
-         rel: 'cookbooks/homelab_base'
+# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+cookbook 'homelab_base', '= 0.4.5'
 
 # LAN only, as monitoring-dc did: vmagent scrapes 192.168.10.5:9100
 # (platform/observability scrapes/samba-dc.yaml). Also pins sshd to it, so the
