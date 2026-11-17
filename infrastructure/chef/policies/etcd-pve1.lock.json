@@ -1,8 +1,9 @@
 {
-  "revision_id": "dbf8f93b7687e9aaa717ea69cae967cddfca4d07350924b3b7a2b132e842a259",
+  "revision_id": "4192aa3f62db303e71a1ecb8ce75f33b287ce64981dc8bed96b69695d775b7e1",
   "name": "etcd-pve1",
   "run_list": [
     "recipe[homelab_base::default]",
+    "recipe[homelab_data::etcd]",
     "recipe[homelab_data::monitoring]"
   ],
   "included_policy_locks": [
@@ -34,7 +35,14 @@
   },
   "default_attributes": {
     "homelab_data": {
-      "postgresql_prod": true
+      "postgresql_prod": true,
+      "etcd": {
+        "members": {
+          "etcd-pve1": "10.60.0.20",
+          "etcd-pve2": "10.60.0.21",
+          "etcd-pve3": "10.60.0.22"
+        }
+      }
     }
   },
   "override_attributes": {
