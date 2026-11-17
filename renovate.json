@@ -12,10 +12,10 @@
   },
   "customManagers": [
     {
-      "description": "OpenSandbox execd/egress image tags in our server configToml must match the chart's release (server config requires them explicitly). Same depName and datasource as the GitRepository tag, and the sandbox group puts both in one PR.",
+      "description": "OpenSandbox component image tags we pin ourselves (execd/egress in the server configToml, execd/task-executor in the ci-vm Pool templates) must match the chart's release. Same depName and datasource as the GitRepository tag, and the sandbox group puts both in one PR.",
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/)platform/sandbox-opensandbox/values\\.yaml$/"],
-      "matchStrings": ["opensandbox/(?:execd|egress):(?<currentValue>release-\\d+\\.\\d+\\.\\d+)"],
+      "managerFilePatterns": ["/(^|/)platform/sandbox-opensandbox/values\\.yaml$/", "/(^|/)platform/sandbox-ci-runners/pools\\.yaml$/"],
+      "matchStrings": ["opensandbox/(?:execd|egress|task-executor):(?<currentValue>release-\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "opensandbox",
       "packageNameTemplate": "https://github.com/opensandbox-group/OpenSandbox",
       "datasourceTemplate": "git-tags"

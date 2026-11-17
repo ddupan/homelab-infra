@@ -31,7 +31,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: task-executor-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.2.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:release-1.2.1
           command: [/bin/sh, -c]
           args:
             - cp /workspace/server /opt/opensandbox/task-executor && chmod 0755 /opt/opensandbox/task-executor
@@ -39,7 +39,7 @@ spec:
             - name: opensandbox-bin
               mountPath: /opt/opensandbox
         - name: execd-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.1.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:release-1.2.1
           command: [/bin/sh, -c]
           args:
             - cp ./execd /opt/opensandbox/execd && cp ./bootstrap.sh /opt/opensandbox/bootstrap.sh && chmod 0755 /opt/opensandbox/execd /opt/opensandbox/bootstrap.sh
@@ -169,7 +169,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         - name: task-executor-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:v0.2.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/task-executor:release-1.2.1
           command: [/bin/sh, -c]
           args:
             - cp /workspace/server /opt/opensandbox/task-executor && chmod 0755 /opt/opensandbox/task-executor
@@ -177,7 +177,7 @@ spec:
             - name: opensandbox-bin
               mountPath: /opt/opensandbox
         - name: execd-installer
-          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.1.0
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:release-1.2.1
           command: [/bin/sh, -c]
           args:
             - cp ./execd /opt/opensandbox/execd && cp ./bootstrap.sh /opt/opensandbox/bootstrap.sh && chmod 0755 /opt/opensandbox/execd /opt/opensandbox/bootstrap.sh

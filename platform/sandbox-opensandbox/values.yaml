@@ -8,6 +8,18 @@ metadata:
     reconcile.fluxcd.io/watch: Enabled
 data:
   values.yaml: |
+    # base 子 chart：保留 OpenSandbox 自己的 CRD（BatchSandbox/Pool/SandboxSnapshot，与 0.2.2 一样由本
+    # release 管理）。fast-sandbox 不用：不装它的 CRD/RBAC，也不建 namespace——opensandbox-system 由本目录
+    # namespace.yaml 管理，Helm 收编不了已存在的 namespace，默认值会让 upgrade 失败。
+    base:
+      fastSandbox:
+        crds:
+          install: false
+        namespaces:
+          createSystem: false
+          create: false
+        rbac:
+          create: false
     opensandbox-controller:
       controller:
         metrics:
