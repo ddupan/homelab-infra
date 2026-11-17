@@ -1,9 +1,11 @@
 ---
 # 与 k3s 里的 HelmRelease 保持同一版本，直到迁移完成：gitea dump 只能导入同版本。
 # 固定多架构 index digest（不是某个平台的 manifest，见 renovate-platform-digest 教训）。
+# tag 和 digest 写在同一行：Renovate 只改它匹配到的那一行。#781 曾经只改了 tag，digest 还是
+# 28.3.0 的；带 digest 的引用会忽略 tag，所以合并后照样跑旧版本。
 # renovate: datasource=docker depName=docker.gitea.com/gitea
-gitea_version: "28.4.0"
-gitea_image: "docker.gitea.com/gitea:{{ gitea_version }}-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d"
+gitea_version: "28.4.0-rootless@sha256:15ab7fadb44981a2b781f40c712cad07066197f395100ea1c6326e14e5bb073a"
+gitea_image: "docker.gitea.com/gitea:{{ gitea_version }}"
 
 gitea_root: /srv/gitea
 # rootless 镜像内的 git 用户；宿主机上 1000 恰好是 opc，无所谓，只按数字对齐属主。

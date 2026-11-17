@@ -12,10 +12,10 @@
   },
   "customManagers": [
     {
-      "description": "Versions Renovate cannot see on its own (e.g. an image tag inside HelmRelease values): put `# renovate: datasource=<ds> depName=<name>` on the line above.",
+      "description": "Versions Renovate cannot see on its own (e.g. an image tag inside HelmRelease values): put `# renovate: datasource=<ds> depName=<name>` on the line above. A pinned digest goes on the same line (`tag@sha256:…`) so it is bumped with the tag.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
-      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\S+:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"]
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\S+:\\s*\"?(?<currentValue>[^\"\\s@]+)(@(?<currentDigest>sha256:[0-9a-f]{64}))?\"?"]
     }
   ],
   "packageRules": [
