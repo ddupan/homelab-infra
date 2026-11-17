@@ -39,11 +39,13 @@ cd infrastructure/chef
 指定私钥，同目录的 `<key>-cert.pub`（Bao 签发的证书）会被自动使用。单元测试：
 `uv run --with pyyaml --with pytest python -m pytest infrastructure/chef/test_converge.py`。
 
-更新 lock（升级 cookbook = 改 policy 里的 tag，然后提交 lock）：
+更新 lock（升级 cookbook = 改 policy 里的 `= 版本`，然后提交 lock）。cookbook 来自 Gitea 的 Chef
+registry（`default_source :supermarket`），按 cookbook 自己的版本固定。要用 `cinc update`：已有 lock 时
+`cinc install` 直接按旧 lock 安装，不会重新解析。
 
 ```bash
 docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/policies:/p" -w /p \
-  docker.io/cincproject/workstation:26.3.0 cinc install <policy>.rb
+  docker.io/cincproject/workstation:26.3.0 cinc update <policy>.rb
 ```
 
 执行器只从**已提交的 lock** 导出，不会重新解析版本。工具链用 Cinc Workstation 容器，laptop

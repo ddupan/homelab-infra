@@ -3,12 +3,10 @@
 # Addresses, AS and VIP pool come from infrastructure/network/ipam.yml.
 name 'loadbalancer-dev'
 run_list 'homelab_base::default', 'homelab_loadbalancer::default'
-%w(homelab_base homelab_loadbalancer).each do |name|
-  cookbook name,
-           git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-           tag: 'v0.4.15',
-           rel: "cookbooks/#{name}"
-end
+# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+cookbook 'homelab_base', '= 0.4.5'
+cookbook 'homelab_loadbalancer', '= 0.4.3'
 
 default['homelab_loadbalancer']['environment'] = 'dev'
 # SHA-512 crypt of kv/infra/loadbalancer/dev password (Ayatori sends the plaintext).

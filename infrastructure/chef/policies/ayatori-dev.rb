@@ -3,12 +3,10 @@
 name 'ayatori-dev'
 # adopt 接管原 Ansible 部署（停用它的 node_exporter），必须在 homelab_base 之前。
 run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::default'
-%w(homelab_base homelab_ayatori).each do |name|
-  cookbook name,
-           git: 'https://git.ddupan.top/panxiao81/homelab-cookbooks.git',
-           tag: 'v0.4.14',
-           rel: "cookbooks/#{name}"
-end
+# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+cookbook 'homelab_base', '= 0.4.5'
+cookbook 'homelab_ayatori', '= 0.1.6'
 
 default['homelab_ayatori']['environment'] = 'dev'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。
