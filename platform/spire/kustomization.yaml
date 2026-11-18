@@ -28,6 +28,7 @@ resources:
   - local-development-identity.yaml
   - spire-node-aliases.yaml
   - etcd-members.yaml
+  - oci-arm.yaml
   - ayatori-compute-agents.yaml
   - database.yaml
   - tlsroute.yaml

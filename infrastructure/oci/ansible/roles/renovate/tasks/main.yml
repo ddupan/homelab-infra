@@ -1,0 +1,59 @@
+---
+- name: Create the renovate group
+  ansible.builtin.group:
+    name: renovate
+    gid: "{{ renovate_uid }}"
+    system: true
+
+# Not in the docker group (that is root): this user only fetches credentials, root runs the container.
+- name: Create the renovate user
+  ansible.builtin.user:
+    name: renovate
+    uid: "{{ renovate_uid }}"
+    group: renovate
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create /etc/renovate
+  ansible.builtin.file:
+    path: /etc/renovate
+    state: directory
+    mode: '0755'
+
+- name: Install the global config
+  ansible.builtin.copy:
+    src: config.js
+    dest: /etc/renovate/config.js
+    mode: '0644'
+
+- name: Install the credential helper
+  ansible.builtin.copy:
+    src: renovate-env
+    dest: /usr/local/libexec/renovate-env
+    mode: '0755'
+
+- name: Install the service
+  ansible.builtin.template:
+    src: renovate.service.j2
+    dest: /etc/systemd/system/renovate.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Install the timer
+  ansible.builtin.copy:
+    src: renovate.timer
+    dest: /etc/systemd/system/renovate.timer
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Apply pending reloads
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the timer
+  ansible.builtin.systemd_service:
+    name: renovate.timer
+    enabled: true
+    state: started
+  # A first --check run has not written the unit, so systemd cannot know it yet.
+  ignore_errors: "{{ ansible_check_mode }}"

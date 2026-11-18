@@ -1,0 +1,16 @@
+---
+# Self-hosted Renovate on oci-arm (#642): an hourly systemd timer runs the container, which used to
+# be a CronJob on the laptop k3s (it was a big part of the laptop's memory pressure).
+
+# renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
+renovate_version: "44.247.2@sha256:5b777fc44b9736e4bd656ba7c54dc54fb76290b2701983c0bb06f16df0c54ad5"
+# The image's own user. The host user with the same uid is what the SPIRE entry
+# spiffe://ddupan.top/node/oci-arm/renovate selects (platform/spire/oci-arm.yaml), so changing it
+# means changing that entry too.
+renovate_uid: 12021
+
+renovate_bao_addr: https://bao.lab.ddupan.top:8200
+renovate_bao_role: renovate
+# Still under k8s/ from the CronJob days; the path is only a name, moving it buys nothing.
+renovate_bao_secret: kv/data/k8s/renovate
+renovate_spire_socket: /run/spire/agent-sockets/spire-agent.sock

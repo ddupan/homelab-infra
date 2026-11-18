@@ -9,7 +9,6 @@ resources:
   - apps/external-secrets.yaml
   - apps/backstage.yaml
   - apps/flux-image-automation.yaml
-  - apps/renovate.yaml
   - apps/http-echo.yaml
   - apps/openebs.yaml
   - apps/nats.yaml

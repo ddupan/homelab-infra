@@ -92,3 +92,8 @@ resource "vault_policy" "ai_gateway_keys" {
   name   = "ai-gateway-keys"
   policy = file("${path.module}/policies/ai-gateway-keys.hcl")
 }
+
+resource "vault_policy" "renovate" {
+  name   = "renovate"
+  policy = file("${path.module}/policies/renovate.hcl")
+}

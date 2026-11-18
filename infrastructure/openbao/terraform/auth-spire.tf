@@ -169,3 +169,22 @@ resource "vault_jwt_auth_backend_role" "ci_converge" {
   token_ttl               = 300
   token_max_ttl           = 900
 }
+
+# Renovate on oci-arm (platform/spire/oci-arm.yaml: a dedicated uid on that instance). Exact subject:
+# this identity reads the renovate-bot token, which can push to every repository Renovate manages.
+resource "vault_jwt_auth_backend_role" "renovate" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "renovate"
+  role_type = "jwt"
+
+  user_claim      = "sub"
+  bound_audiences = ["openbao"]
+  bound_claims = {
+    sub = "spiffe://ddupan.top/node/oci-arm/renovate"
+  }
+
+  token_policies          = [vault_policy.renovate.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 300
+}

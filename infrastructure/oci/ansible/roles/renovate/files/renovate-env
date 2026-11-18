@@ -1,0 +1,44 @@
+#!/usr/bin/python3 -I
+"""Print Renovate's env file (RENOVATE_TOKEN, GITHUB_COM_TOKEN) to stdout.
+
+Runs as the renovate user: its uid is the SPIRE selector, so only this user gets the JWT-SVID that
+Bao's jwt-spire role `renovate` accepts. The JWT and Bao token never reach argv, env or logs, and the
+Bao token is revoked before exit. systemd writes stdout to a 0600 file on tmpfs.
+
+usage: renovate-env <bao addr> <bao role> <kv v2 data path> <spire socket>
+"""
+import json
+import subprocess
+import sys
+import urllib.request
+
+bao, role, path, sock = sys.argv[1:5]
+
+
+def call(method, url, token=None, body=None):
+    req = urllib.request.Request(bao + url, method=method,
+                                 data=json.dumps(body).encode() if body else None)
+    if token:
+        req.add_header("X-Vault-Token", token)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r) if r.status == 200 else None
+
+
+out = subprocess.run(
+    ["/usr/local/bin/spire-agent", "api", "fetch", "jwt", "-audience", "openbao",
+     "-socketPath", sock, "-output", "json"],
+    capture_output=True, check=True, text=True).stdout
+# 1.15 prints a list of response blocks; never print it, it holds the token.
+blocks = json.loads(out)
+blocks = blocks if isinstance(blocks, list) else [blocks]
+jwt = next(s["svid"] for b in blocks for s in b.get("svids") or [])
+
+token = call("POST", "/v1/auth/jwt-spire/login", body={"role": role, "jwt": jwt})["auth"]["client_token"]
+try:
+    data = call("GET", "/v1/" + path, token=token)["data"]["data"]
+finally:
+    call("POST", "/v1/auth/token/revoke-self", token=token)
+
+print("RENOVATE_TOKEN=" + data["token"])
+# Read-only GitHub PAT: anonymous api.github.com is 60 req/h, which one run exhausts.
+print("GITHUB_COM_TOKEN=" + data["github_com_token"])
