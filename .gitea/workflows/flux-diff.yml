@@ -17,10 +17,12 @@ on:
       - '.gitea/scripts/*crd_summary.py'
 
 env:
-  # flate 是 flux-local 的继任者（后者已 sunset）。版本与校验和一起钉死；
-  # 升级时从 release 的 .sha256 资产同时更新两者。
-  FLATE_VERSION: 0.7.3
-  FLATE_SHA256: 05d3c79447647e95329aa45c7035e7ebac3a120942972e78819deadc3bf0afeb
+  # flate 是 flux-local 的继任者（后者已 sunset）。暂钉上游 main 的提交：0.7.3 会把 GitRepository
+  # 来源的 chart 渲染结果以 "not in store at reconcile time" 跳过（e5renew 等的 diff 整个丢失），
+  # 上游 #1547 已修但未发版。0.7.4 发布后换回 release 资产 + 校验和。
+  # 另一个已知盲区未修：umbrella chart 用 file://../<dir> 引用同级子 chart 时什么都不渲染
+  # （opensandbox），见 home-operations/flate#1615。
+  FLATE_VERSION: 9b9b3901308e
   # sandbox 的 root sync 由 Ansible 创建、不在仓库里，自动探测认不出它，所以逐个指定入口。
   # ayatori-dev/prod 下是 Ayatori 资源，不经 Flux。
   CLUSTERS: clusters/homelab clusters/sandbox
@@ -49,16 +51,18 @@ jobs:
           key: flate-${{ env.FLATE_VERSION }}-${{ hashFiles('clusters/**', 'platform/**', 'apps/**', 'infrastructure/cloudflared/**') }}
           restore-keys: flate-${{ env.FLATE_VERSION }}-
 
+      # 只为从源码编译 flate；go 版本取自 flate-go.mod（跟随 flate main 的 go 指令）。
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          go: 'true'
+          go-version-file: .gitea/flate-go.mod
+
       - name: Install flate
         run: |
           echo "$FLATE_BIN" >> "$GITHUB_PATH"
           [ -x "$FLATE_BIN/flate" ] && exit 0
-          tgz=$RUNNER_TEMP/flate.tgz
-          curl -fsSL --retry 5 --retry-all-errors -o "$tgz" \
-            "https://github.com/home-operations/flate/releases/download/v$FLATE_VERSION/flate_${FLATE_VERSION}_linux_amd64.tar.gz"
-          echo "$FLATE_SHA256  $tgz" | sha256sum -c -
           mkdir -p "$FLATE_BIN"
-          tar -xzf "$tgz" -C "$FLATE_BIN" flate
+          GOBIN="$FLATE_BIN" go install "github.com/home-operations/flate/cmd/flate@$FLATE_VERSION"
 
       - name: crd_summary 自检
         run: python3 .gitea/scripts/test_crd_summary.py
