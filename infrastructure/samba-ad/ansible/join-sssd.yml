@@ -7,5 +7,9 @@
 - name: AD workstation join (SSSD)
   hosts: ad_workstations
   become: true
+  pre_tasks:
+    - name: Admin passwords from Bao
+      ansible.builtin.import_tasks: tasks/bao-secrets.yml
+      tags: [always]
   roles:
     - ad_sssd_join

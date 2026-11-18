@@ -2,7 +2,8 @@
 # AD realm + user/group sync. Kept separate from site.yml because it writes
 # cluster-wide config (/etc/pve/domains.cfg) and needs the bind password.
 #
-#   ansible-playbook auth.yml -e @../../samba-ad/ansible/group_vars/all/vault.yml
+# The bind password comes from Bao (pve_auth_bao_path), so VAULT_TOKEN must be set.
+#   ansible-playbook auth.yml
 - name: Proxmox AD authentication realm
   hosts: pve
   gather_facts: false

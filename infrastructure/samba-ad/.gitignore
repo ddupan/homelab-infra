@@ -1,7 +1,4 @@
-# ansible/group_vars/all/vault.yml is now ANSIBLE-VAULT ENCRYPTED and IS committed.
-# The password lives in ../.vault_pass (gitignored at the repo root) and a copy is
-# in OpenBao at kv/infra/ansible-vault.
-# ⚠ If you ever `ansible-vault decrypt` it, DO NOT commit until re-encrypted.
+# Secrets live in Bao (ansible/tasks/bao-secrets.yml); no ansible-vault file here since 2026-11-18.
 ansible/inventory/hosts.local.yml
 ansible/*.retry
 .vault_pass

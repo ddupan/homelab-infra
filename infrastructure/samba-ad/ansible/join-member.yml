@@ -6,5 +6,9 @@
   hosts: samba_members
   become: true
   gather_facts: true
+  pre_tasks:
+    - name: Admin passwords from Bao
+      ansible.builtin.import_tasks: tasks/bao-secrets.yml
+      tags: [always]
   roles:
     - role: samba_member
