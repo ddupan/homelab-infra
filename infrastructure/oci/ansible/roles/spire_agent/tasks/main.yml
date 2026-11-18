@@ -1,0 +1,117 @@
+---
+# lab.ddupan.top exists only inside the LAN. The tailnet already pushes split DNS for it
+# (lab.ddupan.top -> 192.168.10.127, with no global resolvers), so accepting Tailscale DNS adds only
+# those routing domains on tailscale0. A global resolved DNS= would also receive every other query,
+# and Docker copies resolved's upstream list, so Gitea would ask the LAN first for every name.
+- name: Read Tailscale prefs
+  ansible.builtin.command: tailscale debug prefs
+  register: _ts_prefs
+  changed_when: false
+  check_mode: false
+
+- name: Accept the tailnet's split DNS
+  ansible.builtin.command: tailscale set --accept-dns=true
+  when: not (_ts_prefs.stdout | from_json).CorpDNS
+  changed_when: true
+
+- name: Download the SPIRE release
+  ansible.builtin.get_url:
+    url: "https://github.com/spiffe/spire/releases/download/v{{ spire_agent_version }}/{{ _spire_agent_release }}.tar.gz"
+    dest: "/opt/{{ _spire_agent_release }}.tar.gz"
+    checksum: "sha256:{{ spire_agent_sha256[spire_agent_arch] }}"
+    mode: '0644'
+  # The WAN drops at random.
+  register: _spire_dl
+  until: _spire_dl is succeeded
+  retries: 5
+  delay: 10
+
+- name: Unpack the SPIRE release
+  ansible.builtin.unarchive:
+    src: "/opt/{{ _spire_agent_release }}.tar.gz"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/spire-{{ spire_agent_version }}/bin/spire-agent"
+  # Under --check a first run downloads nothing, so there is no tarball to unpack yet.
+  when: not (ansible_check_mode and _spire_dl is changed)
+
+- name: Link spire-agent onto PATH
+  ansible.builtin.file:
+    src: "/opt/spire-{{ spire_agent_version }}/bin/spire-agent"
+    dest: /usr/local/bin/spire-agent
+    state: link
+  when: not (ansible_check_mode and _spire_dl is changed)
+  notify: Restart spire-agent
+
+- name: Download the oci_instance agent plugin
+  ansible.builtin.get_url:
+    url: "https://github.com/panxiao81/spire-plugin-oci/releases/download/{{ spire_agent_plugin_version }}/spire-plugin-oci-agent-linux-{{ spire_agent_arch }}"
+    dest: "{{ _spire_agent_plugin_path }}"
+    checksum: "sha256:{{ spire_agent_plugin_sha256[spire_agent_arch] }}"
+    mode: '0755'
+  register: _plugin_dl
+  until: _plugin_dl is succeeded
+  retries: 5
+  delay: 10
+  notify: Restart spire-agent
+
+- name: Create agent directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - /etc/spire-agent
+    - /var/lib/spire-agent
+
+- name: Write agent.conf
+  ansible.builtin.template:
+    src: agent.conf.j2
+    dest: /etc/spire-agent/agent.conf
+    mode: '0644'
+  notify: Restart spire-agent
+
+- name: Install the systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/spire-agent.service
+    mode: '0644'
+    content: |
+      # Managed by Ansible (spire_agent)
+      [Unit]
+      Description=SPIRE Agent
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      ExecStart=/usr/local/bin/spire-agent run -config /etc/spire-agent/agent.conf
+      RuntimeDirectory=spire/agent-sockets
+      RuntimeDirectoryPreserve=yes
+      Restart=on-failure
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart spire-agent
+
+- name: Enable and start spire-agent
+  ansible.builtin.systemd_service:
+    name: spire-agent
+    enabled: true
+    state: started
+    daemon_reload: true
+  # A first --check run has not written the unit, so systemd cannot know it yet.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Apply pending restarts before checking
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the agent to attest and become healthy
+  ansible.builtin.command: >-
+    /usr/local/bin/spire-agent healthcheck
+    -socketPath /run/spire/agent-sockets/spire-agent.sock
+  register: _health
+  until: _health.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode

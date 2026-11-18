@@ -1,0 +1,4 @@
+---
+_spire_agent_release: "spire-{{ spire_agent_version }}-linux-{{ spire_agent_arch }}-musl"
+# Versioned name: an upgrade lays down a new file, so the running agent never sees a half-written binary.
+_spire_agent_plugin_path: "/opt/spire-plugin-oci-agent-{{ spire_agent_plugin_version }}"
