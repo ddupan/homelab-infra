@@ -3,7 +3,7 @@
 # guests are disposable" (see ../../../CLAUDE.md). Anything listed here is an
 # exception that has earned it, and the reason belongs in the comment.
 pve_ha_resources:
-  # vyos-rtr. It is the gateway for BOTH SDN VNets and an OSPF speaker, so losing
+  # vyos-rtr. It is the gateway for BOTH SDN VNets and their BGP speaker to the IX, so losing
   # it takes labnet+retronet offline (the main LAN is unaffected — the NEC IX is
   # its gateway). Disk is on pve-rg (DRBD, place-count 2), so it can start on any
   # node; pve3 would attach diskless.

@@ -1,7 +1,7 @@
 ---
-# Apply the desired VyOS configuration. `vyos_config` compares the rendered
-# `set` lines against the running config and issues only the differences, so
-# re-runs are no-ops. Supports --check and --diff.
+# Apply the desired VyOS configuration: render the `set` lines, then let vyos_config
+# (`match: enforce`) issue the sets AND the deletes that make the owned part of the running
+# config equal to them. Re-runs are no-ops. Supports --check and --diff.
 
 # wg42's private key is generated on the router and never leaves it. Runs over the box's
 # ssh+python face (vyos-rtr-shell) because it needs `wg genkey` inside a configure session,

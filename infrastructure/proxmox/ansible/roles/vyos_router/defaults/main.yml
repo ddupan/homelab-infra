@@ -10,7 +10,13 @@
 #   * vyos.vyos 6.0.0 still EMITS `firewall name` (grepped the module_utils)
 # So the resource modules would generate config this release cannot parse. On a
 # Stream/tech-preview build the safe move is to own the syntax ourselves;
-# vyos_config still gives idempotency by diffing against the running config.
+#
+# HOW CHANGES LAND: vyos_config `match: enforce` against the running config cut down to
+# vyos_owned_paths (bottom of this file). Under an owned path the template IS the desired state:
+# anything it no longer renders is deleted, so changing a multi-value node (name-server,
+# wins-server) replaces the old value instead of appending next to it. Outside owned paths
+# nothing is touched. Since 2026-11-18 this role is vyos-rtr's ONLY CLI-config writer -- the
+# OCI/DN42 part used to live in infrastructure/oci -- so do not add a second one.
 
 vyos_router_hostname: vyos-rtr
 

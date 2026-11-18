@@ -1,8 +1,8 @@
 ---
 # 写进 node_exporter textfile 的 unit。VyOS 的 node_exporter 只跑默认 collector（没有 systemd），
-# 这些服务又分散在三个 playbook 里配置——停了不会有任何其他信号。
+# 这些服务由 vyos.yml（CLI 配置）和 shared-postgresql/proxy.yml（pg-proxy）配置——停了不会有任何其他信号。
 vyos_unit_metrics_units:
-  - frr.service                     # OSPF（全部 SDN 可达性）+ DN42 BGP
+  - frr.service                     # BGP：IX（全部 SDN 可达性）、LB 主机、DN42 iBGP
   - homelab-pg-proxy.service        # 生产 PostgreSQL 入口 pg-prod（shared-postgresql/proxy.yml）
   - isc-kea-dhcp4-server.service    # labnet / retronet DHCP
   - pdns-recursor.service           # DN42 DNS forwarding

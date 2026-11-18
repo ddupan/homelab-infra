@@ -25,7 +25,7 @@ pve_vm_snippet_path: /mnt/pve/laptop/snippets
 pve_vms:
   - vmid: 100
     name: vyos-rtr
-    description: "VyOS router: OSPF peer to the NEC IX, gateway for the SDN VNets."
+    description: "VyOS router: BGP peer to the NEC IX, gateway for the SDN VNets."
     cores: 2
     memory: 2048
     # Portable across Intel pve1 and AMD pve2/pve3. `host` transferred memory
@@ -40,7 +40,7 @@ pve_vms:
     vga: serial0
     serial: true
     nets:
-      - { id: 0, bridge: vmbr0 }      # LAN / OSPF
+      - { id: 0, bridge: vmbr0 }      # LAN / eBGP to the IX
       - { id: 1, bridge: labnet }
       - { id: 2, bridge: retronet }
     onboot: 1

@@ -7,7 +7,8 @@
 #
 # WHY the laptop rather than VyOS or a PVE node: it already sits on every path
 # worth reaching. It is on the LAN, it is the NFS/k3s/netboot host, and it
-# speaks eBGP with the VyOS router (vm:100), so everything behind VyOS shows up
+# speaks eBGP with the NEC IX, which relays the VyOS router's (vm:100) summaries
+# with the next hop left at 192.168.10.2 -- so everything behind VyOS shows up
 # as an ordinary kernel route without adding another tailnet node.
 #
 # WHY these two:
@@ -24,7 +25,7 @@
 #                     It is a quarantine network as seen from the LAN, not from
 #                     the tailnet.
 #
-# 10.60.0.0/14 is LEARNED BY BGP from VyOS (the same summary it sends the IX),
+# 10.60.0.0/14 is LEARNED BY BGP via the IX (VyOS's summary, next hop VyOS),
 # not configured here — check with `ip route show proto bgp`. If VyOS stops
 # advertising it this script still reports success while the route blackholes,
 # so verify the kernel table too.

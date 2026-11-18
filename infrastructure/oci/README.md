@@ -130,14 +130,14 @@ Ubuntu 24.04 x86_64，50 GB / 10 VPU 启动盘。复用现有公共子网和 SSH
 ## WireGuard/BGP 与 DN42
 
 家中端点已从 laptop 迁移到 VyOS `192.168.10.2`，AMD 与 VyOS 同属 AS4242421811，
-通过独立 WireGuard 接口建立双栈 iBGP；laptop 保留原有 NEC BGP 和 OSPF，按路由经 VyOS 转发。
+通过独立 WireGuard 接口建立双栈 iBGP；laptop 只与 NEC IX 跑 BGP，经 IX 学到的路由由 VyOS 转发。
 Ansible 配置与运行方法见 [ansible/README.md](ansible/README.md)。
 
 注册前缀 `172.21.111.160/27`、`fdd0:98df:15b0::/48` 已在内部路由中准备：
 VyOS `.161` / `::1`，AMD `.162` / `::2`，使用 loopback /32、/128。
 首个外部 DN42 peer 已接入 RoutedBits Osaka（AS4242420207），AMD 使用独立 `wg-dn42-1`
 和单 IPv6 MP-BGP 会话承载双栈；详见 [Ansible runbook](ansible/README.md)。
-外部明细留在 AMD，`172.20.0.0/14`、`fd00::/8` 汇总经 iBGP 下发 VyOS；IPv4 /14 再经 OSPF 下发 LAN。
+外部明细留在 AMD，`172.20.0.0/14`、`fd00::/8` 汇总经 iBGP 下发 VyOS；IPv4 /14 再由 VyOS 经 eBGP 通告给 NEC IX（2026-10-16 起替代 OSPF），LAN 经 IX 到达 VyOS。
 LAN 的 DN42 IPv6 /64 地址由 VyOS SLAAC 下发，fd00::/8 通过 RA RIO 分发，不通告 IPv6 默认路由。内部家中/OCI 业务路由不得向外部 DN42 邻居通告。
 
 Terraform 管理 AMD NSG、VNIC 转发与 VCN 回程；Ansible 管理路由器/主机及 ARM 的 Tailscale
