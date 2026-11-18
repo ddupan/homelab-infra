@@ -88,6 +88,20 @@ spec:
         summary: 控制器 {{ $labels.job }} 指标不可用
         description: 检查对应 Pod、监控 CR 转换与 targets；目标消失同样触发。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-controllers.md
+    # platform/spire/oci-instance-roots.pem 里最早到期的根（ap-osaka-1 Instance Identity Root）。
+    # 它是静态文件，没有指标可抓，所以把 notAfter 写死在这里：轮换 PEM 时同步改这个时间戳。
+    # 根过期后 oci_instance 证明全部失败，OCI 上的 agent 拿不到 SVID（Renovate 等随之停摆）。
+    # 提前 90 天：轮换需要一个已认证的 OCI 主体去取新根（platform/spire/README.md）。
+    - alert: OciInstanceRootCaExpiring
+      expr: vector(1875208837) - time() < 90 * 86400
+      labels:
+        severity: warning
+      annotations:
+        summary: OCI 实例身份根证书 {{ $value | humanizeDuration }} 后到期
+        description: >-
+          按 platform/spire/README.md「根证书轮换」取新根替换 oci-instance-roots.pem，
+          并把本规则里的到期时间戳改成新 PEM 中最早的 notAfter。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/spire/README.md
     - alert: CertificateNotReady
       expr: certmanager_certificate_ready_status{job="cert-manager",condition="True"}
         == 0
