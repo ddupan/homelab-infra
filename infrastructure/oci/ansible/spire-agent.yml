@@ -1,0 +1,9 @@
+---
+# SPIRE agent on oci-arm (#642): attests with oci_instance, needs the LAN reachable via AMD (#769).
+# Not in site.yml and not run by CI, same as gitea.yml:
+#   ansible-playbook spire-agent.yml --check --diff && ansible-playbook spire-agent.yml
+- name: Install the SPIRE agent on OCI instances
+  hosts: oci_arm
+  become: true
+  roles:
+    - spire_agent

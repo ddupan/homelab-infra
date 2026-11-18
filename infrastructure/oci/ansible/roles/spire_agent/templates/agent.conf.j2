@@ -1,0 +1,29 @@
+# Managed by Ansible (infrastructure/oci/ansible, role spire_agent)
+agent {
+  data_dir            = "/var/lib/spire-agent"
+  log_level           = "INFO"
+  server_address      = "{{ spire_agent_server_address }}"
+  server_port         = "8081"
+  # Same path as the laptop and Cinc agents, so local tooling works on every host.
+  socket_path         = "/run/spire/agent-sockets/spire-agent.sock"
+  trust_bundle_url    = "{{ spire_agent_trust_bundle_url }}"
+  trust_bundle_format = "spiffe"
+  trust_domain        = "{{ spire_agent_trust_domain }}"
+}
+
+plugins {
+  KeyManager "disk" {
+    plugin_data { directory = "/var/lib/spire-agent" }
+  }
+  # Re-attestable: each attestation reads the instance identity cert and key fresh from IMDS, so a
+  # lost data_dir or a long outage just attests again. Agent ID is
+  # spiffe://{{ spire_agent_trust_domain }}/spire/agent/oci_instance/<instance OCID>.
+  NodeAttestor "oci_instance" {
+    plugin_cmd      = "{{ _spire_agent_plugin_path }}"
+    plugin_checksum = "{{ spire_agent_plugin_sha256[spire_agent_arch] }}"
+    plugin_data {}
+  }
+  WorkloadAttestor "unix" {
+    plugin_data {}
+  }
+}
