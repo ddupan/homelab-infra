@@ -10,6 +10,10 @@
       [Service]
       Type=oneshot
       ExecStart=/usr/sbin/ip address replace 172.21.111.162/32 dev lo
+      # OCI-WG-SOURCE 用 set src {{ bgp_router_id }}；该地址只在 ens3 上时，networkd 重启（unattended-upgrades
+      # 升级 systemd 会触发）的瞬间地址消失，zebra 以 Invalid prefsrc 装路由失败且永不重试，家中前缀
+      # 一直停在 RIB Failed（2026-11-13 起 LAN↔OCI 断了 5 天）。lo 上常驻一份，prefsrc 永远有效。
+      ExecStart=/usr/sbin/ip address replace {{ bgp_router_id }}/32 dev lo
       ExecStart=/usr/sbin/ip -6 address replace fdd0:98df:15b0::2/128 dev lo
       RemainAfterExit=yes
       [Install]
