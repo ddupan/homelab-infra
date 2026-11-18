@@ -65,16 +65,16 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
   ⚠ `cli-shell-api showConfig --show-active-only --show-cfg1 load-balancing` 在现场并未
   限定为 LB 子树，而是输出完整配置（含密钥）。不要把尾随节点名当作过滤条件；
   先在路由器端严格提取所需配置段，再返回输出，不将完整配置送入工具日志。
-  ⚠ A set-lines-only role **cannot change a multi-value node** — `set` appends. Changing
-  e.g. `option wins-server` or `name-server` leaves the old value live *and* saved to
-  `config.boot`; the diff only shows the addition, so it reads as a clean replace. Grep the
-  running config (`show configuration commands | match <node>`) after any value change and
-  `delete` the stale one out of band. **`roles/vyos_router` no longer has this problem**: it
-  runs `match: enforce` against a baseline cut down to `vyos_owned_paths`, so stale values
-  under those paths are deleted. It is also the box's **only** CLI-config writer (OCI's
-  plays were merged in 2026-11-18; `infrastructure/oci` only reads wg42's public key), so do
-  not add a second one: anything another play writes under an owned path gets **deleted**.
-  wg42's `private-key` is deliberately not owned — the template never renders it.
+  ⚠ vyos-rtr has **one** CLI-config writer: `infrastructure/proxmox/ansible/roles/vyos_router`
+  (`infrastructure/oci` only reads wg42's public key). It runs `vyos_config match: enforce`
+  against the running config cut down to `vyos_owned_paths`, so under an owned path the
+  template is the whole truth: removing a line deletes it from the router, and changing a
+  multi-value node (`name-server`, `wins-server`) replaces the old value. Consequences:
+  never add a second writer (anything it sets under an owned path is **deleted** next run);
+  never widen `vyos_owned_paths` over something the box makes itself (wg42's `private-key`,
+  `system login`, `hw-id`) — deleting the private key drops the tunnel; always `--check`
+  first and read the `delete` lines. A plain set-lines `vyos_config` (no enforce) cannot
+  change a multi-value node at all — `set` appends, and the old value stays live.
 
 ## Secrets
 

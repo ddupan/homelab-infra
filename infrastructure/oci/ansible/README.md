@@ -41,13 +41,13 @@ VyOS 为注册的 /27、/48 建立 distance 254 的 blackhole 聚合路由，保
 
 - VyOS → AMD：`192.168.10.0/24`、`10.60.0.0/24`、`10.61.0.0/24` 和注册 /27、/48。
 - AMD → VyOS：`10.0.0.0/24`、AMD 的注册 /32、/128，以及 DN42 汇总 `172.20.0.0/14`、`fd00::/8`。
-- VyOS 向 LAN OSPF 只重分发 OCI /24、DN42 /14 和注册 IPv4 /27，使用精确 route-map、E1 metric。
-  既有直连 LAN/SDN 的 OSPF area 声明保持不变，不使用泛化的 redistribute connected。
+- VyOS → NEC IX（eBGP，2026-10-16 起替代 OSPF）：只通告 SDN 汇总 `10.60.0.0/14`、OCI `10.0.0.0/24`
+  和 DN42 `172.20.0.0/14`（`vyos_router` 的 `IX-OUT`，注册 /27 落在 /14 内），不从 IX 收任何前缀。
 
 **首个外部 peer 为 RoutedBits Osaka（AS4242420207），由 `dn42.yml` 单独管理。** 外部邻居使用独立的 import/export
 过滤，只对外通告注册 /27、/48；禁止把上述内部业务前缀的过滤器复用到外部邻居。
 入口使用 DN42 指南的保留地址、互联网络与前缀长度规则（IPv6 /44–/64），
-并优先拒收本 AS、LAN、OCI 前缀；尚未配置注册表 ROA 校验。外部明细留在 AMD，汇总通过 iBGP 下发 VyOS；IPv4 汇总再经 OSPF 下发 LAN。
+并优先拒收本 AS、LAN、OCI 前缀；尚未配置注册表 ROA 校验。外部明细留在 AMD，汇总通过 iBGP 下发 VyOS；IPv4 汇总再由 VyOS 经 eBGP 通告给 NEC IX。
 
 每个外部 WireGuard peer 使用独立接口，BGP 可复用本机 loopback 地址。
 单接口多个 WireGuard peer 要求可明确区分的 AllowedIPs；多家 peer 都提供同一 DN42 路由范围时，
@@ -115,7 +115,7 @@ ping -6 -I fdd0:98df:15b0::2 fdd0:98df:15b0::1
 
 业务网段测试应使用业务源地址；DN42 loopback 测试使用注册地址。
 LAN 已部署 DN42 SLAAC 与专用 RIO（现由 `vyos_router` 管理），不发布 IPv6 默认路由；OCI VCN 保持原配置。
-停用或回滚须同时处理 BGP、WireGuard、OSPF 重分发、VCN 回程和 ARM 例外规则，
+停用或回滚须同时处理 BGP、WireGuard、VyOS 向 IX 的通告、VCN 回程和 ARM 例外规则，
 不能仅停止隧道后留下静态回程指向不可达节点。
 
 参考：[WireGuard](https://www.wireguard.com/quickstart/)、
@@ -168,7 +168,7 @@ prefix-list 通告 VyOS。不使用全局 `summary-only`，避免抑制对外通
 在 AMD 丢弃。汇总只要仍有覆盖的 BGP 明细（包括本 AS 注册前缀）就可能存在，不能作为外部
 peer 在线状态指示。自己的 /27、/48 更具体，继续指向本地站点。
 
-VyOS 将 IPv4 /14 通过既有 OSPF E1 分发到 LAN；IPv6 /8 通过 RA 的 RIO 分发至接受该选项的客户端。
+VyOS 将 IPv4 /14 经 eBGP 通告给 NEC IX，LAN 由 IX 转到 VyOS；IPv6 /8 通过 RA 的 RIO 分发至接受该选项的客户端。
 LAN 的 DN42 IPv6 地址通过 SLAAC 自动分配。
 当前 LAN IPv4 客户端访问 DN42 /14 由 VyOS 定向 masquerade 到 `172.21.111.161`；
 IPv6 使用 SLAAC 分配的注册地址直接路由。

@@ -55,15 +55,15 @@ scrapes all three.
 
 ## VyOS (`vyos-rtr`, 192.168.10.2)
 
-VyOS carries far more than routing, and its config is split across three playbooks — so its
-monitoring is too:
+VyOS carries far more than routing. Its CLI config comes from one playbook (`vyos.yml`), but
+files on the box come from two more, so its monitoring is split the same way:
 
 | what | deployed by | covers |
 |---|---|---|
-| built-in `node-exporter` + `frr-exporter` (`service monitoring prometheus`) | `ansible/vyos.yml` (role `vyos_router`) | host, interfaces, OSPF adjacency, DN42 iBGP |
-| `vyos-unit-metrics.timer` → textfile | `ansible/vyos-monitoring.yml` (ssh+python, inventory `vyos_shell`) | frr, both HAProxies, kea, pdns-recursor, radvd, chrony |
+| built-in `node-exporter` + `frr-exporter` (`service monitoring prometheus`) | `ansible/vyos.yml` (role `vyos_router`) | host, interfaces, BGP sessions (IX, LB hosts, DN42 iBGP) |
+| `vyos-unit-metrics.timer` → textfile | `ansible/vyos-monitoring.yml` (ssh+python, inventory `vyos_shell`) | frr, pg-proxy HAProxy, kea, pdns-recursor, radvd, chrony |
 | HAProxy Prometheus frontend `192.168.10.2:8405` | `../shared-postgresql/ansible/proxy.yml` | which Patroni member pg-prod routes to |
-| blackbox: 4 TCP entry points + DN42 SOA via `192.168.10.2` | `platform/observability/metrics/probes/probes.yaml` | pg-prod, sandbox k3s API, opensandbox, sandbox PG, DN42 resolution |
+| blackbox: pg-prod TCP + DN42 SOA via `192.168.10.2` | `platform/observability/metrics/probes/probes.yaml` | pg-prod entry point, DN42 resolution (sandbox entry points moved to Ayatori LB) |
 
 Run order: `vyos.yml` (enables the exporters and creates the textfile dir) → `vyos-monitoring.yml`.
 

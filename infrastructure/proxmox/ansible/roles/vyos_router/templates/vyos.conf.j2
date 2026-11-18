@@ -1,5 +1,6 @@
-{# Desired VyOS config as `set` lines. vyos_config diffs these against the
-   running config, so only differences are applied. Written for VyOS 2025.11
+{# Desired VyOS config as `set` lines -- the COMPLETE desired state of every path in
+   vyos_owned_paths: a line removed here is deleted from the router on the next run
+   (match=enforce). Written for VyOS 2025.11
    syntax explicitly -- see defaults/main.yml for why we do not use the
    collection's resource modules. #}
 set system host-name {{ vyos_router_hostname }}
