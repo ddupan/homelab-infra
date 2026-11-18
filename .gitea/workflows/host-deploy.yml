@@ -1,0 +1,108 @@
+---
+# Ansible host software deploys on merge: a push to main that changes a variable listed in
+# .gitea/host-deploy.yml runs that playbook, then checks it is idempotent. What may be listed, and why
+# the rest stays manual, is in that file. Like chef.yml and terraform.yml, main is the desired state.
+name: host-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/**/ansible/**'
+  # 手动重放：部署 <since>..当前 main 里白名单变量的变化（版本已是最新时就是一次幂等验收）。
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 起点 commit（如某次合并的第一个父提交）
+        required: true
+
+jobs:
+  # job id 是 SPIFFE ID 的一部分（bao role ci-host-deploy 精确绑定），改名会登录失败。
+  host-deploy:
+    runs-on: [self-hosted, pod]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # 要比较 push 前后
+
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+        with:
+          pypi: 'true'
+          ansible: 'true'
+
+      - name: Pick playbooks
+        env:
+          BEFORE: ${{ inputs.since || github.event.before }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run -q --with pyyaml python3 .gitea/scripts/host-deploy.py "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/plays"
+          echo "plays: $(tr '\n' ';' < "$RUNNER_TEMP/plays")"
+          [ -s "$RUNNER_TEMP/plays" ] && echo "DEPLOY=1" >> "$GITHUB_ENV" || true
+
+      - name: Install Ansible and collections
+        if: env.DEPLOY == '1'
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          for i in 1 2 3 4 5; do  # WAN 随机掉线
+            uv tool install ansible-core --with ansible --quiet && break
+            [ $i = 5 ] && exit 1; echo "attempt $i failed"; sleep 10
+          done
+          for p in $(cut -d' ' -f1 "$RUNNER_TEMP/plays" | sort -u); do
+            r=infrastructure/$p/ansible/requirements.yml
+            [ -f "$r" ] || continue
+            for i in 1 2 3; do
+              ansible-galaxy collection install -r "$r" -p "$HOME/.ansible/projects/$p" && break
+              [ $i = 3 ] && exit 1; sleep 10
+            done
+          done
+
+      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+        if: env.DEPLOY == '1'
+        with:
+          role: ci-host-deploy
+
+      - name: SSH certificate
+        if: env.DEPLOY == '1'
+        # 同 chef.yml：每次一把临时 key，Bao 签 30 分钟证书；token 经 header 文件传给 curl。
+        # ssh 自动加载同名 -cert.pub。主机密钥来自仓库，不做 TOFU。
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          ssh-keygen -q -t ed25519 -N '' -C "ci-host-deploy-${GITHUB_RUN_ID}" -f "$RUNNER_TEMP/ci_key"
+          printf 'X-Vault-Token: %s\n' "$BAO_TOKEN" > "$RUNNER_TEMP/bao.hdr"
+          jq -n --arg k "$(cat "$RUNNER_TEMP/ci_key.pub")" '{public_key: $k, valid_principals: "ubuntu,panxiao81,ansible"}' |
+            curl -fsS --retry 3 -H @"$RUNNER_TEMP/bao.hdr" --data @- \
+              "${BAO_ADDR%/}/v1/ssh-client-signer/sign/ci-host-deploy" |
+            jq -er .data.signed_key > "$RUNNER_TEMP/ci_key-cert.pub"
+          rm -f "$RUNNER_TEMP/bao.hdr"
+          cp .gitea/host-deploy-known_hosts ~/.ssh/known_hosts
+
+      - name: Deploy
+        if: env.DEPLOY == '1'
+        env:
+          ANSIBLE_PRIVATE_KEY_FILE: ${{ runner.temp }}/ci_key
+          # 覆盖 samba-ad 等 ansible.cfg 里的 host_key_checking = False：CI 只认仓库里的主机密钥。
+          ANSIBLE_HOST_KEY_CHECKING: 'True'
+          ANSIBLE_FORCE_COLOR: 'True'
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          rc=0
+          while read -r project playbook; do
+            echo "::group::$project $playbook"
+            export ANSIBLE_COLLECTIONS_PATH="$HOME/.ansible/projects/$project"
+            (
+              cd "infrastructure/$project/ansible"
+              ansible-playbook "$playbook" --diff
+              # 幂等性是验收标准：真跑第二次，还有变更就算失败。不用 --check：get_url force、
+              # 依赖前一步产物的任务在 check 模式下必报 changed/失败，而 play 本身是幂等的。
+              ansible-playbook "$playbook" | tee "$RUNNER_TEMP/recheck.log"
+              ! grep -qE 'changed=[1-9]' "$RUNNER_TEMP/recheck.log"
+            ) || { echo "::error::$project $playbook failed"; rc=1; }
+            echo "::endgroup::"
+          done < "$RUNNER_TEMP/plays"
+          exit $rc
