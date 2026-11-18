@@ -17,7 +17,12 @@ module.exports = {
   hostRules: [{ matchHost: 'ddupan.top', allowInternal: true }],
   // Post-upgrade tasks run in this pod, which holds the token for every repo: allow only exact
   // commands. ayatori regenerates controller-gen/oapi-codegen output when those tools bump.
-  allowedCommands: ['^make manifests generate generate-dataplaneapi$'],
+  // homelab-infra re-pins host-software checksums (.gitea/renovate/update-checksums.mjs); the path
+  // argument is Renovate's packageFile, so allow only plain repo paths (no spaces or shell syntax).
+  allowedCommands: [
+    '^make manifests generate generate-dataplaneapi$',
+    '^node \\.gitea/renovate/update-checksums\\.mjs [\\w./-]+$',
+  ],
   // Every PR runs CI on the laptop, which is already the bottleneck.
   prHourlyLimit: 2,
   prConcurrentLimit: 5,
