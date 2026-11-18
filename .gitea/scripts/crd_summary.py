@@ -6,6 +6,8 @@
 CRD 全文 diff 动辄数千行，评论放不下；判断升级风险需要的是：哪些 CRD 增删、
 哪个版本不再 served 或换了 storage 版本（已存对象需要迁移）、schema 有没有变。
 无 CRD 变更时不输出任何内容。
+
+另列出 flate 跳过（suppressed）的渲染结果：被跳过的对象不进 diff，评审看到的"无变更"并不可信。
 """
 import json
 import sys
@@ -50,6 +52,18 @@ def describe(change):
     return danger, notes or ['仅元数据变化']
 
 
+def suppressed(doc):
+    rows = []
+    for x in doc.get('suppressed') or []:
+        p = x.get('parent') or {}
+        rows.append(f"| `{p.get('kind')}/{p.get('namespace')}/{p.get('name')}` | {x.get('side')} | "
+                    f"{x.get('count')} | {x.get('reason')} |")
+    if not rows:
+        return ''
+    return ('#### ⚠️ 部分渲染结果被 flate 跳过，未进入 diff\n\n| 来源 | 侧 | 对象数 | 原因 |\n|---|---|---|---|\n'
+            + '\n'.join(rows) + '\n\n')
+
+
 def summarize(doc):
     rows = []
     for c in doc.get('changes') or []:
@@ -58,8 +72,8 @@ def summarize(doc):
         danger, notes = describe(c)
         rows.append(f"| {'⚠️ ' if danger else ''}`{c['name']}` | {'<br>'.join(notes)} |")
     if not rows:
-        return ''
-    return '#### CRD 变更\n\n| CRD | 变化 |\n|---|---|\n' + '\n'.join(rows) + '\n\n'
+        return suppressed(doc)
+    return suppressed(doc) + '#### CRD 变更\n\n| CRD | 变化 |\n|---|---|\n' + '\n'.join(rows) + '\n\n'
 
 
 if __name__ == '__main__':

@@ -45,4 +45,9 @@ assert '⚠️' in out and '`v1beta1` 移除' in out and '`scope`' in out, out
 out = summarize({'changes': [change('changed', crd(('v1', True, True, {})), crd(('v1', True, True, {})))]})
 assert '仅元数据变化' in out, out
 
+# flate 跳过的渲染结果要显式列出
+out = summarize({'changes': [], 'suppressed': [{'parent': {'kind': 'HelmRelease', 'namespace': 'e5renew', 'name': 'e5renew'},
+                                                'side': 'current', 'count': 5, 'reason': 'object not in store'}]})
+assert '被 flate 跳过' in out and '`HelmRelease/e5renew/e5renew`' in out and '| 5 |' in out, out
+
 print('ok')
