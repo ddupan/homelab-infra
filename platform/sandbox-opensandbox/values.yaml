@@ -8,6 +8,18 @@ metadata:
     reconcile.fluxcd.io/watch: Enabled
 data:
   values.yaml: |
+    # base 子 chart：保留 OpenSandbox 自己的 CRD（BatchSandbox/Pool/SandboxSnapshot，与 0.2.2 一样由本
+    # release 管理）。fast-sandbox 不用：不装它的 CRD/RBAC，也不建 namespace——opensandbox-system 由本目录
+    # namespace.yaml 管理，Helm 收编不了已存在的 namespace，默认值会让 upgrade 失败。
+    base:
+      fastSandbox:
+        crds:
+          install: false
+        namespaces:
+          createSystem: false
+          create: false
+        rbac:
+          create: false
     opensandbox-controller:
       controller:
         metrics:
@@ -53,7 +65,7 @@ data:
 
         [runtime]
         type = "kubernetes"
-        execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.22"
+        execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:release-1.2.1"
 
         [storage]
         allowed_host_paths = []
@@ -62,16 +74,14 @@ data:
         [kubernetes]
         kubeconfig_path = ""
         namespace = "opensandbox"
-        informer_enabled = true
         informer_resync_seconds = 300
         informer_watch_timeout_seconds = 60
-        snapshot_create_timeout_seconds = 900
         workload_provider = "batchsandbox"
         image_pull_policy = "IfNotPresent"
         batchsandbox_template_file = "/etc/opensandbox/batchsandbox-template.yaml"
 
         [egress]
-        image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.1.6"
+        image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:release-1.2.1"
         mode = "dns+nft"
         disable_ipv6 = true
 

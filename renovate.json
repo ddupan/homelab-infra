@@ -12,6 +12,15 @@
   },
   "customManagers": [
     {
+      "description": "OpenSandbox component image tags we pin ourselves (execd/egress in the server configToml, execd/task-executor in the ci-vm Pool templates) must match the chart's release. Same depName and datasource as the GitRepository tag, and the sandbox group puts both in one PR.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)platform/sandbox-opensandbox/values\\.yaml$/", "/(^|/)platform/sandbox-ci-runners/pools\\.yaml$/"],
+      "matchStrings": ["opensandbox/(?:execd|egress|task-executor):(?<currentValue>release-\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "opensandbox",
+      "packageNameTemplate": "https://github.com/opensandbox-group/OpenSandbox",
+      "datasourceTemplate": "git-tags"
+    },
+    {
       "description": "Versions Renovate cannot see on its own (e.g. an image tag inside HelmRelease values): put `# renovate: datasource=<ds> depName=<name>` on the line above. A pinned digest goes on the same line (`tag@sha256:…`) so it is bumped with the tag.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
@@ -34,10 +43,11 @@
       "enabled": false
     },
     {
-      "description": "OpenSandbox moved its charts to manifests/ upstream (2026-09-16, #1857); every commit after that lacks ./kubernetes/charts/opensandbox, so bumping this GitRepository pin only produces a HelmRelease that cannot reconcile. Held at the last commit with the old layout until the chart migration (platform/sandbox-opensandbox/README.md).",
-      "matchDatasources": ["git-refs"],
+      "description": "OpenSandbox GitRepository follows upstream release tags (release-x.y.z, one platform version for server, charts and images). Skip release candidates; the chart and the execd/egress image tags in values.yaml move together, so this stays a manual-review PR.",
+      "matchDatasources": ["git-tags"],
       "matchDepNames": ["opensandbox"],
-      "enabled": false
+      "versioning": "regex:^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "allowedVersions": "/^release-\\d+\\.\\d+\\.\\d+$/"
     },
     {
       "description": "Our own images, pinned by bare digest and bumped by hand when gitea-dynamic-runner ships. The repo has no `latest` tag, so Renovate can only fail to resolve a new digest.",
