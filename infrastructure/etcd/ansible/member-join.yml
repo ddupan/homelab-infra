@@ -1,5 +1,5 @@
 ---
-# 把 Cinc 部署好的成员（etcd_cinc 组）加入现有集群：member add --learner → 启动 → promote。
+# 把 Cinc 部署好的成员（etcd 组，运行时 -l 新成员）加入现有集群：member add --learner → 启动 → promote。
 # 一次性的成员变更，所以不在 site.yml 里；对已加入的成员重跑只做只读检查，changed=0。
 #
 # 为什么是 learner：learner 不计入 quorum。直接 member add 会让 3 成员（quorum 2）立刻变成
@@ -11,7 +11,7 @@
 #   ansible-playbook member-join.yml --check   # 只做发现与检查
 #   ansible-playbook member-join.yml -l etcd-pve3
 - name: 将 Cinc 管理的成员加入 shared etcd
-  hosts: etcd_cinc
+  hosts: etcd
   become: true
   gather_facts: false
   serial: 1
@@ -23,7 +23,7 @@
     etcd_join_peer_url: "https://{{ etcd_address }}:2380"
     # 只作发现入口：真正的成员与 endpoint 取自集群自己的 member list。
     etcd_join_seed: >-
-      {{ (groups['etcd'] + groups['etcd_cinc']) | difference([inventory_hostname])
+      {{ groups['etcd'] | difference([inventory_hostname])
          | map('extract', hostvars, 'etcd_address')
          | map('regex_replace', '^(.*)$', 'https://\1:2379') | join(',') }}
   environment:

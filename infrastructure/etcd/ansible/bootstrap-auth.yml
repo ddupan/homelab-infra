@@ -1,14 +1,9 @@
 ---
-# 与常规 site 分离，防止重建/恢复时默默创建新的认证域。
+# 单独一个入口：防止重建/恢复时默默创建新的认证域。
 - name: 初始化共享 etcd 认证
   hosts: etcd[0]
   become: true
   gather_facts: false
-  pre_tasks:
-    - name: 加载共享默认参数
-      ansible.builtin.import_role:
-        name: shared_etcd
-        tasks_from: context
   environment:
     ETCDCTL_ENDPOINTS: "https://{{ etcd_address }}:{{ etcd_client_port }}"
     ETCDCTL_CACERT: "{{ etcd_config_dir }}/ca.crt"

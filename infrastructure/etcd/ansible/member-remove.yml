@@ -9,11 +9,11 @@
 # pg-prod 主库。移除后成员数立刻变 3（quorum 2）。数据目录保留，member-join.yml 会拒绝带旧数据的
 # 节点，清不清空由人判断。Cinc 部署的成员要先从 policy 拿掉，否则下一次收敛会把 unit 启回来。
 #
-#   ansible-playbook member-remove.yml --check -e etcd_remove_member=etcd-laptop
-#   ansible-playbook member-remove.yml -e etcd_remove_member=etcd-laptop
+#   ansible-playbook member-remove.yml --check -e etcd_remove_member=etcd-pveN
+#   ansible-playbook member-remove.yml -e etcd_remove_member=etcd-pveN
 - name: 从 shared etcd 移除成员
   # 用 Cinc 成员操作：它们有节点自己的 admin 证书（CN=root），控制端不持有任何 etcd 凭据。
-  hosts: "{{ groups['etcd_cinc'] | difference([etcd_remove_member | default('')]) | first }}"
+  hosts: "{{ groups['etcd'] | difference([etcd_remove_member | default('')]) | first }}"
   become: true
   gather_facts: false
   any_errors_fatal: true

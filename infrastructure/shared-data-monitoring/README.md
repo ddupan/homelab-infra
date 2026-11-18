@@ -74,7 +74,7 @@ sudo journalctl -u homelab-data-collect.service --since '2 hours ago'
 - 采集停止：先查 exporter 和 collect timer/service，再看 `.prom` 的 collection timestamp。
 - 备份陈旧：etcd 查 `homelab-etcd-snapshot`；PG 仓库查 `homelab-postgresql-backup`。
   不以 touch 文件消除告警。快照年龄依赖完成文件 mtime，手工复制会改变证据，不能冒充新备份。
-- 证书或续签异常：查 laptop 的 `homelab-etcd-renew` / `homelab-postgresql-renew`；
+- 证书或续签异常：查 laptop 的 `homelab-postgresql-renew`；etcd 成员查各自的 `homelab-etcd-cert`；
   修复 Bao/SPIRE/网络或受限身份后重跑原续签入口，不删除现有证书或重置数据库。
 - dev SQL 失败：查 `homelab-postgresql-dev`、磁盘与 socket，再核对本地 peer 认证。
 
