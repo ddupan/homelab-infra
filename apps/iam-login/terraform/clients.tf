@@ -160,11 +160,9 @@ resource "homelab_oidc_client" "incus" {
 resource "homelab_oidc_client" "ayatori" {
   for_each = toset(["dev", "prod"])
 
-  # redirect_uris in the order iam-login returns them (a HashSet): provider 0.3 treats it as a list and fails
-  # the apply on any other order. Drop this note once on a provider with terraform-provider-homelab#13.
   id                   = "ayatori-${each.key}"
   name                 = "Ayatori (${each.key})"
-  redirect_uris        = ["http://localhost:18000", "http://localhost:8000"]
+  redirect_uris        = ["http://localhost:8000", "http://localhost:18000"]
   scopes               = ["openid", "profile", "groups", "offline_access"]
   public_client        = true
   device_authorization = true
