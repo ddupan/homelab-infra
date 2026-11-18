@@ -3,6 +3,26 @@
 # `set` lines against the running config and issues only the differences, so
 # re-runs are no-ops. Supports --check and --diff.
 
+# wg42's private key is generated on the router and never leaves it. Runs over the box's
+# ssh+python face (vyos-rtr-shell) because it needs `wg genkey` inside a configure session,
+# which vyos_config lines cannot express. Skipped in check mode (command has no check support).
+- name: Check whether wg42 has a private key
+  ansible.builtin.command: /bin/cli-shell-api existsActive interfaces wireguard wg42 private-key
+  delegate_to: vyos-rtr-shell
+  register: _vyos_wg_key
+  changed_when: false
+  failed_when: _vyos_wg_key.rc not in [0, 1]
+  check_mode: false
+
+- name: Generate the wg42 private key on the router (first build only)
+  ansible.builtin.command:
+    cmd: /bin/vbash -s
+    stdin: "{{ lookup('template', 'wg42-key-bootstrap.vbash.j2') }}"
+  delegate_to: vyos-rtr-shell
+  no_log: true
+  changed_when: true
+  when: _vyos_wg_key.rc == 1
+
 # `| no-more` is load-bearing: without a pipe the CLI session runs at terminal width 512 and a longer
 # line comes back with the character at that column replaced by a space. The SSH CA key line is
 # ~760 chars, so vyos_config, reading the config the same unpiped way, never found it and re-sent it
@@ -13,32 +33,8 @@
       - show configuration commands | no-more
   register: _vyos_running_commands
   changed_when: false
-
-# OSPF was replaced by BGP to the IX (infrastructure/network/README.md). The set-lines
-# template cannot delete a node, so retire it here, once, together with the route-maps
-# that only fed it (their `set` lines lived in infrastructure/oci's vyos-site template).
-- name: Retire OSPF
-  vyos.vyos.vyos_config:
-    lines:
-      - delete protocols ospf
-      - delete policy route-map OCI-TO-OSPF
-      - delete policy route-map DN42-TO-OSPF
-      - delete policy prefix-list OCI-TO-OSPF
-      - delete policy prefix-list DN42-TO-OSPF
-    save: true
-    comment: Retire OSPF (replaced by BGP to the IX)
-  when: "'set protocols ospf ' in _vyos_running_commands.stdout[0]"
-
-# VyOS 不再承载 HAProxy 入口：sandbox-k8s 与 sandbox-postgresql 都已迁到 Ayatori LoadBalancer
-# （clusters/ayatori-prod/sandbox-*.yaml），pg-prod 是独立的 homelab-pg-proxy，不在 CLI 配置里。
-# set-lines 模板删不掉节点，在这里一次性撤掉整个 load-balancing haproxy。
-- name: Retire the VyOS HAProxy frontends
-  vyos.vyos.vyos_config:
-    lines:
-      - delete load-balancing haproxy
-    save: true
-    comment: HAProxy frontends moved to Ayatori LoadBalancer
-  when: "'set load-balancing haproxy ' in _vyos_running_commands.stdout[0]"
+  # Full config: wg42 private key, login hashes. Never let -v print it.
+  no_log: true
 
 - name: Render the desired configuration
   ansible.builtin.set_fact:
@@ -49,9 +45,8 @@
 # The baseline is the running config cut down to vyos_owned_paths. `match: enforce` then emits
 # `delete` for anything in that baseline the template no longer renders -- the stale value of a
 # multi-value node (name-server, wins-server) that plain `set` lines could only ever append to.
-# enforce on its own scopes by TOP-LEVEL section; infrastructure/oci's vyos.yml writes to the same
-# `protocols`/`policy`/`interfaces` sections on this box, so an unfiltered baseline would delete
-# OCI's BGP neighbor and prefix-lists. Lines outside the scope never reach the module at all.
+# enforce on its own scopes by TOP-LEVEL section, which would also delete what nobody templates
+# (system login, hw-id, wg42's private-key). Lines outside the scope never reach the module at all.
 - name: Select the owned part of the running configuration
   ansible.builtin.set_fact:
     # Double-quoted on purpose: YAML turns `\\s`/`\n` into the regex class and a real newline.
@@ -63,8 +58,7 @@
 - name: Apply configuration
   vyos.vyos.vyos_config:
     lines: "{{ _vyos_lines }}"
-    # Compare against the un-mangled `| no-more` read above, not the module's own unpiped one. It
-    # predates the retire tasks, but those only delete nodes outside vyos_owned_paths.
+    # Compare against the un-mangled `| no-more` read above, not the module's own unpiped one.
     config: "{{ _vyos_owned_running }}"
     # Needs vyos.vyos >= 6.2.0 (requirements.yml). Defaults to commit-confirm with auto-confirm, so
     # a delete that cuts off the session reverts itself after 10 minutes. It also refuses to emit

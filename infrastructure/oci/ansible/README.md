@@ -63,8 +63,11 @@ ansible-playbook site.yml
 ansible-playbook site.yml  # 复跑应 changed=0
 ```
 
-`vyos.yml` 先在路由器本机生成密钥并保存，再交换公钥并增量应用 VyOS set 命令。
-VyOS native config 含私钥，因此相关模块使用 `no_log`，不把配置备份到 Git 或打印出来。
+vyos-rtr 这一端（wg42、iBGP、DN42 NAT/RA/DNS）自 2026-11-18 起只由
+`infrastructure/proxmox/ansible/vyos.yml`（`vyos_router` 角色）写入，本项目对路由器只读：
+`vyos-wg-pubkey.yml` 读取 VyOS 的 wg42 公钥交给 AMD。重建时先跑 proxmox 那边
+（wg42 私钥在那里于路由器本机生成），再跑本项目的 `site.yml`。AMD 公钥写在
+`vyos_router` 的 `vyos_oci_amd_public_key` 里，轮换 AMD 密钥时要同步改。
 AMD 私钥在 `/etc/wireguard/wg-oci.key`（0600），由本机 PostUp 加载，不返回控制机。
 首次 check mode 无法生成私钥，因此会跳过依赖不存在公钥的 Linux 配置渲染。
 
@@ -111,7 +114,7 @@ ping -6 -I fdd0:98df:15b0::2 fdd0:98df:15b0::1
 ```
 
 业务网段测试应使用业务源地址；DN42 loopback 测试使用注册地址。
-LAN 已通过 `dn42-ra.yml` 部署 DN42 SLAAC 与专用 RIO，不发布 IPv6 默认路由；OCI VCN 保持原配置。
+LAN 已部署 DN42 SLAAC 与专用 RIO（现由 `vyos_router` 管理），不发布 IPv6 默认路由；OCI VCN 保持原配置。
 停用或回滚须同时处理 BGP、WireGuard、OSPF 重分发、VCN 回程和 ARM 例外规则，
 不能仅停止隧道后留下静态回程指向不可达节点。
 
@@ -178,7 +181,7 @@ laptop 的 `172.20.0.0/14` 为 OSPF 路由，经 `192.168.10.2 dev br0`。
 
 ## DN42 DNS 转发
 
-`ansible-playbook dn42.yml dn42-dns.yml` 管理入口路由和 VyOS DNS。LAN 的 Blocky
+`ansible-playbook dn42.yml` 管理入口路由；VyOS 的 DNS 转发由 `vyos_router` 管理。LAN 的 Blocky
 (`192.168.10.127`) 将 `.dn42`、172.20–23 的 IPv4 反向区和 `d.f.ip6.arpa`
 转给 VyOS `192.168.10.2:53`。VyOS 仅接受三个内部 LAN 网段，使用注册地址
 `172.21.111.161` / `fdd0:98df:15b0::1` 发起递归转发，不做 NAT。
@@ -214,7 +217,7 @@ AMD 仍仅允许 DN42 注册源前缀进入外部隧道，不在 AMD 做第二�
 
 ## LAN DN42 IPv6 RA（不发布默认路由）
 
-执行 `ansible-playbook dn42-ra.yml`，为三个 LAN 启用 SLAAC：
+`vyos_router`（`infrastructure/proxmox/ansible/vyos.yml`）为三个 LAN 启用 SLAAC：
 
 | LAN | VyOS 接口 | 前缀 | 路由器地址 |
 |---|---|---|---|

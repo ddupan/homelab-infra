@@ -1,0 +1,23 @@
+---
+# vyos-rtr 的 CLI 配置（包括 wg42 隧道的这一端）只由 infrastructure/proxmox/ansible/vyos.yml
+# （vyos_router 角色）写入，本项目对路由器只读。这里读取路由器的 wg42 公钥，交给 site.yml 里
+# AMD 的 wireguard_bgp 角色。wg42 私钥在 proxmox 那边首次生成，所以重建时要先跑 proxmox 那边；
+# 公钥还不存在时，这一步会直接失败。
+- name: 读取 VyOS wg42 公钥
+  hosts: site_routers
+  gather_facts: false
+  tasks:
+    - name: 读取公钥
+      vyos.vyos.vyos_command:
+        commands: show interfaces wireguard wg42 public-key
+      register: vyos_wg_public
+      changed_when: false
+
+    # wireguard_bgp 按 Linux 主机的形状读取对端（hostvars[wg_peer_host].wg_public_key/.wg_key_file）。
+    - name: 准备 Linux 端需要的公钥事实
+      ansible.builtin.set_fact:
+        wg_public_key:
+          stdout: '{{ vyos_wg_public.stdout[0] | trim }}'
+        wg_key_file:
+          stat:
+            exists: true

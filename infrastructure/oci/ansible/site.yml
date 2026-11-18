@@ -1,6 +1,6 @@
 ---
-- name: 配置 VyOS 站点路由器
-  ansible.builtin.import_playbook: vyos.yml
+- name: 读取 VyOS 站点路由器的 wg42 公钥
+  ansible.builtin.import_playbook: vyos-wg-pubkey.yml
 
 - name: 配置无 NAT 的 WireGuard 与 BGP 站点互联
   hosts: wireguard_sites

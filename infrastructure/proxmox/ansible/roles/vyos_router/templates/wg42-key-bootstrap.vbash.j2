@@ -1,0 +1,15 @@
+# First build only: generate wg42's private key ON the router so it never reaches the control host.
+# The address is one the main template also renders, so the enforce run that follows keeps it.
+# (It used to be 10.255.254.2/30, the retired transport -- enforce would delete that straight away.)
+source /opt/vyatta/etc/functions/script-template
+if /bin/cli-shell-api existsActive interfaces wireguard wg42 private-key; then
+  echo KEY_EXISTS
+  builtin exit 0
+fi
+configure
+set interfaces wireguard wg42 address '172.21.111.161/32'
+set interfaces wireguard wg42 private-key "$(wg genkey)"
+commit || builtin exit 1
+save || builtin exit 1
+exit
+echo KEY_CREATED
