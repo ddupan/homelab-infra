@@ -22,7 +22,7 @@ apply 后把 secret 交给 Ansible（不经过终端、不进 Bao——Bao 也�
 
 1. `tenant_id`、`gitea_client_id` 写进 `infrastructure/oci/ansible/host_vars/oci_arm/gitea.yml` 的
    `gitea_entra_tenant_id` / `gitea_entra_client_id`；
-2. `terraform output -raw gitea_client_secret` 写进 `host_vars/oci_arm/vault.yml` 的 `vault_gitea_entra_client_secret`；
+2. `terraform output -raw gitea_client_secret` 写进 OCI Vault `ansible-gitea` 的 `vault_gitea_entra_client_secret` 键（步骤见 `infrastructure/oci/ansible/README.md` "oci-arm 的秘密"）；
 3. `ansible-playbook gitea.yml`。登录源只在不存在时创建；**轮换 secret** 时 role 不会更新已有登录源，
    需在 Gitea 管理后台（或 `gitea admin auth update-oauth --id <id> --secret ...`）手工更新。
 

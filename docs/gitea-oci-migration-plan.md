@@ -20,7 +20,7 @@ git 82 MB、attachments 68 MB、actions_log 47 MB），数据库很小。
 | 运行方式 | Docker Compose，`docker.gitea.com/gitea:<tag>-rootless`，tag 写死 | 单实例不需要 k8s；镜像有 arm64 |
 | 数据库 | SQLite（`/data/gitea/gitea.db`） | 数据库只有几十 MB；`gitea dump` 一次就能连同 repo 一起备份，时间点一致。OCI 免费 MySQL 的备份和 repo 不同步，且免费账户只能恢复成另一个免费实例（每个 tenancy 只有一个），不划算 |
 | 配置管理 | `infrastructure/oci/ansible/` 新 role `gitea`（照 `outside_watcher` 的样子） | 与看守同一处管理 |
-| 秘密 | oci ansible-vault（`host_vars/oci_arm/vault.yml`），**不从 Bao 读** | 恢复根不能依赖 lab 里的 Bao（与 infrastructure/openbao 同理） |
+| 秘密 | OCI Vault `ansible-gitea`（oci-arm 以 instance principal 读，2026-11-18 起；原为 oci ansible-vault），**不从 Bao 读** | 恢复根不能依赖 lab 里的 Bao（与 infrastructure/openbao 同理） |
 | 公网入口 | A1 公网 IP 443，`git.ddupan.top` 在 Cloudflare 开代理；Gitea 自己用 Cloudflare Origin CA 证书跑 HTTPS（Full strict）；专用 NSG 的 443 只放 Cloudflare IP 段 | 不经 lab 的 tunnel，也不必在 A1 上多跑一个 connector；NSG 限制来源，爬虫无法绕过 zone 级 WAF 规则直连源站。Origin CA 只有 Cloudflare 信任，所以 lab 内也必须经 Cloudflare 访问。私钥只在 vault 里，Terraform 只拿 CSR |
 | lab 内访问 | **全部走公网名 `https://git.ddupan.top`**，取消 split-horizon | 见下文「网络」 |
 | 登录 | 保留 iam-login 登录源 `sso`（数据库里 ID 3，随数据迁移）；**另加 Entra ID 登录源** | iam-login 依赖 lab 里的 dc1，lab 挂了就无法登录；Entra ID 不依赖 lab，作为第二入口。Entra 应用设成「需要分配用户」，只有被分配的用户能登录，避免 `ENABLE_AUTO_REGISTRATION` 让整个租户都能自动注册；`ACCOUNT_LINKING=auto` 按 email 关联到已有账号。client secret 放 vault。最后兜底仍是 ssh 到 A1 用 `gitea admin` CLI |

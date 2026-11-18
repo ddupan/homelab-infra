@@ -31,5 +31,3 @@ gitea_entra_source_name: entra
 # 备份：instance principal 上传到 infrastructure/oci/terraform/gitea-backup.tf 的 bucket。
 gitea_backup_namespace: axckv9ylwqxr
 gitea_backup_bucket: gitea-backup
-# renovate: datasource=pypi depName=oci-cli
-gitea_backup_oci_cli_version: "3.96.3"

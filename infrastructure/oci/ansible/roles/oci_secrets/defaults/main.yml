@@ -1,0 +1,17 @@
+---
+# Secrets for roles on oci-arm, read on the instance itself with instance principal from OCI Vault
+# (infrastructure/oci/terraform/ansible-secrets.tf). Each secret is a JSON object whose keys become
+# facts of the same name, so consuming roles keep their vault_* variables.
+#
+# Why OCI Vault: Gitea and the outside watcher must be rebuildable with the lab down, so not Bao; and
+# not ansible-vault, whose single password also opens Bao's own secrets — the controller (a person or
+# CI) now needs only SSH to oci-arm, which already reaches everything these secrets protect.
+
+# Set by the playbook: secret names to load.
+oci_secrets_names: []
+# The `recovery` vault (terraform output ansible_secrets_vault_id).
+oci_secrets_vault_id: ocid1.vault.oc1.ap-osaka-1.fzvpdmeraaavk.abvwsljrdlkoewzlf5y3ed6in3lvtd55z5bt4w3brqbk3on4tyz3l2redcdq
+
+# Also what gitea's backup script uploads with.
+# renovate: datasource=pypi depName=oci-cli
+oci_cli_version: "3.96.3"

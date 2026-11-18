@@ -1,6 +1,6 @@
 ---
 # Telegram：与 laptop 的 VMAlertmanager 同一个 bot、同一个生产频道。token 来自
-# host_vars/oci_arm/vault.yml（ansible-vault），刻意不在部署时读 Bao：bao1 跑在 laptop 上，
+# OCI Vault ansible-outside-watcher（roles/oci_secrets），刻意不在部署时读 Bao：bao1 跑在 laptop 上，
 # laptop 挂了正是需要重建看守的时候。它和 Bao kv/k8s/alertmanager 是同一个值，几乎不轮换。
 watcher_telegram_chat_id: -1003956377923
 watcher_telegram_bot_token: "{{ vault_watcher_telegram_bot_token }}"
