@@ -4,14 +4,9 @@ metadata:
   name: spire
   namespace: spire-mgmt
 spec:
-  chart:
-    spec:
-      chart: ./charts/spire
-      interval: 1h
-      reconcileStrategy: Revision
-      sourceRef:
-        kind: GitRepository
-        name: spiffe-hardened-fork
+  chartRef:
+    kind: OCIRepository
+    name: spiffe-hardened-fork
   dependsOn:
     - name: spire-crds
       namespace: spire-mgmt

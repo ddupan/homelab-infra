@@ -20,7 +20,7 @@ configMapGenerator:
 resources:
   - namespaces.yaml
   - helmrepository.yaml
-  - gitrepository-fork.yaml
+  - ocirepository-fork.yaml
   - helmrelease-crds.yaml
   - helmrelease.yaml
   - httproute.yaml
