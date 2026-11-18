@@ -30,7 +30,7 @@
 - name: Install the credential helper
   ansible.builtin.copy:
     src: renovate-env
-    dest: /usr/local/libexec/renovate-env
+    dest: /usr/local/bin/renovate-env
     mode: '0755'
 
 - name: Install the service
