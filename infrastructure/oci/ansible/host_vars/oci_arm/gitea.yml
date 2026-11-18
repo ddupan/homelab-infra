@@ -1,6 +1,6 @@
 ---
 # Cloudflare Origin CA 证书（公开部分），来自 infrastructure/cloudflared/terraform 的
-# `terraform output -raw gitea_origin_certificate`；私钥是 vault.yml 的 vault_gitea_tls_key。
+# `terraform output -raw gitea_origin_certificate`；私钥是 OCI Vault ansible-gitea 的 vault_gitea_tls_key。
 # 只被 Cloudflare 信任，2041-11 到期。
 gitea_tls_cert: |
   -----BEGIN CERTIFICATE-----
@@ -24,11 +24,11 @@ gitea_tls_cert: |
   -----END CERTIFICATE-----
 
 # Entra ID 应急登录源，来自 infrastructure/ddupan-entra/terraform 的 tenant_id / gitea_client_id（不是秘密）。
-# secret 在 vault.yml 的 vault_gitea_entra_client_secret，2028-11-04 到期（README 有轮换步骤）。
+# secret 在 OCI Vault ansible-gitea 的 vault_gitea_entra_client_secret，2028-11-04 到期（README 有轮换步骤）。
 gitea_entra_tenant_id: 109c0655-211e-482c-be97-591635ff1caa
 gitea_entra_client_id: 6080dc6a-2008-4b20-8c2a-c4e6ba809372
 
-# 合并提交签名（SSH 格式）的公钥；私钥是 vault.yml 的 vault_gitea_signing_key。2026-11-05 生成。
+# 合并提交签名（SSH 格式）的公钥；私钥是 OCI Vault ansible-gitea 的 vault_gitea_signing_key。2026-11-05 生成。
 # 轮换：生成新密钥对替换两处；旧公钥要进 [repository.signing] TRUSTED_SSH_KEYS，旧提交才继续显示已验证
 # （role 还不支持，轮换时再加）。
 gitea_signing_pubkey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN2HCuO+mA+T58e4Iifcy8KrP/HHtThALDwQGUnPCY0a Gitea <noreply@ddupan.top> merge signing

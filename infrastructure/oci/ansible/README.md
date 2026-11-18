@@ -266,8 +266,7 @@ Alertmanager 把它丢进 blackhole），同时经 Tailscale 推给 `100.99.94.4
 gossip 端口（默认 `0.0.0.0:9094`）显式关闭。开机时 tailscale0 还没地址会绑定失败，
 drop-in 让它排在 tailscaled 之后并无限重试，不退回到 `0.0.0.0`。
 
-**执行**：Telegram token 在 `host_vars/oci_arm/vault.yml`（ansible-vault，密码即仓库根的
-`.vault_pass`，由 YubiKey 解 `.vault_pass.gpg` 得到）。**刻意不在部署时读 Bao**：bao1 跑在
+**执行**：Telegram token 在 OCI Vault 的 `ansible-outside-watcher`（见下文"oci-arm 的秘密"）。**刻意不在部署时读 Bao**：bao1 跑在
 laptop 上，laptop 挂了正是需要重建看守的时候——和 `infrastructure/openbao/` 不读自己的 Bao 是
 同一条规则。值与 Bao `kv/k8s/alertmanager` 相同，几乎不轮换；真轮换时两处都要改。
 
@@ -286,8 +285,8 @@ silence add alertname=LabWatchdogMissing` 临时静默。
 ## Gitea（oci-arm）
 
 `gitea.yml` / `roles/gitea`：Docker Compose 跑 rootless Gitea + SQLite，数据在 `/srv/gitea/data`。
-repo 放在 lab 之外是为了重建顺序：lab 全挂时 repo 仍在，所以秘密只来自 `host_vars/oci_arm/vault.yml`，
-不读 Bao。迁移流程见 `docs/gitea-oci-migration-plan.md`。
+repo 放在 lab 之外是为了重建顺序：lab 全挂时 repo 仍在，所以秘密只来自 OCI Vault 的 `ansible-gitea`，
+不读 Bao（见下文"oci-arm 的秘密"）。迁移流程见 `docs/gitea-oci-migration-plan.md`。
 
 - 入口：A1 公网 IP 443 → Gitea 自己的 HTTPS（Cloudflare Origin CA，Full strict）。NSG `homelab-vm-gitea`
   只放 Cloudflare IP 段（`infrastructure/oci/terraform/gitea-ingress.tf`）；不要在宿主机防火墙上找，
@@ -300,3 +299,32 @@ repo 放在 lab 之外是为了重建顺序：lab 全挂时 repo 仍在，所以
   恢复：OCI 控制台或 `oci os object get` 取回后解包，见迁移方案第 2 步。
 - 升级：Renovate 改 `roles/gitea/defaults/main.yml` 的 tag+digest → 合并 → `ansible-playbook gitea.yml`。
   不交给 CI：runner 在 lab 里，又要连这个正在重启的 Gitea。
+
+## oci-arm 的秘密
+
+`gitea.yml`、`watcher.yml` 先跑 `roles/oci_secrets`：在 oci-arm 上用 instance principal 从 OCI Vault
+`recovery` 读 `ansible-gitea` / `ansible-outside-watcher`，JSON 的每个键设成同名变量（`vault_gitea_*`
+等沿用原名）。部署方只需要 SSH，不需要任何密码或 OCI 凭据。
+
+- 为什么不是 Bao：重建顺序（上文）。为什么不是 ansible-vault：它与 openbao、samba-ad 共用一个密码，
+  能部署 oci-arm 的人（或 CI）就能解开 Bao 自己的 CF token。oci-arm 上的 root 本来就能读到这些值，
+  所以"能 SSH 部署"不再意味着更多。
+- secret 对象和只读策略在 `../terraform/ansible-secrets.tf`；Terraform 不管内容（`ignore_changes`）。
+- 未写值时内容是占位 `{}`，role 会直接失败并指出是哪个。
+
+改某个键（轮换、新增）——值只落在 tmpfs，不出现在进程参数里：
+
+```bash
+cd infrastructure/oci/terraform
+id=$(terraform output -json ansible_secret_ids | jq -r '."ansible-gitea"')
+f=$(mktemp -p /dev/shm); trap 'shred -u "$f" "$f.req" 2>/dev/null' EXIT
+oci secrets secret-bundle get --secret-id "$id" \
+  --query 'data."secret-bundle-content".content' --raw-output | base64 -d > "$f"
+$EDITOR "$f"            # 改键值；不要 cat/diff 它
+jq -n --arg id "$id" --rawfile c "$f" \
+  '{secretId: $id, secretContentContent: ($c | @base64)}' > "$f.req"
+oci vault secret update-base64 --from-json "file://$f.req" >/dev/null
+```
+
+然后按对应 playbook 部署（`--check --diff` → 正式 → 再跑 `changed=0`）。
+

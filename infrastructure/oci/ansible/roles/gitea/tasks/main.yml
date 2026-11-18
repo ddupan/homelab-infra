@@ -1,6 +1,6 @@
 ---
 # oci-arm 上的 Gitea：repo 放在 lab 之外，lab 整体重建时 repo 仍在（CLAUDE.md 重建顺序第一步）。
-# 所以这里的一切都不能依赖 lab：秘密来自本仓库 ansible-vault，不读 Bao；公网入口是 A1 自己的
+# 所以这里的一切都不能依赖 lab：秘密来自 OCI Vault（roles/oci_secrets），不读 Bao；公网入口是 A1 自己的
 # 公网 IP + Cloudflare 代理，不经 laptop 上的 tunnel。迁移步骤见 docs/gitea-oci-migration-plan.md。
 
 - name: 确认源站证书已就位
@@ -178,17 +178,6 @@
     - vault_gitea_entra_client_secret is defined
     - not ansible_check_mode
     - gitea_auth_sources.stdout_lines[1:] | map('split') | map(attribute=1) | select('equalto', gitea_entra_source_name) | list | length == 0
-
-- name: 安装 oci-cli（备份上传）
-  ansible.builtin.pip:
-    name: 'oci-cli=={{ gitea_backup_oci_cli_version }}'
-    virtualenv: /opt/oci-cli
-    virtualenv_command: python3 -m venv
-  register: gitea_oci_cli
-  when: gitea_runtime_ready
-  retries: 3
-  delay: 10
-  until: gitea_oci_cli is succeeded
 
 - name: 写入备份脚本
   ansible.builtin.template:

@@ -1,0 +1,68 @@
+---
+- name: 安装 venv
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+  register: oci_secrets_venv
+  retries: 3
+  delay: 5
+  until: oci_secrets_venv is succeeded
+
+# ponytail: a brand-new host under --check has no oci-cli yet, so the read below fails there; run
+# without --check once (as for any first deploy).
+- name: 安装 oci-cli
+  ansible.builtin.pip:
+    name: 'oci-cli=={{ oci_cli_version }}'
+    virtualenv: /opt/oci-cli
+    virtualenv_command: python3 -m venv
+  register: oci_secrets_cli
+  retries: 3
+  delay: 10
+  until: oci_secrets_cli is succeeded
+
+- name: 用 instance principal 读取秘密
+  ansible.builtin.command:
+    argv:
+      - /opt/oci-cli/bin/oci
+      - secrets
+      - secret-bundle
+      - get-secret-bundle-by-name
+      - --auth
+      - instance_principal
+      - --vault-id
+      - "{{ oci_secrets_vault_id }}"
+      - --secret-name
+      - "{{ item }}"
+      - --query
+      - 'data."secret-bundle-content".content'
+      - --raw-output
+  loop: "{{ oci_secrets_names }}"
+  register: oci_secrets_bundles
+  changed_when: false
+  check_mode: false
+  retries: 3
+  delay: 5
+  until: oci_secrets_bundles is succeeded
+  no_log: true
+
+# The secrets are created with a placeholder `{}` (Terraform ignores their content); fail here
+# rather than deep inside a role on an undefined variable.
+- name: 确认秘密已写入
+  ansible.builtin.assert:
+    that: item.stdout | b64decode | from_json | length > 0
+    fail_msg: "{{ item.item }} 还是占位内容，先按 README 写入值"
+    quiet: true
+  loop: "{{ oci_secrets_bundles.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: 设为变量
+  ansible.builtin.set_fact:
+    "{{ item.key }}": "{{ item.value }}"
+  loop: >-
+    {{ oci_secrets_bundles.results | map(attribute='stdout') | map('b64decode')
+       | map('from_json') | map('dict2items') | flatten }}
+  no_log: true

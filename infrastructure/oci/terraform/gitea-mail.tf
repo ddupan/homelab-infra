@@ -50,7 +50,7 @@ resource "oci_identity_policy" "gitea_smtp" {
 }
 
 # 密码只在创建时返回，所以会进 state（本 root 的 state 在 OCI Object Storage，不在 lab）。
-# apply 后写进 oci ansible 的 host_vars/oci_arm/vault.yml（vault_gitea_smtp_user / vault_gitea_smtp_password）。
+# apply 后写进 OCI Vault ansible-gitea 的 vault_gitea_smtp_user / vault_gitea_smtp_password 键（ansible/README.md）。
 resource "oci_identity_smtp_credential" "gitea" {
   user_id     = oci_identity_user.gitea_smtp.id
   description = "gitea on oci-arm"
