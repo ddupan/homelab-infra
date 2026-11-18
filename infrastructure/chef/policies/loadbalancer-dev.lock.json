@@ -1,5 +1,5 @@
 {
-  "revision_id": "a4adcfc24e162210209ced4637db29f7ca35ed70af5496485c67f5d843cb232a",
+  "revision_id": "4831a79dcdb8200b9aeaf7aade91f0c09751aaf6b7b8017bcb521ada6547f48a",
   "name": "loadbalancer-dev",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -21,28 +21,22 @@
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.4.3",
-      "identifier": "a28d40677fb8e954893addbe795e306798d3ce61",
-      "dotted_decimal_identifier": "45754253980973289.23794783965051230.53221503782497",
-      "cache_key": "homelab_loadbalancer-0.4.3-git.ddupan.top",
-      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.4.3/download",
+      "version": "0.5.1",
+      "identifier": "ffe827f70c209bb9b79e1f7e9e7f2fbc4912831e",
+      "dotted_decimal_identifier": "72031377407352987.52274760452578943.52485726307102",
+      "cache_key": "homelab_loadbalancer-0.5.1-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.5.1/download",
       "source_options": {
-        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.4.3/download",
-        "version": "0.4.3"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.5.1/download",
+        "version": "0.5.1"
       }
     }
   },
   "default_attributes": {
     "homelab_loadbalancer": {
-      "environment": "dev",
-      "dataplaneapi": {
-        "password_hash": "$6$MF/KsEARVNZF4Vl2$FC3mfMQnry2uzPdniarOoSncWxR4cFRh9Yrq2/OY3BWnLpjbQg2oD03WiUANMcJRCoKbeRJ6o0lbjJ80XbQHB0"
-      },
       "agent": {
         "version": "0.4.0",
-        "graceful_restart_time": "30s",
-        "join": true,
-        "converge": true
+        "graceful_restart_time": "30s"
       },
       "bgp": {
         "local_as": 65101,
@@ -64,14 +58,14 @@
       ],
       [
         "homelab_loadbalancer",
-        "= 0.4.3"
+        "= 0.5.1"
       ]
     ],
     "dependencies": {
       "homelab_base (0.4.5)": [
 
       ],
-      "homelab_loadbalancer (0.4.3)": [
+      "homelab_loadbalancer (0.5.1)": [
         [
           "homelab_base",
           ">= 0.0.0"
