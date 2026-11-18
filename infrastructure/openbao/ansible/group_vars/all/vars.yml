@@ -3,18 +3,19 @@
 # Secrets (transit unseal token) live in group_vars/all/vault.yml — see vault.example.yml.
 
 # --- Release (pinned + checksum-verified) ---
-# Bump both together. Get the checksum from the release's checksums.txt:
-#   curl -sL https://github.com/openbao/openbao/releases/download/v<VER>/checksums.txt \
-#     | grep openbao_<VER>_linux_amd64.tar.gz
+# Renovate bumps the version and .gitea/renovate/update-checksums.mjs re-pins every sha256
+# under a `# checksum-from:` marker from the release's own checksums file.
 # renovate: datasource=github-releases depName=openbao/openbao
 openbao_version: "2.7.2"
+# checksum-from: https://github.com/openbao/openbao/releases/download/v{version}/checksums.txt openbao_{version}_linux_amd64.tar.gz
 openbao_download_checksum: "sha256:582b1f3c2fdc5afd443b2d57a225ef654de75adea609fdb66731fd582a9cbc96"
 
-# pkcs11 KMS plugin (README "TPM seal"). Tarball checksum from the release's
-# checksums-kms-pkcs11.txt; the binary sha256 is what bao re-verifies before exec.
+# pkcs11 KMS plugin (README "TPM seal"). The binary sha256 is what bao re-verifies before exec.
 # renovate: datasource=github-releases depName=openbao/openbao-plugins
 openbao_pkcs11_plugin_version: "0.3.0"
+# checksum-from: https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{version}/checksums-kms-pkcs11.txt openbao-plugin-kms-pkcs11_linux_amd64_v1.tar.gz
 openbao_pkcs11_plugin_checksum: "sha256:c112c670e1bcca7a7b7625b13c0ecf1a43a62cd2651d29bf23befb2ad47c49bf"
+# checksum-from: https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{version}/checksums-kms-pkcs11.txt openbao-plugin-kms-pkcs11_linux_amd64_v1
 openbao_pkcs11_plugin_sha256: "96fefa80e721551725ea01be79b0dae0f3951f15f01291fd87846d5e45475be6"
 openbao_pkcs11_seal: true
 

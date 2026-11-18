@@ -9,6 +9,7 @@
 # --- lego (ACME client). Same pinned release as openbao_acme, deliberately. ---
 # renovate: datasource=github-releases depName=go-acme/lego
 samba_ad_acme_version: "5.6.0"
+# checksum-from: https://github.com/go-acme/lego/releases/download/v{version}/lego_{version}_checksums.txt lego_v{version}_linux_amd64.tar.gz
 samba_ad_acme_checksum: "sha256:f02fc11b6f56b97e387fa7caa0268f86f5a336953b22458e6430e4651fea439a"
 samba_ad_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ samba_ad_acme_version }}/lego_v{{ samba_ad_acme_version }}_linux_amd64.tar.gz"
 samba_ad_acme_bin: "/usr/local/bin/lego"
