@@ -94,3 +94,9 @@ vyos_ix_neighbor: "192.168.10.1"
 vyos_ix_remote_as: 65000
 vyos_ix_aggregates: ["10.60.0.0/14"]
 vyos_ix_export: ["10.60.0.0/14", "10.0.0.0/24", "172.20.0.0/14"]
+
+# Bao's SSH user CA ("ssh-rsa AAAA..."), fetched on the control node at render time like the Linux
+# role openbao_ssh_ca_trust does, so a CA rotation needs no edit here. Agents then reach the
+# router with 5-minute certs (principal vyos) instead of the operator's key.
+vyos_ssh_user_ca_url: https://bao.lab.ddupan.top:8200/v1/ssh-client-signer/public_key
+vyos_ssh_user_ca: "{{ lookup('ansible.builtin.url', vyos_ssh_user_ca_url) | trim }}"
