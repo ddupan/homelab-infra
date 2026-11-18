@@ -25,7 +25,7 @@ tests:
         currency: JPY
       exp_annotations:
         summary: gcp 本月费用已超预算
-        description: 本月抵扣前费用 16000 JPY。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。
+        description: 本月费用（未扣赠金） 16000 JPY。按 service 查看 cloud_cost_month_to_date，预算在 cloud-cost ConfigMap。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
 - name: 预测告警在月初两天不判断，之后按日均外推
   interval: 1h
@@ -47,7 +47,7 @@ tests:
         currency: JPY
       exp_annotations:
         summary: gcp 按当前速度本月会超预算
-        description: 按日均外推到月底约 15500 JPY（抵扣前）。按 service 查看 cloud_cost_month_to_date。
+        description: 按日均外推到月底约 15500 JPY（未扣赠金）。按 service 查看 cloud_cost_month_to_date。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-infra/src/branch/main/platform/observability/metrics/exporters/cloud-cost.yaml
 - name: 赠金到期前 14 天告警
   interval: 1h
