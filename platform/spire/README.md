@@ -11,8 +11,9 @@ iam-login（sso.ddupan.top）提供；SPIRE 不替代人类 OIDC，也不承担�
 Flux 安装 SPIFFE hardened charts：
 
 - `spire-crds` `0.6.1`；
-- 内部 fork 的 `spire` `0.30.2-ddupan.1`（SPIRE `1.15.3`），固定 Git tag
-  `spire-0.30.2-ddupan.1`；
+- 内部 fork 的 `spire` `0.30.2-ddupan.1`（SPIRE `1.15.3`），OCI chart
+  `oci://git.ddupan.top/panxiao81/spire`，由 fork 的 `publish-chart` 工作流在推 tag
+  `spire-<version>` 时打包发布；
 - SPIRE Server、Agent、Controller Manager、SPIFFE CSI Driver；
 - OIDC Discovery Provider。
 

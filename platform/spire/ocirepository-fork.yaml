@@ -1,0 +1,16 @@
+# The internal fork's chart, packaged and pushed by the fork's publish-chart workflow.
+# Not the git tree: charts/spire depends on file://../spire-lib outside its own directory,
+# which flate (flux-diff) cannot resolve, so every PR touching platform/spire failed to render.
+# The packaged .tgz carries its dependencies, so Flux and flate render the same artifact.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: spiffe-hardened-fork
+  namespace: spire-mgmt
+spec:
+  interval: 1h
+  ref:
+    # Flux pulls by digest when both are set; the tag says which fork version it is.
+    tag: 0.30.2-ddupan.1
+    digest: sha256:1df78f062ef10f34d3b03e59929adbcd202fa90f8549500b258bf6a6ba28b895
+  url: oci://git.ddupan.top/panxiao81/spire
