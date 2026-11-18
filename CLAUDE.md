@@ -71,9 +71,10 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
   running config (`show configuration commands | match <node>`) after any value change and
   `delete` the stale one out of band. **`roles/vyos_router` no longer has this problem**: it
   runs `match: enforce` against a baseline cut down to `vyos_owned_paths`, so stale values
-  under those paths are deleted. Several plays write to that box, so ownership is what can
-  go wrong: a path listed there that another play also writes gets its lines **deleted**.
-  Check every writer before widening it. OCI's plays are still plain set-lines.
+  under those paths are deleted. It is also the box's **only** CLI-config writer (OCI's
+  plays were merged in 2026-11-18; `infrastructure/oci` only reads wg42's public key), so do
+  not add a second one: anything another play writes under an owned path gets **deleted**.
+  wg42's `private-key` is deliberately not owned — the template never renders it.
 
 ## Secrets
 

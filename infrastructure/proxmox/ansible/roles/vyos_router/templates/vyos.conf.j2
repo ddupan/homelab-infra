@@ -94,3 +94,102 @@ set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.net
 set service dhcp-server shared-network-name {{ i.vnet | upper }} subnet {{ i.network }} static-mapping {{ r.name }} ip-address {{ r.address }}
 {% endfor %}
 {% endfor %}
+
+{# ===== OCI / DN42. Moved here from infrastructure/oci/ansible (vyos.yml, dn42-ra.yml, dn42-dns.yml)
+     so this box has one writer; the AMD end of the tunnel stays in infrastructure/oci. ===== #}
+
+{# --- wg42 to OCI AMD, iBGP over it, DN42 SNAT. private-key is NOT rendered: it is generated on the
+     box (tasks: wg42-key-bootstrap) and excluded from vyos_owned_paths. --- #}
+set interfaces wireguard wg42 description 'OCI AMD / DN42 internal transport'
+set interfaces wireguard wg42 address '172.21.111.161/32'
+set interfaces wireguard wg42 address 'fdd0:98df:15b0:ffff::2/64'
+set interfaces wireguard wg42 mtu '1380'
+set interfaces wireguard wg42 port '51820'
+set interfaces wireguard wg42 peer amd address '{{ vyos_oci_amd_endpoint }}'
+set interfaces wireguard wg42 peer amd port '51820'
+set interfaces wireguard wg42 peer amd public-key '{{ vyos_oci_amd_public_key }}'
+set interfaces wireguard wg42 peer amd persistent-keepalive '25'
+set interfaces wireguard wg42 peer amd allowed-ips '10.255.254.1/32'
+set interfaces wireguard wg42 peer amd allowed-ips '10.0.0.0/24'
+set interfaces wireguard wg42 peer amd allowed-ips '172.21.111.162/32'
+set interfaces wireguard wg42 peer amd allowed-ips 'fdd0:98df:15b0::/48'
+set interfaces loopback lo address 'fdd0:98df:15b0::1/128'
+set protocols static route 172.21.111.160/27 blackhole distance '254'
+set protocols static route6 fdd0:98df:15b0::/48 blackhole distance '254'
+set protocols bgp system-as '{{ vyos_dn42_asn }}'
+set protocols bgp parameters router-id '172.21.111.161'
+{% for p in ['10.0.0.0/24', '172.21.111.162/32', '172.20.0.0/14'] %}
+set policy prefix-list OCI-SITE-IN rule {{ loop.index * 10 }} action 'permit'
+set policy prefix-list OCI-SITE-IN rule {{ loop.index * 10 }} prefix '{{ p }}'
+{% endfor %}
+{% for p in vyos_dn42_lan_prefixes + [vyos_dn42_ipv4] %}
+set protocols bgp address-family ipv4-unicast network '{{ p }}'
+set policy prefix-list OCI-SITE-OUT rule {{ loop.index * 10 }} action 'permit'
+set policy prefix-list OCI-SITE-OUT rule {{ loop.index * 10 }} prefix '{{ p }}'
+{% endfor %}
+set protocols bgp address-family ipv6-unicast network '{{ vyos_dn42_ipv6 }}'
+set policy prefix-list6 OCI-SITE6-IN rule 10 action 'permit'
+set policy prefix-list6 OCI-SITE6-IN rule 10 prefix 'fdd0:98df:15b0::2/128'
+set policy prefix-list6 OCI-SITE6-OUT rule 10 action 'permit'
+set policy prefix-list6 OCI-SITE6-OUT rule 10 prefix '{{ vyos_dn42_ipv6 }}'
+set interfaces wireguard wg42 peer amd allowed-ips 'fe80::/64'
+
+set interfaces wireguard wg42 peer amd allowed-ips '172.20.0.0/14'
+set interfaces wireguard wg42 peer amd allowed-ips 'fd00::/8'
+set policy prefix-list6 OCI-SITE6-IN rule 20 action 'permit'
+set policy prefix-list6 OCI-SITE6-IN rule 20 prefix 'fd00::/8'
+
+set interfaces wireguard wg42 address 'fe80::1811:1/64'
+set protocols bgp neighbor fe80::1811:2 remote-as '{{ vyos_dn42_asn }}'
+set protocols bgp neighbor fe80::1811:2 description 'OCI AMD internal MP-BGP'
+set protocols bgp neighbor fe80::1811:2 interface source-interface 'wg42'
+set protocols bgp neighbor fe80::1811:2 update-source 'fe80::1811:1'
+set protocols bgp neighbor fe80::1811:2 capability extended-nexthop
+set protocols bgp neighbor fe80::1811:2 address-family ipv4-unicast prefix-list import 'OCI-SITE-IN'
+set protocols bgp neighbor fe80::1811:2 address-family ipv4-unicast prefix-list export 'OCI-SITE-OUT'
+set protocols bgp neighbor fe80::1811:2 address-family ipv6-unicast prefix-list import 'OCI-SITE6-IN'
+set protocols bgp neighbor fe80::1811:2 address-family ipv6-unicast prefix-list export 'OCI-SITE6-OUT'
+
+set nat source rule 18100 description 'Exclude local DN42 allocation'
+set nat source rule 18100 outbound-interface name 'wg42'
+set nat source rule 18100 destination address '172.21.111.160/27'
+set nat source rule 18100 exclude
+{% for prefix in vyos_dn42_lan_prefixes %}
+set nat source rule {{ 18100 + loop.index * 10 }} description 'LAN to DN42 masquerade'
+set nat source rule {{ 18100 + loop.index * 10 }} outbound-interface name 'wg42'
+set nat source rule {{ 18100 + loop.index * 10 }} source address '{{ prefix }}'
+set nat source rule {{ 18100 + loop.index * 10 }} destination address '172.20.0.0/14'
+set nat source rule {{ 18100 + loop.index * 10 }} translation address 'masquerade'
+{% endfor %}
+set policy route-map OCI-MP-IN rule 10 action 'permit'
+set policy route-map OCI-MP-IN rule 10 set ipv6-next-hop prefer-global
+set protocols bgp neighbor fe80::1811:2 address-family ipv4-unicast route-map import 'OCI-MP-IN'
+set protocols bgp neighbor fe80::1811:2 address-family ipv6-unicast route-map import 'OCI-MP-IN'
+
+{# --- DN42 ULA on the LANs: SLAAC + an fd00::/8 RIO, deliberately no default route or DNS --- #}
+{% for lan in vyos_dn42_ra_lans %}
+set interfaces ethernet {{ lan.interface }} address '{{ lan.address }}'
+set service router-advert interface {{ lan.interface }} default-lifetime '0'
+set service router-advert interface {{ lan.interface }} interval min '10'
+set service router-advert interface {{ lan.interface }} interval max '30'
+set service router-advert interface {{ lan.interface }} prefix {{ lan.prefix }} preferred-lifetime '14400'
+set service router-advert interface {{ lan.interface }} prefix {{ lan.prefix }} valid-lifetime '86400'
+set service router-advert interface {{ lan.interface }} route fd00::/8 route-preference 'medium'
+set service router-advert interface {{ lan.interface }} route fd00::/8 valid-lifetime '180'
+{% endfor %}
+
+{# --- DN42 DNS forwarding: listens on the LAN address only, conditional per DN42 zone --- #}
+set service dns forwarding listen-address '192.168.10.2'
+set service dns forwarding source-address '172.21.111.161'
+set service dns forwarding source-address 'fdd0:98df:15b0::1'
+set service dns forwarding no-serve-rfc1918
+{% for prefix in vyos_dn42_lan_prefixes %}
+set service dns forwarding allow-from '{{ prefix }}'
+{% endfor %}
+{% for zone in vyos_dn42_dns_zones %}
+set service dns forwarding domain {{ zone }} recursion-desired
+set service dns forwarding domain {{ zone }} addnta
+{% for server in vyos_dn42_dns_servers %}
+set service dns forwarding domain {{ zone }} name-server '{{ server }}'
+{% endfor %}
+{% endfor %}

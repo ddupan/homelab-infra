@@ -145,4 +145,4 @@ Terraform 管理 AMD NSG、VNIC 转发与 VCN 回程；Ansible 管理路由器/�
 
 VyOS 的 `wg42` 主 IPv4 已改为注册的 `172.21.111.161/32`，内部 BGP 改为
 单 link-local IPv6 会话承载双栈。三个 LAN 私网到 DN42 /14 由 VyOS 定向 masquerade，
-排除本 AS /27；OCI 业务保持原源地址。IPv6 不做 NAT，由 `ansible/dn42-ra.yml` 管理三个 LAN 的 SLAAC 与专用路由通告。
+排除本 AS /27；OCI 业务保持原源地址。IPv6 不做 NAT，三个 LAN 的 SLAAC 与专用路由通告由 `infrastructure/proxmox/ansible` 的 `vyos_router` 管理。

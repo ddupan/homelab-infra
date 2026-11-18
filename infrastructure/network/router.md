@@ -1,12 +1,16 @@
-# 下一代路由器设计（未实施）
+# 下一代路由器设计（备选，未实施）
 
-替换 VyOS 的目标形态。只是设计：触发点是"需要第二台路由器"，届时两台都按本文搭建，
-VyOS 一并退役。现状与约束见 [README.md](README.md)。
+替换 VyOS 的备选形态。2026-11-18 起降级为备选：最主要的理由（`set` 行删不掉旧值）已由
+`vyos_config match: enforce` 解决，vyos-rtr 的写入方也已收拢为一处（见下文"先收拢写入方"）。
+现在只有当 VyOS 本身不可用时才启用本设计，例如 Stream 升级改了语法、模板无法跟进，或 VyOS
+停止发布。双机冗余（VRRP、Kea HA）VyOS 本身也能做，不再是触发条件。现状与约束见
+[README.md](README.md)。
 
 ## 为什么换
 
 - VyOS 的 LTS 源码与软件包已不公开，只剩季度发布的 Stream，升级可能改语法。
-- 现有 IaC 是 `vyos_config` 推 `set` 行：只会追加，删不掉旧值，多值节点改不了。
+- ~~现有 IaC 是 `vyos_config` 推 `set` 行：只会追加，删不掉旧值，多值节点改不了。~~
+  已解决（2026-11-18）：`vyos_router` 以 `match: enforce` 对受管路径做整体替换。
 - VyOS 底层本来就是 Debian + FRR + nftables + Kea；去掉它那层 CLI，换来整份文件、
   可声明、可测试的配置。
 
@@ -122,11 +126,10 @@ comin 的 confirmer 只是部署*前*的人工/延时确认。路由器改坏就
 CI runner 到路由器的确认路径要经过被改的转发面才有意义：确认发不回来 = 变更弄断了网 = 自动回滚。
 runner 走 LAN 地址（192.168.10.x）连路由器，而不是依赖某个 VNet 网关之外的旁路。
 
-**不论选哪条，先收拢写入方。** 整份替换意味着最后渲染的一方会抹掉其他人的配置，而现在
-vyos-rtr 由六处写入：`proxmox/ansible/roles/vyos_router`、`oci/ansible/vyos.yml`、`dn42-dns.yml`、
-`dn42-ra.yml`、`shared-postgresql/ansible/proxy.yml`（pg-prod HAProxy，随 Ayatori 迁移撤掉）、
-`proxmox/ansible/vyos-monitoring.yml`；BGP 的 `system-as` 在 oci 侧，邻居在 proxmox 侧。迁移时
-它们要并成一个拥有者和一份数据模型（取自 [`ipam.yml`](ipam.yml)），Chef 或 Nix 只是渲染后端。
+**先收拢写入方。** 已完成（2026-11-18）：vyos-rtr 的 CLI 配置只由 `proxmox/ansible/roles/vyos_router`
+写入，原来 `oci/ansible` 的 `vyos.yml`、`dn42-ra.yml`、`dn42-dns.yml` 已并入该角色，oci 侧只读
+wg42 公钥。`shared-postgresql/ansible/proxy.yml`（pg-prod HAProxy）和 `proxmox/ansible/vyos-monitoring.yml`
+只在机器上写文件，不碰 CLI 配置。若将来迁移，数据模型（取自 [`ipam.yml`](ipam.yml)）从这一个角色出发即可。
 
 已确认：IX 支持 `ip route … Null0.0 distance <n>`（高管理距离兜底路由可行）；FRR 用
 `frr-reload.py` 热应用配置，只有改会话参数（timers、capability）时需要对该邻居软复位。
