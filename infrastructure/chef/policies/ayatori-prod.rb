@@ -6,7 +6,7 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 # 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
 default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
 cookbook 'homelab_base', '= 0.4.5'
-cookbook 'homelab_ayatori', '= 0.2.0'
+cookbook 'homelab_ayatori', '= 0.3.0'
 
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
