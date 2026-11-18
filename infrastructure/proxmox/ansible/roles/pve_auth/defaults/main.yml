@@ -27,8 +27,12 @@ pve_auth_capath: /etc/ssl/certs
 
 pve_auth_base_dn: "DC=ad,DC=ddupan,DC=top"
 pve_auth_bind_dn: "CN=svc-pve,CN=Users,DC=ad,DC=ddupan,DC=top"
-# Read-only bind account created by samba-ad (samba_ad_service_accounts).
-pve_auth_bind_password: "{{ vault_pve_bind_password | default('') }}"
+# Read-only bind account created by samba-ad (samba_ad_service_accounts, bao_path), which keeps its
+# password in Bao. Set pve_auth_bind_password to skip the Bao read.
+pve_auth_bao_url: https://bao.lab.ddupan.top:8200
+pve_auth_bao_mount: kv
+pve_auth_bao_path: infra/pve-ldap
+pve_auth_bind_password: ""
 
 # AD logon name. Without this PVE would try the default LDAP `uid`, which AD
 # does not populate.

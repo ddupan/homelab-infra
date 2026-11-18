@@ -93,9 +93,10 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
 - **Kubernetes Secrets come from OpenBao** via External Secrets Operator (`platform/external-secrets/`),
   which authenticates with its own ServiceAccount JWT — no credential is stored in the cluster.
   The gitignored `<svc>/secret.yaml` files remain as **break-glass** for when bao is down.
-- **Ansible vaults are `ansible-vault` ENCRYPTED and committed**
-  (`infrastructure/samba-ad/` and `infrastructure/openbao/` `ansible/group_vars/all/vault.yml`). The password is
-  `.vault_pass` (gitignored), wired into every `ansible.cfg` as `vault_password_file`.
+- **Only `infrastructure/openbao/` still uses `ansible-vault`** (`ansible/group_vars/all/vault.yml`, committed
+  encrypted; password `.vault_pass`, gitignored). Being removed project by project so a deployer — later CI —
+  needs no password that also opens Bao's bootstrap secrets: oci reads OCI Vault on the host (#838), samba-ad
+  and proxmox `pve_auth` read Bao at play start (VAULT_TOKEN). Don't add a new ansible-vault file.
 - Still plaintext-but-**gitignored**, because nothing consumes them as Ansible vars:
   `infrastructure/proxmox/vyos/credentials.yml` (referenced only in an inventory comment) and
   `infrastructure/proxmox/pxe/answer/*.toml` (read by the PXE installer).

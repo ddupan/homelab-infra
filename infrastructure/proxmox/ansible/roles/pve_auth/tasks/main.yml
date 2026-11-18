@@ -3,14 +3,25 @@
 # so every task here runs once against a single node. Doing it per-host would
 # just have three nodes racing to write the same file.
 
-- name: Require the bind password
-  ansible.builtin.assert:
-    that: pve_auth_bind_password | length > 0
-    fail_msg: >-
-      pve_auth_bind_password is empty. It comes from vault_pve_bind_password in
-      samba-ad/ansible/group_vars/all/vault.yml — pass it via -e or a vars file.
-    quiet: true
+- name: Read the bind password from Bao
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ pve_auth_bao_url }}"
+    engine_mount_point: "{{ pve_auth_bao_mount }}"
+    path: "{{ pve_auth_bao_path }}"
+    auth_method: token
+  delegate_to: localhost
+  become: false
   run_once: true
+  check_mode: false
+  register: _pve_auth_bao
+  when: pve_auth_bind_password | length == 0
+  no_log: true
+
+- name: Use it
+  ansible.builtin.set_fact:
+    pve_auth_bind_password: "{{ _pve_auth_bao.secret.password }}"
+  when: pve_auth_bind_password | length == 0
+  no_log: true
 
 - name: Check whether the realm already exists
   ansible.builtin.command:

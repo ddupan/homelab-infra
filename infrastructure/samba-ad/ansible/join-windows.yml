@@ -4,6 +4,10 @@
 - name: Windows domain admin box
   hosts: windows_admin
   gather_facts: false
+  pre_tasks:
+    - name: Admin passwords from Bao
+      ansible.builtin.import_tasks: tasks/bao-secrets.yml
+      tags: [always]
   roles:
     - role: win_domain_join
     # Trust the internal CA. Tagged so it can be re-run on its own after a CA

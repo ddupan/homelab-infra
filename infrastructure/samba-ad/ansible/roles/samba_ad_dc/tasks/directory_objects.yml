@@ -110,7 +110,7 @@
 
 - name: Make service-account passwords non-expiring
   # A bind account whose password silently expires takes the dependent app down
-  # with it, with no obvious cause. These are long random secrets in vault.yml.
+  # with it, with no obvious cause. These are long random secrets held in Bao.
   # Only when not already so (DONT_EXPIRE_PASSWORD 0x10000 set, accountExpires
   # 0/never); setexpiry itself always succeeds, which would make every run "changed".
   ansible.builtin.shell:

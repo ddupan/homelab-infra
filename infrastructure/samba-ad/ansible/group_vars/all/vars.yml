@@ -1,6 +1,6 @@
 ---
 # Non-secret variables shared by all plays. EDIT THESE to your environment.
-# Secrets live in group_vars/vault.yml (encrypted) — see vault.example.yml.
+# Secrets live in Bao kv/infra/samba-ad and the bao_path entries below (tasks/bao-secrets.yml).
 
 # --- Domain identity (used by both the DC and the Windows join) ---
 samba_ad_realm: "AD.DDUPAN.TOP"
@@ -29,20 +29,21 @@ win_domain_admin_user: "{{ samba_ad_domain }}\\Administrator"
 win_kms_host: ""                       # e.g. "kms.example.com:1688" (existing vlmcsd)
 win_kms_client_key: ""                 # public GVLK for the Windows edition
 
-# --- Secret indirection: real values come from the encrypted vault ---
+# --- Secret indirection: vault_* are set from Bao kv/infra/samba-ad by tasks/bao-secrets.yml ---
 samba_ad_admin_password: "{{ vault_samba_ad_admin_password }}"
 win_domain_admin_password: "{{ vault_samba_ad_admin_password }}"
 
-# --- Service accounts for apps that BIND to LDAP (passwords in vault.yml) ---
+# --- Service accounts for apps that BIND to LDAP (passwords in Bao, see bao_path below) ---
 # The first (svc-authelia, for the since-retired Authelia) was made by hand; codified so
 # a DC rebuild restores them.
 samba_ad_service_accounts:
+  # proxmox pve_auth reads the same path.
   - name: svc-pve
-    password: "{{ vault_pve_bind_password }}"
+    bao_path: infra/pve-ldap
     description: "Proxmox VE realm bind + user/group sync (read-only)"
   # Same value as PA_LDAP_BIND_PASSWORD in bao kv/k8s/poweradmin — rotate both.
   - name: svc-poweradmin
-    password: "{{ vault_poweradmin_bind_password }}"
+    bao_path: infra/poweradmin-ldap
     description: "Poweradmin LDAP bind: looks up the login user, then binds as them (read-only)"
   # bao_path instead of password: the play generates the password on creation and keeps it only in Bao, where the
   # consumer's ExternalSecret reads it (username = UPN). Nothing to copy by hand, nothing to rotate in two places.
@@ -57,6 +58,8 @@ samba_ad_service_accounts:
 # Where bao_path accounts keep their passwords. The play needs VAULT_TOKEN with create/read on those paths.
 samba_ad_bao_url: https://bao.lab.ddupan.top:8200
 samba_ad_bao_kv_mount: kv
+# administrator_password (domain Administrator), win_local_admin_password (winadmin1 local Administrator).
+samba_ad_bao_secrets_path: infra/samba-ad
 
 # --- Groups used for RBAC by downstream apps ---
 # NOTE: PVE renames synced groups to "<name>-<realm>", so platform-admins becomes
