@@ -99,7 +99,7 @@
       "prBodyNotes": ["⚠️ **这只是 vmagent 的 sidecar。** 先用 Ansible 升 bao 服务器（`infrastructure/openbao/ansible/group_vars/all/vars.yml` 的 `openbao_version` 与 `openbao_download_checksum`），再合并本 PR。"]
     },
     {
-      "description": "Software installed on hosts by Ansible (`# renovate:` lines under infrastructure/**/ansible). No CI applies these playbooks, so merging deploys nothing; the PR says so. One PR per Ansible project per week: a project is one playbook run on one set of hosts, so a package per PR meant a maintenance window per package (8 PRs on 2026-11-18, three of them for the same PG hosts). Pinned checksums under a `# checksum-from:` marker are re-pinned by the post-upgrade task (#799 shipped a stale one); the command must match allowedCommands in the self-hosted config (infrastructure/oci/ansible/roles/renovate/files/config.js).",
+      "description": "Software installed on hosts by Ansible (`# renovate:` lines under infrastructure/**/ansible). Variables listed in .gitea/host-deploy.yml deploy on merge (host-deploy workflow); the rest stay manual, and the PR note says which. One PR per Ansible project per week: a project is one playbook run on one set of hosts, so a package per PR meant a maintenance window per package (8 PRs on 2026-11-18, three of them for the same PG hosts). Pinned checksums under a `# checksum-from:` marker are re-pinned by the post-upgrade task (#799 shipped a stale one); the command must match allowedCommands in the self-hosted config (infrastructure/oci/ansible/roles/renovate/files/config.js).",
       "matchManagers": ["custom.regex"],
       "matchFileNames": ["infrastructure/**/ansible/**"],
       "groupName": "host software ({{replace '^infrastructure/([^/]+)/.*$' '$1' packageFile}})",
@@ -109,8 +109,7 @@
         "commands": ["node .gitea/renovate/update-checksums.mjs {{{packageFile}}}"],
         "fileFilters": ["infrastructure/**/ansible/**"]
       },
-      "commitMessageSuffix": "(需手动步骤)",
-      "prBodyNotes": ["⚠️ **主机软件，合并不会部署。** 按组件 README 跑对应 playbook（先 `--check --diff`，再正式跑，再跑一次应 `changed=0`）。变量旁边如有写死的校验和，要在本 PR 里一起更新，否则 play 会在校验和上失败。"]
+      "prBodyNotes": ["⚠️ **主机软件。** 变量在 `.gitea/host-deploy.yml` 白名单里的，合并后由 CI（host-deploy）部署并验证幂等；其余合并不会部署，按组件 README 跑对应 playbook（先 `--check --diff`，再正式跑，再跑一次应 `changed=0`）。写死的校验和由 postUpgradeTask 重新固定（`# checksum-from:`）。"]
     },
     {
       "description": "Our version variables are bare (3.7.2) and the playbooks add the tag's `v` themselves (…/download/v{{ x }}/…), so strip it from the release tag; otherwise the PR writes v3.7.3 and the URL becomes vv3.7.3. Variables that already carry the v (flux2, k3s) are left alone.",
