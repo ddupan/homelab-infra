@@ -40,7 +40,9 @@ OCI 实例使用自写插件 `oci_instance` 证明，插件仓库为
 - **根证书轮换**：OCI 的接口带 `refreshIn`，说明会换根；当前根 2029-06-03 到期。轮换时用已认证的
   OCI 主体重新请求 `GET https://auth.ap-osaka-1.oraclecloud.com/v1/instancePrincipalRootCACertificates`，
   把返回的裸 base64 DER 包成 PEM，替换 `oci-instance-roots.pem` 后合并即可。目录挂载会跟随
-  ConfigMap 更新，插件每次证明都会重新读取文件，不需要重启。
+  ConfigMap 更新，插件每次证明都会重新读取文件，不需要重启。到期前 90 天 `OciInstanceRootCaExpiring` 告警；
+  换根时把该规则（`platform/observability/metrics/rules/platform-controllers.yaml`）里的时间戳改成新 PEM
+  中最早的 notAfter。
 
 内部 fork 仅在上游 `spire-0.30.2` 基础上暴露
 `use_pod_uid_for_agent_id`。现有 `sandbox` profile 保持 node UID 模式，供 DaemonSet
