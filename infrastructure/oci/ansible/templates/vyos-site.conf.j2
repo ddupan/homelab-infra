@@ -48,11 +48,6 @@ set protocols bgp neighbor fe80::1811:2 address-family ipv4-unicast prefix-list 
 set protocols bgp neighbor fe80::1811:2 address-family ipv6-unicast prefix-list import 'OCI-SITE6-IN'
 set protocols bgp neighbor fe80::1811:2 address-family ipv6-unicast prefix-list export 'OCI-SITE6-OUT'
 
-{% for path in vyos_retired_paths %}
-{% if vyos_retired_present.results[loop.index0].rc == 0 %}
-delete {{ path }}
-{% endif %}
-{% endfor %}
 set nat source rule 18100 description 'Exclude local DN42 allocation'
 set nat source rule 18100 outbound-interface name 'wg42'
 set nat source rule 18100 destination address '172.21.111.160/27'
