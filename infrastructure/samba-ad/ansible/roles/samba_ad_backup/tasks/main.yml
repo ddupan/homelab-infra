@@ -1,27 +1,37 @@
 ---
-# 每日 samba-tool domain backup offline → 本地留 N 份 + rclone crypt 加密传 OCI。幂等。
+# 每日 samba-tool domain backup offline → 本地留 N 份 + GPG 加密给 YubiKey 后 curl 传 OCI。幂等。
+# 与 pg-prod 异地 dump、laptop 的 k3s 备份同一套做法：上传方解不开自己的备份，也没有密码要保管。
 
-# Ubuntu 24.04 的 1.60：s3/crypt/no_check_bucket/no_head 都有，够用，不必另装发行版。
-- name: Install rclone
+- name: Install backup tools
   ansible.builtin.apt:
-    name: rclone
+    name: [gnupg, curl]
     state: present
+    install_recommends: false
     update_cache: true
     cache_valid_time: 3600
-  register: _rclone_apt
+  register: _backup_apt
   retries: 3
   delay: 10
-  until: _rclone_apt is succeeded
+  until: _backup_apt is succeeded
 
-- name: Create the local backup directory
+- name: Create the backup and config directories
   ansible.builtin.file:
-    path: "{{ samba_ad_backup_dir }}"
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: "0700"
+  loop: ["{{ samba_ad_backup_dir }}", "{{ samba_ad_backup_conf_dir }}"]
 
-- name: Read offsite credentials from Bao
+- name: Install the YubiKey encryption public key
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../openbao/ansible/roles/openbao/files/escrow-recipient.asc"
+    dest: "{{ samba_ad_backup_conf_dir }}/escrow-recipient.asc"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Read the upload key from Bao
   community.hashi_vault.vault_kv2_get:
     url: "{{ samba_ad_bao_url }}"
     engine_mount_point: "{{ samba_ad_bao_kv_mount }}"
@@ -33,27 +43,35 @@
   check_mode: false
   no_log: true
 
-- name: Check that all three credentials are present
+- name: Check that the upload key is present
   ansible.builtin.assert:
     that: _backup_bao.secret[item] | default('') | length > 0
     fail_msg: "kv/{{ samba_ad_backup_bao_path }} 缺 {{ item }}，步骤见 infrastructure/samba-ad/README.md 的 Backups。"
     quiet: true
-  loop: [oci_access_key, oci_secret_key, crypt_password]
+  loop: [oci_access_key, oci_secret_key]
 
-# 只放凭据；其余 rclone 配置在 unit 里，不是秘密，方便直接读。
-# diff: false / no_log：--diff 会把凭据打到终端和日志里。
-- name: Write the rclone credentials file
+# curl --config 文件：凭据不进 argv。diff: false / no_log：--diff 会把它打到终端和日志里。
+- name: Write the upload credentials
   ansible.builtin.copy:
-    dest: /etc/samba-backup.env
+    dest: "{{ samba_ad_backup_conf_dir }}/offsite.curl"
     content: |
-      RCLONE_CONFIG_OCI_ACCESS_KEY_ID={{ _backup_bao.secret.oci_access_key }}
-      RCLONE_CONFIG_OCI_SECRET_ACCESS_KEY={{ _backup_bao.secret.oci_secret_key }}
-      RCLONE_CONFIG_OFFSITE_PASSWORD={{ _backup_bao.secret.crypt_password }}
+      user = "{{ _backup_bao.secret.oci_access_key }}:{{ _backup_bao.secret.oci_secret_key }}"
     owner: root
     group: root
     mode: "0600"
   diff: false
   no_log: true
+
+# rclone crypt 时期（#730）留下的东西。dc1 上清掉后可以删除这两个任务。
+- name: Remove the rclone-era credentials file
+  ansible.builtin.file:
+    path: /etc/samba-backup.env
+    state: absent
+
+- name: Remove rclone
+  ansible.builtin.apt:
+    name: rclone
+    state: absent
 
 - name: Install the backup script
   ansible.builtin.template:

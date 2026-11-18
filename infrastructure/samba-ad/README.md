@@ -319,18 +319,20 @@ database files directly under a lock. It needs no admin password, and the DC kee
 | copy | where | kept |
 |---|---|---|
 | local | dc1 `/var/backups/samba/` | 7 newest |
-| offsite | OCI bucket `dc1-backup` (rclone crypt) | 7 days, lifecycle rule |
+| offsite | OCI bucket `dc1-backup`, GPG-encrypted to the YubiKey | 7 days, lifecycle rule |
 
 dc1 can only *create* objects in that bucket (`infrastructure/oci/terraform/dc1-backup.tf`), so a compromised DC
 cannot delete or overwrite older backups. After each successful upload, the script writes
 `samba_backup_last_success_timestamp_seconds` to the node_exporter textfile directory.
 `SambaBackupStale` fires when that is more than 36 h old, or when it is missing.
 
-**First setup.** Bao `kv/infra/dc1-backup` holds `oci_access_key`, `oci_secret_key` and `crypt_password`.
-`crypt_password` is a random password passed through `rclone obscure -`. The same value goes into
-`kv/infra/terraform/oci` as `dc1_backup_crypt_password`, and the CI plan fails without it. Terraform also copies
-it into OCI Vault `recovery` → `dc1-backup-recovery`, for when Bao is gone. After CI applies the OCI root, copy
-the outputs `dc1_backup_access_key` and `dc1_backup_secret_key` into Bao. Then:
+The offsite copy is encrypted to the same public key as the pg-prod dump and the k3s backup
+(`infrastructure/openbao/ansible/roles/openbao/files/escrow-recipient.asc`). Decrypting it needs the YubiKey,
+and there is no password to keep. Its [E] subkey expires on 2027-04-07. After that `gpg` fails and
+`SambaBackupStale` fires, so update the recipient file when the subkey is rotated.
+
+**First setup.** After CI applies the OCI root, copy the outputs `dc1_backup_access_key` and
+`dc1_backup_secret_key` into Bao `kv/infra/dc1-backup` as `oci_access_key` and `oci_secret_key`. Then:
 
 ```bash
 VAULT_TOKEN=... ansible-playbook backup-dc.yml --check --diff && VAULT_TOKEN=... ansible-playbook backup-dc.yml
@@ -339,13 +341,8 @@ ssh dc1 sudo systemctl start samba-backup.service   # first run; check the OCI c
 
 **Restore** (new DC VM from `create-dc-vm.yml`, no `provision-dc.yml`):
 
-1. Take the newest local archive, or download the `.bin` object from the OCI console and decrypt it:
-   ```bash
-   export RCLONE_CONFIG_D_TYPE=crypt RCLONE_CONFIG_D_REMOTE=/path/to/download/dir
-   export RCLONE_CONFIG_D_FILENAME_ENCRYPTION=off RCLONE_CONFIG_D_DIRECTORY_NAME_ENCRYPTION=false
-   read -rs RCLONE_CONFIG_D_PASSWORD; export RCLONE_CONFIG_D_PASSWORD   # the obscured value
-   rclone copy d: ./dc1-restore
-   ```
+1. Take the newest local archive. If it is gone, download the `.gpg` object from the OCI console and run
+   `gpg -d samba-backup-<time>.tar.bz2.gpg > samba-backup-<time>.tar.bz2` (touch the YubiKey).
 2. On the new VM (samba installed, not provisioned):
    `samba-tool domain backup restore --backup-file=<archive> --newservername=dc1 --targetdir=/var/lib/samba-restore`,
    then point smb.conf / the systemd unit at the restored tree. See the Samba wiki page

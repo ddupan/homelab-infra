@@ -39,10 +39,3 @@ variable "gitea_backup_drive_crypt_password" {
   type      = string
   sensitive = true
 }
-
-# rclone obscure 后的值，和 Bao kv/infra/dc1-backup 的 crypt_password 相同。
-# tf.py 从 kv/infra/terraform/oci 注入。
-variable "dc1_backup_crypt_password" {
-  type      = string
-  sensitive = true
-}
