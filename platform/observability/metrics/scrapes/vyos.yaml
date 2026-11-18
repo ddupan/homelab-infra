@@ -21,7 +21,7 @@ spec:
   - targetLabel: job
     replacement: node-exporter
 ---
-# FRR：OSPF 邻接（SDN 网段能否被 LAN 路由到）与 DN42 iBGP。
+# FRR：BGP 会话——与 IX（SDN 网段能否被 LAN 路由到）、LB 主机、DN42 iBGP。
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
