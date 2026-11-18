@@ -1,5 +1,5 @@
 {
-  "revision_id": "9cabb5b379c271492c8b39e8fa8393e2de7e6ca077845af286415a476e6aa8d7",
+  "revision_id": "1b7ce18511cc533c63570b7793b6eae3db83235eab184bce5296d7a48511cabb",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,14 +11,14 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.1.6",
-      "identifier": "accf62b63c285182d91ca508119c153ec31f14a7",
-      "dotted_decimal_identifier": "48641718865373265.36830464023466396.23359305749671",
-      "cache_key": "homelab_ayatori-0.1.6-git.ddupan.top",
-      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.1.6/download",
+      "version": "0.2.0",
+      "identifier": "5dcfcc46bbdd16621437689398647aac0a17975b",
+      "dotted_decimal_identifier": "26405649101085974.27606775927904356.134879322281819",
+      "cache_key": "homelab_ayatori-0.2.0-git.ddupan.top",
+      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.2.0/download",
       "source_options": {
-        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.1.6/download",
-        "version": "0.1.6"
+        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_ayatori/versions/0.2.0/download",
+        "version": "0.2.0"
       }
     },
     "homelab_base": {
@@ -55,7 +55,16 @@
           "zone": "dev-lb.lab.ddupan.top"
         }
       },
-      "node_agents": true
+      "node_agents": true,
+      "oidc": {
+        "issuer": "https://sso.ddupan.top",
+        "audiences": [
+          "ayatori-dev"
+        ],
+        "admin_groups": [
+          "platform-admins"
+        ]
+      }
     }
   },
   "override_attributes": {
@@ -65,7 +74,7 @@
     "Policyfile": [
       [
         "homelab_ayatori",
-        "= 0.1.6"
+        "= 0.2.0"
       ],
       [
         "homelab_base",
@@ -73,7 +82,7 @@
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.1.6)": [
+      "homelab_ayatori (0.2.0)": [
         [
           "homelab_base",
           ">= 0.0.0"

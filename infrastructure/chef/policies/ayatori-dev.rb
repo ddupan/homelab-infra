@@ -6,7 +6,7 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 # 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
 default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
 cookbook 'homelab_base', '= 0.4.5'
-cookbook 'homelab_ayatori', '= 0.1.6'
+cookbook 'homelab_ayatori', '= 0.2.0'
 
 default['homelab_ayatori']['environment'] = 'dev'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。
@@ -31,4 +31,11 @@ default['homelab_ayatori']['loadbalancer']['agent_convergence'] = true
 default['homelab_ayatori']['loadbalancer']['dns'] = {
   'url' => 'http://192.168.10.127:8053',
   'zone' => 'dev-lb.lab.ddupan.top',
+}
+# 人经 kubectl + kubelogin 用 iam-login 登录（Ayatori ADR-0016）。audiences 只有本环境的客户端
+# （apps/iam-login/terraform/clients.tf 的 ayatori-dev），Prod 的 token 进不来；admin_groups 绑定 cluster-admin。
+default['homelab_ayatori']['oidc'] = {
+  'issuer' => 'https://sso.ddupan.top',
+  'audiences' => ['ayatori-dev'],
+  'admin_groups' => ['platform-admins'],
 }
