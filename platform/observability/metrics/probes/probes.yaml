@@ -307,3 +307,27 @@ spec:
         probe_group: dn42
       static:
         - 192.168.10.2:53
+---
+# LAN → OCI VCN 私网（192.168.10.0/24 ↔ 10.0.0.0/24）：VyOS wg42 → oci-amd，再经 VCN 到 oci-arm。
+# 这条路曾两次静默断掉（#582、#813：BGP Established、服务 active，流量却黑洞），最长 5 天没人发现。
+# 两台分开探：.158 证明隧道和 AMD 的路由安装（prefsrc 陷阱），.124 还要经过 VCN 和 ARM 的回程
+# ip rule（被 networkd 清掉的陷阱）。sshd 在两台上都监听全部地址，tcp_connect 不需要凭据。
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: oci-private
+  namespace: monitoring
+spec:
+  jobName: probe-oci-private
+  module: tcp_connect
+  interval: 60s
+  scrapeTimeout: 15s
+  prober:
+    url: blackbox-exporter.monitoring.svc:9115
+  targets:
+    staticConfig:
+      labels:
+        probe_group: oci-private
+      static:
+        - 10.0.0.158:22   # oci-amd
+        - 10.0.0.124:22   # oci-arm

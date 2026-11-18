@@ -28,6 +28,7 @@ PR 号**；新发现的盲区直接追加。
 - [x] **B5** VPN 黑洞：探测经 tun0 的 `www.naist.jp`，出口正常时失败即 `NaistVpnDown`。2026-09-11 起 pull-filter 只接受 NAIST 路由，CDN 不再走 tun0（CLAUDE.md 已更新）
 - [x] **B6** WAN 连通性：github.com + Cloudflare 都失败 10 分钟才报 `WanEgressDown`
 - [x] **B7** OpenBao `/v1/sys/health` 按主机名探测（在 lan-https 里）
+- [x] **B8** LAN → OCI 私网（VyOS wg42 → oci-amd → VCN）：tcp_connect 10.0.0.158:22 / 10.0.0.124:22，出口正常时失败 10 分钟即 `OciPrivatePathDown`（#582、#813 两次静默断掉）
 
 ## 3. Proxmox / 网络（P1）
 
