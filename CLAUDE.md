@@ -69,7 +69,11 @@ netboot.xyz appliance — i.e. the single point of failure for most of the lab.
   e.g. `option wins-server` or `name-server` leaves the old value live *and* saved to
   `config.boot`; the diff only shows the addition, so it reads as a clean replace. Grep the
   running config (`show configuration commands | match <node>`) after any value change and
-  `delete` the stale one out of band.
+  `delete` the stale one out of band. **`roles/vyos_router` no longer has this problem**: it
+  runs `match: enforce` against a baseline cut down to `vyos_owned_paths`, so stale values
+  under those paths are deleted. Several plays write to that box, so ownership is what can
+  go wrong: a path listed there that another play also writes gets its lines **deleted**.
+  Check every writer before widening it. OCI's plays are still plain set-lines.
 
 ## Secrets
 

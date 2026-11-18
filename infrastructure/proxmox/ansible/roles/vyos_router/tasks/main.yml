@@ -3,10 +3,14 @@
 # `set` lines against the running config and issues only the differences, so
 # re-runs are no-ops. Supports --check and --diff.
 
+# `| no-more` is load-bearing: without a pipe the CLI session runs at terminal width 512 and a longer
+# line comes back with the character at that column replaced by a space. The SSH CA key line is
+# ~760 chars, so vyos_config, reading the config the same unpiped way, never found it and re-sent it
+# on every run (changed=1 forever). This read is also handed to vyos_config as its baseline below.
 - name: Read current VyOS configuration commands
   vyos.vyos.vyos_command:
     commands:
-      - show configuration commands
+      - show configuration commands | no-more
   register: _vyos_running_commands
   changed_when: false
 
@@ -42,9 +46,30 @@
       {{ lookup('template', 'vyos.conf.j2').splitlines()
          | map('trim') | reject('equalto', '') | list }}
 
+# The baseline is the running config cut down to vyos_owned_paths. `match: enforce` then emits
+# `delete` for anything in that baseline the template no longer renders -- the stale value of a
+# multi-value node (name-server, wins-server) that plain `set` lines could only ever append to.
+# enforce on its own scopes by TOP-LEVEL section; infrastructure/oci's vyos.yml writes to the same
+# `protocols`/`policy`/`interfaces` sections on this box, so an unfiltered baseline would delete
+# OCI's BGP neighbor and prefix-lists. Lines outside the scope never reach the module at all.
+- name: Select the owned part of the running configuration
+  ansible.builtin.set_fact:
+    # Double-quoted on purpose: YAML turns `\\s`/`\n` into the regex class and a real newline.
+    # In a `>-` block they reach Jinja raw and the baseline collapses into one unmatchable line.
+    _vyos_owned_running: "{{ _vyos_running_commands.stdout[0].splitlines()
+      | select('match', '^set (?:' ~ (vyos_owned_paths | join('|')) ~ ')(?:\\s|$)')
+      | join('\n') }}"
+
 - name: Apply configuration
   vyos.vyos.vyos_config:
     lines: "{{ _vyos_lines }}"
+    # Compare against the un-mangled `| no-more` read above, not the module's own unpiped one. It
+    # predates the retire tasks, but those only delete nodes outside vyos_owned_paths.
+    config: "{{ _vyos_owned_running }}"
+    # Needs vyos.vyos >= 6.2.0 (requirements.yml). Defaults to commit-confirm with auto-confirm, so
+    # a delete that cuts off the session reverts itself after 10 minutes. It also refuses to emit
+    # `delete service ssh ...`: drift there fails the run and must be removed by hand.
+    match: enforce
     # Persist to config.boot; without this the config is lost on reboot.
     save: true
     # Pull the PRE-change running config back to the control host. VyOS also

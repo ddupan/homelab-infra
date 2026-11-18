@@ -95,6 +95,30 @@ vyos_ix_remote_as: 65000
 vyos_ix_aggregates: ["10.60.0.0/14"]
 vyos_ix_export: ["10.60.0.0/14", "10.0.0.0/24", "172.20.0.0/14"]
 
+# Config paths this role is the SOLE owner of (regexes after `set `, matched at a token boundary).
+# Anything under them that the template does not render is DELETED (tasks: match=enforce); anything
+# outside them is never touched. Ownership is by rule where possible (every BGP neighbor in labnet,
+# every IX-/LB- prefix-list) so that dropping an entry from a var list also deletes it from the box.
+# Things listed by value (interfaces, aggregates) are orphaned if removed from their var instead.
+# NOT owned, because infrastructure/oci/ansible/{vyos,dn42-ra,dn42-dns}.yml write them: the BGP
+# instance (system-as, parameters), neighbor fe80::1811:2, OCI-* prefix-lists, other static routes,
+# the v6 interface addresses, wg42, nat, router-advert, dns forwarding. A new writer to this box
+# must not overlap this list -- found the hard way: the first --check wanted to delete the v6 gateways.
+vyos_owned_paths:
+  - system host-name
+  - system name-server
+  # IPv4 addresses only: the ULA v6 address on the same interfaces is dn42-ra.yml's (OCI repo root).
+  - "interfaces ethernet (?:{{ ([vyos_lan_interface] + vyos_sdn_interfaces | map(attribute='iface')) | join('|') }}) (?:address '?\\d+\\.\\S+|description)"
+  - "protocols static route (?:{{ (['0.0.0.0/0'] + vyos_ix_aggregates) | map('regex_escape') | join('|') }})"
+  - protocols bgp address-family ipv4-unicast (?:aggregate-address|maximum-paths)
+  - "protocols bgp neighbor (?:{{ vyos_ix_neighbor | regex_escape }}|10\\.60\\.0\\.\\d+)"
+  - protocols bgp peer-group
+  - policy prefix-list (?:IX|LB)-\S+
+  - service ssh (?:port|trusted-user-ca)
+  - pki openssh bao-ssh-user-ca
+  - service monitoring prometheus
+  - service dhcp-server
+
 # Bao's SSH user CA ("ssh-rsa AAAA..."), fetched on the control node at render time like the Linux
 # role openbao_ssh_ca_trust does, so a CA rotation needs no edit here. Agents then reach the
 # router with 5-minute certs (principal vyos) instead of the operator's key.
