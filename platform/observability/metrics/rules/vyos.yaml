@@ -12,28 +12,8 @@ spec:
   - name: vyos
     interval: 30s
     rules:
-    # OSPF 是 LAN 到 labnet/retronet 的唯一路由来源：没有邻接，SDN 上所有客户机从 LAN 不可达。
-    - alert: VyosOspfNoAdjacency
-      expr: max(frr_ospf_neighbor_adjacencies{job="frr",iface="eth0"}) == 0
-      for: 2m
-      labels:
-        severity: critical
-      annotations:
-        summary: VyOS 在 eth0 上没有任何 OSPF 邻接
-        description: >-
-          labnet / retronet 路由不再通告给 LAN。show ip ospf neighbor；NEC IX（192.168.10.1）
-          侧的 OSPF 配置；vyos.yml 的部署后断言也会检查这一点。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    - alert: VyosOspfNeighborNotFull
-      expr: frr_ospf_neighbor_adjacencies{job="frr"} < frr_ospf_neighbors{job="frr"}
-      for: 5m
-      labels:
-        severity: warning
-      annotations:
-        summary: VyOS {{ $labels.iface }} 上有 OSPF 邻居未达到 Full
-        description: 邻居发现了但邻接没建起来，常见于 MTU / hello 参数不一致。show ip ospf neighbor。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    # wg42 是 WireGuard，operstate 恒为 unknown，node_network_up 恒为 0——用其上的 BGP 判断隧道。
+    # OSPF 已于 2026-10-16 退役，LAN 到 SDN 的可达性改由与 NEC IX 的 eBGP 承担，由这条覆盖。
+    # wg42 是 WireGuard，operstate 恒为 unknown，node_network_up 恒为 0——也用其上的 BGP 判断隧道。
     - alert: VyosBgpPeerDown
       expr: frr_bgp_peer_state{job="frr"} != 1
       for: 5m
@@ -42,8 +22,7 @@ spec:
       annotations:
         summary: VyOS BGP 会话 {{ $labels.peer }}（AS{{ $labels.peer_as }}，{{ $labels.afi }}）未建立
         description: >-
-          与 oci-amd 的 DN42 iBGP 经 wg42 隧道。会话断开即 DN42 不可达；先看 wg show wg42 的
-          latest handshake，再看 oci-amd 侧 FRR（infrastructure/oci/ansible）。
+          按 peer 判断影响：192.168.10.1 = NEC IX，断开后 LAN 到 labnet/retronet、VIP 池、OCI、DN42 全部不通；10.60.0.30–33 = Ayatori LB 主机，影响对应环境的 VIP；fe80::1811:2 = oci-amd 经 wg42 的 iBGP，断开即 OCI/DN42 不可达，先看 wg show wg42 的 latest handshake。vtysh -c 'show bgp summary'。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: VyosInterfaceDown
       expr: node_network_up{job="node-exporter",node="vyos-rtr",device=~"eth[0-2]"} == 0
@@ -63,7 +42,7 @@ spec:
       annotations:
         summary: VyOS 上 {{ $labels.unit }} 未运行
         description: >-
-          frr = OSPF/BGP；homelab-pg-proxy = 生产 pg-prod；
+          frr = BGP（IX、LB 主机、DN42 iBGP）；homelab-pg-proxy = 生产 pg-prod；
           kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: VyosServiceDown
@@ -133,5 +112,5 @@ spec:
         severity: warning
       annotations:
         summary: VyOS 上的 {{ $labels.job }} 指标抓取失败
-        description: frr 失败则 OSPF/BGP 告警失效；pg-proxy-haproxy 失败则 pg-prod 主库告警失效。
+        description: frr 失败则 BGP 告警失效；pg-proxy-haproxy 失败则 pg-prod 主库告警失效。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

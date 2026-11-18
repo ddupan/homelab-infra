@@ -65,7 +65,7 @@ spec:
       annotations:
         summary: HA 资源 {{ $labels.id }} 不在 started 状态
         description: >-
-          qemu/100 是 vyos-rtr：两个 SDN VNet 的网关、OSPF 邻居，它不在跑 labnet/retronet 全断。
+          qemu/100 是 vyos-rtr：两个 SDN VNet 的网关、与 IX 的 BGP 邻居，它不在跑 labnet/retronet 全断。
           ha-manager status 看当前状态（migrate/recovery/error）。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: PveHaFenceOrError
