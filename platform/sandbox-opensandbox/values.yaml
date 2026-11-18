@@ -76,6 +76,9 @@ data:
         namespace = "opensandbox"
         informer_resync_seconds = 300
         informer_watch_timeout_seconds = 60
+        # 创建请求同步等 Pod Running；节点上没缓存镜像时拉 runner-images 超过默认的 60 秒，server 会返回 504
+        # 并删掉 sandbox。比 ci-actions/upgrade-review 的客户端超时（600 秒）短，超时时由 server 带回 Pod 详情。
+        sandbox_create_timeout_seconds = 540
         workload_provider = "batchsandbox"
         image_pull_policy = "IfNotPresent"
         batchsandbox_template_file = "/etc/opensandbox/batchsandbox-template.yaml"
