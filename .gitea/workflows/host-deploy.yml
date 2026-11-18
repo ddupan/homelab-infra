@@ -9,6 +9,12 @@ on:
     branches: [main]
     paths:
       - 'infrastructure/**/ansible/**'
+  # 手动重放：部署 <since>..当前 main 里白名单变量的变化（版本已是最新时就是一次幂等验收）。
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 起点 commit（如某次合并的第一个父提交）
+        required: true
 
 jobs:
   # job id 是 SPIFFE ID 的一部分（bao role ci-host-deploy 精确绑定），改名会登录失败。
@@ -26,7 +32,7 @@ jobs:
 
       - name: Pick playbooks
         env:
-          BEFORE: ${{ github.event.before }}
+          BEFORE: ${{ inputs.since || github.event.before }}
         run: |
           set -euo pipefail
           python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
