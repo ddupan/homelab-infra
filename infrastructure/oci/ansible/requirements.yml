@@ -3,3 +3,6 @@ collections:
   # gitea 角色的 docker_compose_v2；其他项目都不装它，CI 回落不到，lint 会报 unknown-module。
   - name: community.docker
     version: 5.4.0
+  # vyos.yml 用 vyos_config match=enforce；`ansible` 包自带的 6.0.0 不支持。
+  - name: vyos.vyos
+    version: ">=6.2.0"
