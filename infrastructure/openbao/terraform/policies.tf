@@ -83,6 +83,11 @@ resource "vault_policy" "ci_converge" {
   policy = file("${path.module}/policies/ci-converge.hcl")
 }
 
+resource "vault_policy" "ci_host_deploy" {
+  name   = "ci-host-deploy"
+  policy = file("${path.module}/policies/ci-host-deploy.hcl")
+}
+
 resource "vault_policy" "ci_upgrade_review" {
   name   = "ci-upgrade-review"
   policy = file("${path.module}/policies/ci-upgrade-review.hcl")

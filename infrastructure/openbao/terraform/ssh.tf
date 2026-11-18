@@ -48,3 +48,25 @@ resource "vault_ssh_secret_backend_role" "ci_converge" {
     "permit-pty" = ""
   }
 }
+
+# Ansible host deploy on merge: the login users of the hosts in .gitea/host-deploy.yml — ubuntu on the
+# OCI instances, panxiao81 on the laptop, ansible on dc1. Same root-equivalent users ci-converge signs
+# for, plus ubuntu. Certs are principal-scoped, not host-scoped, so keep this list to what the allowlist
+# actually needs.
+resource "vault_ssh_secret_backend_role" "ci_host_deploy" {
+  backend  = vault_mount.ssh_client_signer.path
+  name     = "ci-host-deploy"
+  key_type = "ca"
+
+  allow_user_certificates = true
+  default_user            = "ubuntu"
+  allowed_users           = "ubuntu,panxiao81,ansible"
+
+  # Bounds when connections may start, not how long a run lasts (as ci-converge).
+  ttl     = 1800 # 30m
+  max_ttl = 1800
+
+  default_extensions = {
+    "permit-pty" = ""
+  }
+}

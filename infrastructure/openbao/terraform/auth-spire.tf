@@ -170,6 +170,27 @@ resource "vault_jwt_auth_backend_role" "ci_converge" {
   token_max_ttl           = 900
 }
 
+# Ansible host deploy on merge (.gitea/workflows/host-deploy.yml). Exact subject: the job only runs on
+# push to main, but like ci-converge a PR could rename a job to host-deploy and run it — revisit with a
+# second committer. Only an SSH signer; the playbooks it runs need no secrets (that was the point of
+# moving oci/samba-ad off ansible-vault, #838 #841).
+resource "vault_jwt_auth_backend_role" "ci_host_deploy" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "ci-host-deploy"
+  role_type = "jwt"
+
+  user_claim      = "sub"
+  bound_audiences = ["openbao"]
+  bound_claims = {
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/host-deploy"
+  }
+
+  token_policies          = [vault_policy.ci_host_deploy.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}
+
 # Renovate on oci-arm (platform/spire/oci-arm.yaml: a dedicated uid on that instance). Exact subject:
 # this identity reads the renovate-bot token, which can push to every repository Renovate manages.
 resource "vault_jwt_auth_backend_role" "renovate" {
