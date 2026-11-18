@@ -66,6 +66,9 @@ set protocols bgp neighbor {{ n }} peer-group '{{ g.name }}'
 
 {# --- management --- #}
 set service ssh port 22
+set pki openssh bao-ssh-user-ca public type '{{ vyos_ssh_user_ca.split()[0] }}'
+set pki openssh bao-ssh-user-ca public key '{{ vyos_ssh_user_ca.split()[1] }}'
+set service ssh trusted-user-ca 'bao-ssh-user-ca'
 {# --- monitoring: built-in exporters. node-exporter's textfile collector carries the
      unit states written by vyos-unit-metrics (vyos-monitoring.yml); VyOS's node_exporter
      runs only the default collectors, which have no systemd. --- #}
