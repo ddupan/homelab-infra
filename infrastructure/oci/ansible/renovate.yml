@@ -1,0 +1,8 @@
+---
+# Renovate on oci-arm (#642). Needs spire_agent (spire-agent.yml) first. Not in site.yml, not run by CI:
+#   ansible-playbook renovate.yml --check --diff && ansible-playbook renovate.yml
+- name: Run Renovate on oci-arm
+  hosts: oci_arm
+  become: true
+  roles:
+    - renovate

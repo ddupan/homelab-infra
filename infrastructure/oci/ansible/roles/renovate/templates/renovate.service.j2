@@ -1,0 +1,27 @@
+# Managed by Ansible (infrastructure/oci/ansible, role renovate)
+[Unit]
+Description=Renovate against Gitea (renovate-bot)
+Wants=network-online.target
+After=network-online.target docker.service spire-agent.service
+
+[Service]
+Type=oneshot
+RuntimeDirectory=renovate
+RuntimeDirectoryMode=0700
+UMask=0077
+# Credentials for this run only: tmpfs, root-only, removed with RuntimeDirectory when the run ends.
+ExecStartPre=/bin/sh -c 'exec runuser -u renovate -- /usr/local/libexec/renovate-env {{ renovate_bao_addr }} {{ renovate_bao_role }} {{ renovate_bao_secret }} {{ renovate_spire_socket }} > /run/renovate/env'
+# Host network: the container then uses the host's resolved stub, which carries the tailnet's split
+# DNS for lab.ddupan.top (terraform registry, artifacts proxy). Docker's own DNS copies only the
+# global upstreams and cannot resolve those. Limits match the old CronJob.
+ExecStart=/usr/bin/docker run --rm --name renovate --network host \
+  --user {{ renovate_uid }}:0 --cpus 1 --memory 2g --pids-limit 1024 \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --env-file /run/renovate/env \
+  -e RENOVATE_CONFIG_FILE=/config/config.js -e LOG_LEVEL=info \
+  -e GOPROXY=https://artifacts.lab.ddupan.top/go/go-proxy -e GOPRIVATE=git.ddupan.top \
+  -v /etc/renovate/config.js:/config/config.js:ro \
+  ghcr.io/renovatebot/renovate:{{ renovate_version }}
+# A timed-out run kills only the docker client; the container would keep going and race the next run.
+ExecStopPost=-/usr/bin/docker rm -f renovate
+TimeoutStartSec=50min

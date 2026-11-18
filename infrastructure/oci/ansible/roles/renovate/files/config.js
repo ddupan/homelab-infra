@@ -1,7 +1,8 @@
 // Global (self-hosted) config. Per-repo rules live in each repo's renovate.json.
 module.exports = {
   platform: 'gitea',
-  // Public LE cert; inside the cluster this name resolves to Envoy on .127, not the WAN.
+  // Through Cloudflare even though Gitea runs on this host: Gitea's own :443 serves a Cloudflare
+  // Origin CA cert, which only Cloudflare trusts.
   endpoint: 'https://git.ddupan.top/api/v1/',
   gitAuthor: 'Renovate Bot <renovate-bot@users.noreply.ddupan.top>',
   // renovate-bot is a restricted user, so it only sees repos it was added to as a
