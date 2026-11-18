@@ -137,3 +137,33 @@ tests:
           先看 ayatori-prod 上对应 LoadBalancer 的 Programmed 与 status.hosts，再看 VyOS 是否经 BGP
           学到 VIP（show ip route 10.62.0.0/24 longer-prefixes）；都正常则是后端本身。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+- name: OCI 私网：出口正常时按实例报，出口断时不报
+  interval: 1m
+  input_series:
+  - series: probe_success{job="probe-oci-private",instance="10.0.0.124:22",probe_group="oci-private"}
+    values: 0x40
+  - series: probe_success{job="probe-oci-private",instance="10.0.0.158:22",probe_group="oci-private"}
+    values: 1x40
+  # 前 20 分钟出口正常，之后全断
+  - series: probe_success{job="probe-egress",instance="https://github.com/",probe_group="egress"}
+    values: 1x20 0x20
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: OciPrivatePathDown
+    exp_alerts:
+    - exp_labels:
+        job: probe-oci-private
+        instance: 10.0.0.124:22
+        probe_group: oci-private
+        severity: warning
+      exp_annotations:
+        summary: LAN → OCI 私网 10.0.0.124:22 不通
+        description: >-
+          出口正常但经 VyOS wg42 到 OCI VCN 的 TCP 连接失败。两台都失败：先看 VyOS 上 wg42 与 BGP。
+          只有 10.0.0.158：oci-amd 上 vtysh show ip route 192.168.10.0/24 是否 Status: Failed、
+          journal 有无 "Invalid prefsrc"（硬 clear bgp 恢复）。只有 10.0.0.124：oci-arm 的回程
+          ip rule 5101–5103 是否还在（ip route get 192.168.10.127 不应走 tailscale0）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+  - eval_time: 35m
+    alertname: OciPrivatePathDown
+    exp_alerts: []

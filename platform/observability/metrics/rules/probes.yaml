@@ -69,6 +69,20 @@ spec:
           journalctl -u openvpn-client@naist 看是否反复 "TLS key negotiation failed"。
           163.221.0.0/16 仍指向 tun0，NAIST 网段（包括其公网站点）在隧道恢复前都不可达。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
+    # wg42 走 WAN，WAN 掉线时它跟着断，不另报。按实例告警：两台断的原因通常不同。
+    - alert: OciPrivatePathDown
+      expr: probe_success{probe_group="oci-private"} == 0 and on() max(probe_success{probe_group="egress"}) == 1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: LAN → OCI 私网 {{ $labels.instance }} 不通
+        description: >-
+          出口正常但经 VyOS wg42 到 OCI VCN 的 TCP 连接失败。两台都失败：先看 VyOS 上 wg42 与 BGP。
+          只有 10.0.0.158：oci-amd 上 vtysh show ip route 192.168.10.0/24 是否 Status: Failed、
+          journal 有无 "Invalid prefsrc"（硬 clear bgp 恢复）。只有 10.0.0.124：oci-arm 的回程
+          ip rule 5101–5103 是否还在（ip route get 192.168.10.127 不应走 tailscale0）。
+        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: BlackboxProbeScrapeFailing
       expr: up{job=~"probe-.+"} == 0
       for: 5m
