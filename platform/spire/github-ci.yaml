@@ -136,3 +136,25 @@ spec:
     - github_actions:job_workflow_ref:path:.github/workflows/techdocs.yml
     - github_actions:ref:refs/heads/main
     - github_actions:event_name:push
+---
+# ddupan/homelab-wiki techdocs.yml on main: publishes the wiki's TechDocs (Bao role ci-techdocs-publisher).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-wiki-techdocs
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-wiki/techdocs
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974264
+    - github_actions:job_workflow_ref:path:.github/workflows/techdocs.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push
