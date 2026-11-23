@@ -63,9 +63,14 @@
     ostemplate: "{{ sandbox_lxc_template }}"
     ostype: ubuntu
     cmode: shell
-    disk_volume:
-      storage: "{{ sandbox_rootfs_storage }}"
-      size: "{{ (sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb)) if not sandbox_lxc_config.stat.exists else omit }}"
+    # Creation only. community.proxmox requires storage and size together, so passing
+    # storage alone on an existing LXC failed every update (first hit by #871's nameserver
+    # change); the rootfs is grown by the resize task below instead.
+    disk_volume: >-
+      {{
+        {'storage': sandbox_rootfs_storage, 'size': sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb)}
+        if not sandbox_lxc_config.stat.exists else omit
+      }}
     cores: "{{ sandbox_lxc.cores | default(sandbox_lxc_cores) }}"
     memory: "{{ sandbox_lxc.memory_mb }}"
     swap: "{{ sandbox_lxc_swap_mb }}"
@@ -132,17 +137,20 @@
     status_code: 200
   when:
     - sandbox_lxc_config.stat.exists
-    - _sandbox_current_rootfs_gb | int < sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb) | int
+    - _sandbox_current_rootfs_bytes | int < (sandbox_lxc.rootfs_gb | default(sandbox_rootfs_gb) | int) * 1024 ** 3
   delegate_to: localhost
   no_log: true
   vars:
-    _sandbox_current_rootfs_gb: >-
+    # In bytes: LINSTOR rounds volumes up and PVE then reports them in K (size=33555416K for
+    # 32G); a G-only regex read that as 0 and asked PVE to shrink the disk.
+    _sandbox_current_rootfs_bytes: >-
       {{
         sandbox_lxc_current_config.json.data.rootfs |
         default('') |
-        regex_findall('size=([0-9]+)G') |
+        regex_findall('size=([0-9]+[KMGT]?)') |
         first |
-        default('0')
+        default('0') |
+        human_to_bytes
       }}
 
 # These properties are not exposed by community.proxmox. Every retained line
