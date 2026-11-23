@@ -25,6 +25,13 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
       "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\S+:\\s*\"?(?<currentValue>[^\"\\s@]+)(@(?<currentDigest>sha256:[0-9a-f]{64}))?\"?"]
+    },
+    {
+      "description": "A whole image reference Renovate cannot see (an image in HelmRelease values or in a post-render patch): put `# renovate: image` on the line above `key: repo:tag@sha256:…`.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(apps|platform|infrastructure)/.+\\.ya?ml$/"],
+      "matchStrings": ["# renovate: image\\s+\\S+:\\s*(?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[0-9a-f]{64})"],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [

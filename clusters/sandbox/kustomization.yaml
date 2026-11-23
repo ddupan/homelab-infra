@@ -12,3 +12,4 @@ resources:
   - apps/opensandbox.yaml
   - apps/ci-runners.yaml
   - apps/dynamic-runner.yaml
+  - apps/arc.yaml
