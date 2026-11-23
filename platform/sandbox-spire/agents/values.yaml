@@ -46,6 +46,16 @@ data:
           enabled: true
         unix:
           enabled: false
+      # Delegated Identity API for spire-identity-exchange (platform/sandbox-identity-exchange):
+      # the admin socket is put on the host so that Pod can mount it, and only the exchange's own
+      # SVID may use it. It mints SVIDs only for entries matching the selectors it derives from
+      # validated tokens (GitHub CI: platform/spire/github-ci.yaml).
+      sockets:
+        admin:
+          enabled: true
+          mountOnHost: true
+      authorizedDelegates:
+        - spiffe://ddupan.top/sandbox/spire-identity-exchange
       telemetry:
         prometheus:
           enabled: true

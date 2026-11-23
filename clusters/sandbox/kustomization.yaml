@@ -13,3 +13,4 @@ resources:
   - apps/ci-runners.yaml
   - apps/dynamic-runner.yaml
   - apps/arc.yaml
+  - apps/identity-exchange.yaml

@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spire-identity-exchange
+  namespace: spire-identity-exchange
+  labels:
+    app.kubernetes.io/name: spire-identity-exchange
+spec:
+  replicas: 1
+  # The replay cache is in memory: two instances could each accept the same token once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spire-identity-exchange
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spire-identity-exchange
+      annotations:
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: spire-identity-exchange
+      # Same uid/gid as the sandbox SPIRE Agent, which owns the admin socket.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: spire-identity-exchange
+          image: ghcr.io/spiffe/spire-identity-exchange-server:v0.6.0@sha256:46e15734ed29d2987c5e894ff60e8ac13ae41c27dcab7a27e8596a9d5bb673e0
+          args: ["-config", "/etc/spire-identity-exchange/config.yaml"]
+          ports:
+            - name: rest-spiffe
+              containerPort: 8544
+            - name: metrics
+              containerPort: 9090
+          readinessProbe:
+            tcpSocket:
+              port: rest-spiffe
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: rest-spiffe
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/spire-identity-exchange
+              readOnly: true
+            - name: spiffe-workload-api
+              mountPath: /spiffe-workload-api
+              readOnly: true
+            - name: spire-agent-admin
+              mountPath: /spire-agent-admin
+      volumes:
+        - name: config
+          configMap:
+            name: spire-identity-exchange
+        - name: spiffe-workload-api
+          csi:
+            driver: csi.spiffe.io
+            readOnly: true
+        # The node agent's admin socket (sockets.admin.mountOnHost in the agent values). The agent
+        # serves delegated SVIDs only to callers it attests as an authorized delegate.
+        - name: spire-agent-admin
+          hostPath:
+            path: /run/spire/agent/sockets/csi.spiffe.io/admin
+            type: Directory
