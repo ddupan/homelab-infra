@@ -37,13 +37,14 @@ spec:
               containerPort: 8544
             - name: metrics
               containerPort: 9090
+          # Probe the metrics port: a bare TCP probe on the TLS listener logs a handshake error each time.
           readinessProbe:
             tcpSocket:
-              port: rest-spiffe
+              port: metrics
             periodSeconds: 5
           livenessProbe:
             tcpSocket:
-              port: rest-spiffe
+              port: metrics
             initialDelaySeconds: 30
             periodSeconds: 10
           resources:

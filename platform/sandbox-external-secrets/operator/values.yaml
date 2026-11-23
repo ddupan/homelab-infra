@@ -4,6 +4,9 @@ kind: ConfigMap
 metadata:
   name: external-secrets-values
   namespace: external-secrets
+  labels:
+    # Flux re-renders the HelmRelease as soon as this changes, not at its next interval.
+    reconcile.fluxcd.io/watch: Enabled
 data:
   values.yaml: |
     replicaCount: 1
