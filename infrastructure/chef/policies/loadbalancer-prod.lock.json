@@ -13,10 +13,10 @@
       "version": "0.4.5",
       "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
       "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
-      "cache_key": "homelab_base-0.4.5-git.ddupan.top",
-      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
+      "cache_key": "homelab_base-0.4.5-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
       "source_options": {
-        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_base/versions/0.4.5/download",
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
         "version": "0.4.5"
       }
     },
@@ -24,10 +24,10 @@
       "version": "0.5.1",
       "identifier": "ffe827f70c209bb9b79e1f7e9e7f2fbc4912831e",
       "dotted_decimal_identifier": "72031377407352987.52274760452578943.52485726307102",
-      "cache_key": "homelab_loadbalancer-0.5.1-git.ddupan.top",
-      "origin": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.5.1/download",
+      "cache_key": "homelab_loadbalancer-0.5.1-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.5.1.tar.gz",
       "source_options": {
-        "artifactserver": "https://git.ddupan.top/api/packages/panxiao81/chef/api/v1/cookbooks/homelab_loadbalancer/versions/0.5.1/download",
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.5.1.tar.gz",
         "version": "0.5.1"
       }
     }
