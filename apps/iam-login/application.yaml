@@ -33,6 +33,9 @@ iam:
       admin-ids:
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-plan
         - spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-apply
+        # GitHub (spire-identity-exchange); the Gitea pair above goes once homelab-infra has moved.
+        - spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-plan
+        - spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-apply
         - spiffe://ddupan.top/dev/panxiao81
   # Machines authenticate at the token endpoint with a JWT-SVID (draft-ietf-oauth-spiffe-client-auth;
   # iam-login docs/spiffe-client-auth.md). Keys come only from the trust domain's SPIFFE Bundle

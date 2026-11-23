@@ -39,4 +39,5 @@ auth:
     arc:
       plugins: [k8s, github-actions]
       # What these identities may be presented to; anything else is refused before SPIRE.
-      mintAudiences: [zot, openbao]
+      # gcp/oci: tf.py trades these for cloud tokens; iam-login: terraform-provider-homelab.
+      mintAudiences: [zot, openbao, gcp, oci, iam-login]

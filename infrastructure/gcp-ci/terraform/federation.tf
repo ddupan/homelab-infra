@@ -4,6 +4,10 @@ locals {
   terraform_ci_subjects = toset([
     "spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-plan",
     "spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-apply",
+    # The same jobs on GitHub (homelab ARC runner, via spire-identity-exchange); the Gitea pair above
+    # goes once homelab-infra has moved.
+    "spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-plan",
+    "spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-apply",
     "spiffe://ddupan.top/dev/panxiao81",
   ])
 }
