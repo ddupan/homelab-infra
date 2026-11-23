@@ -251,8 +251,9 @@ counts only, and deletes the VM.
 **Using the recovery key on a real node:** set `openbao_disable_unauthed_generate_root: false` and
 run `provision-openbao.yml` (restarts bao); set it back afterwards.
 
-**Upgrades:** bump `openbao_pkcs11_plugin_version` with BOTH checksums (tarball for the
-download, binary for the `sha256sum` bao re-verifies before exec).
+**Upgrades:** Renovate bumps `openbao_pkcs11_plugin_release` and `openbao_pkcs11_plugin_binary_release`
+together, each with its sha256 re-pinned from the release's checksums file (tarball for the download,
+binary for the `sha256sum` bao re-verifies before exec); the role asserts the two tags are equal.
 
 ## Bootstrap (engines, auth, policies)
 
