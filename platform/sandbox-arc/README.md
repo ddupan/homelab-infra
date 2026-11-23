@@ -24,5 +24,7 @@ PSAT + GitHub OIDC token 换取（后续接入）。
 
 ## 固定版本
 
-chart 把 dind sidecar 写死为不带版本的 `docker:dind`，values 改不了，HelmRelease 用 post-render
-patch 固定 tag 和 digest；`# renovate: image` 让 Renovate 跟踪它和 runner 镜像。
+chart 把 dind sidecar 写死为 `docker:dind`，values 改不了，HelmRelease 用 post-render patch 换成
+`docker:29-dind@sha256:…`：大版本固定、digest 由 Renovate 自动合并（同 Docker Hub 浮动 tag 的规则），
+29.x 的补丁自动跟上且有记录，换大版本才需要人看。不写死成无版本 tag：IfNotPresent 下各节点停在
+各自第一次拉到的版本，并会无声跨大版本。`# renovate: image` 让 Renovate 跟踪它和 runner 镜像。

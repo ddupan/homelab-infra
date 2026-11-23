@@ -43,8 +43,11 @@ spec:
       name: RetryOnFailure
       retryInterval: 5m
   interval: 30m
-  # The chart hard-codes an unpinned `docker:dind` for the dind sidecar (initContainers[1] on
-  # Kubernetes >= 1.29, a native sidecar); values cannot override it, so pin it after rendering.
+  # The chart hard-codes `docker:dind` for the dind sidecar (initContainers[1] on Kubernetes >= 1.29,
+  # a native sidecar), which values cannot override. Unpinned it would not even stay current: with
+  # IfNotPresent each node keeps whatever it pulled first, and it would follow Docker majors silently.
+  # A floating major tag plus digest instead: Renovate automerges the digest bumps (renovate.json,
+  # floating Docker Hub tags), so 29.x patches land with a commit; a new major is a reviewed PR.
   postRenderers:
     - kustomize:
         patches:
@@ -58,7 +61,7 @@ spec:
               - op: replace
                 path: /spec/template/spec/initContainers/1/image
                 # renovate: image
-                value: docker:29.10.0-dind@sha256:4bbc7223f81db790097c6dea42fb93e05b8fead4f0431fbe6ccaba6e8473201c
+                value: docker:29-dind@sha256:4bbc7223f81db790097c6dea42fb93e05b8fead4f0431fbe6ccaba6e8473201c
   releaseName: homelab
   upgrade:
     strategy:
