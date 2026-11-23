@@ -78,6 +78,11 @@ resource "vault_policy" "ci_terraform_registry_publisher" {
   policy = file("${path.module}/policies/ci-terraform-registry-publisher.hcl")
 }
 
+resource "vault_policy" "ci_chef_supermarket_publisher" {
+  name   = "ci-chef-supermarket-publisher"
+  policy = file("${path.module}/policies/ci-chef-supermarket-publisher.hcl")
+}
+
 resource "vault_policy" "ci_converge" {
   name   = "ci-converge"
   policy = file("${path.module}/policies/ci-converge.hcl")
