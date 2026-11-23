@@ -49,7 +49,7 @@ resource "vault_ssh_secret_backend_role" "ci_converge" {
   }
 }
 
-# Ansible host deploy on merge: the login users of the hosts in .gitea/host-deploy.yml — ubuntu on the
+# Ansible host deploy on merge: the login users of the hosts in .github/host-deploy.yml — ubuntu on the
 # OCI instances, panxiao81 on the laptop, ansible on dc1. Same root-equivalent users ci-converge signs
 # for, plus ubuntu. Certs are principal-scoped, not host-scoped, so keep this list to what the allowlist
 # actually needs.

@@ -10,7 +10,7 @@ terraform {
   }
 }
 
-# laptop 上默认走本机 Unix socket；CI 由 .gitea/scripts/tf.py 改为 HTTPS，并给出
+# laptop 上默认走本机 Unix socket；CI 由 .github/scripts/tf.py 改为 HTTPS，并给出
 # 临时 config_dir：内含 Bao pki-incus 签发的 30 分钟客户端证书，以及 server.crt
 # （servercerts/local.crt，固定校验 Incus 自签服务器证书，不做首次信任）。
 variable "incus_address" {

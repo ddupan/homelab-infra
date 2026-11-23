@@ -1,5 +1,5 @@
 # State 放在局域网的 SeaweedFS：本机是单点，本地 state 也无法加锁。
-# 凭据不写在这里，由 .gitea/scripts/tf.py 从 Bao 读取后只传给子进程。
+# 凭据不写在这里，由 .github/scripts/tf.py 从 Bao 读取后只传给子进程。
 terraform {
   backend "s3" {
     bucket = "tfstate"

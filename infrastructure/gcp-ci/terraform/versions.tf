@@ -20,7 +20,7 @@ terraform {
   }
 }
 
-# 本地用 Application Default Credentials。CI 由 .gitea/scripts/tf.py 提供 SPIRE 联邦凭据。
+# 本地用 Application Default Credentials。CI 由 .github/scripts/tf.py 提供 SPIRE 联邦凭据。
 provider "google" {
   project = var.project_id
   region  = var.region

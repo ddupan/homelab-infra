@@ -49,7 +49,7 @@ DNS 期望状态已加入 `infrastructure/samba-ad/ansible/group_vars/all/dns.ym
 初始管理员密码生成在 PVC 的 `/nexus-data/admin.password`。只在交互式终端中读取并立即
 完成首次密码轮换；不得把密码复制进 shell tracing、工单、Git 或命令参数。随后将
 Terraform 管理账号的密码存入 OpenBao **`kv/infra/terraform/nexus` 的 `nexus_password`**
-（唯一一份；轮换密码只改这里）。Terraform CD（`.gitea/workflows/terraform.yml`）把该路径
+（唯一一份；轮换密码只改这里）。Terraform CD（`.github/workflows/terraform.yml`）把该路径
 的每个 key 注入为 `TF_VAR_<key>`；`nexus_url`、`nexus_username` 在 `versions.tf` 有默认值。
 本地运行时自行导出：
 

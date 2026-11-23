@@ -41,7 +41,7 @@ No cluster, no credentials, no mutation. YAML、Ansible 和 Terraform 各自按�
 found a real defect: `infrastructure/proxmox/ansible/` had no `requirements.yml` at all, so a
 fresh checkout could not reproduce its collections.
 
-**Terraform plan/apply — built, needs bootstrap.** `.gitea/workflows/terraform.yml`
+**Terraform plan/apply — built, needs bootstrap.** `.github/workflows/terraform.yml`
 在 PR 上对全部 root 运行 plan 并维护一条 PR 评论；合并到 `main` 后对全部 root apply
 （重新 plan，不是执行评论里那份）——main 即期望状态，漂移与手工改动在下次合并时收敛。接入的 root 列在 workflow 的 `TF_ROOTS`。凭据链：
 job 的 JWT-SVID → bao role `ci-terraform`（admin policy，原因见 `auth-spire.tf`）→

@@ -7,7 +7,7 @@
 # 2026-07-28 这条路被失效的 VPN 隧道黑洞了好几个小时。state 恰恰是故障期间要用的，必须在
 # WAN 不通时也能访问。见 ../httproute-s3.yaml。
 #
-# backend 凭据是 tfstate 受限身份（AWS_* 环境变量，由 .gitea/scripts/tf.py 注入）；
+# backend 凭据是 tfstate 受限身份（AWS_* 环境变量，由 .github/scripts/tf.py 注入）；
 # provider 用的是 s3-admin，见 main.tf。
 terraform {
   backend "s3" {

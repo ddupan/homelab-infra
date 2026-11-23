@@ -48,7 +48,7 @@ def test_scope_from_changes():
     assert scope_from_changes([c + "README.md", c + "ansible/enroll.yml", c + "test_converge.py"]) == set()
     assert scope_from_changes([c + "policies/base.rb", c + "converge.py"]) is None
     assert scope_from_changes([c + "ansible/inventory/hosts.yml"]) is None
-    assert scope_from_changes([".gitea/workflows/chef.yml"]) is None
+    assert scope_from_changes([".github/workflows/chef.yml"]) is None
 
 
 def test_changed_resources():

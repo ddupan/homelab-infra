@@ -1,6 +1,6 @@
 ---
 # Ansible host software deploys on merge: a push to main that changes a variable listed in
-# .gitea/host-deploy.yml runs that playbook, then checks it is idempotent. What may be listed, and why
+# .github/host-deploy.yml runs that playbook, then checks it is idempotent. What may be listed, and why
 # the rest stays manual, is in that file. Like chef.yml and terraform.yml, main is the desired state.
 name: host-deploy
 
@@ -9,35 +9,37 @@ on:
     branches: [main]
     paths:
       - 'infrastructure/**/ansible/**'
-  # 手动重放：部署 <since>..当前 main 里白名单变量的变化（版本已是最新时就是一次幂等验收）。
-  workflow_dispatch:
-    inputs:
-      since:
-        description: 起点 commit（如某次合并的第一个父提交）
-        required: true
+# 不提供手动重放：身份（…/homelab-infra/host-deploy，platform/spire/github-ci.yaml）只认 main 的 push；
+# 失败的部署用 "Re-run jobs" 重放（同一 push 事件）。
+
+permissions:
+  contents: read
 
 jobs:
-  # job id 是 SPIFFE ID 的一部分（bao role ci-host-deploy 精确绑定），改名会登录失败。
+  # homelab ARC runner：要 SSH 到 LAN 上的主机。bao role ci-host-deploy 精确绑定这个身份。
   host-deploy:
-    runs-on: [self-hosted, pod]
+    runs-on: homelab
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC token, one half of the exchange's proof
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # 要比较 push 前后
 
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+      - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
           pypi: 'true'
           ansible: 'true'
 
       - name: Pick playbooks
         env:
-          BEFORE: ${{ inputs.since || github.event.before }}
+          BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           export PATH="$HOME/.local/bin:$PATH"
-          uv run -q --with pyyaml python3 .gitea/scripts/host-deploy.py "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/plays"
+          uv run -q --with pyyaml python3 .github/scripts/host-deploy.py "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/plays"
           echo "plays: $(tr '\n' ';' < "$RUNNER_TEMP/plays")"
           [ -s "$RUNNER_TEMP/plays" ] && echo "DEPLOY=1" >> "$GITHUB_ENV" || true
 
@@ -59,7 +61,7 @@ jobs:
             done
           done
 
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/spiffe-openbao-login@v1
+      - uses: ddupan/ci-actions/spiffe-openbao-login@v1
         if: env.DEPLOY == '1'
         with:
           role: ci-host-deploy
@@ -79,7 +81,7 @@ jobs:
               "${BAO_ADDR%/}/v1/ssh-client-signer/sign/ci-host-deploy" |
             jq -er .data.signed_key > "$RUNNER_TEMP/ci_key-cert.pub"
           rm -f "$RUNNER_TEMP/bao.hdr"
-          cp .gitea/host-deploy-known_hosts ~/.ssh/known_hosts
+          cp .github/host-deploy-known_hosts ~/.ssh/known_hosts
 
       - name: Deploy
         if: env.DEPLOY == '1'

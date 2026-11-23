@@ -82,7 +82,7 @@ resource "vault_jwt_auth_backend_role" "ci_techdocs_publisher" {
   token_max_ttl           = 900
 }
 
-# Provider releases (terraform-provider-*/.gitea/workflows/release.yml, job key `release`) upload builds
+# Provider releases (terraform-provider-*/.github/workflows/release.yml, job key `release`) upload builds
 # to the static Terraform registry. Signing stays with the maintainer's YubiKey, not CI.
 resource "vault_jwt_auth_backend_role" "ci_terraform_registry_publisher" {
   backend   = vault_jwt_auth_backend.spire.path
@@ -124,7 +124,7 @@ resource "vault_jwt_auth_backend_role" "ci_chef_supermarket_publisher" {
   token_max_ttl           = 900
 }
 
-# Terraform CI (.gitea/workflows/terraform.yml)：PR 上的 terraform-plan 与 main 上的
+# Terraform CI (.github/workflows/terraform.yml)：PR 上的 terraform-plan 与 main 上的
 # terraform-apply。job key 来自 Gitea 可信 task payload，不是 workflow 输入。
 # 用 admin policy 是如实反映：openbao root 本身管理 policy 与 auth，任何更窄的
 # policy 都能被这条流水线 apply 成更宽，收窄只是假象。代价是任何能在本仓库开 PR 的人
@@ -196,7 +196,7 @@ resource "vault_jwt_auth_backend_role" "ci_converge" {
   token_max_ttl           = 900
 }
 
-# Ansible host deploy on merge (.gitea/workflows/host-deploy.yml). Exact subject: the job only runs on
+# Ansible host deploy on merge (.github/workflows/host-deploy.yml). Exact subject: the job only runs on
 # push to main, but like ci-converge a PR could rename a job to host-deploy and run it — revisit with a
 # second committer. Only an SSH signer; the playbooks it runs need no secrets (that was the point of
 # moving oci/samba-ad off ansible-vault, #838 #841).

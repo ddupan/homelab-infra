@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print `<project> <playbook>` for every .gitea/host-deploy.yml entry whose variable changed in base..head.
+"""Print `<project> <playbook>` for every .github/host-deploy.yml entry whose variable changed in base..head.
 
 Usage: host-deploy.py <base-sha> <head-sha>    (self-test: host-deploy.py --test)
 """
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         test()
         sys.exit()
     base, head = sys.argv[1:3]
-    allowlist = yaml.safe_load(open(".gitea/host-deploy.yml"))
+    allowlist = yaml.safe_load(open(".github/host-deploy.yml"))
     diff = subprocess.run(["git", "diff", "-U0", base, head, "--", "infrastructure/*/ansible/**"],
                           capture_output=True, text=True, check=True).stdout
     for project, playbook in changed(diff, allowlist):

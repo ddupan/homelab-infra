@@ -3,7 +3,7 @@
 `gitea-dynamic-runner` 云端池的 GCP 资源：GKE Autopilot 集群，以及 Actions cache 服务（`cache-server.tf`，免费额度的 e2-micro）。
 只放不需要 Docker、也不访问内网的 job。
 
-已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有服务账号密钥：`.gitea/scripts/tf.py` 用 SPIRE JWT-SVID
+已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有服务账号密钥：`.github/scripts/tf.py` 用 SPIRE JWT-SVID
 （`aud=gcp`）经 Workload Identity Federation 以 `terraform-ci` 运行（`federation.tf`）。
 
 项目、API、联邦和集群都由这个 root 创建。第一次必须用 `gcloud auth application-default login` 在本地 apply，

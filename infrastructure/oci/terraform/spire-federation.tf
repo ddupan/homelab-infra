@@ -1,5 +1,5 @@
 # 机器用 SPIRE JWT-SVID 换 OCI UPST（约 1 小时），不再需要长期 API key。换 token 的代码在
-# .gitea/scripts/tf.py。client secret 单独拿不到 OCI 权限，还必须持有匹配的 JWT-SVID。
+# .github/scripts/tf.py。client secret 单独拿不到 OCI 权限，还必须持有匹配的 JWT-SVID。
 # apply 后把 client id/secret 写进 Bao kv/infra/oci-token-exchange（client_id、client_secret）。
 
 locals {

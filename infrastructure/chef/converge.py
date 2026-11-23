@@ -95,7 +95,7 @@ def scope_from_changes(paths):
     """
     policies = set()
     for p in paths:
-        if p == ".gitea/workflows/chef.yml":
+        if p == ".github/workflows/chef.yml":
             return None
         rel = p.removeprefix("infrastructure/chef/")
         if rel.startswith("policies/"):
@@ -247,7 +247,7 @@ def main():
     nodes = select(load_nodes(yaml.safe_load(INVENTORY.read_text())), args.limit)
     if args.since:
         paths = subprocess.run(
-            ["git", "diff", "--name-only", f"{args.since}...HEAD", "--", str(HERE), ".gitea/workflows/chef.yml"],
+            ["git", "diff", "--name-only", f"{args.since}...HEAD", "--", str(HERE), ".github/workflows/chef.yml"],
             cwd=HERE.parent.parent, check=True, capture_output=True, text=True).stdout.split()
         scope = scope_from_changes(paths)
         if scope is not None:

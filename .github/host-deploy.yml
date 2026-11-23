@@ -1,4 +1,4 @@
-# Which version variables deploy on merge (.gitea/workflows/host-deploy.yml). When a push to main changes
+# Which version variables deploy on merge (.github/workflows/host-deploy.yml). When a push to main changes
 # `<var>:` under infrastructure/<project>/ansible/, CI runs that playbook, then runs it a second time and
 # fails if that run changes anything. Anything not listed stays a manual deploy (the Renovate PR says so).
 #
@@ -6,7 +6,7 @@
 # as for terraform.yml and chef.yml. That is why a playbook only belongs here if:
 #   - it needs no secret on the controller (no ansible-vault, no Bao KV: the CI role can only sign SSH certs),
 #   - its hosts' login user is in the ci-host-deploy SSH role (infrastructure/openbao/terraform/ssh.tf) and
-#     their host key is in .gitea/host-deploy-known_hosts,
+#     their host key is in .github/host-deploy-known_hosts,
 #   - a bad version costs little and is fixed by the next merge.
 # Deliberately not here: gitea.yml (would restart Gitea under its own Actions job), openbao (ansible-vault, root
 # of trust), shared-postgresql (pg-laptop is ansible_connection: local; pgbouncer/pgbackrest want a window),
