@@ -91,7 +91,8 @@ resource "vault_jwt_auth_backend_role" "ci_terraform_registry_publisher" {
   bound_audiences   = ["openbao"]
   bound_claims_type = "glob"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/terraform-provider-*/release"
+    # GitHub release.yml jobs via spire-identity-exchange (platform/spire/github-ci.yaml).
+    sub = "spiffe://ddupan.top/ci/github/ddupan/terraform-provider-*/release"
   }
 
   token_policies          = [vault_policy.ci_terraform_registry_publisher.name]

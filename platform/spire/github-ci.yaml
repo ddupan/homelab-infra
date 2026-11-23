@@ -68,3 +68,27 @@ spec:
     - github_actions:job_workflow_ref:path:.github/workflows/ci.yml
     - github_actions:ref:refs/heads/main
     - github_actions:event_name:push
+---
+# ddupan/terraform-provider-homelab release.yml on a pushed tag: uploads zips + SHA256SUMS to the
+# registry bucket (Bao role ci-terraform-registry-publisher). Selectors match exactly, so the tag
+# itself cannot be bound; ref_type:tag + release.yml does it (release.yml only runs on v* tags).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-terraform-provider-homelab-release
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/terraform-provider-homelab/release
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974378
+    - github_actions:job_workflow_ref:path:.github/workflows/release.yml
+    - github_actions:ref_type:tag
+    - github_actions:event_name:push

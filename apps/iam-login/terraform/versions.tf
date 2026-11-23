@@ -4,7 +4,7 @@ terraform {
   required_providers {
     homelab = {
       # Our own provider, served by the static registry in apps/seaweedfs (releases signed on the
-      # maintainer's YubiKey). See git.ddupan.top/panxiao81/terraform-provider-homelab.
+      # maintainer's YubiKey). See github.com/ddupan/terraform-provider-homelab.
       source  = "terraform.lab.ddupan.top/ddupan/homelab"
       version = "~> 0.3"
     }
