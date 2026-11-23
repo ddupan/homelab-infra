@@ -4,7 +4,7 @@
 # archive：退役系统的一次性加密存档（例如 archive/cnpg-shared-postgresql/RETIRED.md），不是备份目标。
 locals {
   imported_buckets = toset(["public", "research", "research-data", "tfstate", "zot"])
-  buckets          = setunion(local.imported_buckets, ["archive", "artifact-keeper", "techdocs", "terraform-registry"])
+  buckets          = setunion(local.imported_buckets, ["archive", "artifact-keeper", "chef-supermarket", "techdocs", "terraform-registry"])
 }
 
 resource "aws_s3_bucket" "this" {

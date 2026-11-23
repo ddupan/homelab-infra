@@ -100,6 +100,27 @@ resource "vault_jwt_auth_backend_role" "ci_terraform_registry_publisher" {
   token_max_ttl           = 900
 }
 
+# homelab-cookbooks publish.yml (job key `publish`) uploads new cookbook versions to the static
+# supermarket bucket (apps/seaweedfs/terraform/chef-supermarket.tf). The ID names the job, not the
+# branch: a PR adding a `publish` job could also log in, acceptable while the repo has one author.
+resource "vault_jwt_auth_backend_role" "ci_chef_supermarket_publisher" {
+  backend   = vault_jwt_auth_backend.spire.path
+  role_name = "ci-chef-supermarket-publisher"
+  role_type = "jwt"
+
+  user_claim        = "sub"
+  bound_audiences   = ["openbao"]
+  bound_claims_type = "string"
+  bound_claims = {
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-cookbooks/publish"
+  }
+
+  token_policies          = [vault_policy.ci_chef_supermarket_publisher.name]
+  token_no_default_policy = true
+  token_ttl               = 300
+  token_max_ttl           = 900
+}
+
 # Terraform CI (.gitea/workflows/terraform.yml)：PR 上的 terraform-plan 与 main 上的
 # terraform-apply。job key 来自 Gitea 可信 task payload，不是 workflow 输入。
 # 用 admin policy 是如实反映：openbao root 本身管理 policy 与 auth，任何更窄的
