@@ -3,8 +3,8 @@
 name 'ayatori-dev'
 # adopt 接管原 Ansible 部署（停用它的 node_exporter），必须在 homelab_base 之前。
 run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::default'
-# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
-default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+# 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
 cookbook 'homelab_base', '= 0.4.5'
 cookbook 'homelab_ayatori', '= 0.3.0'
 

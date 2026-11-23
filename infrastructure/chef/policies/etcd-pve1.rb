@@ -3,8 +3,8 @@
 # PostgreSQL itself is still deployed by shared-postgresql/.
 name 'etcd-pve1'
 run_list 'homelab_base::default', 'homelab_data::etcd', 'homelab_data::monitoring'
-# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
-default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+# 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
 cookbook 'homelab_base', '= 0.4.5'
 cookbook 'homelab_data', '= 0.2.0'
 

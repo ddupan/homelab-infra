@@ -2,6 +2,6 @@
 # Bao SSH CA 信任、监控）；Ayatori 发布含计算后端的 release 后再加 homelab_compute 与它的部署时值。
 name 'compute-dev'
 run_list 'homelab_base::default'
-# 按 cookbook 自己的版本从 Gitea Chef registry 取（homelab-cookbooks README「发布」）。
-default_source :supermarket, 'https://git.ddupan.top/api/packages/panxiao81/chef/api/v1'
+# 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
+default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
 cookbook 'homelab_base', '= 0.4.5'
