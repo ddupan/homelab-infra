@@ -70,3 +70,29 @@ resource "vault_ssh_secret_backend_role" "ci_host_deploy" {
     "permit-pty" = ""
   }
 }
+
+# Interactive human operator SSH access (YubiKey FIDO2 ed25519-sk + remote dev).
+# Separate from ai-agent/ci-converge so human sessions get a workday TTL plus
+# agent/port forwarding (needed for VS Code Remote-SSH and remote Git signing)
+# without widening machine/CI roles.
+resource "vault_ssh_secret_backend_role" "human_dev" {
+  backend  = vault_mount.ssh_client_signer.path
+  name     = "human-dev"
+  key_type = "ca"
+
+  allow_user_certificates = true
+  default_user            = "panxiao81"
+  allowed_users           = "root,panxiao81,ansible,ubuntu"
+
+  # 12h default for a workday; up to 7d when traveling away from LAN.
+  ttl     = 43200  # 12h
+  max_ttl = 604800 # 7d
+
+  allowed_extensions = "permit-pty,permit-agent-forwarding,permit-port-forwarding,permit-user-rc"
+  default_extensions = {
+    "permit-pty"              = ""
+    "permit-agent-forwarding" = ""
+    "permit-port-forwarding"  = ""
+    "permit-user-rc"          = ""
+  }
+}
