@@ -103,9 +103,9 @@ resource "vault_jwt_auth_backend_role" "ci_terraform_registry_publisher" {
   token_max_ttl           = 900
 }
 
-# homelab-cookbooks publish.yml (job key `publish`) uploads new cookbook versions to the static
-# supermarket bucket (apps/seaweedfs/terraform/chef-supermarket.tf). The ID names the job, not the
-# branch: a PR adding a `publish` job could also log in, acceptable while the repo has one author.
+# homelab-cookbooks publish.yml uploads new cookbook versions to the static supermarket bucket
+# (apps/seaweedfs/terraform/chef-supermarket.tf). GitHub job via spire-identity-exchange; its SPIRE
+# entry (platform/spire/github-ci.yaml) matches only publish.yml on main for push events.
 resource "vault_jwt_auth_backend_role" "ci_chef_supermarket_publisher" {
   backend   = vault_jwt_auth_backend.spire.path
   role_name = "ci-chef-supermarket-publisher"
@@ -115,7 +115,7 @@ resource "vault_jwt_auth_backend_role" "ci_chef_supermarket_publisher" {
   bound_audiences   = ["openbao"]
   bound_claims_type = "string"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-cookbooks/publish"
+    sub = "spiffe://ddupan.top/ci/github/ddupan/homelab-cookbooks/publish"
   }
 
   token_policies          = [vault_policy.ci_chef_supermarket_publisher.name]

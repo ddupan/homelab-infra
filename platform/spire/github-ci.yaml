@@ -158,3 +158,26 @@ spec:
     - github_actions:job_workflow_ref:path:.github/workflows/techdocs.yml
     - github_actions:ref:refs/heads/main
     - github_actions:event_name:push
+---
+# ddupan/homelab-cookbooks publish.yml on main: uploads new cookbook versions to the static
+# supermarket (Bao role ci-chef-supermarket-publisher).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-cookbooks-publish
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-cookbooks/publish
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974183
+    - github_actions:job_workflow_ref:path:.github/workflows/publish.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push
