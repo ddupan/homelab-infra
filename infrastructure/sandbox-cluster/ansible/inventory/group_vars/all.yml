@@ -84,6 +84,6 @@ user_kubectl: false
 sandbox_flux_version: v2.9.5
 sandbox_flux_install_url: >-
   https://github.com/fluxcd/flux2/releases/download/{{ sandbox_flux_version }}/install.yaml
-sandbox_flux_repository_url: https://git.ddupan.top/panxiao81/homelab-infra.git
+sandbox_flux_repository_url: https://github.com/ddupan/homelab-infra.git
 sandbox_flux_repository_branch: main
 sandbox_flux_path: ./clusters/sandbox
