@@ -181,3 +181,116 @@ spec:
     - github_actions:job_workflow_ref:path:.github/workflows/publish.yml
     - github_actions:ref:refs/heads/main
     - github_actions:event_name:push
+---
+# ddupan/homelab-infra. One workflow file can carry two identities, told apart by event: the PR job
+# (event pull_request into main; its ref is refs/pull/N/merge, so base_ref is what can be bound) and
+# the main job (push to refs/heads/main). External PRs need approval before any CI runs.
+# Terraform plan on PRs into main (Bao role ci-terraform, GCP/OCI federation, iam-login admin).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-terraform-plan
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-plan
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/terraform.yml
+    - github_actions:base_ref:main
+    - github_actions:event_name:pull_request
+---
+# Terraform apply on main.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-terraform-apply
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-apply
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/terraform.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push
+---
+# Cinc why-run on PRs into main (Bao role ci-converge).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-converge-whyrun
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/converge-whyrun
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/chef.yml
+    - github_actions:base_ref:main
+    - github_actions:event_name:pull_request
+---
+# Cinc converge on main (Bao role ci-converge).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-converge-apply
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/converge-apply
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/chef.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push
+---
+# Ansible host deploy on main (Bao role ci-host-deploy).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-host-deploy
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/host-deploy
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/host-deploy.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push

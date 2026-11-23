@@ -139,7 +139,8 @@ resource "vault_jwt_auth_backend_role" "ci_terraform" {
   bound_audiences   = ["openbao"]
   bound_claims_type = "glob"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-*"
+    # Gitea executor and, during the move, the same job on GitHub (spire-identity-exchange).
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/terraform-*,spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-*"
   }
 
   token_policies          = [vault_policy.admin.name]
@@ -185,7 +186,8 @@ resource "vault_jwt_auth_backend_role" "ci_converge" {
   bound_audiences   = ["openbao"]
   bound_claims_type = "glob"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/converge-*"
+    # Gitea executor and, during the move, the same job on GitHub (spire-identity-exchange).
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/converge-*,spiffe://ddupan.top/ci/github/ddupan/homelab-infra/converge-*"
   }
 
   token_policies          = [vault_policy.ci_converge.name]
@@ -206,7 +208,8 @@ resource "vault_jwt_auth_backend_role" "ci_host_deploy" {
   user_claim      = "sub"
   bound_audiences = ["openbao"]
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/host-deploy"
+    # Gitea executor and, during the move, the same job on GitHub (spire-identity-exchange).
+    sub = "spiffe://ddupan.top/ci/panxiao81/homelab-infra/host-deploy,spiffe://ddupan.top/ci/github/ddupan/homelab-infra/host-deploy"
   }
 
   token_policies          = [vault_policy.ci_host_deploy.name]
