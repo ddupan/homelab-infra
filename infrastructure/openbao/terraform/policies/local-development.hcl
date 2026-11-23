@@ -31,6 +31,11 @@ path "ssh-client-signer/sign/ai-agent" {
   capabilities = ["create", "update"]
 }
 
+# Sign human operator YubiKey FIDO2 SSH public keys for interactive remote dev.
+path "ssh-client-signer/sign/human-dev" {
+  capabilities = ["create", "update"]
+}
+
 # Mint a one-time EAB credential to enroll a node in the SPIRE node CA (ACME).
 # Enrollment is an operator action from the laptop (infrastructure/chef/ansible);
 # renewals afterwards need no Bao token at all.
