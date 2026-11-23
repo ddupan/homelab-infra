@@ -135,7 +135,7 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/ai-gateway-keys/image",
+                    "spiffe://ddupan.top/ci/github/ddupan/ai-gateway-keys/ci",
                     "spiffe://ddupan.top/dev/panxiao81"
                   ],
                   "actions": [
