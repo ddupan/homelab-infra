@@ -13,6 +13,12 @@ org 的 runner group `homelab` 决定哪些仓库能用这个 scale set；公开
 org 设置要求外部贡献者的 workflow 经批准才运行。runner Pod 的网络不做出站白名单：chef、Ansible
 这类 job 需要访问整个 LAN，与 Gitea 的 dynamic-runner executor 相同。
 
+## 镜像
+
+runner 用 [ddupan/arc-runner-image](https://github.com/ddupan/arc-runner-image)：官方 actions-runner 加
+Python 3、Node 24、zip、make，按 digest 固定。官方镜像不带工具链，每个 job 现装要经 WAN；节点本地的
+tool cache 没有人清理，镜像则由 kubelet 的镜像 GC 回收。特定版本仍由 job 自己 `actions/setup-*`。
+
 ## 凭据
 
 GitHub App（org `ddupan`，只有 Organization → Self-hosted runners 读写），Bao `kv/k8s/arc-github-app`：

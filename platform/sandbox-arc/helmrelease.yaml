@@ -85,8 +85,10 @@ spec:
       spec:
         containers:
           - name: runner
+            # github.com/ddupan/arc-runner-image: actions-runner plus Python 3, Node 24, zip, make.
+            # The official image has no toolchains, and a node-local tool cache would never be cleaned.
             # renovate: image
-            image: ghcr.io/actions/actions-runner:2.338.2@sha256:6d0b2d80d80f143f77dcb676e50920100bbb547e39e883454d57f45ab8c31300
+            image: ghcr.io/ddupan/arc-runner:latest@sha256:a88a63853d19213d3b3c8dbe2c4676329d85807dac2c9a9777ee23d89692fd73
             command: ["/home/runner/run.sh"]
             resources:
               requests:
