@@ -174,7 +174,7 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/iam-login/publish"
+                    "spiffe://ddupan.top/ci/github/ddupan/iam-login/ci"
                   ],
                   "actions": [
                     "read",

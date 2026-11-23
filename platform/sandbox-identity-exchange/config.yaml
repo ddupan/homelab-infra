@@ -1,0 +1,42 @@
+# spire-identity-exchange v0.6.0 config (keys: internal/config/config.go at that tag).
+# Only the composite stack "arc" exists (passthroughPlugins: false): a caller must present BOTH
+# the ARC runner Pod's projected token (it runs in our sandbox, k8s_psat + TokenReview) AND the
+# job's GitHub OIDC token (which repo/workflow/ref/event, signed by GitHub). The SPIFFE ID comes
+# from the SPIRE entry those selectors match (platform/spire/github-ci.yaml), never from here.
+name: spire-identity-exchange
+logLevel: info
+# One token, one SVID; single replica, so the in-memory replay cache is sufficient.
+purposeMode: shared
+server:
+  metricsPort: 9090
+  spiffe:
+    rest:
+      enable: true
+      port: 8544
+spire:
+  agentWorkloadSocketPath: /spiffe-workload-api/spire-agent.sock
+  agentDelegatedSocketPath: /spire-agent-admin/admin.sock
+  trustDomain: ddupan.top
+  svidTTL: 5m
+auth:
+  passthroughPlugins: false
+  plugins:
+    k8s:
+      plugin: k8s_psat
+      enabled: true
+      config:
+        clusterName: sandbox
+        audiences: [spire-identity-exchange]
+        # The scale set's runner ServiceAccount (gha-runner-scale-set chart, release "homelab").
+        allowedServiceAccounts: [arc-runners/homelab-gha-rs-no-permission]
+    github-actions:
+      plugin: github
+      enabled: true
+      config:
+        audiences: [spire-identity-exchange]
+        allowedRepositoryOwners: [ddupan]
+  stacks:
+    arc:
+      plugins: [k8s, github-actions]
+      # What these identities may be presented to; anything else is refused before SPIRE.
+      mintAudiences: [zot, openbao]

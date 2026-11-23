@@ -94,3 +94,17 @@ spec:
                 memory: 2Gi
               limits:
                 memory: 4Gi
+            # Proves "this request comes from a homelab ARC runner Pod" to spire-identity-exchange
+            # (k8s_psat, checked by TokenReview); the job's GitHub OIDC token proves which job.
+            volumeMounts:
+              - name: spire-identity-exchange-token
+                mountPath: /var/run/secrets/spire-identity-exchange
+                readOnly: true
+        volumes:
+          - name: spire-identity-exchange-token
+            projected:
+              sources:
+                - serviceAccountToken:
+                    audience: spire-identity-exchange
+                    expirationSeconds: 600
+                    path: token

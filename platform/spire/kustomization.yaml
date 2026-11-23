@@ -27,6 +27,7 @@ resources:
   - certificate.yaml
   - local-development-identity.yaml
   - spire-node-aliases.yaml
+  - github-ci.yaml
   - etcd-members.yaml
   - oci-arm.yaml
   - ayatori-compute-agents.yaml

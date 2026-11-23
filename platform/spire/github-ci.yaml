@@ -1,0 +1,48 @@
+# Identities for GitHub Actions jobs on the homelab ARC runners (platform/sandbox-arc), minted by
+# spire-identity-exchange (platform/sandbox-identity-exchange) through a sandbox agent's Delegated
+# Identity API. Each entry needs BOTH halves of the exchange's "arc" stack:
+#   k8s_psat:*        the request came from an ARC runner Pod in the sandbox cluster (TokenReview);
+#   github_actions:*  GitHub signed which repo (numeric IDs survive renames), workflow file, ref
+#                     and event it is.
+# A fork PR or another branch never matches; a token from a GitHub-hosted runner lacks the PSAT.
+# The token has no job claim, so an identity is per workflow file: split a job out to its own
+# workflow when it needs its own identity. Read-only (plan/why-run) identities may match
+# event_name pull_request; writing ones bind ref=refs/heads/main + event_name=push.
+---
+# Parent for the entries below: whichever sandbox node agent serves the exchange Pod.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: node-sandbox-agents
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/spire/server
+  spiffeID: spiffe://ddupan.top/node/sandbox-agents
+  selectors:
+    - k8s_psat:cluster:sandbox
+    - k8s_psat:agent_ns:spire-system
+    - k8s_psat:agent_sa:spire-agent
+---
+# ddupan/iam-login ci.yml on main: packages the tested native binary into zot (apps/zot ACL).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-iam-login-ci
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/iam-login/ci
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974304
+    - github_actions:job_workflow_ref:path:.github/workflows/ci.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push

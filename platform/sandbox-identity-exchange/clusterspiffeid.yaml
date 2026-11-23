@@ -1,0 +1,18 @@
+# The exchange's own identity: what the sandbox agents list in authorized_delegates
+# (platform/sandbox-spire/agents/values.yaml) and what clients pin when they connect.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: sandbox-spire-identity-exchange
+spec:
+  className: spire-mgmt-spire
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: spire-identity-exchange
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: spire-identity-exchange
+  spiffeIDTemplate: spiffe://{{ .TrustDomain }}/sandbox/spire-identity-exchange
+  workloadSelectorTemplates:
+    - k8s:ns:spire-identity-exchange
+    - k8s:sa:spire-identity-exchange
