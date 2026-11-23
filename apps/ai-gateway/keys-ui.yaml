@@ -82,7 +82,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: zot.lab.ddupan.top/panxiao81/ai-gateway-keys:latest@sha256:e2645563038c968396df8a320a14ec00ab9e00034d5baaac8ddc6b59287e8e73 # {"$imagepolicy": "flux-system:ai-gateway-keys"}
+          image: zot.lab.ddupan.top/panxiao81/ai-gateway-keys:latest@sha256:d09d0c5e88855a63c097a5a4940bf76adccbdfd1dfc53351adf615bf023c3724 # {"$imagepolicy": "flux-system:ai-gateway-keys"}
           envFrom:
             - secretRef:
                 name: ai-gateway-keys
