@@ -8,7 +8,11 @@ sandbox_pve_api_python_interpreter: "{{ lookup('env', 'PVE_API_PYTHON') | defaul
 
 sandbox_bridge: labnet
 sandbox_gateway: 10.60.0.1
-sandbox_nameserver: 192.168.10.5
+# Blocky, not dc1: CoreDNS forwards external names to this, and Samba's internal DNS timed out
+# under CI bursts (A for *.googleapis.com / checkpoint-api.hashicorp.com, 2026-11-23). Go then got
+# only the AAAA answer and failed with "dial tcp [2001:…]: network is unreachable" on these
+# v4-only nodes. Blocky prefetches hot names and forwards ad.ddupan.top to dc1 itself.
+sandbox_nameserver: 192.168.10.127
 sandbox_search_domain: ad.ddupan.top
 sandbox_lxc_template: laptop:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
 # One local SSD replica (pve-rg-local): nothing here needs DRBD. PostgreSQL
