@@ -117,7 +117,7 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/backstage/image",
+                    "spiffe://ddupan.top/ci/github/ddupan/backstage/ci",
                     "spiffe://ddupan.top/dev/panxiao81"
                   ],
                   "actions": [

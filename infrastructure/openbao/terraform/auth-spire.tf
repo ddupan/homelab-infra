@@ -71,7 +71,9 @@ resource "vault_jwt_auth_backend_role" "ci_techdocs_publisher" {
   bound_audiences   = ["openbao"]
   bound_claims_type = "glob"
   bound_claims = {
-    sub = "spiffe://ddupan.top/ci/panxiao81/*/techdocs"
+    # Comma-separated values are alternatives: Gitea executors (repos still on Gitea) and GitHub
+    # techdocs.yml jobs via spire-identity-exchange (platform/spire/github-ci.yaml).
+    sub = "spiffe://ddupan.top/ci/panxiao81/*/techdocs,spiffe://ddupan.top/ci/github/ddupan/*/techdocs"
   }
 
   token_policies          = [vault_policy.ci_techdocs_publisher.name]
