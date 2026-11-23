@@ -26,3 +26,12 @@ path "kv/data/k8s/gitea-runner-cache-s3" {
 path "kv/metadata/k8s/gitea-runner-cache-s3" {
   capabilities = ["read"]
 }
+
+# ARC's GitHub App (platform/sandbox-arc): org self-hosted runner management only.
+path "kv/data/k8s/arc-github-app" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/k8s/arc-github-app" {
+  capabilities = ["read"]
+}

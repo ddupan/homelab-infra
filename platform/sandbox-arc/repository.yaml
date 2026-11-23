@@ -1,0 +1,25 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: gha-runner-scale-set-controller
+  namespace: arc-systems
+spec:
+  interval: 1h
+  ref:
+    # Flux pulls by digest; the tag is what Renovate reads.
+    tag: 0.15.1
+    digest: sha256:c2497a6dedaaa723322abfe9ea2f5a81b9b8fbb90b38e45d7835b6c7629a3aae
+  url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: gha-runner-scale-set
+  namespace: arc-runners
+spec:
+  interval: 1h
+  ref:
+    tag: 0.15.1
+    digest: sha256:2ae7e43db61047aa3c4182e73c8f58ace35e796fa07d41b64fb3c39e81e1f365
+  url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set

@@ -1,0 +1,96 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: arc
+  namespace: arc-systems
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: gha-runner-scale-set-controller
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  # The controller's ServiceAccount is <releaseName>-gha-rs-controller; the scale set names it below.
+  releaseName: arc
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+---
+# Runner scale set "homelab": `runs-on: homelab` in a ddupan workflow. The org runner group of the
+# same name limits which repositories may use it (public repos must be allowed explicitly there).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: homelab
+  namespace: arc-runners
+spec:
+  dependsOn:
+    - name: arc
+      namespace: arc-systems
+  chartRef:
+    kind: OCIRepository
+    name: gha-runner-scale-set
+  driftDetection:
+    mode: enabled
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  interval: 30m
+  # The chart hard-codes `docker:dind` for the dind sidecar (initContainers[1] on Kubernetes >= 1.29,
+  # a native sidecar), which values cannot override. Unpinned it would not even stay current: with
+  # IfNotPresent each node keeps whatever it pulled first, and it would follow Docker majors silently.
+  # A floating major tag plus digest instead: Renovate automerges the digest bumps (renovate.json,
+  # floating Docker Hub tags), so 29.x patches land with a commit; a new major is a reviewed PR.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: AutoscalingRunnerSet
+              name: homelab
+            patch: |
+              - op: test
+                path: /spec/template/spec/initContainers/1/name
+                value: dind
+              - op: replace
+                path: /spec/template/spec/initContainers/1/image
+                # renovate: image
+                value: docker:29-dind@sha256:4bbc7223f81db790097c6dea42fb93e05b8fead4f0431fbe6ccaba6e8473201c
+  releaseName: homelab
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  values:
+    githubConfigUrl: https://github.com/ddupan
+    githubConfigSecret: arc-github-app
+    runnerGroup: homelab
+    runnerScaleSetName: homelab
+    minRunners: 0
+    # Sandbox nodes have 8G and 6G and also host the Gitea pod pool; two concurrent jobs until the
+    # Gitea runners are retired.
+    maxRunners: 2
+    containerMode:
+      type: dind
+    controllerServiceAccount:
+      namespace: arc-systems
+      name: arc-gha-rs-controller
+    template:
+      spec:
+        containers:
+          - name: runner
+            # renovate: image
+            image: ghcr.io/actions/actions-runner:2.338.2@sha256:6d0b2d80d80f143f77dcb676e50920100bbb547e39e883454d57f45ab8c31300
+            command: ["/home/runner/run.sh"]
+            resources:
+              requests:
+                cpu: "1"
+                memory: 2Gi
+              limits:
+                memory: 4Gi
