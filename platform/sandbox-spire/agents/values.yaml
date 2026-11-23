@@ -4,6 +4,9 @@ kind: ConfigMap
 metadata:
   name: sandbox-spire-values
   namespace: spire-mgmt
+  labels:
+    # Flux re-renders the HelmRelease as soon as this changes, not at its next interval.
+    reconcile.fluxcd.io/watch: Enabled
 data:
   values.yaml: |
     global:
