@@ -16,6 +16,8 @@
       - openbao_lan_ip | length > 0
       - (not openbao_auto_unseal) or (openbao_transit_address | length > 0 and openbao_transit_token | length > 0)
       - not (openbao_auto_unseal and openbao_pkcs11_seal)   # one active seal only
+      # vars.yml repeats the plugin release for its binary sha256 (one Renovate digest each).
+      - openbao_pkcs11_plugin_binary_release == openbao_pkcs11_plugin_release
     fail_msg: >-
       Set openbao_version + openbao_download_checksum (sha256:...), openbao_fqdn and
       openbao_lan_ip. If openbao_auto_unseal is true you must also provide

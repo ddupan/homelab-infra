@@ -3,20 +3,24 @@
 # Secrets (transit unseal token) live in group_vars/all/vault.yml — see vault.example.yml.
 
 # --- Release (pinned + checksum-verified) ---
-# Renovate bumps the version and .gitea/renovate/update-checksums.mjs re-pins every sha256
-# under a `# checksum-from:` marker from the release's own checksums file.
-# renovate: datasource=github-releases depName=openbao/openbao
-openbao_version: "2.7.2"
-# checksum-from: https://github.com/openbao/openbao/releases/download/v{version}/checksums.txt openbao_{version}_linux_amd64.tar.gz
+# `# renovate-attachment:` (renovate.json): Renovate bumps the release tag on the next line and
+# re-pins the sha256 below it from that release's own checksums file (github-release-attachments
+# datasource). The value must be the exact git tag; the bare version is derived from it.
+# renovate-attachment: depName=openbao/openbao
+openbao_release: "v2.7.2"
 openbao_download_checksum: "sha256:582b1f3c2fdc5afd443b2d57a225ef654de75adea609fdb66731fd582a9cbc96"
+openbao_version: "{{ openbao_release | regex_replace('^v', '') }}"
 
 # pkcs11 KMS plugin (README "TPM seal"). The binary sha256 is what bao re-verifies before exec.
-# renovate: datasource=github-releases depName=openbao/openbao-plugins
-openbao_pkcs11_plugin_version: "0.3.0"
-# checksum-from: https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{version}/checksums-kms-pkcs11.txt openbao-plugin-kms-pkcs11_linux_amd64_v1.tar.gz
+# renovate-attachment: depName=openbao/openbao-plugins versioning=regex:^kms-pkcs11-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+openbao_pkcs11_plugin_release: "kms-pkcs11-v0.3.0"
 openbao_pkcs11_plugin_checksum: "sha256:c112c670e1bcca7a7b7625b13c0ecf1a43a62cd2651d29bf23befb2ad47c49bf"
-# checksum-from: https://github.com/openbao/openbao-plugins/releases/download/kms-pkcs11-v{version}/checksums-kms-pkcs11.txt openbao-plugin-kms-pkcs11_linux_amd64_v1
+# The binary inside that tarball. Renovate tracks one digest per dependency, so its release tag is
+# repeated here (Renovate bumps both in the same PR; the openbao role asserts they are equal).
+# renovate-attachment: depName=openbao/openbao-plugins versioning=regex:^kms-pkcs11-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+openbao_pkcs11_plugin_binary_release: "kms-pkcs11-v0.3.0"
 openbao_pkcs11_plugin_sha256: "96fefa80e721551725ea01be79b0dae0f3951f15f01291fd87846d5e45475be6"
+openbao_pkcs11_plugin_version: "{{ openbao_pkcs11_plugin_release | regex_replace('^kms-pkcs11-v', '') }}"
 openbao_pkcs11_seal: true
 
 # --- Identity / addresses ---

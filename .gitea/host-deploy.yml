@@ -17,6 +17,6 @@
 - var: data_monitor_exporter_version
   project: shared-data-monitoring
   playbook: site.yml
-- var: samba_ad_acme_version
+- var: samba_ad_acme_release
   project: samba-ad
   playbook: acme-dc.yml
