@@ -81,7 +81,7 @@ server_config_yaml: |
 user_kubectl: false
 
 # renovate: datasource=github-releases depName=fluxcd/flux2
-sandbox_flux_version: v2.9.5
+sandbox_flux_version: v2.10.1
 sandbox_flux_install_url: >-
   https://github.com/fluxcd/flux2/releases/download/{{ sandbox_flux_version }}/install.yaml
 sandbox_flux_repository_url: https://github.com/ddupan/homelab-infra.git
