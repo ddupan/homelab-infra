@@ -1,0 +1,80 @@
+---
+# laptop 的 DNS：/etc/resolv.conf 是 play 写的普通文件，直接指向 Blocky；NetworkManager、
+# systemd-resolved 和 Tailscale 都不碰它。
+#
+# 为什么：2026-11-06 重启后约 12 小时，所有 pod 建不起 sandbox。当时 Tailscale（MagicDNS）
+# 管 /etc/resolv.conf，跑在 resolvconf 模式；/usr/sbin/resolvconf 是 systemd-resolved 包里
+# resolvectl 的符号链接，resolved 不运行时它执行失败，Tailscale 拿不到上游，只会返回 SERVFAIL，
+# k3s 也就拉不到 pause 镜像。单独 `tailscale set --accept-dns=true` 恢复不了（2026-11-07 测过），
+# 所以改为不经过 Tailscale：resolv.conf 固定指向 Blocky，tailnet 名称这台机器用不到。
+# Ubuntu 自带的 /usr/lib/NetworkManager/conf.d/10-dns-resolved.conf 让 NM 以 resolved 为后端，
+# 这里在 /etc 下覆盖它，包升级不会改回来。
+#
+#   ansible-playbook -i localhost, infrastructure/host-services/laptop-dns.yml --check --diff
+#   ansible-playbook -i localhost, infrastructure/host-services/laptop-dns.yml
+- name: laptop 的 DNS 固定指向 Blocky
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    # Blocky 在 laptop 本机（192.168.10.127:53）。
+    laptop_dns_servers:
+      - 192.168.10.127
+  tasks:
+    - name: 确认目标
+      ansible.builtin.assert:
+        that: ansible_facts.hostname == 'laptop'
+        fail_msg: 此 play 仅用于 laptop。
+
+    - name: NetworkManager 不管 DNS
+      ansible.builtin.copy:
+        dest: /etc/NetworkManager/conf.d/90-dns-none.conf
+        content: |
+          [main]
+          dns=none
+          rc-manager=unmanaged
+        mode: "0644"
+      notify: 重载 NetworkManager
+
+    # 只 disable 的话，别的 unit 依赖它时仍可能被拉起来。
+    - name: mask systemd-resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved.service
+        state: stopped
+        enabled: false
+        masked: true
+
+    - name: 立即应用 NetworkManager 配置
+      ansible.builtin.meta: flush_handlers
+
+    - name: 读取 Tailscale 设置
+      ansible.builtin.command: tailscale debug prefs
+      register: laptop_ts_prefs
+      changed_when: false
+      check_mode: false
+
+    # 开着的话 Tailscale 会接管 /etc/resolv.conf。
+    - name: Tailscale 不管 DNS
+      ansible.builtin.command: tailscale set --accept-dns=false
+      when: (laptop_ts_prefs.stdout | from_json).CorpDNS
+      changed_when: true
+
+    # 普通文件：如果它变成了指向 stub resolver 或 resolvconf 的符号链接，copy 会换回文件。
+    - name: /etc/resolv.conf 指向 Blocky
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        content: |
+          {% for server in laptop_dns_servers %}
+          nameserver {{ server }}
+          {% endfor %}
+        follow: false
+        owner: root
+        group: root
+        mode: "0644"
+
+  handlers:
+    - name: 重载 NetworkManager
+      ansible.builtin.systemd_service:
+        name: NetworkManager
+        state: reloaded
