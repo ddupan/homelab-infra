@@ -3,7 +3,7 @@
 # be a CronJob on the laptop k3s (it was a big part of the laptop's memory pressure).
 
 # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
-renovate_version: "44.251.0@sha256:64adaabe8ee3e34820c2b044b5f87e281aa278bf53e5d76df2ce800f9cc9407a"
+renovate_version: "44.260.2@sha256:c57ccd64ad082e801aad63504fc03d36c35b33f7953febac69f5c903e75cd8a3"
 # The image's own user. The host user with the same uid is what the SPIRE entry
 # spiffe://ddupan.top/node/oci-arm/renovate selects (platform/spire/oci-arm.yaml), so changing it
 # means changing that entry too.
