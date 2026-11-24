@@ -294,3 +294,26 @@ spec:
     - github_actions:job_workflow_ref:path:.github/workflows/host-deploy.yml
     - github_actions:ref:refs/heads/main
     - github_actions:event_name:push
+---
+# ddupan/ayatori release.yml on a pushed tag: copies the manager image (built and pushed to ghcr on a
+# GitHub-hosted runner) into zot by digest, where Dev/Prod pull it (zot panxiao81/ayatori-manager).
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-ayatori-publish-image
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/ayatori/publish-image
+  selectors:
+    - spire_identity_exchange:stack:name:arc
+    - k8s_psat:cluster_name:sandbox
+    - k8s_psat:namespace:arc-runners
+    - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974016
+    - github_actions:job_workflow_ref:path:.github/workflows/release.yml
+    - github_actions:ref_type:tag
+    - github_actions:event_name:push
