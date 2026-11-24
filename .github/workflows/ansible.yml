@@ -43,7 +43,7 @@ jobs:
           echo "PROJECTS=$(echo $projects)" >> "$GITHUB_ENV"
           echo "lint: ${projects:-（无）}"
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
           version: 0.11.7
