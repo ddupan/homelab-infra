@@ -27,7 +27,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          version: 0.11.7
+          version: 0.13.9
       - name: test_converge.py
         run: |
           uv run --with pyyaml --with pytest python -m pytest -q infrastructure/chef/test_converge.py
@@ -51,7 +51,7 @@ jobs:
         with:
           # 不开 docker：dind 的 dockerd 在 sidecar 里，Docker Hub 镜像源由 platform/sandbox-arc 配置。
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.11.7
+          uv: 0.13.9
       - uses: ddupan/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-converge
