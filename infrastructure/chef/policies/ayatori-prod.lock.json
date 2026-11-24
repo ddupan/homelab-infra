@@ -1,5 +1,5 @@
 {
-  "revision_id": "c3f4e15298f3e69c80f32efdf9764f6e30a675e5885bcb5397f47eda3a9eaf50",
+  "revision_id": "3a4e43bb1c4088fe871c6d75b657ff2fbdda73c3d2cedb8c9937c31936539739",
   "name": "ayatori-prod",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -43,6 +43,7 @@
         "host": "pg-prod.lab.ddupan.top",
         "port": 5432
       },
+      "repository": "https://github.com/ddupan/ayatori.git",
       "gitops": {
         "url": "https://github.com/ddupan/homelab-infra.git",
         "path": "./clusters/ayatori-prod"
