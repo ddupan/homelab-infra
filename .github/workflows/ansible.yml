@@ -48,11 +48,14 @@ jobs:
           # renovate: datasource=github-releases depName=astral-sh/uv
           version: 0.13.9
 
+      # restore-keys: a Renovate bump of one collection changes the key; restoring the previous
+      # cache leaves only that collection to download. ansible-galaxy skips collections already
+      # installed at the pinned version, so the install below always runs and stays cheap.
       - uses: actions/cache@v6
-        id: collections
         with:
           path: ~/.ansible/projects
           key: ansible-collections-${{ hashFiles('infrastructure/*/ansible/requirements.yml') }}
+          restore-keys: ansible-collections-
 
       - name: Install ansible-lint and collections
         if: env.PROJECTS != ''
@@ -62,7 +65,6 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           uv tool install ansible-core --with paramiko --with pywinrm --quiet
           uv tool install ansible-lint --quiet
-          [ '${{ steps.collections.outputs.cache-hit }}' = true ] && exit 0
           for r in infrastructure/*/ansible/requirements.yml; do
             p=$(basename "$(dirname "$(dirname "$r")")")
             for i in 1 2 3; do
