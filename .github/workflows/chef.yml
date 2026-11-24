@@ -46,8 +46,8 @@ jobs:
           fetch-depth: 0  # --since 要算 diff
       - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
+          # 不开 docker：dind 的 dockerd 在 sidecar 里，Docker Hub 镜像源由 platform/sandbox-arc 配置。
           pypi: 'true'
-          docker: 'true'  # 导出 policy 归档用的 Cinc Workstation 镜像
       - uses: ddupan/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-converge
