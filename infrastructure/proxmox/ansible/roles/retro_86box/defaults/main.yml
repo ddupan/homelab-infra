@@ -18,7 +18,7 @@ retro_86box_build: "b9001"
 retro_86box_url: "https://github.com/86Box/86Box/releases/download/v{{ retro_86box_version }}/86Box-Linux-x86_64-{{ retro_86box_build }}.AppImage"
 
 # renovate: datasource=github-releases depName=notBald/Avalonia86
-retro_86box_mgr_version: "1.5.2"
+retro_86box_mgr_version: "1.5.3"
 retro_86box_mgr_url: "https://github.com/notBald/Avalonia86/releases/download/v{{ retro_86box_mgr_version }}/Avalonia-86-for-Linux-x64-{{ retro_86box_mgr_version }}.AppImage"
 
 # ROMs are NOT bundled with 86Box (licensing). Without them no machine will
