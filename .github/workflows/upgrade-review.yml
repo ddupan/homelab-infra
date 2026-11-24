@@ -6,11 +6,11 @@ name: upgrade-review
 # Tools are the action's defaults (auto mode: commands no rule covers pass Claude Code's safety review
 # first), plus web access for upstream release notes. The runner is a disposable GitHub-hosted VM.
 #
-# Runs when Renovate opens the PR or retitles it (a new version), not on its frequent rebases. For a
-# fresh review comment `@claude 按 .github/upgrade-review.md 重新评审` (claude.yml, same sticky comment).
+# Reruns on every push to the PR, like the Gitea-era upgrade-review; a newer push cancels a review still
+# running, and the sticky comment is updated in place.
 on:
   pull_request:
-    types: [opened, reopened, edited]
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
@@ -23,8 +23,7 @@ jobs:
   review:
     if: >-
       github.event.pull_request.user.login == 'renovate[bot]' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      (github.event.action != 'edited' || github.event.changes.title != null)
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
