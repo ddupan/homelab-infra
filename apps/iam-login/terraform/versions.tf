@@ -6,7 +6,7 @@ terraform {
       # Our own provider, served by the static registry in apps/seaweedfs (releases signed on the
       # maintainer's YubiKey). See github.com/ddupan/terraform-provider-homelab.
       source  = "terraform.lab.ddupan.top/ddupan/homelab"
-      version = "~> 0.3"
+      version = "~> 0.4"
     }
     # Client secrets go straight to bao for the apps' ExternalSecrets; CD's ci-terraform token covers kv.
     vault = {
