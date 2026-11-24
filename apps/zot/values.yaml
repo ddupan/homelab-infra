@@ -153,7 +153,8 @@ configFiles:
               "policies": [
                 {
                   "users": [
-                    "spiffe://ddupan.top/ci/panxiao81/ayatori/publish-image"
+                    "spiffe://ddupan.top/ci/panxiao81/ayatori/publish-image",
+                    "spiffe://ddupan.top/ci/github/ddupan/ayatori/publish-image"
                   ],
                   "actions": [
                     "read",
