@@ -1,7 +1,7 @@
 variable "cloudflare_api_token" {
   type        = string
   sensitive   = true
-  description = "Cloudflare API token — scopes: Account·Cloudflare Tunnel:Edit, Zone·DNS:Edit + Zone·SSL and Certificates:Edit + Zone·Config Rules:Edit (ddupan.top). Provide via TF_VAR_cloudflare_api_token or terraform.tfvars (gitignored)."
+  description = "Cloudflare API token — scopes: Account·Cloudflare Tunnel:Edit, Zone·DNS:Edit + Zone·SSL and Certificates:Edit + Zone·Config Rules:Edit (ddupan.top) + Account·Workers Scripts:Edit (go-vanity.tf). Provide via TF_VAR_cloudflare_api_token or terraform.tfvars (gitignored)."
 }
 
 variable "account_id" {
