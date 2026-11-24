@@ -58,10 +58,10 @@ jobs:
           key: flate-${{ env.FLATE_VERSION }}-${{ hashFiles('clusters/**', 'platform/**', 'apps/**', 'infrastructure/cloudflared/**') }}
           restore-keys: flate-${{ env.FLATE_VERSION }}-
 
-      # 只为从源码编译 flate；go 版本取自 flate-go.mod（跟随 flate main 的 go 指令）。
+      # 只为从源码编译 flate；go 版本取自 .github/flate/go.mod（跟随 flate main 的 go 指令）。
       - uses: actions/setup-go@v7
         with:
-          go-version-file: .github/flate-go.mod
+          go-version-file: .github/flate/go.mod
           cache: false
 
       - name: Install flate
@@ -128,4 +128,3 @@ jobs:
           flate cache gc --cache-dir "$FLATE_CACHE_DIR" --max-age 168h || true
           python3 .github/scripts/tf.py comment "$md" '<!-- flux-diff -->'
           exit $rc
-
