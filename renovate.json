@@ -53,6 +53,11 @@
   ],
   "packageRules": [
     {
+      "description": "只在内网的源：Mend 托管的 Renovate 在公网，查不到。zot 上自建的镜像由 Flux image automation 跟踪 digest；terraform.lab 上的 homelab provider 发版后手动升级（lock 要从这个 registry 取哈希）。",
+      "matchPackageNames": ["zot.lab.ddupan.top/**", "ddupan/homelab"],
+      "enabled": false
+    },
+    {
       "description": "Cookbook 升级先到 Dev：*-dev 的 policy 自动开 PR。其余 policy（Prod，以及没有 Dev 环境的 etcd、samba-dc）要在 Dependency Dashboard 里批准才开，单独的分支，Dev 验收后再推进。",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["github-tags"],
