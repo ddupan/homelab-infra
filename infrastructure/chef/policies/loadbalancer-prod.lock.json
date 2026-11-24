@@ -1,5 +1,5 @@
 {
-  "revision_id": "4dd1827229247e7988a2f89c31a398d390b16e7934aa1d4dd2ae8e497c807ce2",
+  "revision_id": "524ea90b1f2448d1d1161e3d077456c5916a23e55616623e10cf117714514a02",
   "name": "loadbalancer-prod",
   "run_list": [
     "recipe[homelab_base::default]",
@@ -10,32 +10,32 @@
   ],
   "cookbook_locks": {
     "homelab_base": {
-      "version": "0.4.5",
-      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
-      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
-      "cache_key": "homelab_base-0.4.5-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
+      "version": "0.4.6",
+      "identifier": "4b274e10115602740c07f6181974fc3cb856f9c2",
+      "dotted_decimal_identifier": "21153839483803138.32664325631514996.277337720945090",
+      "cache_key": "homelab_base-0.4.6-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
-        "version": "0.4.5"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
+        "version": "0.4.6"
       }
     },
     "homelab_loadbalancer": {
-      "version": "0.5.1",
-      "identifier": "ffe827f70c209bb9b79e1f7e9e7f2fbc4912831e",
-      "dotted_decimal_identifier": "72031377407352987.52274760452578943.52485726307102",
-      "cache_key": "homelab_loadbalancer-0.5.1-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.5.1.tar.gz",
+      "version": "0.6.0",
+      "identifier": "cf413129577d103b45bba92aaaf1c607736575ac",
+      "dotted_decimal_identifier": "58336999581908240.16683695925275377.217735303099820",
+      "cache_key": "homelab_loadbalancer-0.6.0-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.6.0.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.5.1.tar.gz",
-        "version": "0.5.1"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_loadbalancer-0.6.0.tar.gz",
+        "version": "0.6.0"
       }
     }
   },
   "default_attributes": {
     "homelab_loadbalancer": {
       "agent": {
-        "version": "0.4.0",
+        "version": "0.5.0",
         "graceful_restart_time": "30s"
       },
       "bgp": {
@@ -54,18 +54,18 @@
     "Policyfile": [
       [
         "homelab_base",
-        "= 0.4.5"
+        "= 0.4.6"
       ],
       [
         "homelab_loadbalancer",
-        "= 0.5.1"
+        "= 0.6.0"
       ]
     ],
     "dependencies": {
-      "homelab_base (0.4.5)": [
+      "homelab_base (0.4.6)": [
 
       ],
-      "homelab_loadbalancer (0.5.1)": [
+      "homelab_loadbalancer (0.6.0)": [
         [
           "homelab_base",
           ">= 0.0.0"
