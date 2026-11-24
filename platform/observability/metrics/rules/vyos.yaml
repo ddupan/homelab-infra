@@ -33,17 +33,16 @@ spec:
         summary: VyOS 接口 {{ $labels.device }} 断开
         description: eth0 = LAN，eth1 = labnet 网关，eth2 = retronet 网关。检查 PVE 上 vm:100 的网卡与 SDN VNet。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    # 这几个服务停了，影响面是整个网段或生产数据库，没有其他信号会报出来。
+    # 这几个服务停了，影响面是整个网段，没有其他信号会报出来。
     - alert: VyosCriticalServiceDown
-      expr: vyos_unit_active{job="node-exporter",unit=~"frr.service|homelab-pg-proxy.service|isc-kea-dhcp4-server.service"} == 0
+      expr: vyos_unit_active{job="node-exporter",unit=~"frr.service|isc-kea-dhcp4-server.service"} == 0
       for: 2m
       labels:
         severity: critical
       annotations:
         summary: VyOS 上 {{ $labels.unit }} 未运行
         description: >-
-          frr = BGP（IX、LB 主机、DN42 iBGP）；homelab-pg-proxy = 生产 pg-prod；
-          kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
+          frr = BGP（IX、LB 主机、DN42 iBGP）；kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: VyosServiceDown
       expr: vyos_unit_active{job="node-exporter",unit=~"pdns-recursor.service|radvd.service|chrony.service|node_exporter.service|frr_exporter.service"} == 0
@@ -65,37 +64,6 @@ spec:
           vyos-unit-metrics.timer 停了，上面两条服务告警失效。镜像升级后由 postconfig hook 恢复；
           没恢复就重跑 infrastructure/proxmox/ansible/vyos-monitoring.yml。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    # pg-prod 只把流量送给 /primary 返回 200 的成员。0 个 = 写入全部失败；2 个 = 双主，最危险。
-    - alert: PgProdNoPrimary
-      expr: sum(haproxy_server_status{job="pg-proxy-haproxy",proxy="pg-prod",state="UP"}) == 0
-      for: 1m
-      labels:
-        severity: critical
-      annotations:
-        summary: pg-prod 入口没有可用的 primary
-        description: >-
-          所有成员的 Patroni /primary 都不是 200：故障切换进行中，或集群失去 leader。
-          patronictl list；同时看 SharedPostgres* 告警。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    - alert: PgProdMultiplePrimaries
-      expr: sum(haproxy_server_status{job="pg-proxy-haproxy",proxy="pg-prod",state="UP"}) > 1
-      for: 30s
-      labels:
-        severity: critical
-      annotations:
-        summary: pg-prod 入口同时把流量送给 {{ $value }} 个 primary
-        description: 疑似脑裂，写入可能分叉。立即 patronictl list，必要时停掉 HAProxy 入口止血。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-    - alert: VyosEntrypointDown
-      expr: probe_success{probe_group="vyos"} == 0
-      for: 3m
-      labels:
-        severity: critical
-      annotations:
-        summary: VyOS 入口 {{ $labels.instance }} 不可达
-        description: >-
-          192.168.10.2:5432 = pg-prod（homelab-pg-proxy）。进程在跑而端口不通，多半是监听地址丢了。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: Dn42DnsFailing
       expr: probe_success{probe_group="dn42"} == 0
       for: 15m
@@ -106,11 +74,11 @@ spec:
         description: pdns-recursor → wg42 → DN42 delegation server。BGP 正常而解析失败时看 pdns-recursor；都失败先看 VyosBgpPeerDown。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
     - alert: VyosExporterScrapeFailing
-      expr: up{job=~"frr|pg-proxy-haproxy"} == 0
+      expr: up{job="frr"} == 0
       for: 5m
       labels:
         severity: warning
       annotations:
         summary: VyOS 上的 {{ $labels.job }} 指标抓取失败
-        description: frr 失败则 BGP 告警失效；pg-proxy-haproxy 失败则 pg-prod 主库告警失效。
+        description: frr 失败则 BGP 告警失效。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md

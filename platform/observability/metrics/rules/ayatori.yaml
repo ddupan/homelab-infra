@@ -320,7 +320,7 @@ spec:
             description: 清理不用的卷与镜像，或扩容底层存储。
             runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/services/ayatori.md#出问题时
         # pg-prod 的 Ayatori LoadBalancer 入口（clusters/ayatori-prod/pg-prod.yaml）。/primary 只对 primary 返回 200，
-        # 所以 UP 的成员数就是入口认定的 primary 数；取代 vyos.yaml 的 PgProd* 后者随 VyOS 入口一起删除。
+        # 所以 UP 的成员数就是入口认定的 primary 数。取代了 VyOS homelab-pg-proxy 上的 PgProd*（已随该入口删除）。
         - alert: PgProdLbNoPrimary
           expr: ayatori_loadbalancer_port_ready_endpoints{job="ayatori-kube-state-metrics",cluster="ayatori-prod",resource_namespace="shared-postgresql",name="pg-prod"} == 0
           for: 1m

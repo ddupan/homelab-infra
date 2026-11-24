@@ -15,7 +15,7 @@ k3s 内原 CNPG（`shared-db`）上的应用已于 2026-10-13 全部迁入，CNP
 | pve1 LXC150 | prod standby，与 etcd 共置 | 同 prod 目录，10.60.0.20:5432 | HDD mp0 16 GiB；容器 1536 MiB |
 | laptop | dev 独立实例 | `/var/lib/homelab-postgresql/dev`，pg-dev.ad.ddupan.top:5433 | ZFS quota 8 GiB；MemoryMax 384 MiB |
 | pve2 LXC151 | pgBackRest 仓库，与 etcd 共置 | `/var/lib/homelab-pgbackrest` | HDD mp0 32 GiB；容器 768 MiB |
-| VyOS | 生产稳定 TCP 入口 | pg-prod.ad.ddupan.top:5432 → 192.168.10.2:5432 | 独立 HAProxy service，MemoryMax 64 MiB |
+| Ayatori LB | 生产稳定 TCP 入口 | pg-prod.lab.ddupan.top:5432/6432 → VIP（`clusters/ayatori-prod/pg-prod.yaml`） | 按 Patroni `/primary` 只送 primary；原 VyOS HAProxy 已于 2026-11-24 下线 |
 
 两个 LXC 的 rootfs 保持 `pve-rg` SSD DRBD，数据盘为 `pve-rg-hdd`。
 laptop ZFS 使用 recordsize=16K、lz4、atime=off。预算不是容量或 SLA 承诺，standby 的 16 GiB
@@ -66,7 +66,8 @@ Ayatori 单独使用 `kv/infra/postgresql/ayatori/{prod,dev}`，仅有 username/
 3. Terraform 准备 PKI 与身份，`initialize-secrets.yml -e pg_allow_initialize=true` 首次创建密码。
 4. `site.yml` 写入实例配置和证书；不初始化、不自动重启。`backup.yml` 建立专属仓库与 SSH 传输。
 5. `bootstrap.yml -e pg_allow_initialize=true` 显式初始化空目录，先 laptop 后 standby；未知数据不接管。
-6. `bootstrap-backup.yml` 验证 WAL 与首备成功后启用每日 timer；`proxy.yml` 要求唯一 primary 才发布入口。
+6. `bootstrap-backup.yml` 验证 WAL 与首备成功后启用每日 timer。生产入口 pg-prod 由 Ayatori LoadBalancer 承载
+   （homelab-infra `clusters/ayatori-prod/pg-prod.yaml`），按 Patroni `/primary` 只把流量送给 primary。
 7. DNS 由 `infrastructure/samba-ad/ansible/group_vars/all/dns.yml` 与 Samba `provision-dc.yml --tags dns` 管理。
 8. `controller.yml` 安装 PG 证书每日续签调度，预检通过才启用。
 9. `monitoring.yml` 激活 SQL 指标：先由 `site.yml` 写入模板，再执行本 play。它只在配置未生效时
@@ -104,7 +105,7 @@ Go 的 **lib/pq**（Gitea 等）先发 Parse("")+Describe+Sync、再另发 Bind+
 lib/pq 加 DSN 参数 `binary_parameters=yes`（单次往返）0 错——但它把 `[]byte` 参数改为二进制格式发送，
 对 jsonb 等列不安全，Gitea 未采用。
 
-部署：`site.yml`（写入 HBA/ident）→ `pooler.yml` → `proxy.yml` → `controller.yml`（续签程序副本
+部署：`site.yml`（写入 HBA/ident）→ `pooler.yml` → `controller.yml`（续签程序副本
 带上池的重载）。`tests/pooler_integration.py` 用真实模板在临时容器中验证认证透传、拒绝 superuser/
 复制角色、预编译语句与连接复用。告警：`SharedPostgresPoolerDown`（直接探两个成员的 `:6432`，
 因为 HAProxy 只看 Patroni，不会摘掉坏掉的池）。

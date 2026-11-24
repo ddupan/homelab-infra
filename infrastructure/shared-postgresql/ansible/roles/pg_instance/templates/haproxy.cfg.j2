@@ -1,4 +1,6 @@
 # 参考 Pigsty v4.5.0 的 Patroni 角色检查与旧连接摘除行为。
+# 只供 tests/integration.py 验证故障切换后按 /primary 路由：生产入口 pg-prod 已由 Ayatori LoadBalancer
+# 承载（clusters/ayatori-prod/pg-prod.yaml，同样按 :8008/primary 检查），VyOS 上的 homelab-pg-proxy 已下线。
 global
     maxconn 256
     log stdout format raw local0

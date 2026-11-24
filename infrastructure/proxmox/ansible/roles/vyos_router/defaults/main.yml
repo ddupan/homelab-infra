@@ -128,8 +128,8 @@ vyos_dn42_dns_servers: [172.20.0.53, 172.23.0.53, "fd42:d42:d42:54::1", "fd42:d4
 # is never touched. This role is the box's only CLI-config writer, so whole subtrees are owned.
 # What stays out is what the box makes for itself or nobody templates: system login, console,
 # syslog, interface hw-id, and wg42's private-key (generated on the box; the template never renders
-# it, so owning it would delete it and drop the tunnel). shared-postgresql's proxy.yml and
-# vyos-monitoring.yml write files on the box, not CLI config.
+# it, so owning it would delete it and drop the tunnel). vyos-monitoring.yml writes files on the
+# box, not CLI config.
 vyos_owned_paths:
   - system host-name
   - system name-server

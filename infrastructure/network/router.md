@@ -128,8 +128,8 @@ runner 走 LAN 地址（192.168.10.x）连路由器，而不是依赖某个 VNet
 
 **先收拢写入方。** 已完成（2026-11-18）：vyos-rtr 的 CLI 配置只由 `proxmox/ansible/roles/vyos_router`
 写入，原来 `oci/ansible` 的 `vyos.yml`、`dn42-ra.yml`、`dn42-dns.yml` 已并入该角色，oci 侧只读
-wg42 公钥。`shared-postgresql/ansible/proxy.yml`（pg-prod HAProxy）和 `proxmox/ansible/vyos-monitoring.yml`
-只在机器上写文件，不碰 CLI 配置。若将来迁移，数据模型（取自 [`ipam.yml`](ipam.yml)）从这一个角色出发即可。
+wg42 公钥。`proxmox/ansible/vyos-monitoring.yml` 只在机器上写文件，不碰 CLI 配置（pg-prod 的 HAProxy
+入口已迁到 Ayatori LoadBalancer，2026-11-24 下线）。若将来迁移，数据模型（取自 [`ipam.yml`](ipam.yml)）从这一个角色出发即可。
 
 已确认：IX 支持 `ip route … Null0.0 distance <n>`（高管理距离兜底路由可行）；FRR 用
 `frr-reload.py` 热应用配置，只有改会话参数（timers、capability）时需要对该邻居软复位。

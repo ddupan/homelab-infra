@@ -1,7 +1,7 @@
 ---
 # 连接池：在每个 prod 成员上激活 PgBouncer 所需的 HBA/ident、在可写实例建 auth_user 与查询函数，
 # 再安装并启动 PgBouncer。HBA 模板先由 site.yml 写入；本 play 只向 Patroni 发 HUP（reload，不重启），
-# 不需要 Bao。入口另由 proxy.yml 发布。重复执行应为 changed=0。
+# 不需要 Bao。入口由 Ayatori LoadBalancer 承载（clusters/ayatori-prod/pg-prod.yaml）。重复执行应为 changed=0。
 - name: 激活 PgBouncer 所需的 HBA 与 ident 映射
   hosts: pg_hosts
   become: true
