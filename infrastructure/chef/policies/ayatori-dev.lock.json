@@ -1,5 +1,5 @@
 {
-  "revision_id": "8efa3b7df89e2cfb93432b1e247ed108041b1dbefaac64c11be643aeb34d457c",
+  "revision_id": "b2020ed8e4c7b37e3ebfdc37cc0755113178116eadc49228867c77fcd96ce134",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -44,7 +44,7 @@
         "port": 5433
       },
       "gitops": {
-        "url": "https://git.ddupan.top/panxiao81/homelab-infra.git",
+        "url": "https://github.com/ddupan/homelab-infra.git",
         "path": "./clusters/ayatori-dev"
       },
       "loadbalancer": {

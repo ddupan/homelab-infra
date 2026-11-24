@@ -48,6 +48,10 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/policies:/p" -w /p 
   docker.io/cincproject/workstation:26.3.0 cinc update <policy>.rb
 ```
 
+只改 policy 的属性时用 `cinc update --attributes <policy>.rb`，不会重新解析 cookbook。它要求
+cookbook 已在本地缓存，所以在同一个容器里先 `cinc install <policy>.rb`，否则会报
+`CachedCookbookNotFound`，并把 lock 清空。
+
 执行器只从**已提交的 lock** 导出，不会重新解析版本。工具链用 Cinc Workstation 容器，laptop
 不需要 Ruby。
 
