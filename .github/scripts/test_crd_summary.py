@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""crd_summary 的回归检查：python3 .github/scripts/test_crd_summary.py"""
+"""crd_summary 的回归检查：uv run .github/scripts/test_crd_summary.py"""
 from crd_summary import summarize
 
 

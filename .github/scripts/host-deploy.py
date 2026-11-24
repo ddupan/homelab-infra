@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml"]
+# ///
 """Print `<project> <playbook>` for every .github/host-deploy.yml entry whose variable changed in base..head.
 
 Usage: host-deploy.py <base-sha> <head-sha>    (self-test: host-deploy.py --test)

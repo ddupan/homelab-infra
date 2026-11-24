@@ -60,6 +60,8 @@ jobs:
       - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
           terraform: 'true'
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          uv: 0.11.7
       - uses: hashicorp/setup-terraform@v4
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
@@ -99,10 +101,10 @@ jobs:
             log=$RUNNER_TEMP/plan.log; code=0
             # init 拉 provider 走 WAN，会随机失败。
             for i in 1 2 3; do
-              python3 .github/scripts/tf.py run "$r" init -input=false -no-color >"$log" 2>&1 && break
+              uv run .github/scripts/tf.py run "$r" init -input=false -no-color >"$log" 2>&1 && break
               [ $i = 3 ] && code=1; sleep 10
             done
-            [ $code = 0 ] && { python3 .github/scripts/tf.py run "$r" plan -input=false -no-color \
+            [ $code = 0 ] && { uv run .github/scripts/tf.py run "$r" plan -input=false -no-color \
               -lock-timeout=10m -detailed-exitcode >"$log" 2>&1 || code=$?; }
             cat "$log"
             case $code in
@@ -114,7 +116,7 @@ jobs:
               "$r" "$status" "$(cat "$log")" >>"$md"
             echo "::endgroup::"
           done
-          [ -s "$md" ] && python3 .github/scripts/tf.py comment "$md"
+          [ -s "$md" ] && uv run .github/scripts/tf.py comment "$md"
           exit $rc
 
   # main 即期望状态：每次合并对全部 root apply，手工改动会被回滚。apply 前重新 plan，
@@ -136,6 +138,8 @@ jobs:
       - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
           terraform: 'true'
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          uv: 0.11.7
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: v1.17.2
@@ -151,11 +155,11 @@ jobs:
           for r in $TF_ROOTS; do
             echo "::group::$r"
             for i in 1 2 3; do
-              python3 .github/scripts/tf.py run "$r" init -input=false -no-color && break
+              uv run .github/scripts/tf.py run "$r" init -input=false -no-color && break
               [ $i = 3 ] && exit 1; sleep 10
             done
             # 状态锁由 S3 lockfile 提供；并发的 apply 等待而不是直接失败。
-            python3 .github/scripts/tf.py run "$r" apply -input=false -no-color \
+            uv run .github/scripts/tf.py run "$r" apply -input=false -no-color \
               -lock-timeout=10m -auto-approve
             echo "::endgroup::"
           done
