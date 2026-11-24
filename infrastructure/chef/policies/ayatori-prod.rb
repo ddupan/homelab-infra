@@ -5,8 +5,8 @@ name 'ayatori-prod'
 run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::default'
 # 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
 default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
-cookbook 'homelab_base', '= 0.4.5'
-cookbook 'homelab_ayatori', '= 0.3.0'
+cookbook 'homelab_base', '= 0.4.6'
+cookbook 'homelab_ayatori', '= 0.4.0'
 
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
@@ -18,8 +18,6 @@ default['homelab_ayatori']['postgresql_instance'] = {
   'host' => 'pg-prod.lab.ddupan.top',
   'port' => 5432,
 }
-# Ayatori 仓库已迁到 GitHub（Gitea 上的已归档）；cookbook 默认值下次发版时一并改。
-default['homelab_ayatori']['repository'] = 'https://github.com/ddupan/ayatori.git'
 default['homelab_ayatori']['gitops'] = {
   'url' => 'https://github.com/ddupan/homelab-infra.git',
   'path' => './clusters/ayatori-prod',
