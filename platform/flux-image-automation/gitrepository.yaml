@@ -1,5 +1,7 @@
 # Write-capable source used only by ImageUpdateAutomation. The flux-system
 # GitRepository stays anonymous and read-only.
+# GitHub App ddupan-flux (installed on ddupan/homelab-infra only, Contents read & write): Flux mints a
+# short-lived installation token per fetch/push, so no long-lived token is stored.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -9,7 +11,8 @@ spec:
   interval: 10m
   ref:
     branch: main
+  provider: github
   secretRef:
     name: homelab-infra-write
   timeout: 60s
-  url: https://git.ddupan.top/panxiao81/homelab-infra.git
+  url: https://github.com/ddupan/homelab-infra.git
