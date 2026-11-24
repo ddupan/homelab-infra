@@ -13,8 +13,8 @@ on:
       - 'apps/**'
       # clusters/homelab 唯一引用到 infrastructure/ 下的 Flux 路径。
       - 'infrastructure/cloudflared/**'
-      - '.gitea/workflows/flux-diff.yml'
-      - '.gitea/scripts/*crd_summary.py'
+      - '.github/workflows/flux-diff.yml'
+      - '.github/scripts/*crd_summary.py'
 
 env:
   # flate 是 flux-local 的继任者（后者已 sunset）。暂钉上游 main 的提交：0.7.3 会把 GitRepository
@@ -31,9 +31,16 @@ env:
   FLATE_CACHE_DIR: /tmp/flate-cache
   FLATE_BIN: /tmp/flate-bin
 
+permissions:
+  contents: read
+
 jobs:
+  # GitHub-hosted: every chart source is public (the SPIRE fork is a public Gitea package).
   diff:
-    runs-on: [self-hosted, pod]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write # the diff comment
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,11 +58,11 @@ jobs:
           key: flate-${{ env.FLATE_VERSION }}-${{ hashFiles('clusters/**', 'platform/**', 'apps/**', 'infrastructure/cloudflared/**') }}
           restore-keys: flate-${{ env.FLATE_VERSION }}-
 
-      # 只为从源码编译 flate；go 版本取自 flate-go.mod（跟随 flate main 的 go 指令）。
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
+      # 只为从源码编译 flate；go 版本取自 .github/flate/go.mod（跟随 flate main 的 go 指令）。
+      - uses: actions/setup-go@v7
         with:
-          go: 'true'
-          go-version-file: .gitea/flate-go.mod
+          go-version-file: .github/flate/go.mod
+          cache: false
 
       - name: Install flate
         run: |
@@ -65,11 +72,11 @@ jobs:
           GOBIN="$FLATE_BIN" go install "github.com/home-operations/flate/cmd/flate@$FLATE_VERSION"
 
       - name: crd_summary 自检
-        run: python3 .gitea/scripts/test_crd_summary.py
+        run: python3 .github/scripts/test_crd_summary.py
 
       - name: diff
         env:
-          GITEA_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           md=$RUNNER_TEMP/diff.md; rc=0
           # 显式取 merge-base：--base <分支> 比的是分支最新提交，PR 开出后 main 上的
@@ -103,7 +110,7 @@ jobs:
             # 另渲染一次 JSON 只出摘要。源已在上一轮进缓存，不再走 WAN。
             elif render "$crd" --skip-kinds Secret -o json; then
               # 解析失败不能让 step 在发评论前退出（run 默认 bash -e）。
-              python3 .gitea/scripts/crd_summary.py <"$crd" >>"$md" ||
+              python3 .github/scripts/crd_summary.py <"$crd" >>"$md" ||
                 printf '⚠️ CRD 摘要解析失败，见 job 日志。\n\n' >>"$md"
             else
               printf '⚠️ CRD 摘要渲染失败，见 job 日志。\n\n' >>"$md"
@@ -119,18 +126,5 @@ jobs:
           done
           # actions/cache 在 job 结束时保存；先清掉 7 天未用的条目，缓存不随 restore-keys 无限增长。
           flate cache gc --cache-dir "$FLATE_CACHE_DIR" --max-age 168h || true
-          python3 .gitea/scripts/tf.py comment "$md" '<!-- flux-diff -->'
+          python3 .github/scripts/tf.py comment "$md" '<!-- flux-diff -->'
           exit $rc
-
-  # Renovate PR 的升级评审（ci-actions/upgrade-review）。放在这里是为了 needs: diff，把上面贴出的
-  # 渲染 diff 交给 agent；不改 Flux 路径的 Renovate PR 由 upgrade-review.yml 评审。
-  # job id 是 SPIFFE ID 的一部分（bao role ci-upgrade-review），改名会登录失败。
-  upgrade-review:
-    needs: diff
-    # 渲染失败也评审：失败本身是评审要看的信息。
-    if: always() && github.event.pull_request.user.login == 'renovate-bot'
-    runs-on: [self-hosted]
-    steps:
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/upgrade-review@v1
-        with:
-          extra-context-marker: '<!-- flux-diff -->'

@@ -1,6 +1,9 @@
 ---
 name: ansible
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -8,24 +11,21 @@ on:
       - 'infrastructure/**/ansible/**'
       - 'infrastructure/dns/**'
       - '.ansible-lint'
-      - '.gitea/workflows/ansible.yml'
+      - '.github/workflows/ansible.yml'
   pull_request:
     paths:
       - 'infrastructure/**/ansible/**'
       - 'infrastructure/dns/**'
       - '.ansible-lint'
-      - '.gitea/workflows/ansible.yml'
+      - '.github/workflows/ansible.yml'
 
 jobs:
   lint:
-    runs-on: [self-hosted, pod]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
         with:
-          pypi: 'true'
-          ansible: 'true'
+          persist-credentials: false
 
       - name: Pick projects
         # ansible-lint 锁住整个仓库根，同一 job 内无法并行，而全量串行要几分钟；PR 只 lint
@@ -36,7 +36,7 @@ jobs:
           projects=$all
           if [ "$GITHUB_EVENT_NAME" = pull_request ] && git fetch -q --depth=1 origin "$GITHUB_BASE_REF"; then
             changed=$(git diff --name-only FETCH_HEAD HEAD)
-            if ! grep -qxE '\.ansible-lint|\.gitea/workflows/ansible\.yml' <<<"$changed"; then
+            if ! grep -qxE '\.ansible-lint|\.github/workflows/ansible\.yml' <<<"$changed"; then
               projects=$(for p in $all; do grep -q "^$p/" <<<"$changed" && echo "$p"; done || true)
             fi
           fi
@@ -46,8 +46,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: ~/.cache/uv
-          # 同 terraform.yml：不设 restore-keys，过期交给 cache-server 的 retention。
-          key: uv-ansible-lint-${{ hashFiles('.gitea/workflows/ansible.yml') }}
+          key: uv-ansible-lint-${{ hashFiles('.github/workflows/ansible.yml') }}
 
       - uses: actions/cache@v6
         id: collections

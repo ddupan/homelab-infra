@@ -3,26 +3,27 @@
 # 改动时才跑：它每次都要重建 ansible-test 的 venv（约 2 分钟），而 collection 很少改动。
 name: ansible-collection
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
     paths:
       - 'infrastructure/samba-ad/ansible/collections/**'
-      - '.gitea/workflows/ansible-collection.yml'
+      - '.github/workflows/ansible-collection.yml'
   pull_request:
     paths:
       - 'infrastructure/samba-ad/ansible/collections/**'
-      - '.gitea/workflows/ansible-collection.yml'
+      - '.github/workflows/ansible-collection.yml'
 
 jobs:
   collection-test:
-    runs-on: [self-hosted, pod]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
         with:
-          pypi: 'true'
+          persist-credentials: false
 
       - name: Install ansible-core
         run: |

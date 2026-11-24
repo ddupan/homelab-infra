@@ -7,6 +7,9 @@
 # there can never block this one.
 name: yaml
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -15,24 +18,22 @@ on:
       - '**/*.yml'
       - 'infrastructure/dns/**'
       - '.yamllint.yml'
-      - '.gitea/workflows/lint.yml'
+      - '.github/workflows/lint.yml'
   pull_request:
     paths:
       - '**/*.yaml'
       - '**/*.yml'
       - 'infrastructure/dns/**'
       - '.yamllint.yml'
-      - '.gitea/workflows/lint.yml'
+      - '.github/workflows/lint.yml'
 
 jobs:
   yaml:
-    runs-on: [self-hosted, pod]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-
-      - uses: https://git.ddupan.top/panxiao81/ci-actions/setup-artifact-keeper@v1
         with:
-          pypi: 'true'
+          persist-credentials: false
 
       - name: Bootstrap uv
         # Pin the tool for reproducibility; PyPI also avoids another setup action.

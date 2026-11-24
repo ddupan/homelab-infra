@@ -62,6 +62,12 @@ spec:
                 path: /spec/template/spec/initContainers/1/image
                 # renovate: image
                 value: docker:29-dind@sha256:4bbc7223f81db790097c6dea42fb93e05b8fead4f0431fbe6ccaba6e8473201c
+              # Docker Hub pulls go through the Artifact Keeper pull-through cache, as on the Gitea runners.
+              # setup-artifact-keeper's `docker` input cannot do it here: it rewrites daemon.json and SIGHUPs
+              # a dockerd in the job container, but in dind mode dockerd lives in this sidecar.
+              - op: add
+                path: /spec/template/spec/initContainers/1/args/-
+                value: --registry-mirror=https://artifacts.lab.ddupan.top
   releaseName: homelab
   upgrade:
     strategy:

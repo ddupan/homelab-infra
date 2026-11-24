@@ -1,4 +1,4 @@
-# Host keys for .gitea/workflows/host-deploy.yml, by the name/IP each inventory uses as ansible_host.
+# Host keys for .github/workflows/host-deploy.yml, by the name/IP each inventory uses as ansible_host.
 # Checked 2026-11-18 against the operator's known_hosts (oci-arm, dc1) and the laptop's own host key file.
 oci-arm.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPs32nABeDlaN7pTTk3dT7Fr+LwwP+QqAcyXt3vYZIzb
 192.168.10.127 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID1d0HMuaE1xFEFSYd0FESw2YcGlv6OTBZN+QNaO2OvE

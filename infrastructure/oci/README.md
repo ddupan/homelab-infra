@@ -45,7 +45,7 @@ State、plan、metadata 变量与 `.terraform/` 都不得提交；plan JSON 同�
 旧 Terraform/CI 已由维护者确认停用，当前仓库已接管原 OCI Object Storage state。
 `versions.tf` 使用 OCI backend，直接连接原对象，未迁移本地恢复副本。
 
-已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有 API key：`.gitea/scripts/tf.py` 用 SPIRE JWT-SVID
+已接入 CI（`TF_ROOTS`），合并即 apply。CI 没有 API key：`.github/scripts/tf.py` 用 SPIRE JWT-SVID
 （`aud=oci`）换 1 小时的 UPST，以 `terraform-ci` 服务用户运行（`terraform/spire-federation.tf`）。
 依赖 Bao 的 `kv/infra/oci-token-exchange`（`client_id`、`client_secret`）和
 `kv/infra/terraform/oci`（`instance_metadata`，JSON 字符串）。

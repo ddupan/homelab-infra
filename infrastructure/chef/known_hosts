@@ -1,4 +1,4 @@
-# Host keys of the Cinc nodes, for CI (.gitea/workflows/chef.yml). Each was checked
+# Host keys of the Cinc nodes, for CI (.github/workflows/chef.yml). Each was checked
 # against the operator's already-trusted known_hosts when added. New node: append
 # `ssh-keyscan -t ed25519 <fqdn>` and verify it the same way.
 ayatori-dev.lab.ddupan.top ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICMhoTXrkAAHsj6P+WErIJuvxoquBPPyly0VYBEGpANs

@@ -5,7 +5,7 @@ cookbook 代码在 [homelab-cookbooks](https://git.ddupan.top/panxiao81/homelab-
 
 ## 模型
 
-- **没有 Cinc Server；CI 执行，合并即 apply**（`.gitea/workflows/chef.yml`，与 terraform 一样以
+- **没有 Cinc Server；CI 执行，合并即 apply**（`.github/workflows/chef.yml`，与 terraform 一样以
   main 为期望状态）。PR 上对受影响的节点 why-run 并把汇总贴成评论；合并后对同一范围 apply。
   范围按改动计算：policy 的 `.rb`/lock 只影响自己的节点，`converge.py`、inventory 和 workflow
   影响全部节点，README、测试、`enroll.yml` 不触发收敛。也可以手动触发（workflow_dispatch，

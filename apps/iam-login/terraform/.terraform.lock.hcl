@@ -34,12 +34,12 @@ provider "registry.terraform.io/hashicorp/vault" {
 }
 
 provider "terraform.lab.ddupan.top/ddupan/homelab" {
-  version     = "0.3.1"
-  constraints = "~> 0.3"
+  version     = "0.4.0"
+  constraints = "~> 0.4"
   hashes = [
-    "h1:H0dl4FHt8oh/iHgDGuInrYRSTtJ0OO7TPAXxv46cfgo=",
-    "h1:p6jy8trbZYSKXbTuIby1xPQClYcMcFF3TgaYqq9v4XU=",
-    "zh:ae38068a900cce57c6373a832e68be5cf62d21f0e3c141eab4939becaa72d9c4",
-    "zh:d7b6fb02d0f5c2ff013c58066246bb88c130431dde8e1e4bc170f40f3962408f",
+    "h1:ipLDUibset3+iFv7jPm8l9wfKyiTTmJ1ydm861fzYoI=",
+    "h1:oHhS4lI1s41Ik5MZR54wf2oEMXE576bCNADhSU9JwUw=",
+    "zh:8c7ed610def6c10c77959ece84e72576d51c265d67d706860fa4e309d2326a2b",
+    "zh:b746756d1be65a932e332e3caa21ffb92cb66022a034484126d782a38d89d2f1",
   ]
 }

@@ -6,11 +6,16 @@
                                          （默认 terraform plan；chef.yml、flux-diff.yml 用自己的 marker）
 
 依赖 spiffe-openbao-login 写入的 BAO_ADDR/BAO_TOKEN（role ci-terraform）。
+JWT-SVID（GCP、OCI、iam-login）：有 SPIRE Workload API socket 时用 spire-agent（本机、Gitea executor），
+否则在 homelab ARC runner 上经 spire-identity-exchange 换（runner Pod 的 PSAT + job 的 GitHub OIDC token，
+job 需要 permissions: id-token: write）。与 ddupan/ci-actions lib/svid.js 同一协议。
 """
 import base64
 import hashlib
+import http.client
 import json
 import os
+import ssl
 import tempfile
 import time
 from pathlib import Path
@@ -21,8 +26,16 @@ import urllib.parse
 import urllib.request
 
 MARKER = '<!-- terraform-plan -->'
-# Gitea 评论有长度上限；大 plan（openbao root）截断，完整输出看 job 日志。
+# 评论有长度上限（GitHub 65536）；大 plan（openbao root）截断，完整输出看 job 日志。
 MAX_COMMENT = 60000
+
+# spire-identity-exchange（homelab-infra platform/sandbox-identity-exchange）。它用自己的 X509-SVID 提供
+# HTTPS，只有 URI SAN：按 SPIFFE ID 校验对端，信任锚取自 WebPKI 的 SPIFFE bundle endpoint。
+EXCHANGE_HOST = 'spire-identity-exchange.spire-identity-exchange.svc'
+EXCHANGE_PATH = '/api/v1/svid/arc/jwt?format=token'
+EXCHANGE_ID = 'spiffe://ddupan.top/sandbox/spire-identity-exchange'
+BUNDLE_URL = 'https://spire-bundle.lab.ddupan.top/'
+PSAT_PATH = '/var/run/secrets/spire-identity-exchange/token'
 
 
 def request(url, method='GET', body=None, headers=None):
@@ -46,9 +59,49 @@ def bao_kv(path):
 
 def spire_jwt(env, audience):
     socket = env.get('SPIRE_AGENT_SOCKET', '/run/spire/agent-sockets/spire-agent.sock')
-    return json.loads(subprocess.run(
-        ['spire-agent', 'api', 'fetch', 'jwt', '-audience', audience, '-socketPath', socket, '-output', 'json'],
-        check=True, capture_output=True).stdout)[0]['svids'][0]['svid']
+    if os.path.exists(socket):
+        return json.loads(subprocess.run(
+            ['spire-agent', 'api', 'fetch', 'jwt', '-audience', audience, '-socketPath', socket, '-output', 'json'],
+            check=True, capture_output=True).stdout)[0]['svids'][0]['svid']
+    return exchange_jwt(audience)
+
+
+def exchange_jwt(audience):
+    """A JWT-SVID from spire-identity-exchange (homelab ARC runner)."""
+    if not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL'):
+        raise SystemExit('没有 SPIRE socket，也没有 GitHub OIDC token：job 需要 permissions: id-token: write')
+    with urllib.request.urlopen(BUNDLE_URL, timeout=30) as response:
+        keys = json.load(response)['keys']
+    pems = [f"-----BEGIN CERTIFICATE-----\n{k['x5c'][0]}\n-----END CERTIFICATE-----\n"
+            for k in keys if k.get('use') == 'x509-svid' and k.get('x5c')]
+    context = ssl.create_default_context(cadata=''.join(pems))
+    context.check_hostname = False  # identity is the SPIFFE ID below, not a DNS name
+    psat = Path(PSAT_PATH).read_text().strip()
+    last = None
+    # Each GitHub OIDC token is single-use at the exchange (replay cache): a fresh one per attempt.
+    for attempt in range(3):
+        oidc = request(os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=spire-identity-exchange',
+                       headers={'Authorization': f"Bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})['value']
+        try:
+            conn = http.client.HTTPSConnection(EXCHANGE_HOST, context=context, timeout=30)
+            conn.connect()
+            sans = [v for k, v in conn.sock.getpeercert().get('subjectAltName', ()) if k == 'URI']
+            if EXCHANGE_ID not in sans:
+                raise SystemExit(f'exchange 的身份是 {sans}，不是 {EXCHANGE_ID}')
+            conn.request('POST', EXCHANGE_PATH, json.dumps({'audiences': [audience]}),
+                         {'Authorization': f'Bearer k8s={psat}:github-actions={oidc}',
+                          'Content-Type': 'application/json'})
+            response = conn.getresponse()
+            body = response.read().decode()
+            if response.status == 200 and body.strip():
+                return body.strip()
+            last = f'HTTP {response.status} {body[:300]}'
+            if response.status < 500:
+                break  # wrong job or identity: retrying cannot help
+        except OSError as e:
+            last = str(e)
+        time.sleep(5 * (attempt + 1))
+    raise SystemExit(f'spire-identity-exchange 拒绝（aud {audience}）：{last}')
 
 
 def run_gcp(root, args, env):
@@ -174,6 +227,12 @@ def run(root, args):
     if name == 'gcp-ci':
         return run_gcp(root, args, env)
 
+    # terraform-provider-homelab 平时每次请求从 Workload API 取 SVID；没有 socket 时（GitHub）给它一个现取的
+    # （有效期 5 分钟，覆盖一个 root 的 plan/apply）。
+    socket = env.get('SPIRE_AGENT_SOCKET', '/run/spire/agent-sockets/spire-agent.sock')
+    if name == 'iam-login' and not os.path.exists(socket):
+        env['HOMELAB_JWT_SVID_IAM_LOGIN'] = exchange_jwt('iam-login')
+
     if name != 'incus':
         return subprocess.run(['terraform', f'-chdir={root}', *args], env=env).returncode
 
@@ -202,11 +261,11 @@ def comment(markdown_file, marker=MARKER):
     if len(body) > MAX_COMMENT:
         body = body[:MAX_COMMENT] + '\n```\n\n…已截断，完整输出见 job 日志。'
     event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
-    api = f"{os.environ['GITHUB_SERVER_URL']}/api/v1/repos/{os.environ['GITHUB_REPOSITORY']}"
-    auth = {'Authorization': f"token {os.environ['GITEA_TOKEN']}"}
+    api = f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}"
+    auth = {'Authorization': f"Bearer {os.environ['GITHUB_TOKEN']}", 'Accept': 'application/vnd.github+json'}
     issue = f"{api}/issues/{event['pull_request']['number']}/comments"
-    # ponytail: 只看第一页评论（默认 50 条），评论更多的 PR 会新建而非更新
-    mine = [c for c in request(issue, headers=auth) if c['body'].startswith(marker)]
+    # ponytail: 只看第一页评论（100 条），评论更多的 PR 会新建而非更新
+    mine = [c for c in request(issue + '?per_page=100', headers=auth) if c['body'].startswith(marker)]
     if mine:
         request(f"{api}/issues/comments/{mine[0]['id']}", 'PATCH', {'body': body}, auth)
     else:

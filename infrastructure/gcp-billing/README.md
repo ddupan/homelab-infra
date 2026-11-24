@@ -4,7 +4,7 @@
 VictoriaMetrics，告警走现有 Alertmanager。预算金额在那个 CronJob 的 ConfigMap 里。
 
 目前只在本地运行：`gcp-ci` 的 CI 接入还没合并。需要 `gcloud auth application-default login`，经
-`.gitea/scripts/tf.py run infrastructure/gcp-billing/terraform <命令>` 运行。项目 `ddupan-ci` 和 SPIRE 联邦池
+`.github/scripts/tf.py run infrastructure/gcp-billing/terraform <命令>` 运行。项目 `ddupan-ci` 和 SPIRE 联邦池
 由 `../gcp-ci/terraform` 创建，要先于这个 root 存在。
 
 ## 费用

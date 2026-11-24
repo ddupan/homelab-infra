@@ -229,11 +229,11 @@ SeaweedFS 内的数据副本当作独立灾备。重装 zot 不得删除 `zot` b
 
 | 位置 | 改什么 |
 |---|---|
-| ayatori `.gitea/workflows/release.yml` | `PUSH_REGISTRY` → `zot-push.lab…`，`PULL_REGISTRY` → `zot.lab…` |
+| ayatori `.github/workflows/release.yml` | `PUSH_REGISTRY` → `zot-push.lab…`，`PULL_REGISTRY` → `zot.lab…` |
 | ayatori `deploy/ansible/roles/control_plane/defaults/main.yml` | `ayatori_image` |
-| backstage `.gitea/workflows/ci.yml` | `PUSH_IMAGE`、`PULL_IMAGE`、`docker login` |
+| backstage `.github/workflows/ci.yml` | `PUSH_IMAGE`、`PULL_IMAGE`、`docker login` |
 | 本仓库 `platform/flux-image-automation/backstage.yaml` | ImageRepository `image`；`apps/backstage/deployment.yaml` 由 image automation 随后改写 |
-| gitea-dynamic-runner `.gitea/workflows/publish-images.yml`、`publish-runner-image.yml` | `PUSH_REGISTRY`、`PULL_REGISTRY` |
+| gitea-dynamic-runner `.github/workflows/publish-images.yml`、`publish-runner-image.yml` | `PUSH_REGISTRY`、`PULL_REGISTRY` |
 | 本仓库 `platform/{dynamic-runner,sandbox-dynamic-runner,sandbox-ci-runners}/` | runner 发版 PR 中的镜像引用 |
 | iam-login `scripts/publish-image` | `repo=`、`docker login` |
 | 本仓库 `apps/iam-login/deployment.yaml` | 发版 PR 中的镜像引用 |
