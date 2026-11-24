@@ -1,5 +1,5 @@
 ---
-# 与 shared-postgresql/proxy.yml 同一套做法：文件放 /config（跨镜像升级保留），unit 以符号链接
+# 文件放 /config（跨镜像升级保留），unit 以符号链接
 # 装进 /etc/systemd/system，再由 postconfig hook 在升级后恢复链接。
 - name: 创建跨升级保留的目录
   ansible.builtin.file:

@@ -40,9 +40,9 @@ PR 号**；新发现的盲区直接追加。
   drbd-reactor Prometheus 插件（连接状态、quorum、IO 挂起、out-of-sync、后端盘故障）
   - controller HA（#295，2026-10-09）：linstor_db + drbd-reactor promoter；抓 VIP 192.168.10.3，告警"没有/多于一个活动 controller"（后者看 systemd 单元状态）
   - pve1 的 `ssd` 池只剩约 18%（告警阈值 15%）
-- [x] **P6** VyOS：内置 node/frr exporter（`vyos.yml`）、服务状态 textfile（`vyos-monitoring.yml`）、pg-prod HAProxy
-  metrics（`shared-postgresql/proxy.yml`）、四个 TCP 入口与 DN42 DNS 探测。VyOS 远不止路由：pg-prod 生产库入口、
-  sandbox k3s API、SDN 的 DHCP/RA/NTP、DN42 都在它上面
+- [x] **P6** VyOS：内置 node/frr exporter（`vyos.yml`）、服务状态 textfile（`vyos-monitoring.yml`）与 DN42 DNS 探测。
+  VyOS 远不止路由：sandbox k3s API、SDN 的 DHCP/RA/NTP、DN42 都在它上面。pg-prod 入口已迁到 Ayatori
+  LoadBalancer（主库告警 `PgProdLb*`），VyOS 上的 HAProxy 已于 2026-11-24 下线
   - ⚠ VyOS **没有配置 firewall**；NTP 服务端与 syslog 配置不在任何 playbook 里（2026-10-05 发现，未处理）
   - ⚠ `infrastructure/proxmox/vyos/backups/config.boot` 曾被提交（含 `vyos` 用户的密码 hash），已改为 gitignore，
     历史未改写——建议轮换 `vyos` 密码

@@ -61,16 +61,15 @@ files on the box come from two more, so its monitoring is split the same way:
 | what | deployed by | covers |
 |---|---|---|
 | built-in `node-exporter` + `frr-exporter` (`service monitoring prometheus`) | `ansible/vyos.yml` (role `vyos_router`) | host, interfaces, BGP sessions (IX, LB hosts, DN42 iBGP) |
-| `vyos-unit-metrics.timer` → textfile | `ansible/vyos-monitoring.yml` (ssh+python, inventory `vyos_shell`) | frr, pg-proxy HAProxy, kea, pdns-recursor, radvd, chrony |
-| HAProxy Prometheus frontend `192.168.10.2:8405` | `../shared-postgresql/ansible/proxy.yml` | which Patroni member pg-prod routes to |
-| blackbox: pg-prod TCP + DN42 SOA via `192.168.10.2` | `platform/observability/metrics/probes/probes.yaml` | pg-prod entry point, DN42 resolution (sandbox entry points moved to Ayatori LB) |
+| `vyos-unit-metrics.timer` → textfile | `ansible/vyos-monitoring.yml` (ssh+python, inventory `vyos_shell`) | frr, kea, pdns-recursor, radvd, chrony |
+| blackbox: DN42 SOA via `192.168.10.2` | `platform/observability/metrics/probes/probes.yaml` | DN42 resolution (pg-prod and sandbox entry points moved to Ayatori LB) |
 
 Run order: `vyos.yml` (enables the exporters and creates the textfile dir) → `vyos-monitoring.yml`.
 
 - VyOS's node_exporter runs only default collectors — **no systemd** — and the CLI exposes only
   a textfile switch, hence the timer. Its files live under `/config/homelab-monitoring` and a
   block in `/config/scripts/vyos-postconfig-bootup.script` re-links the units after an image
-  upgrade (everything outside `/config` is reset), the same mechanism `proxy.yml` uses.
+  upgrade (everything outside `/config` is reset).
 - `node_network_up` is always 0 for `wg42`: WireGuard reports operstate `unknown`. The tunnel is
   judged by the BGP session running over it instead.
 - Exporters listen on `192.168.10.2` only. VyOS has **no firewall configured**; binding

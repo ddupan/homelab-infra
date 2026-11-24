@@ -2,57 +2,6 @@ rule_files:
 - rules.yaml
 evaluation_interval: 30s
 tests:
-- name: pg-prod 没有 primary
-  interval: 30s
-  input_series:
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="laptop",state="UP"}
-    values: '0x6'
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="pve1",state="UP"}
-    values: '0x6'
-  alert_rule_test:
-  - eval_time: 2m
-    alertname: PgProdNoPrimary
-    exp_alerts:
-    - exp_labels:
-        severity: critical
-      exp_annotations:
-        summary: pg-prod 入口没有可用的 primary
-        description: 所有成员的 Patroni /primary 都不是 200：故障切换进行中，或集群失去 leader。 patronictl list；同时看 SharedPostgres* 告警。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-  - eval_time: 2m
-    alertname: PgProdMultiplePrimaries
-    exp_alerts: []
-- name: pg-prod 双主
-  interval: 30s
-  input_series:
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="laptop",state="UP"}
-    values: 1x6
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="pve1",state="UP"}
-    values: 1x6
-  alert_rule_test:
-  - eval_time: 1m
-    alertname: PgProdMultiplePrimaries
-    exp_alerts:
-    - exp_labels:
-        severity: critical
-      exp_annotations:
-        summary: pg-prod 入口同时把流量送给 2 个 primary
-        description: 疑似脑裂，写入可能分叉。立即 patronictl list，必要时停掉 HAProxy 入口止血。
-        runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
-- name: pg-prod 正常（一主一从）不告警
-  interval: 30s
-  input_series:
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="laptop",state="UP"}
-    values: 1x6
-  - series: haproxy_server_status{job="pg-proxy-haproxy",instance="192.168.10.2:8405",node="vyos-rtr",proxy="pg-prod",server="pve1",state="UP"}
-    values: '0x6'
-  alert_rule_test:
-  - eval_time: 2m
-    alertname: PgProdNoPrimary
-    exp_alerts: []
-  - eval_time: 2m
-    alertname: PgProdMultiplePrimaries
-    exp_alerts: []
 - name: 关键服务 2 分钟即 critical，次要服务 5 分钟 warning
   interval: 1m
   input_series:
@@ -74,7 +23,7 @@ tests:
         severity: critical
       exp_annotations:
         summary: VyOS 上 isc-kea-dhcp4-server.service 未运行
-        description: frr = BGP（IX、LB 主机、DN42 iBGP）；homelab-pg-proxy = 生产 pg-prod； kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
+        description: frr = BGP（IX、LB 主机、DN42 iBGP）；kea = labnet/retronet DHCP。systemctl status；VyOS CLI 管理的服务改动后先 commit 再查。
         runbook_url: https://git.ddupan.top/panxiao81/homelab-wiki/src/branch/main/guides/monitoring-foundation.md
   - eval_time: 3m
     alertname: VyosServiceDown

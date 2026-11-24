@@ -198,26 +198,6 @@ spec:
       static:
         - 192.168.10.5:636
 ---
-# COVERAGE P6：VyOS 上对外提供的 TCP 入口。HAProxy 进程活着不代表在监听正确的地址。
-apiVersion: monitoring.coreos.com/v1
-kind: Probe
-metadata:
-  name: vyos-entrypoints
-  namespace: monitoring
-spec:
-  jobName: probe-vyos-entrypoints
-  module: tcp_connect
-  interval: 60s
-  scrapeTimeout: 15s
-  prober:
-    url: blackbox-exporter.monitoring.svc:9115
-  targets:
-    staticConfig:
-      labels:
-        probe_group: vyos
-      static:
-        - 192.168.10.2:5432    # pg-prod（生产 PostgreSQL，homelab-pg-proxy）
----
 # Ayatori LoadBalancer 上的入口（clusters/ayatori-prod）。按客户端用的名字探，CNAME、VIP、
 # BGP 宣告和后端一起验证。
 apiVersion: monitoring.coreos.com/v1
