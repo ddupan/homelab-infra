@@ -11,8 +11,8 @@ cookbook 'homelab_ayatori', '= 0.3.0'
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
 # Dev（policies/ayatori-dev.rb）已验收的 release。
-default['homelab_ayatori']['release'] = 'v0.4.0'
-default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:8ec7f7b6deb62c7e26f95c881f0a3a7d34333fb79564fd23c1f51132d31409c9'
+default['homelab_ayatori']['release'] = 'v0.5.0'
+default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:57f8ca27614259921749cde82c8a1e36ae089ca6f1b856fa914e8893d5946fa4'
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-prod',
   'host' => 'pg-prod.lab.ddupan.top',
