@@ -1,5 +1,5 @@
 {
-  "revision_id": "c23b500340f951a648f3edd11e2f2db13e909a88cefb4f6f8e8dd37c712d62b2",
+  "revision_id": "bbee34155af30a54956d3998da14c1512de06830efb5d517ccf6754f8e112cff",
   "name": "ayatori-prod",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,25 +11,25 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.3.0",
-      "identifier": "7f2f2db623031149ef965cdbe2564e2b19614b3e",
-      "dotted_decimal_identifier": "35799195418034961.20811102381924950.85947016366910",
-      "cache_key": "homelab_ayatori-0.3.0-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.3.0.tar.gz",
+      "version": "0.4.0",
+      "identifier": "6c3f19ef8e4866a9a9b051b940aa8579417be6ef",
+      "dotted_decimal_identifier": "30468678110562406.47755845814534314.146755836176111",
+      "cache_key": "homelab_ayatori-0.4.0-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.4.0.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.3.0.tar.gz",
-        "version": "0.3.0"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.4.0.tar.gz",
+        "version": "0.4.0"
       }
     },
     "homelab_base": {
-      "version": "0.4.5",
-      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
-      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
-      "cache_key": "homelab_base-0.4.5-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
+      "version": "0.4.6",
+      "identifier": "4b274e10115602740c07f6181974fc3cb856f9c2",
+      "dotted_decimal_identifier": "21153839483803138.32664325631514996.277337720945090",
+      "cache_key": "homelab_base-0.4.6-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
-        "version": "0.4.5"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
+        "version": "0.4.6"
       }
     }
   },
@@ -43,7 +43,6 @@
         "host": "pg-prod.lab.ddupan.top",
         "port": 5432
       },
-      "repository": "https://github.com/ddupan/ayatori.git",
       "gitops": {
         "url": "https://github.com/ddupan/homelab-infra.git",
         "path": "./clusters/ayatori-prod"
@@ -75,21 +74,21 @@
     "Policyfile": [
       [
         "homelab_ayatori",
-        "= 0.3.0"
+        "= 0.4.0"
       ],
       [
         "homelab_base",
-        "= 0.4.5"
+        "= 0.4.6"
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.3.0)": [
+      "homelab_ayatori (0.4.0)": [
         [
           "homelab_base",
           ">= 0.0.0"
         ]
       ],
-      "homelab_base (0.4.5)": [
+      "homelab_base (0.4.6)": [
 
       ]
     }

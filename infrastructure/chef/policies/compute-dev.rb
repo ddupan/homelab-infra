@@ -4,4 +4,4 @@ name 'compute-dev'
 run_list 'homelab_base::default'
 # 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
 default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
-cookbook 'homelab_base', '= 0.4.5'
+cookbook 'homelab_base', '= 0.4.6'

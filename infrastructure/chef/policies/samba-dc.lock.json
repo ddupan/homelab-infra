@@ -1,5 +1,5 @@
 {
-  "revision_id": "4a1fb586394f88c166769f6c182fb82566b01ca60b8cc02bab07c55f0623cadd",
+  "revision_id": "ebe454ac71fea670c96547b50312aab4ad0790fddc538431143484c9b39348da",
   "name": "samba-dc",
   "run_list": [
     "recipe[homelab_base::default]"
@@ -9,14 +9,14 @@
   ],
   "cookbook_locks": {
     "homelab_base": {
-      "version": "0.4.5",
-      "identifier": "9252df7547df766e78ec756a7b3edb4e51c39b31",
-      "dotted_decimal_identifier": "41186466298584950.31095204415699774.241129425705777",
-      "cache_key": "homelab_base-0.4.5-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
+      "version": "0.4.6",
+      "identifier": "4b274e10115602740c07f6181974fc3cb856f9c2",
+      "dotted_decimal_identifier": "21153839483803138.32664325631514996.277337720945090",
+      "cache_key": "homelab_base-0.4.6-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.5.tar.gz",
-        "version": "0.4.5"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_base-0.4.6.tar.gz",
+        "version": "0.4.6"
       }
     }
   },
@@ -32,11 +32,11 @@
     "Policyfile": [
       [
         "homelab_base",
-        "= 0.4.5"
+        "= 0.4.6"
       ]
     ],
     "dependencies": {
-      "homelab_base (0.4.5)": [
+      "homelab_base (0.4.6)": [
 
       ]
     }
