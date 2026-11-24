@@ -27,7 +27,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          version: 0.11.7
+          version: 0.13.9
 
       - name: Install ansible-core and Python 3.12
         # ansible-test --python 3.12 looks for python3.12 on PATH, and the runner image only ships its own

@@ -61,7 +61,7 @@ jobs:
         with:
           terraform: 'true'
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.11.7
+          uv: 0.13.9
       - uses: hashicorp/setup-terraform@v4
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
@@ -139,7 +139,7 @@ jobs:
         with:
           terraform: 'true'
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.11.7
+          uv: 0.13.9
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: v1.17.2
