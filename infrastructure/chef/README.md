@@ -39,7 +39,12 @@ cd infrastructure/chef
 指定私钥，同目录的 `<key>-cert.pub`（Bao 签发的证书）会被自动使用。单元测试：
 `uv run --with pyyaml --with pytest python -m pytest infrastructure/chef/test_converge.py`。
 
-更新 lock（升级 cookbook = 改 policy 里的 `= 版本`，然后提交 lock）。cookbook 来自 Gitea 的 Chef
+cookbook 升级通常由 Renovate 发起：homelab-cookbooks 发版（release-please 的 `<cookbook>-v<版本>` tag）后，
+`*-dev` policy 的升级自动开 PR，Prod 以及没有 Dev 环境的 policy（etcd、samba-dc）要在 Dependency Dashboard
+里批准才开（`renovate/promote-*` 分支）。lock 由 `.github/workflows/regenerate.yml` 在 Renovate 的分支上
+`cinc update` 后以 ddupan-bot 提交，PR 上的 why-run 随后重跑。
+
+手动更新 lock（升级 cookbook = 改 policy 里的 `= 版本`，然后提交 lock）。cookbook 来自 Gitea 的 Chef
 registry（`default_source :supermarket`），按 cookbook 自己的版本固定。要用 `cinc update`：已有 lock 时
 `cinc install` 直接按旧 lock 安装，不会重新解析。
 

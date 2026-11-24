@@ -1,0 +1,76 @@
+name: regenerate
+
+# Renovate bumps a cookbook pin in a policy (.rb); the lock next to it must be regenerated with
+# `cinc update`, which Mend-hosted Renovate cannot run (no postUpgradeTasks). This does it on
+# Renovate's branch and pushes the lock as ddupan-bot: an App token, so the push starts the chef
+# workflow again (a GITHUB_TOKEN push would not); renovate.json's gitIgnoredAuthors keeps Renovate
+# managing the branch. The rerun finds nothing to change and stops.
+#
+# On the homelab runner: cookbooks resolve from the static supermarket at s3.lab.ddupan.top
+# (LAN-only, anonymous read). It runs the bumped tooling with a token that can write this
+# repository's contents, so only Renovate's own same-repository branches trigger it; the App has
+# no workflows permission.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['infrastructure/chef/policies/*.rb']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerate-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  locks:
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      startsWith(github.head_ref, 'renovate/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: homelab
+    env:
+      # Same toolchain as chef.yml's converge-run.
+      WORKSTATION: docker.io/cincproject/workstation:26.3.0
+    steps:
+      - id: token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
+
+      # Policies whose .rb differs from the base branch; `cinc update` re-resolves their exact pins.
+      # The work tree is the volume the dind sidecar shares, so the bind mount is the same path there.
+      - name: cinc update
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do docker pull -q "$WORKSTATION" && break; sleep 15; done
+          git diff --name-only "$BASE" HEAD -- 'infrastructure/chef/policies/*.rb' | while read -r rb; do
+            echo "::group::$rb"
+            docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/infrastructure/chef/policies:/p" -w /p \
+              "$WORKSTATION" cinc update "$(basename "$rb")"
+            echo "::endgroup::"
+          done
+
+      - name: Commit and push
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "locks already match"
+            exit 0
+          fi
+          git config user.name 'ddupan-bot[bot]'
+          git config user.email '360661234+ddupan-bot[bot]@users.noreply.github.com'
+          git commit -qam 'chore(chef): 重新生成 policy lock'
+          git push origin "HEAD:${BRANCH}"
+          git show --stat --format='%h %s' HEAD >> "$GITHUB_STEP_SUMMARY"
