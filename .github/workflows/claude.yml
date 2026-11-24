@@ -2,6 +2,8 @@ name: claude
 
 # `@claude` in an issue or PR comment, review or new issue. Public repository: only the owner, members
 # and collaborators can trigger it (the action also checks write access).
+# A code review of a PR is manual: comment `@claude /code-review:code-review` (the official plugin;
+# findings land as inline comments). Renovate PRs are reviewed automatically by upgrade-review.yml.
 on:
   issue_comment:
     types: [created]
@@ -47,3 +49,6 @@ jobs:
           use_sticky_comment: true
           additional_permissions: |
             actions: read
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
