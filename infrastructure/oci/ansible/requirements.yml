@@ -2,6 +2,6 @@
 collections:
   # gitea 角色的 docker_compose_v2；其他项目都不装它，CI 回落不到，lint 会报 unknown-module。
   - name: community.docker
-    version: 5.4.0
+    version: 5.4.1
   # vyos-wg-pubkey.yml / retire-laptop.yml 只用 vyos_command（只读），`ansible` 包自带版本即可。
   - name: vyos.vyos
