@@ -14,4 +14,4 @@ oci_secrets_vault_id: ocid1.vault.oc1.ap-osaka-1.fzvpdmeraaavk.abvwsljrdlkoewzlf
 
 # Also what gitea's backup script uploads with.
 # renovate: datasource=pypi depName=oci-cli
-oci_cli_version: "3.96.3"
+oci_cli_version: "3.97.0"
