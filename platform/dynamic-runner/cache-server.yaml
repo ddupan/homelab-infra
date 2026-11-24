@@ -70,7 +70,7 @@ spec:
       containers:
         - name: cache-server
           # 与 executor 镜像里的官方 runner 同一版本（gitea-dynamic-runner container/runner.Dockerfile）。
-          image: docker.io/gitea/runner:6.0.0@sha256:f9a1f17484398b861c25a763b81febfb394b17b72e0522c25d8067d7b484f347
+          image: docker.io/gitea/runner:6.0.1@sha256:102bbed0b454b92725845b7abeebd0a6f31d10a91a869fb5207871b0eb7d4778
           command: [/usr/local/bin/gitea-runner, cache-server, -c, /etc/gitea-runner/config.yaml]
           ports:
             - name: cache
