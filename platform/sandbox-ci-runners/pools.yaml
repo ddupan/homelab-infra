@@ -11,7 +11,9 @@ spec:
   capacitySpec:
     bufferMax: 0
     bufferMin: 0
-    poolMax: 2
+    # Matches the controller's VM_CAPACITY=1 (platform/dynamic-runner): a second slot is never used, and
+    # the sandbox nodes' room goes to the GitHub ARC runners instead.
+    poolMax: 1
     poolMin: 0
   recycleStrategy:
     type: Delete

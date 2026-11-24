@@ -79,9 +79,10 @@ spec:
     runnerGroup: homelab
     runnerScaleSetName: homelab
     minRunners: 0
-    # Sandbox nodes have 8G and 6G and also host the Gitea pod pool; two concurrent jobs until the
-    # Gitea runners are retired.
-    maxRunners: 2
+    # Sandbox kubepods are capped at 7G/5G and also hold one Gitea ci-vm executor (3Gi). Four runners
+    # at a 2Gi request fit beside it; more queue as Pending. Not much beyond that: executors have no
+    # CPU limit, and CI saturating the nodes is what took sandbox k3s down on 2026-11-06.
+    maxRunners: 4
     containerMode:
       type: dind
     controllerServiceAccount:
