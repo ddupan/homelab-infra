@@ -1,0 +1,54 @@
+name: upgrade-review
+
+# Claude (claude-code-action, the Claude GitHub App) reviews Renovate's dependency PRs against how this
+# repository uses the dependency: .github/upgrade-review.md. Its verdict goes into one sticky comment.
+#
+# Tools are the action's defaults (auto mode: commands no rule covers pass Claude Code's safety review
+# first), plus web access for upstream release notes. The runner is a disposable GitHub-hosted VM.
+#
+# Reruns on every push to the PR, like the Gitea-era upgrade-review; a newer push cancels a review still
+# running, and the sticky comment is updated in place.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upgrade-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60  # it may install toolchains, build and test
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read   # CI results of this PR
+      id-token: write # the action exchanges it for a Claude GitHub App token
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          use_sticky_comment: true
+          additional_permissions: |
+            actions: read
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            按仓库里 .github/upgrade-review.md 的说明评审这个依赖升级 PR，结论写进你的评论。
+          claude_args: |
+            --allowedTools "WebFetch,WebSearch"
