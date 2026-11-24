@@ -18,7 +18,7 @@ default['homelab_ayatori']['postgresql_instance'] = {
   'port' => 5433,
 }
 default['homelab_ayatori']['gitops'] = {
-  'url' => 'https://git.ddupan.top/panxiao81/homelab-infra.git',
+  'url' => 'https://github.com/ddupan/homelab-infra.git',
   'path' => './clusters/ayatori-dev',
 }
 # VIP 池见 infrastructure/network/ipam.yml。LB 主机由各自的 agent 注册（ADR-0022），不在 GitOps 中声明。
