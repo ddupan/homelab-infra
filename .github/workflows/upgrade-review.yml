@@ -42,6 +42,12 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
+          # The PR author is Renovate: the action refuses bot-initiated runs unless the bot is listed,
+          # and treats a non-collaborator's checkout as untrusted (no commands that run its code).
+          # The job's `if` already limits this to Renovate's own branches in this repository, and
+          # building the upgraded code is part of the review.
+          allowed_bots: renovate
+          restrict_untrusted_prs: 'false'
           use_sticky_comment: true
           additional_permissions: |
             actions: read
