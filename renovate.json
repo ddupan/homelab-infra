@@ -4,6 +4,7 @@
   "ignorePaths": ["archive/**"],
   "prHourlyLimit": 0,
   "prConcurrentLimit": 15,
+  "gitIgnoredAuthors": ["360661234+ddupan-bot[bot]@users.noreply.github.com"],
   "flux": {
     "managerFilePatterns": ["/(^|/)(apps|platform|clusters)/.+\\.ya?ml$/"]
   },
@@ -11,6 +12,15 @@
     "managerFilePatterns": ["/(^|/)(apps|platform)/.+\\.ya?ml$/"]
   },
   "customManagers": [
+    {
+      "description": "Policy 固定的 cookbook 版本（infrastructure/chef/policies/*.rb 的 `cookbook '<name>', '= x.y.z'`）。版本取自 homelab-cookbooks 由 release-please 打的 `<name>-v<version>` tag；lock 由 .github/workflows/regenerate.yml 在 Renovate 分支上用 cinc update 重新生成并以 ddupan-bot 提交（Mend 托管版不执行 postUpgradeTasks）。",
+      "customType": "regex",
+      "managerFilePatterns": ["/^infrastructure/chef/policies/[^/]+\\.rb$/"],
+      "matchStrings": ["cookbook '(?<depName>[a-z0-9_]+)', '= (?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)'"],
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "ddupan/homelab-cookbooks",
+      "extractVersionTemplate": "^{{{depName}}}-v(?<version>.+)$"
+    },
     {
       "description": "A release tag with the sha256 of one of its assets pinned on the next line (Ansible downloads). The github-release-attachments datasource bumps the tag and re-pins the digest from the new release's own checksums file, without running anything (Mend-hosted Renovate does not run postUpgradeTasks). The value must be the exact git tag, so it has its own comment: the generic `# renovate: datasource=` manager would otherwise also match it and bump the tag without the digest.",
       "customType": "regex",
@@ -42,6 +52,22 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Cookbook 升级先到 Dev：*-dev 的 policy 自动开 PR。其余 policy（Prod，以及没有 Dev 环境的 etcd、samba-dc）要在 Dependency Dashboard 里批准才开，单独的分支，Dev 验收后再推进。",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["ddupan/homelab-cookbooks"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "chef"
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["ddupan/homelab-cookbooks"],
+      "matchFileNames": ["infrastructure/chef/policies/!(*-dev).rb"],
+      "dependencyDashboardApproval": true,
+      "additionalBranchPrefix": "promote-",
+      "commitMessageSuffix": "（非 Dev）"
+    },
     {
       "description": "Automerge digest bumps of floating Docker Hub tags (e.g. postgres:18-alpine) once CI passes. No minimumReleaseAge: floating tags are rebuilt for security patches, and Docker Hub restarts the age on every re-push, so a tag rebuilt more often than the delay would never merge. Docker Hub only because those are the images reviewed for this; our own zot images may have another writer (see the backstage rule below). Full-version tags excluded: a new digest there means upstream re-pushed a released version, which a human should see. platformAutomerge off: main requires no status checks, so Gitea-native automerge would merge before CI (flux-diff, lint) finishes; Renovate's own automerge waits for every check to pass.",
       "matchDatasources": ["docker"],
