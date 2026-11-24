@@ -48,11 +48,13 @@ jobs:
           # renovate: datasource=github-releases depName=astral-sh/uv
           version: 0.13.9
 
+      # restore-keys: a Renovate bump changes the key; restoring the previous cache lets the install
+      # step below reinstall only the projects whose requirements.yml changed.
       - uses: actions/cache@v6
-        id: collections
         with:
           path: ~/.ansible/projects
           key: ansible-collections-${{ hashFiles('infrastructure/*/ansible/requirements.yml') }}
+          restore-keys: ansible-collections-
 
       - name: Install ansible-lint and collections
         if: env.PROJECTS != ''
@@ -62,13 +64,21 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           uv tool install ansible-core --with paramiko --with pywinrm --quiet
           uv tool install ansible-lint --quiet
-          [ '${{ steps.collections.outputs.cache-hit }}' = true ] && exit 0
+          # Per project: skip when the restored collections were installed from this exact
+          # requirements.yml (hash stamp), otherwise reinstall that project from scratch. Not
+          # re-running ansible-galaxy over an existing install also avoids its crash on git
+          # collections pinned to a commit ("Non integer values in LooseVersion").
           for r in infrastructure/*/ansible/requirements.yml; do
             p=$(basename "$(dirname "$(dirname "$r")")")
+            dir="$HOME/.ansible/projects/$p" stamp="$HOME/.ansible/projects/$p/.requirements.sha256"
+            sum=$(sha256sum "$r" | cut -d' ' -f1)
+            [ -d "$dir" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$sum" ] && continue
+            rm -rf "$dir"
             for i in 1 2 3; do
-              ansible-galaxy collection install -r "$r" -p "$HOME/.ansible/projects/$p" && break
+              ansible-galaxy collection install -r "$r" -p "$dir" && break
               [ $i = 3 ] && exit 1; sleep 10
             done
+            echo "$sum" > "$stamp"
           done
 
       - name: ansible-lint
