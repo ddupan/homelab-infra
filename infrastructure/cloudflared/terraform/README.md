@@ -20,6 +20,7 @@ ingress config is authoritative **at Cloudflare's edge**, not the in-cluster `co
    - Zone · **DNS : Edit** (zone `ddupan.top`)
    - Zone · **SSL and Certificates : Edit**（zone `ddupan.top`）— `cloudflare_origin_ca_certificate.gitea`（A1 源站证书）
    - Zone · **Config Rules : Edit**（zone `ddupan.top`）— `cloudflare_ruleset.config_settings`（git.ddupan.top 关 BIC）
+   - Account · **Workers Scripts : Edit** — `go-vanity.tf`（go.ddupan.top 的 Go vanity import Worker 与其 custom domain）
 2. Provide it + the zone id:
    ```bash
    export TF_VAR_cloudflare_api_token='...'
