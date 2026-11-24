@@ -19,21 +19,26 @@ on:
 
 jobs:
   collection-test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          version: 0.11.7
 
-      - name: Install ansible-core
+      - name: Install ansible-core and Python 3.12
+        # ansible-test --python 3.12 looks for python3.12 on PATH, and the runner image only ships its own
+        # system Python (26.04 has no 3.12). uv python install puts python3.12 into ~/.local/bin.
         run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
-          export PATH="$HOME/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          uv python install 3.12
           uv tool install ansible-core --quiet
 
       - name: Run ansible-test
         working-directory: infrastructure/samba-ad/ansible/collections/ansible_collections/ddupan/homelab
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           ansible-test sanity --venv --requirements --python 3.12 --color no
           ansible-test units --venv --requirements --python 3.12 --color no

@@ -21,7 +21,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -43,10 +43,10 @@ jobs:
           echo "PROJECTS=$(echo $projects)" >> "$GITHUB_ENV"
           echo "lint: ${projects:-（无）}"
 
-      - uses: actions/cache@v6
+      - uses: astral-sh/setup-uv@v10
         with:
-          path: ~/.cache/uv
-          key: uv-ansible-lint-${{ hashFiles('.github/workflows/ansible.yml') }}
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          version: 0.11.7
 
       - uses: actions/cache@v6
         id: collections
@@ -58,13 +58,10 @@ jobs:
         if: env.PROJECTS != ''
         # 每个项目的 collections 装到各自目录：各项目钉的版本不同，装进同一目录会互相覆盖。
         run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
-          for i in 1 2 3 4 5; do
-            uv tool install ansible-core --with paramiko --with pywinrm --quiet \
-              && uv tool install ansible-lint --quiet && break
-            echo "attempt $i failed"; sleep 10
-          done
+          uv tool install ansible-core --with paramiko --with pywinrm --quiet
+          uv tool install ansible-lint --quiet
           [ '${{ steps.collections.outputs.cache-hit }}' = true ] && exit 0
           for r in infrastructure/*/ansible/requirements.yml; do
             p=$(basename "$(dirname "$(dirname "$r")")")
@@ -77,7 +74,6 @@ jobs:
       - name: ansible-lint
         if: env.PROJECTS != ''
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           # 静态检查不应依赖生产 vault 凭据。一次性 checkout 可以去掉加密变量文件；
           # syntax-check 只验证结构，不需要解析变量的运行时值。
           git grep -lz '^\$ANSIBLE_VAULT' | xargs -0r rm -f

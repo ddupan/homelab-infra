@@ -37,7 +37,7 @@ permissions:
 jobs:
   # GitHub-hosted: every chart source is public (the SPIRE fork is a public Gitea package).
   diff:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: write # the diff comment
@@ -58,6 +58,11 @@ jobs:
           key: flate-${{ env.FLATE_VERSION }}-${{ hashFiles('clusters/**', 'platform/**', 'apps/**', 'infrastructure/cloudflared/**') }}
           restore-keys: flate-${{ env.FLATE_VERSION }}-
 
+      - uses: astral-sh/setup-uv@v10
+        with:
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          version: 0.11.7
+
       # 只为从源码编译 flate；go 版本取自 .github/flate/go.mod（跟随 flate main 的 go 指令）。
       - uses: actions/setup-go@v7
         with:
@@ -72,7 +77,7 @@ jobs:
           GOBIN="$FLATE_BIN" go install "github.com/home-operations/flate/cmd/flate@$FLATE_VERSION"
 
       - name: crd_summary 自检
-        run: python3 .github/scripts/test_crd_summary.py
+        run: uv run .github/scripts/test_crd_summary.py
 
       - name: diff
         env:
@@ -110,7 +115,7 @@ jobs:
             # 另渲染一次 JSON 只出摘要。源已在上一轮进缓存，不再走 WAN。
             elif render "$crd" --skip-kinds Secret -o json; then
               # 解析失败不能让 step 在发评论前退出（run 默认 bash -e）。
-              python3 .github/scripts/crd_summary.py <"$crd" >>"$md" ||
+              uv run .github/scripts/crd_summary.py <"$crd" >>"$md" ||
                 printf '⚠️ CRD 摘要解析失败，见 job 日志。\n\n' >>"$md"
             else
               printf '⚠️ CRD 摘要渲染失败，见 job 日志。\n\n' >>"$md"
@@ -126,5 +131,5 @@ jobs:
           done
           # actions/cache 在 job 结束时保存；先清掉 7 天未用的条目，缓存不随 restore-keys 无限增长。
           flate cache gc --cache-dir "$FLATE_CACHE_DIR" --max-age 168h || true
-          python3 .github/scripts/tf.py comment "$md" '<!-- flux-diff -->'
+          uv run .github/scripts/tf.py comment "$md" '<!-- flux-diff -->'
           exit $rc

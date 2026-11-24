@@ -91,7 +91,7 @@ IAM API（同一端点 `https://s3.ad.ddupan.top`）。已接入 CI（`TF_ROOTS`
 
 - provider 身份是静态 `s3-admin`（Admin），只存在 `kv/k8s/seaweedfs-s3`，TF 用 vault
   provider 读取；backend 仍用 `terraform` 受限身份。本地运行：
-  `python3 .github/scripts/tf.py run apps/seaweedfs/terraform plan`（需 `BAO_TOKEN`）。
+  `uv run .github/scripts/tf.py run apps/seaweedfs/terraform plan`（需 `BAO_TOKEN`）。
 - filer 开启 `-s3.iam.readOnly=false`。动态身份存于 filer `/etc/iam/identities/` 与
   `/etc/iam/policies.json`，与静态文件合并生效；备份依赖 filer 元数据。
 - **TF 管理的用户名不得与静态身份重名**：对静态身份的 IAM 写操作静默成功但不生效。

@@ -29,38 +29,25 @@ on:
 
 jobs:
   yaml:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-
-      - name: Bootstrap uv
-        # Pin the tool for reproducibility; PyPI also avoids another setup action.
-        run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Install yamllint
-        # The WAN drops at random (see CLAUDE.md); retry rather than fail a run.
-        run: |
-          for i in 1 2 3 4 5; do
-            uv tool install yamllint --quiet && break
-            echo "attempt $i failed"; sleep 10
-          done
-          uv tool list | grep -q yamllint
+      - uses: astral-sh/setup-uv@v10
+        with:
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          version: 0.11.7
 
       - name: yamllint
         # --no-warnings so line-length stays advisory. Errors block.
         # netboot/ is vendored upstream and excluded in .yamllint.yml,
         # but they are also excluded here so the file list stays small.
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           files=$(git ls-files '*.yaml' '*.yml' | grep -vE '^apps/netboot/')
-          yamllint -c .yamllint.yml --no-warnings -f parsable $files
+          uvx yamllint -c .yamllint.yml --no-warnings -f parsable $files
 
       - name: Verify generated DNS configuration
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           uv run infrastructure/dns/generate.py --check
           uv run infrastructure/dns/test_ipam.py

@@ -19,15 +19,18 @@ permissions:
 
 jobs:
   unit:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          version: 0.11.7
       - name: test_converge.py
         run: |
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
-          ~/.local/bin/uv run --with pyyaml --with pytest python -m pytest -q infrastructure/chef/test_converge.py
+          uv run --with pyyaml --with pytest python -m pytest -q infrastructure/chef/test_converge.py
 
   # homelab ARC runner：要 SSH 到 LAN 上的节点。身份经 spire-identity-exchange：PR 上是
   # …/homelab-infra/converge-whyrun，main 的 push 是 …/converge-apply（bao role ci-converge 接受 converge-*）。
@@ -47,7 +50,8 @@ jobs:
       - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
           # 不开 docker：dind 的 dockerd 在 sidecar 里，Docker Hub 镜像源由 platform/sandbox-arc 配置。
-          pypi: 'true'
+          # renovate: datasource=github-releases depName=astral-sh/uv
+          uv: 0.11.7
       - uses: ddupan/ci-actions/spiffe-openbao-login@v1
         with:
           role: ci-converge
@@ -76,8 +80,6 @@ jobs:
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          export PATH="$HOME/.local/bin:$PATH"
-          python3 -m pip install --user --break-system-packages --quiet uv==0.11.7
           args=(-i "$RUNNER_TEMP/ci_key" --summary-md "$RUNNER_TEMP/summary.md")
           case "$EVENT" in
             pull_request) args+=(--why-run --since "$PR_BASE") ;;
@@ -92,4 +94,4 @@ jobs:
         run: |
           [ -s "$RUNNER_TEMP/summary.md" ] || exit 0
           { echo '### Cinc why-run'; echo; cat "$RUNNER_TEMP/summary.md"; } > "$RUNNER_TEMP/comment.md"
-          python3 .github/scripts/tf.py comment "$RUNNER_TEMP/comment.md" '<!-- chef-why-run -->'
+          uv run .github/scripts/tf.py comment "$RUNNER_TEMP/comment.md" '<!-- chef-why-run -->'
