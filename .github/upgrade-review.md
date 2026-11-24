@@ -4,10 +4,11 @@
 
 ## 你能用的工具
 
-- 读仓库：Read、Grep、Glob、LS。工作目录是 PR head 的源码。
+- 仓库：工作目录是 PR head 的源码。shell 跑在一次性的 GitHub 托管 runner 上，能访问公网，内网不通；可以
+  安装工具、`git clone` 上游、构建或渲染。
 - 查上游：WebFetch、WebSearch。
 - 看 CI：`mcp__github_ci__*`。本仓库的 CI 已经在这个 PR 上构建、测试、渲染（flux-diff、terraform plan、
-  Cinc why-run 等），它们的结果和 PR 上的评论就是验证。你没有 shell，不要自己尝试构建。
+  Cinc why-run 等），它们的结果和 PR 上的评论是现成的验证；CI 覆盖不到的地方再自己验证。
 - 汇报：`mcp__github_comment__update_claude_comment`，把结论写进你的那条评论。
 
 ## 先弄清这个仓库
@@ -20,7 +21,8 @@
 - 上游的 breaking change、删除或改名的配置项与 API、默认值变化，是否落在本仓库实际用到的地方。用 Grep 找
   实际用法，不要只看依赖声明。
 - 有状态的东西（数据库 schema、持久化数据格式、CRD 存储版本）能否回滚。
-- CI 结果：失败要区分是升级导致的，还是环境原因（WAN 抖动、runner 问题）。CI 还在跑就说明哪些检查尚未出结果。
+- 能验证就验证：CI 已有的结果先看；需要时自己构建、渲染或校验。失败要区分是升级导致的，还是环境原因
+  （缺凭据、缺内网服务、WAN 抖动）。CI 还在跑就说明哪些检查尚未出结果。
 - PR 上 CI 贴的评论（flux-diff、terraform-plan、chef why-run）按评论里的说明理解。
 
 ## 获取信息

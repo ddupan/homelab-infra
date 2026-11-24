@@ -3,9 +3,8 @@ name: upgrade-review
 # Claude (claude-code-action, the Claude GitHub App) reviews Renovate's dependency PRs against how this
 # repository uses the dependency: .github/upgrade-review.md. Its verdict goes into one sticky comment.
 #
-# No shell: the review reads the repository, upstream release notes (WebFetch) and this PR's own CI
-# results, which already build, test and render the change. The OAuth token lives on this runner, and
-# upstream text is untrusted, so the agent gets no tool that could read the environment or run code.
+# Tools are the action's defaults (auto mode: commands no rule covers pass Claude Code's safety review
+# first), plus web access for upstream release notes. The runner is a disposable GitHub-hosted VM.
 #
 # Runs when Renovate opens the PR or retitles it (a new version), not on its frequent rebases. For a
 # fresh review comment `@claude 按 .github/upgrade-review.md 重新评审` (claude.yml, same sticky comment).
@@ -54,4 +53,3 @@ jobs:
             按仓库里 .github/upgrade-review.md 的说明评审这个依赖升级 PR，结论写进你的评论。
           claude_args: |
             --allowedTools "WebFetch,WebSearch"
-            --disallowedTools "Bash"
