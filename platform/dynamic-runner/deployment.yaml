@@ -130,10 +130,10 @@ spec:
             # ghcr.io through the Artifact Registry remote repository next to the cluster.
             - name: CLOUD_EXECUTOR_IMAGE
               value: us-central1-docker.pkg.dev/ddupan-ci/ghcr/ddupan/gitea-dynamic-runner-runner@sha256:2a4c5fb3c16d8f0ebc2c88ba4005b8a4b3618cfe28f5858c11028f0d62031538
-            # Pending Pods cost nothing; the trial account's GCE quotas (12 vCPU,
-            # 250 GB SSD) are what actually limit concurrent jobs.
+            # Repositories moved to GitHub (2026-11-24), so Gitea CI is a trickle;
+            # one job at a time is enough until it is retired.
             - name: CLOUD_CAPACITY
-              value: "4"
+              value: "1"
             # Billed per request on Autopilot, so every value is explicit.
             # Ayatori lint (2026-11-11) held 1.5 vCPU flat out and peaked at
             # 2.75 GiB of 3 GiB. More CPU shortens the job about as much as it

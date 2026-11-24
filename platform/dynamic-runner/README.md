@@ -31,7 +31,7 @@ OpenSandbox chart 所有权边界。
   有两个实例同时持有同一个 registration。worker 退出时删除尚未交接完的 executor，
   并把这些 task 报为失败供 rerun（Gitea 不能收回已领取的 task）。重启间隙 facade
   短暂不可用，runner 的上报会重试。
-- `POD_CAPACITY=4` 与 `VM_CAPACITY=1` 分别限制两个 backend admission pool；满载时
+- `POD_CAPACITY=1` 与 `VM_CAPACITY=1` 分别限制两个 backend admission pool；满载时
   worker 不领取，task 在 Gitea 显示为等待，由池内其他成员领取。任一 backend 不占用
   另一方的执行槽位，也不会创建超出容量的 workload。
 - executor 身份的 SPIRE parent 由 `SPIRE_CLUSTER` 与 Pod 所在节点 UID 推导，
@@ -79,7 +79,7 @@ Git。OpenBao 写入使用本机 SPIFFE JWT 换取的短期 `local-development` 
   cache 是 `gcp-ci` 里的 cache-server（e2-micro），不走下面这个。
 - 规格（`CLOUD_RESOURCE_PROFILES`）：默认 2 vCPU / 4 GiB；`runs-on: [cloud-small]` 是
   0.5 vCPU / 1 GiB，给 security-scan 这类轻量 job，能和默认规格的 job 挤在同一个节点上。
-  试用账号的 GCE 配额（全局 12 vCPU、SSD 250 GB）是实际的并发上限。
+  `CLOUD_CAPACITY=1`：仓库已迁到 GitHub（2026-11-24），Gitea 上只剩零星 job。
 - 停用：从 `COMPONENTS` 去掉 `cloud-scheduler`；剩下的 runner 在 Gitea 里删除即可。
 
 ## Actions cache
