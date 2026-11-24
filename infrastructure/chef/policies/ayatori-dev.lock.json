@@ -1,5 +1,5 @@
 {
-  "revision_id": "63bff6b23b84e9a86803b636d3ed096970958683399bfe51b083456cf0c2bfb0",
+  "revision_id": "ad730d43b91eddb78280ae6591af26a9e4edab1bb85f406cb52497110fae64b8",
   "name": "ayatori-dev",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -36,8 +36,8 @@
   "default_attributes": {
     "homelab_ayatori": {
       "environment": "dev",
-      "release": "v0.4.0",
-      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:8ec7f7b6deb62c7e26f95c881f0a3a7d34333fb79564fd23c1f51132d31409c9",
+      "release": "v0.5.0",
+      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:57f8ca27614259921749cde82c8a1e36ae089ca6f1b856fa914e8893d5946fa4",
       "postgresql_instance": {
         "name": "homelab-dev",
         "host": "pg-dev.lab.ddupan.top",
