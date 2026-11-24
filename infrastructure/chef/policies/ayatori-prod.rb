@@ -18,6 +18,8 @@ default['homelab_ayatori']['postgresql_instance'] = {
   'host' => 'pg-prod.lab.ddupan.top',
   'port' => 5432,
 }
+# Ayatori 仓库已迁到 GitHub（Gitea 上的已归档）；cookbook 默认值下次发版时一并改。
+default['homelab_ayatori']['repository'] = 'https://github.com/ddupan/ayatori.git'
 default['homelab_ayatori']['gitops'] = {
   'url' => 'https://github.com/ddupan/homelab-infra.git',
   'path' => './clusters/ayatori-prod',
