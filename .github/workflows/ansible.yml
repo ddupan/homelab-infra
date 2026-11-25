@@ -46,7 +46,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          version: 0.13.9
+          version: 0.13.10
 
       # restore-keys: a Renovate bump changes the key; restoring the previous cache lets the install
       # step below reinstall only the projects whose requirements.yml changed.
