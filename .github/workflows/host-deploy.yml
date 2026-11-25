@@ -30,7 +30,7 @@ jobs:
       - uses: ddupan/ci-actions/setup-artifact-keeper@v1
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.13.9
+          uv: 0.13.10
           ansible: 'true'
 
       - name: Pick playbooks

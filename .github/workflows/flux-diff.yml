@@ -61,7 +61,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          version: 0.13.9
+          version: 0.13.10
 
       # 只为从源码编译 flate；go 版本取自 .github/flate/go.mod（跟随 flate main 的 go 指令）。
       - uses: actions/setup-go@v7

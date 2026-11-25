@@ -37,7 +37,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          version: 0.13.9
+          version: 0.13.10
 
       - name: yamllint
         # --no-warnings so line-length stays advisory. Errors block.
