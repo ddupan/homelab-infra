@@ -83,6 +83,18 @@ resource "vault_kubernetes_auth_backend_role" "ayatori_dev_controller" {
   token_ttl      = 3600
 }
 
+# ayatori-api（ADR-0027）：以只用于 TokenRequest 的 SA api-openbao-login 登录，只读应用凭据。
+resource "vault_kubernetes_auth_backend_role" "ayatori_dev_api" {
+  backend   = vault_auth_backend.ayatori_dev_kubernetes.path
+  role_name = "ayatori-dev-api"
+
+  bound_service_account_names      = ["api-openbao-login"]
+  bound_service_account_namespaces = ["ayatori-system"]
+
+  token_policies = [vault_policy.ayatori_dev_api.name]
+  token_ttl      = 3600
+}
+
 resource "vault_kubernetes_auth_backend_role" "ayatori_dev_external_secrets" {
   backend   = vault_auth_backend.ayatori_dev_kubernetes.path
   role_name = "ayatori-dev-external-secrets"
@@ -118,6 +130,18 @@ resource "vault_kubernetes_auth_backend_role" "ayatori_prod_controller" {
   bound_service_account_namespaces = ["ayatori-system"]
 
   token_policies = [vault_policy.ayatori_prod_controller.name]
+  token_ttl      = 3600
+}
+
+# ayatori-api（ADR-0027）：以只用于 TokenRequest 的 SA api-openbao-login 登录，只读应用凭据。
+resource "vault_kubernetes_auth_backend_role" "ayatori_prod_api" {
+  backend   = vault_auth_backend.ayatori_prod_kubernetes.path
+  role_name = "ayatori-prod-api"
+
+  bound_service_account_names      = ["api-openbao-login"]
+  bound_service_account_namespaces = ["ayatori-system"]
+
+  token_policies = [vault_policy.ayatori_prod_api.name]
   token_ttl      = 3600
 }
 
