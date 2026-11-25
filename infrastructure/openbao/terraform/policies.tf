@@ -53,6 +53,11 @@ resource "vault_policy" "ayatori_dev_controller" {
   policy = file("${path.module}/policies/ayatori-dev-controller.hcl")
 }
 
+resource "vault_policy" "ayatori_dev_api" {
+  name   = "ayatori-dev-api"
+  policy = file("${path.module}/policies/ayatori-dev-api.hcl")
+}
+
 resource "vault_policy" "ayatori_dev_external_secrets" {
   name   = "ayatori-dev-external-secrets"
   policy = file("${path.module}/policies/ayatori-dev-external-secrets.hcl")
@@ -61,6 +66,11 @@ resource "vault_policy" "ayatori_dev_external_secrets" {
 resource "vault_policy" "ayatori_prod_controller" {
   name   = "ayatori-prod-controller"
   policy = file("${path.module}/policies/ayatori-prod-controller.hcl")
+}
+
+resource "vault_policy" "ayatori_prod_api" {
+  name   = "ayatori-prod-api"
+  policy = file("${path.module}/policies/ayatori-prod-api.hcl")
 }
 
 resource "vault_policy" "ayatori_prod_external_secrets" {
