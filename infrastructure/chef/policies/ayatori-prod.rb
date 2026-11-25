@@ -6,13 +6,13 @@ run_list 'homelab_ayatori::adopt', 'homelab_base::default', 'homelab_ayatori::de
 # 按 cookbook 自己的版本从静态 supermarket 取（SeaweedFS bucket，homelab-cookbooks README「发布」）。
 default_source :supermarket, 'https://s3.lab.ddupan.top/chef-supermarket'
 cookbook 'homelab_base', '= 0.4.6'
-cookbook 'homelab_ayatori', '= 0.4.0'
+cookbook 'homelab_ayatori', '= 0.5.0'
 
 default['homelab_ayatori']['environment'] = 'prod'
 # Flux 跟随的 Ayatori release 与同一 release 的 manager 镜像（按 digest 固定）。只经 promotion 改为
 # Dev（policies/ayatori-dev.rb）已验收的 release。
-default['homelab_ayatori']['release'] = 'v0.5.0'
-default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:57f8ca27614259921749cde82c8a1e36ae089ca6f1b856fa914e8893d5946fa4'
+default['homelab_ayatori']['release'] = 'v0.6.0'
+default['homelab_ayatori']['image'] = 'zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:8d8862ebda156fdfb364b6fa0fa7c9fa1939a2a56491d0aa340a5bbf96810bad'
 default['homelab_ayatori']['postgresql_instance'] = {
   'name' => 'homelab-prod',
   'host' => 'pg-prod.lab.ddupan.top',
@@ -40,3 +40,7 @@ default['homelab_ayatori']['oidc'] = {
   'audiences' => ['ayatori-prod'],
   'admin_groups' => ['platform-admins'],
 }
+# 无人参与的调用方（节点、实例、自动化）以 SPIFFE JWT-SVID 调用 API（Ayatori ADR-0027），audience 与 oidc 相同。
+default['homelab_ayatori']['spiffe_issuer'] = 'https://spire-oidc.ddupan.top'
+# 聚合子资源（数据库凭据，Ayatori ADR-0027）；OpenBao role ayatori-prod-api 见 ../../openbao/terraform/auth.tf。
+default['homelab_ayatori']['ayatori_api'] = true
