@@ -1,5 +1,5 @@
 {
-  "revision_id": "bbee34155af30a54956d3998da14c1512de06830efb5d517ccf6754f8e112cff",
+  "revision_id": "7140ad2a484076d967b7783605081bf7bec84f14ff02e68707ebc360b8059f7e",
   "name": "ayatori-prod",
   "run_list": [
     "recipe[homelab_ayatori::adopt]",
@@ -11,14 +11,14 @@
   ],
   "cookbook_locks": {
     "homelab_ayatori": {
-      "version": "0.4.0",
-      "identifier": "6c3f19ef8e4866a9a9b051b940aa8579417be6ef",
-      "dotted_decimal_identifier": "30468678110562406.47755845814534314.146755836176111",
-      "cache_key": "homelab_ayatori-0.4.0-s3.lab.ddupan.top",
-      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.4.0.tar.gz",
+      "version": "0.5.0",
+      "identifier": "ebc4d4cf4b492cfd4e449a892e54a0dae86a6b7c",
+      "dotted_decimal_identifier": "66363037816932652.71299225665220180.176862062603132",
+      "cache_key": "homelab_ayatori-0.5.0-s3.lab.ddupan.top",
+      "origin": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.5.0.tar.gz",
       "source_options": {
-        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.4.0.tar.gz",
-        "version": "0.4.0"
+        "artifactserver": "https://s3.lab.ddupan.top/chef-supermarket/homelab_ayatori-0.5.0.tar.gz",
+        "version": "0.5.0"
       }
     },
     "homelab_base": {
@@ -36,8 +36,8 @@
   "default_attributes": {
     "homelab_ayatori": {
       "environment": "prod",
-      "release": "v0.5.0",
-      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:57f8ca27614259921749cde82c8a1e36ae089ca6f1b856fa914e8893d5946fa4",
+      "release": "v0.6.0",
+      "image": "zot.lab.ddupan.top/panxiao81/ayatori-manager@sha256:8d8862ebda156fdfb364b6fa0fa7c9fa1939a2a56491d0aa340a5bbf96810bad",
       "postgresql_instance": {
         "name": "homelab-prod",
         "host": "pg-prod.lab.ddupan.top",
@@ -64,7 +64,9 @@
         "admin_groups": [
           "platform-admins"
         ]
-      }
+      },
+      "spiffe_issuer": "https://spire-oidc.ddupan.top",
+      "ayatori_api": true
     }
   },
   "override_attributes": {
@@ -74,7 +76,7 @@
     "Policyfile": [
       [
         "homelab_ayatori",
-        "= 0.4.0"
+        "= 0.5.0"
       ],
       [
         "homelab_base",
@@ -82,7 +84,7 @@
       ]
     ],
     "dependencies": {
-      "homelab_ayatori (0.4.0)": [
+      "homelab_ayatori (0.5.0)": [
         [
           "homelab_base",
           ">= 0.0.0"
