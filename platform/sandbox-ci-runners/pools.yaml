@@ -251,7 +251,7 @@ spec:
             - name: spire-socket
               mountPath: /run/spire/agent-sockets
         - name: docker
-          image: docker.io/library/docker:29.10.0-dind
+          image: docker.io/library/docker:29.10.1-dind
           command: [/bin/sh, -c]
           args:
             - test -e /dev/kmsg || mknod /dev/kmsg c 1 11; exec dockerd --host=unix:///run/docker/docker.sock --group=2000 --storage-driver=overlay2
