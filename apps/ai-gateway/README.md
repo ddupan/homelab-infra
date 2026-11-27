@@ -25,6 +25,25 @@ OpenAI-compatible clients: base URL `https://ai.lab.ddupan.top/v1`, key as the u
 through `/anthropic`, since Agent Router cannot translate OpenAI-style requests to Anthropic's
 native API. `/anthropic` serves GPT models as well.
 
+## MCP
+
+`https://ai.lab.ddupan.top/mcp` aggregates read-only MCP servers (`mcp.yaml`), same gateway key:
+
+```bash
+claude mcp add --transport http homelab https://ai.lab.ddupan.top/mcp \
+  --header "x-api-key: <your gateway key>"
+```
+
+| prefix | server | reads |
+|---|---|---|
+| `metrics__` | mcp-victoriametrics | VictoriaMetrics, plus vmalert alerts/rules via vmsingle's proxy |
+| `logs__` | mcp-victorialogs | VictoriaLogs |
+| `traces__` | mcp-victoriatraces | VictoriaTraces |
+
+Adding a server = a Deployment + Service in `mcp.yaml` and a `backendRefs` entry; the Service
+name becomes the tool prefix. Upstream credentials go in that backendRef's `securityPolicy`,
+never on clients. Keep it read-only unless there is a reason (use `toolSelector`).
+
 ## How it fits
 
 ```
