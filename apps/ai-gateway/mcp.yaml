@@ -1,6 +1,8 @@
 # MCP gateway: https://ai.lab.ddupan.top/mcp — one MCP endpoint aggregating read-only
-# observability servers. Client auth is the same gateway key as the LLM routes: `eg` checks it
-# for every path on this host (httproute.yaml), so the MCPRoute itself needs no securityPolicy.
+# observability servers. Clients log in to iam-login with OAuth (MCP authorization spec): the
+# route serves protected-resource metadata pointing at sso.ddupan.top, and checks the access
+# token's issuer, audience and groups. Gateway keys do NOT work here — Envoy would require a key
+# AND a token, not either — and `eg` skips its key check for these paths (httproute.yaml).
 #
 # Tool names are prefixed with the backend (Service) name, e.g. `metrics__query`,
 # `logs__query`: all three servers ship a `documentation` tool, and two ship `flags`.
@@ -18,6 +20,28 @@ spec:
       kind: Gateway
       group: gateway.networking.k8s.io
   prefixMode: Always
+  securityPolicy:
+    oauth:
+      issuer: https://sso.ddupan.top
+      audiences: [https://ai.lab.ddupan.top/mcp]
+      # Explicit, like apps/seaweedfs/securitypolicy-admin.yaml: no discovery round trip to fail.
+      jwks:
+        remoteJWKS:
+          uri: https://sso.ddupan.top/oauth2/jwks
+      protectedResourceMetadata:
+        resource: https://ai.lab.ddupan.top/mcp
+        resourceName: Homelab MCP gateway
+        # `groups` puts the groups claim in the access token, which the rule below reads.
+        scopesSupported: [openid, profile, groups, offline_access]
+    authorization:
+      defaultAction: Deny
+      rules:
+        - source:
+            jwt:
+              claims:
+                - name: groups
+                  valueType: StringArray
+                  values: [platform-admins]
   backendRefs:
     - name: metrics
       port: 8080

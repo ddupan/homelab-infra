@@ -20,6 +20,33 @@ spec:
       timeouts:
         request: 600s
 ---
+# MCP, and its OAuth discovery under /.well-known/, without the gateway-key check: the MCPRoute
+# (mcp.yaml) authenticates these itself with iam-login tokens. More specific than the `/` rule
+# above, so these paths land here; the key SecurityPolicy below targets only `ai-gateway`.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway-mcp
+  namespace: ai-gateway
+spec:
+  parentRefs:
+    - name: eg
+      namespace: envoy-gateway-system
+      sectionName: https-lab
+  hostnames:
+    - ai.lab.ddupan.top
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /mcp}
+        - path: {type: PathPrefix, value: /.well-known/}
+      backendRefs:
+        - name: ai-gateway-envoy
+          namespace: envoy-gateway-system
+          port: 80
+      # Streamable HTTP keeps a GET stream open; clients reconnect when it is cut.
+      timeouts:
+        request: 600s
+---
 # EG creates the `ai` Gateway's Service in its own namespace, not the Gateway's.
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
