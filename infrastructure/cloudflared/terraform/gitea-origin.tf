@@ -16,14 +16,7 @@ output "gitea_origin_certificate" {
   value = cloudflare_origin_ca_certificate.gitea.certificate
 }
 
-# git.ddupan.top 的 A 记录已移到 infrastructure/oci/terraform/dns.tf，跟实例公网 IP 一起维护。
-# 这里只从 state 放手，不删除记录；两个 root 谁先 apply 都不影响。合并 apply 后可删掉这个块。
-removed {
-  from = cloudflare_dns_record.gitea
-  lifecycle {
-    destroy = false
-  }
-}
+# git.ddupan.top 的 A 记录在 infrastructure/oci/terraform/dns.tf，跟实例公网 IP 一起维护。
 
 # 对 git.ddupan.top 关掉 Browser Integrity Check。BIC 按 User-Agent 拦"可疑"客户端，Python urllib 默认的
 # `Python-urllib/3.x` 直接 403（error 1010）：CI 的 tf.py 往 PR 贴 plan 评论、chef converge.py、dns generate.py
