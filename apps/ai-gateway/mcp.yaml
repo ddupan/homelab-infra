@@ -82,6 +82,15 @@ spec:
               memory: 32Mi
             limits:
               memory: 256Mi
+          # The servers unpack their embedded docs index into /tmp; on a read-only root they fall
+          # back to building it in memory, which OOM-killed metrics at 256Mi (2026-11-27).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -131,6 +140,15 @@ spec:
               memory: 32Mi
             limits:
               memory: 256Mi
+          # The servers unpack their embedded docs index into /tmp; on a read-only root they fall
+          # back to building it in memory, which OOM-killed metrics at 256Mi (2026-11-27).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
 ---
 # Image is under ghcr.io/victoriametrics/, not the -community path the README shows (no v1.6.0
 # there). Has no MCP_DISABLE_LOCALHOST_PROTECTION knob.
@@ -181,6 +199,15 @@ spec:
               memory: 32Mi
             limits:
               memory: 256Mi
+          # The servers unpack their embedded docs index into /tmp; on a read-only root they fall
+          # back to building it in memory, which OOM-killed metrics at 256Mi (2026-11-27).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: Service
