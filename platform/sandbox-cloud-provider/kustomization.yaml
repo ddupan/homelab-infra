@@ -1,0 +1,30 @@
+# Ayatori cloud-provider（Ayatori ADR-0028）：带 loadBalancerClass ayatori.ddupan.top/loadbalancer 的 Service
+# 翻译为 ayatori-dev 中 namespace sandbox 的 LoadBalancer。未设 class 的 Service 不受影响。
+# 基础清单取自 ddupan/ayatori#52 的 commit，镜像由 dev/cloud-provider（75e5f40）构建；发版后 ref 与 digest 改为 release tag 及其镜像。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/ddupan/ayatori//config/cloud-provider?ref=37dd9b45152c034eb06ce027c33e040faaeb7ed7
+  - clusterspiffeid.yaml
+images:
+  - name: ayatori-manager
+    newName: zot.lab.ddupan.top/panxiao81/ayatori-manager
+    digest: sha256:7574d17b4f85965b24a5a88691e474a4bf23cb730c4ebaa6dbd10bb413ef050b
+# ayatori-dev apiserver 的 CA，即 kube-public/ayatori-login 公布的 CA（sha256 E5:CB:50:0F…0C:53）。
+configMapGenerator:
+  - name: ayatori-ca
+    namespace: ayatori-cloud-provider
+    files:
+      - ca.crt=ayatori-ca.crt
+patches:
+  - target: {kind: Deployment, name: ayatori-cloud-provider}
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --ayatori-server=https://ayatori-dev.lab.ddupan.top:6443
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --ayatori-audience=ayatori-dev
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --ayatori-namespace=sandbox

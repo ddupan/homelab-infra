@@ -1,0 +1,17 @@
+# ayatori-dev 的 RoleBinding（clusters/ayatori-dev/sandbox.yaml）按这个 ID 授权。
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: sandbox-ayatori-cloud-provider
+spec:
+  className: spire-mgmt-spire
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: ayatori-cloud-provider
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ayatori-cloud-provider
+  spiffeIDTemplate: spiffe://{{ .TrustDomain }}/sandbox/ns/ayatori-cloud-provider/sa/ayatori-cloud-provider
+  workloadSelectorTemplates:
+    - k8s:ns:ayatori-cloud-provider
+    - k8s:sa:ayatori-cloud-provider
