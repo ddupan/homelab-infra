@@ -10,10 +10,13 @@ exchange ── 校验两者、防重放、生成 selectors ──▶ 本节点 
 Agent ── 匹配 platform/spire/github-ci.yaml 的 entry ──▶ JWT-SVID(aud=zot|openbao)
 ```
 
-- 只有组合 stack `arc`：PSAT 证明请求来自 sandbox 的 ARC runner Pod（TokenReview），GitHub token
-  证明是哪个仓库、workflow、ref、event。只有 GitHub token（例如 GitHub 托管 runner）或只有 PSAT 都换不到。
+- 组合 stack `arc`：PSAT 证明请求来自 sandbox 的 ARC runner Pod（TokenReview），GitHub token
+  证明是哪个仓库、workflow、ref、event。只有 PSAT 换不到。
+- stack `hosted`：只凭 GitHub token，给经 tailnet 进来的 GitHub 托管 runner（目前只有 homelab-infra
+  的 terraform.yml，2026-11-27 起试运行）。每条 entry 都带 `stack:name:<stack>` selector，所以 `arc`
+  的身份在这里签不出来，只有专为 `hosted` 登记的 entry 匹配。
 - SPIFFE ID 只由 SPIRE entry 决定（`ci/github/<owner>/<repo>/<workflow>`），exchange 配置里没有。
-- 可签发的 audience 只有 `zot`、`openbao`（`mintAudiences`）。
+- 可签发的 audience 由各 stack 的 `mintAudiences` 限定；`hosted` 不含 `zot`。
 
 ## 为什么不用 spire chart 自带的 exchange 子 chart
 
@@ -35,6 +38,10 @@ POST /api/v1/svid/arc/jwt?format=token
 Authorization: Bearer k8s=<PSAT>:github-actions=<GitHub OIDC token>
 {"audiences": ["zot"]}
 ```
+
+GitHub 托管 runner 走 `https://sandbox-k8s.lab.ddupan.top:8544`（Ayatori LB → NodePort 30544，
+`service-lan.yaml`），路径换成 `/api/v1/svid/hosted/jwt`。单插件 stack 的 token 不带插件名前缀：
+`Authorization: Bearer <GitHub OIDC token>`。
 
 ## 加一个身份
 
