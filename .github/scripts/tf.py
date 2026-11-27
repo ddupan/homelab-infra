@@ -213,6 +213,13 @@ def run(root, args):
     if name in ('dns', 'incus'):
         env['PDNS_API_KEY'] = bao_kv('k8s/powerdns')['api_key']
 
+    # Cloudflare token 只有一份，在 cloudflared root 的路径下：每多一个 root 多一把 token 就多一份轮换。
+    # 代价是 oci root 拿到的权限比它需要的 DNS:Edit 宽（Tunnel/SSL/Workers），单维护者下可接受。
+    if name == 'oci':
+        cf = bao_kv('infra/terraform/cloudflared')
+        env['TF_VAR_cloudflare_api_token'] = cf['cloudflare_api_token']
+        env['TF_VAR_cloudflare_zone_id'] = cf['zone_id']
+
     # svc-nexus 的密码由 samba-ad play 生成，只存一份在 kv/infra/nexus-ldap
     # （play 整份覆盖写该路径，不能与 kv/infra/terraform/nexus 共用）。
     if name == 'nexus':

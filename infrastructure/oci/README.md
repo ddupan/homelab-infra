@@ -125,7 +125,7 @@ Ubuntu 24.04 x86_64，50 GB / 10 VPU 启动盘。复用现有公共子网和 SSH
 
 公网 A 记录在 Cloudflare 上关闭代理，TTL 300 秒，连同 Gitea 的 `git.ddupan.top`（开代理）由
 `terraform/dns.tf` 管理，内容直接取实例的公网 IP，删除重建实例时随 apply 更新。
-需要 Bao `kv/infra/terraform/oci` 里的 `cloudflare_api_token`（只要 Zone · DNS : Edit）与 `cloudflare_zone_id`。
+Cloudflare token 与 zone ID 由 tf.py 从 Bao `kv/infra/terraform/cloudflared` 注入，与 cloudflared root 共用。
 
 ## WireGuard/BGP 与 DN42
 
