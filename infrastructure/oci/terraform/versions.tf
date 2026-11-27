@@ -5,6 +5,10 @@ terraform {
       source  = "oracle/oci"
       version = "9.15.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "5.29.0"
+    }
   }
   # 已停用旧执行流程，当前根模块直接管理既有对象；不迁移本地恢复副本。
   backend "oci" {

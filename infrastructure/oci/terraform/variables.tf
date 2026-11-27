@@ -39,3 +39,15 @@ variable "gitea_backup_drive_crypt_password" {
   type      = string
   sensitive = true
 }
+
+# CI 从 Bao kv/infra/terraform/oci 注入（tf.py 的 TF_VAR_ 约定）。只需 Zone · DNS : Edit（ddupan.top），
+# 不复用 cloudflared root 那把带 Tunnel/SSL/Workers 权限的 token。
+variable "cloudflare_api_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "cloudflare_zone_id" {
+  type        = string
+  description = "ddupan.top 的 Cloudflare zone ID"
+}
