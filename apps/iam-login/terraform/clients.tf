@@ -251,3 +251,23 @@ resource "homelab_oidc_client" "mcp" {
   public_client = true
   audiences     = ["https://ai.lab.ddupan.top/mcp"]
 }
+
+# FreshRSS's sign-in (RSS reader, trial in namespace freshrss-trial). mod_auth_openidc in the official image uses the
+# fixed redirect URI /i/oidc/ and client_secret_basic. FreshRSS takes the user from preferred_username and creates
+# the account on first sign-in (http_auth_auto_register), so no password is ever set in FreshRSS.
+resource "homelab_oidc_client" "freshrss" {
+  id            = "freshrss"
+  name          = "FreshRSS"
+  redirect_uris = ["https://rss.lab.ddupan.top/i/oidc/"]
+  scopes        = ["openid", "profile"]
+}
+
+# Read by the FreshRSS ExternalSecret.
+resource "vault_kv_secret_v2" "freshrss" {
+  mount = "kv"
+  name  = "k8s/freshrss-sso"
+  data_json = jsonencode({
+    client_id     = homelab_oidc_client.freshrss.id
+    client_secret = homelab_oidc_client.freshrss.secret
+  })
+}
