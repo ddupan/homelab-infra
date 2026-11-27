@@ -22,6 +22,7 @@ env:
   # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd、
   # shared-postgresql 与 incus（凭 pki-incus 签发的短期客户端证书访问）。未接入的
   # 缺前置条件：动 Entra 租户的 root（ddupan-entra、e5renew）没有 Azure 身份。
+  # tailscale 放最后：policy 改动即时生效，改坏 tag:ci 的规则会切断本 job 后续 root 的 LAN 访问。
   TF_ROOTS: >-
     infrastructure/openbao/terraform
     infrastructure/etcd/terraform
@@ -34,6 +35,7 @@ env:
     apps/iam-login/terraform
     infrastructure/oci/terraform
     infrastructure/gcp-ci/terraform
+    infrastructure/tailscale/terraform
 
   # 耗时几乎全在解压 provider（aws 解压后 789MB），不在 root 数量。同一 job 内各 root 共用一份。
   # 托管 runner 直接从 registry 拉 provider，不经 tailnet 绕回 LAN 的 Artifact Keeper。
@@ -57,6 +59,11 @@ jobs:
       contents: read
       id-token: write # GitHub OIDC token: tailnet login and the exchange's proof
       pull-requests: write # plan comment
+    env:
+      # tailscale provider 用 job 的 GitHub OIDC token 换 API token（infrastructure/tailscale/terraform）：
+      # PR 上是只读身份。
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_TF_PLAN_CLIENT_ID }}
+      TAILSCALE_AUDIENCE: ${{ vars.TS_TF_PLAN_AUDIENCE }}
     steps:
       - uses: actions/checkout@v7
       # Workload identity federation（GitHub OIDC），不存 secret；client ID 与 audience 不是机密，放仓库变量。
@@ -147,6 +154,9 @@ jobs:
     permissions:
       contents: read
       id-token: write # GitHub OIDC token: tailnet login and the exchange's proof
+    env:
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_TF_APPLY_CLIENT_ID }}
+      TAILSCALE_AUDIENCE: ${{ vars.TS_TF_APPLY_AUDIENCE }}
     steps:
       - uses: actions/checkout@v7
       # Workload identity federation（GitHub OIDC），不存 secret；client ID 与 audience 不是机密，放仓库变量。
