@@ -59,7 +59,7 @@ services:
   # No depends_on in either direction: a pdns outage costs only lab.ddupan.top,
   # and Blocky must never wait for it.
   pdns:
-    image: powerdns/pdns-auth-50:5.0.8
+    image: powerdns/pdns-auth-50:5.0.10
     container_name: pdns
     restart: unless-stopped
     environment:
