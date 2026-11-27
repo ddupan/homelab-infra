@@ -32,7 +32,7 @@
 		// Allow all users to SSH into their own devices in check mode.
 		{
 			"action": "check",
-			"src":    ["autogroup:members"],
+			"src":    ["autogroup:member"],
 			"dst":    ["autogroup:self"],
 			"users":  ["autogroup:nonroot", "root"],
 		},
