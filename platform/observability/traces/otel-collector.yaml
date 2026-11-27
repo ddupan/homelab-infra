@@ -128,7 +128,7 @@ spec:
       containers:
         - name: otel-collector
           # Pin to a current release; check https://github.com/open-telemetry/opentelemetry-collector-releases
-          image: otel/opentelemetry-collector-contrib:0.165.0
+          image: otel/opentelemetry-collector-contrib:0.166.0
           args: ["--config=/etc/otel/config.yaml"]
           ports:
             - { name: otlp-grpc, containerPort: 4317 }
