@@ -22,6 +22,7 @@ env:
   # 接入 plan/apply 的 root，按依赖顺序：openbao 先于依赖其 PKI/auth 的 etcd、
   # shared-postgresql 与 incus（凭 pki-incus 签发的短期客户端证书访问）。未接入的
   # 缺前置条件：动 Entra 租户的 root（ddupan-entra、e5renew）没有 Azure 身份。
+  # tailscale 放最后：policy 改动即时生效，改坏 tag:ci 的规则会切断本 job 后续 root 的 LAN 访问。
   TF_ROOTS: >-
     infrastructure/openbao/terraform
     infrastructure/etcd/terraform
@@ -34,9 +35,10 @@ env:
     apps/iam-login/terraform
     infrastructure/oci/terraform
     infrastructure/gcp-ci/terraform
+    infrastructure/tailscale/terraform
 
   # 耗时几乎全在解压 provider（aws 解压后 789MB），不在 root 数量。同一 job 内各 root 共用一份。
-  # 不用 actions/cache：GitHub 的缓存在 WAN 另一侧，恢复 789MB 比从 LAN 的 Artifact Keeper 拉还慢。
+  # 托管 runner 直接从 registry 拉 provider，不经 tailnet 绕回 LAN 的 Artifact Keeper。
   TF_PLUGIN_CACHE_DIR: /tmp/tf-plugin-cache
 
 # fmt 检查全部目录；validate 只给未接入 TF_ROOTS 的目录（-backend=false，不碰 state、不需要
@@ -45,23 +47,41 @@ permissions:
   contents: read
 
 jobs:
-  # homelab ARC runner：state、Bao、Incus、PowerDNS 都在 LAN。身份经 spire-identity-exchange：PR 上是
-  # …/homelab-infra/terraform-plan，main 的 push 是 …/terraform-apply（bao role ci-terraform、GCP/OCI 联邦、
-  # iam-login admin-ids 都按这两个 ID 授权）。
+  # GitHub 托管 runner（2026-11-27 起试运行，原先在 homelab ARC runner）：云 API 不再绕 homelab 的 WAN，
+  # state、Bao、Incus、PowerDNS 这些 LAN 服务经 tailnet（laptop 的 subnet route）访问。身份经
+  # spire-identity-exchange 的 hosted stack：PR 上是 …/homelab-infra/terraform-plan，main 的 push 是
+  # …/terraform-apply（bao role ci-terraform、GCP/OCI 联邦、iam-login admin-ids 都按这两个 ID 授权）。
+  # 回到 ARC：runs-on 改回 homelab，tailscale/等待 LAN 两步换回 setup-artifact-keeper。
   terraform-plan:
     if: github.event_name == 'pull_request'
-    runs-on: homelab
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
-      id-token: write # GitHub OIDC token, one half of the exchange's proof
+      id-token: write # GitHub OIDC token: tailnet login and the exchange's proof
       pull-requests: write # plan comment
+    env:
+      # tailscale provider 用 job 的 GitHub OIDC token 换 API token（infrastructure/tailscale/terraform）：
+      # PR 上是只读身份。
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_TF_PLAN_CLIENT_ID }}
+      TAILSCALE_AUDIENCE: ${{ vars.TS_TF_PLAN_AUDIENCE }}
     steps:
       - uses: actions/checkout@v7
-      - uses: ddupan/ci-actions/setup-artifact-keeper@v1
+      # Workload identity federation（GitHub OIDC），不存 secret；client ID 与 audience 不是机密，放仓库变量。
+      # ephemeral 节点带 tag:ci，tailnet ACL 只放行 terraform 需要的 LAN 地址与端口。
+      - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
-          terraform: 'true'
+          oauth-client-id: ${{ vars.TS_OIDC_CLIENT_ID }}
+          audience: ${{ vars.TS_OIDC_AUDIENCE }}
+          # action 自己带 --accept-routes（LAN 与 10.60.0.0/14 在 laptop 的 subnet route 上），不要在 args 里重复。
+          tags: tag:ci
+      # 新节点的 netmap 传播是最终一致的；Bao 有任意 HTTP 应答就说明路由和 split DNS 都通了。
+      - name: wait for LAN
+        timeout-minutes: 3
+        run: until curl -s -o /dev/null --max-time 5 https://bao.lab.ddupan.top:8200/v1/sys/health; do sleep 5; done
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.13.10
+          version: 0.13.10
       - uses: hashicorp/setup-terraform@v4
         with:
           # 与本地一致；更新的 CLI 会升级 state 格式，本地旧版本随后无法读取。
@@ -124,7 +144,7 @@ jobs:
   # 按 TF_ROOTS 顺序执行，失败即停，不继续依赖它的 root。
   terraform-apply:
     if: github.event_name == 'push'
-    runs-on: homelab
+    runs-on: ubuntu-26.04
     # One apply at a time (tf-cd-apply-race: an older run finishing last destroyed newer resources). A newer
     # pending run replaces an older pending one, which is fine: every apply converges to main as it is.
     concurrency:
@@ -132,14 +152,28 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
-      id-token: write # GitHub OIDC token, one half of the exchange's proof
+      id-token: write # GitHub OIDC token: tailnet login and the exchange's proof
+    env:
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_TF_APPLY_CLIENT_ID }}
+      TAILSCALE_AUDIENCE: ${{ vars.TS_TF_APPLY_AUDIENCE }}
     steps:
       - uses: actions/checkout@v7
-      - uses: ddupan/ci-actions/setup-artifact-keeper@v1
+      # Workload identity federation（GitHub OIDC），不存 secret；client ID 与 audience 不是机密，放仓库变量。
+      # ephemeral 节点带 tag:ci，tailnet ACL 只放行 terraform 需要的 LAN 地址与端口。
+      - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
-          terraform: 'true'
+          oauth-client-id: ${{ vars.TS_OIDC_CLIENT_ID }}
+          audience: ${{ vars.TS_OIDC_AUDIENCE }}
+          # action 自己带 --accept-routes（LAN 与 10.60.0.0/14 在 laptop 的 subnet route 上），不要在 args 里重复。
+          tags: tag:ci
+      # 新节点的 netmap 传播是最终一致的；Bao 有任意 HTTP 应答就说明路由和 split DNS 都通了。
+      - name: wait for LAN
+        timeout-minutes: 3
+        run: until curl -s -o /dev/null --max-time 5 https://bao.lab.ddupan.top:8200/v1/sys/health; do sleep 5; done
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
           # renovate: datasource=github-releases depName=astral-sh/uv
-          uv: 0.13.10
+          version: 0.13.10
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: v1.17.2
