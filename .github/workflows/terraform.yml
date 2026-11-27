@@ -72,9 +72,8 @@ jobs:
         with:
           oauth-client-id: ${{ vars.TS_OIDC_CLIENT_ID }}
           audience: ${{ vars.TS_OIDC_AUDIENCE }}
+          # action 自己带 --accept-routes（LAN 与 10.60.0.0/14 在 laptop 的 subnet route 上），不要在 args 里重复。
           tags: tag:ci
-          # Linux 默认不接受 subnet route；LAN 与 10.60.0.0/14 都在 laptop 的 subnet route 上。
-          args: --accept-routes
       # 新节点的 netmap 传播是最终一致的；Bao 有任意 HTTP 应答就说明路由和 split DNS 都通了。
       - name: wait for LAN
         timeout-minutes: 3
@@ -165,9 +164,8 @@ jobs:
         with:
           oauth-client-id: ${{ vars.TS_OIDC_CLIENT_ID }}
           audience: ${{ vars.TS_OIDC_AUDIENCE }}
+          # action 自己带 --accept-routes（LAN 与 10.60.0.0/14 在 laptop 的 subnet route 上），不要在 args 里重复。
           tags: tag:ci
-          # Linux 默认不接受 subnet route；LAN 与 10.60.0.0/14 都在 laptop 的 subnet route 上。
-          args: --accept-routes
       # 新节点的 netmap 传播是最终一致的；Bao 有任意 HTTP 应答就说明路由和 split DNS 都通了。
       - name: wait for LAN
         timeout-minutes: 3
