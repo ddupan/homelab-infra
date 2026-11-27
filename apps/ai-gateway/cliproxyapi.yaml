@@ -43,7 +43,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: cliproxyapi
-          image: docker.io/eceasy/cli-proxy-api:v8.1.3@sha256:784019627af9654e5d595aa74b6bdeb819c5a2a6f9ebade5461dcf2a8ba65d3a
+          image: docker.io/eceasy/cli-proxy-api:v8.1.7@sha256:fd49f56bfcfbfc424709e501f4f8c9ff6e28ff8d8d039eb75d28850201511879
           command: [./CLIProxyAPI, -config, /etc/cliproxyapi/config.yaml]
           env:
             - name: HOME
