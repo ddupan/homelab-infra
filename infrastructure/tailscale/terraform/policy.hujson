@@ -38,25 +38,6 @@
 		},
 	],
 
-	"derpMap": {
-		"Regions": {
-			"900": {
-				"RegionID":   900,
-				"RegionCode": "cn",
-				"RegionName": "Hangzhou",
-
-				"Nodes": [
-					{
-						"Name":     "1",
-						"RegionID": 900,
-						"HostName": "derper.ddupan.cc",
-						"STUNPort": 3478,
-					},
-				],
-			},
-		},
-	},
-
 	"tagOwners": {
 		"tag:k8s-operator": [],
 		"tag:k8s":          ["tag:k8s-operator"],
