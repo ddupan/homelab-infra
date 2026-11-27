@@ -24,6 +24,9 @@ spec:
     # data — accepted for metrics and logs; a normal shutdown still flushes all.
     # Buffered data stays queryable; at current ingest it is a few dozen MB.
     inmemoryDataFlushInterval: 10m
+    # Serves vmalert's /api/v1/alerts and /rules under vmsingle, for Grafana-style alert views
+    # and the MCP gateway's `alerts`/`rules` tools (apps/ai-gateway/mcp.yaml).
+    vmalert.proxyURL: http://vmalert-main.monitoring.svc:8080
   resources:
     requests:
       cpu: 250m

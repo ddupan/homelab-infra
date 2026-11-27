@@ -1,0 +1,222 @@
+# MCP gateway: https://ai.lab.ddupan.top/mcp — one MCP endpoint aggregating read-only
+# observability servers. Client auth is the same gateway key as the LLM routes: `eg` checks it
+# for every path on this host (httproute.yaml), so the MCPRoute itself needs no securityPolicy.
+#
+# Tool names are prefixed with the backend (Service) name, e.g. `metrics__query`,
+# `logs__query`: all three servers ship a `documentation` tool, and two ship `flags`.
+#
+# The servers have no auth of their own and are ClusterIP only. That exposes nothing new: the
+# VictoriaMetrics/Logs/Traces APIs behind them are already unauthenticated inside the cluster.
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: MCPRoute
+metadata:
+  name: mcp
+  namespace: ai-gateway
+spec:
+  parentRefs:
+    - name: ai
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  prefixMode: Always
+  backendRefs:
+    - name: metrics
+      port: 8080
+    - name: logs
+      port: 8080
+    - name: traces
+      port: 8080
+---
+# Metrics + alerts. The `alerts`/`rules` tools go through vmsingle's vmalert proxy
+# (vmalert.proxyURL in platform/observability/metrics/vmsingle.yaml), so no separate
+# Alertmanager MCP server is needed for "what is firing". Default MCP_DISABLED_TOOLS
+# (export, *_debug, test_rules) is kept by not setting it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics
+  namespace: ai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-metrics
+  template:
+    metadata:
+      labels:
+        app: mcp-metrics
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp
+          image: ghcr.io/victoriametrics/mcp-victoriametrics:v1.22.0@sha256:d304060eaf2e104e6c90e6b68c71a0cac668b7c6aa9fedaa5b35023eaabbaa99
+          env:
+            - name: VM_INSTANCE_ENTRYPOINT
+              value: http://vmsingle-main.monitoring.svc:8428
+            - name: VM_INSTANCE_TYPE
+              value: single
+            - {name: MCP_SERVER_MODE, value: http}
+            # Default is localhost:8080, unreachable from the gateway.
+            - {name: MCP_LISTEN_ADDR, value: ":8080"}
+            # Requests arrive with the Service name as Host, not localhost.
+            - {name: MCP_DISABLE_LOCALHOST_PROTECTION, value: "true"}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logs
+  namespace: ai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-logs
+  template:
+    metadata:
+      labels:
+        app: mcp-logs
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp
+          image: ghcr.io/victoriametrics/mcp-victorialogs:v1.11.0@sha256:0b3acd058159adc196ace66b2168895d4fbe6cb2ed75bbad49799863ac4dc56e
+          env:
+            - name: VL_INSTANCE_ENTRYPOINT
+              value: http://vlsingle-main.monitoring.svc:9428
+            - {name: MCP_SERVER_MODE, value: http}
+            - {name: MCP_LISTEN_ADDR, value: ":8080"}
+            - {name: MCP_DISABLE_LOCALHOST_PROTECTION, value: "true"}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+---
+# Image is under ghcr.io/victoriametrics/, not the -community path the README shows (no v1.6.0
+# there). Has no MCP_DISABLE_LOCALHOST_PROTECTION knob.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traces
+  namespace: ai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-traces
+  template:
+    metadata:
+      labels:
+        app: mcp-traces
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp
+          image: ghcr.io/victoriametrics/mcp-victoriatraces:v1.6.0@sha256:067ee38742fcf3ff2614badc1195c55565863e2e88af04337eb161cb08ec69a3
+          env:
+            - name: VT_INSTANCE_ENTRYPOINT
+              value: http://vtsingle-main.monitoring.svc:10428
+            - {name: MCP_SERVER_MODE, value: http}
+            - {name: MCP_LISTEN_ADDR, value: ":8080"}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics
+  namespace: ai-gateway
+spec:
+  selector:
+    app: mcp-metrics
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logs
+  namespace: ai-gateway
+spec:
+  selector:
+    app: mcp-logs
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traces
+  namespace: ai-gateway
+spec:
+  selector:
+    app: mcp-traces
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
