@@ -238,3 +238,16 @@ resource "homelab_machine_client" "dev_panxiao81" {
   spiffe_id = "spiffe://ddupan.top/dev/panxiao81"
   audiences = ["artifact-keeper"]
 }
+
+# The MCP gateway (apps/ai-gateway/mcp.yaml) for MCP clients such as Claude Code. iam-login has no dynamic
+# client registration, so clients are pre-registered: `claude mcp add ... --client-id mcp --callback-port 33418`.
+# Public + PKCE, like the other CLI clients. The extra audience is the MCP resource URL, which the MCPRoute
+# checks (MCP spec token audience binding); who may call which tool is the MCPRoute's groups rule.
+resource "homelab_oidc_client" "mcp" {
+  id            = "mcp"
+  name          = "MCP gateway"
+  redirect_uris = ["http://localhost:33418/callback"]
+  scopes        = ["openid", "profile", "groups", "offline_access"]
+  public_client = true
+  audiences     = ["https://ai.lab.ddupan.top/mcp"]
+}

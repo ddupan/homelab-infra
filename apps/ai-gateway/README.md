@@ -27,12 +27,18 @@ native API. `/anthropic` serves GPT models as well.
 
 ## MCP
 
-`https://ai.lab.ddupan.top/mcp` aggregates read-only MCP servers (`mcp.yaml`), same gateway key:
+`https://ai.lab.ddupan.top/mcp` aggregates read-only MCP servers (`mcp.yaml`). Login is OAuth
+against iam-login (platform-admins only), **not** the gateway key:
 
 ```bash
 claude mcp add --transport http homelab https://ai.lab.ddupan.top/mcp \
-  --header "x-api-key: <your gateway key>"
+  --client-id mcp --callback-port 33418
+# then /mcp in Claude Code → homelab → Authenticate (browser login)
 ```
+
+iam-login has no dynamic client registration, so every client uses the pre-registered public
+client `mcp` (`apps/iam-login/terraform/clients.tf`). Another MCP client with a different redirect
+URI = add it to that client's `redirect_uris`.
 
 | prefix | server | reads |
 |---|---|---|
