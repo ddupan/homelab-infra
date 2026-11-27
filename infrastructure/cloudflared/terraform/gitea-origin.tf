@@ -16,17 +16,13 @@ output "gitea_origin_certificate" {
   value = cloudflare_origin_ca_certificate.gitea.certificate
 }
 
-# 代理 A 记录直指 A1 公网 IP。地址是 ephemeral 公网 IP：重启、停机再启动都保留，只有删除重建实例才会变
-# （infrastructure/oci/terraform 的 instance_public_ip）。不用 terraform_remote_state 跨 root 引用，见 CLAUDE.md。
-# 爬虫防护在 Gitea 自己（REQUIRE_SIGNIN_VIEW = expensive），这里不再有 WAF 规则：lab 内客户端也经 CF，
-# 边缘挑战会拦下 Backstage 这类非浏览器客户端。
-resource "cloudflare_dns_record" "gitea" {
-  zone_id = var.zone_id
-  name    = "git.ddupan.top"
-  type    = "A"
-  content = "129.225.138.179"
-  proxied = true
-  ttl     = 1
+# git.ddupan.top 的 A 记录已移到 infrastructure/oci/terraform/dns.tf，跟实例公网 IP 一起维护。
+# 这里只从 state 放手，不删除记录；两个 root 谁先 apply 都不影响。合并 apply 后可删掉这个块。
+removed {
+  from = cloudflare_dns_record.gitea
+  lifecycle {
+    destroy = false
+  }
 }
 
 # 对 git.ddupan.top 关掉 Browser Integrity Check。BIC 按 User-Agent 拦"可疑"客户端，Python urllib 默认的

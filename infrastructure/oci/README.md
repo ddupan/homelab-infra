@@ -123,9 +123,9 @@ Ubuntu 24.04 x86_64，50 GB / 10 VPU 启动盘。复用现有公共子网和 SSH
 - ARM：`ssh ubuntu@oci-arm.ddupan.top`
 - AMD：`ssh ubuntu@oci-amd.ddupan.top`
 
-公网 A 记录在 Cloudflare 上关闭代理，TTL 300 秒：`oci-arm` → `129.225.138.179`，
-`oci-amd` → `129.225.176.134`。当前在 Cloudflare 手工维护，未加入任何 Terraform state；
-公网 IP 变化时需同步记录。
+公网 A 记录在 Cloudflare 上关闭代理，TTL 300 秒，连同 Gitea 的 `git.ddupan.top`（开代理）由
+`terraform/dns.tf` 管理，内容直接取实例的公网 IP，删除重建实例时随 apply 更新。
+Cloudflare token 与 zone ID 由 tf.py 从 Bao `kv/infra/terraform/cloudflared` 注入，与 cloudflared root 共用。
 
 ## WireGuard/BGP 与 DN42
 
