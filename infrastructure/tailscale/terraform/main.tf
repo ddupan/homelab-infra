@@ -21,12 +21,15 @@ resource "tailscale_dns_split_nameservers" "this" {
   nameservers = each.value
 }
 
-# GitHub Actions identities. GitHub's default sub claim is repo:<owner>/<repo>:<context>; the
-# workflow file is pinned through job_workflow_ref, because sub alone says nothing about which
-# workflow runs. PR jobs get read-only access, main gets write: a PR's plan must never be able
-# to change the tailnet.
+# GitHub Actions identities. homelab-infra uses GitHub's immutable subject
+# (use_immutable_subject: gh api repos/ddupan/homelab-infra/actions/oidc/customization/sub), so sub is
+# repo:<owner>@<owner id>/<repo>@<repo id>:<context>, not repo:<owner>/<repo>:<context>; it survives
+# renames, like the repository_id selectors in platform/spire/github-ci.yaml. The workflow file is
+# pinned through job_workflow_ref, because sub alone says nothing about which workflow runs. PR jobs
+# get read-only access, main gets write: a PR's plan must never be able to change the tailnet.
 locals {
   github_issuer = "https://token.actions.githubusercontent.com"
+  github_sub    = "repo:ddupan@354319238/homelab-infra@1450974219"
   terraform_workflow = {
     job_workflow_ref = "ddupan/homelab-infra/.github/workflows/terraform.yml@*"
   }
@@ -37,7 +40,7 @@ locals {
 resource "tailscale_federated_identity" "ci_runner" {
   description        = "homelab-infra terraform runner"
   issuer             = local.github_issuer
-  subject            = "repo:ddupan/homelab-infra:*"
+  subject            = "${local.github_sub}:*"
   custom_claim_rules = local.terraform_workflow
   scopes             = ["auth_keys"]
   tags               = ["tag:ci"]
@@ -49,7 +52,7 @@ resource "tailscale_federated_identity" "ci_runner" {
 resource "tailscale_federated_identity" "terraform_plan" {
   description        = "homelab-infra terraform plan"
   issuer             = local.github_issuer
-  subject            = "repo:ddupan/homelab-infra:pull_request"
+  subject            = "${local.github_sub}:pull_request"
   custom_claim_rules = local.terraform_workflow
   scopes             = ["all:read"]
 }
@@ -57,7 +60,7 @@ resource "tailscale_federated_identity" "terraform_plan" {
 resource "tailscale_federated_identity" "terraform_apply" {
   description        = "homelab-infra terraform apply"
   issuer             = local.github_issuer
-  subject            = "repo:ddupan/homelab-infra:ref:refs/heads/main"
+  subject            = "${local.github_sub}:ref:refs/heads/main"
   custom_claim_rules = local.terraform_workflow
   # policy_file requires devices:posture_attributes and devices:core:read alongside it.
   scopes = ["policy_file", "devices:posture_attributes", "devices:core:read", "dns", "federated_keys"]
