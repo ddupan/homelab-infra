@@ -1,0 +1,19 @@
+# LAN entry for GitHub-hosted runners (stack "hosted"): the Ayatori LB `sandbox/k8s` forwards
+# sandbox-k8s.lab.ddupan.top:8544 to this NodePort on both nodes (clusters/ayatori-prod/sandbox-k8s.yaml);
+# the runner reaches that VIP through the tailnet subnet route. Kept apart from service.yaml, which ARC
+# runners address by cluster DNS name. Exposing it is safe: TLS with the exchange's SVID, and nothing is
+# minted without a GitHub OIDC token that matches an entry.
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-identity-exchange-lan
+  namespace: spire-identity-exchange
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: spire-identity-exchange
+  ports:
+    - name: https
+      port: 443
+      targetPort: rest-spiffe
+      nodePort: 30544

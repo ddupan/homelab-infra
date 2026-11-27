@@ -17,7 +17,7 @@ Terraform 管理云 API 资源；实例内的软件、Kubernetes 和操作系统
   私网 `10.0.0.124`，恢复时公网 `129.225.138.179`。
 - VCN `10.0.0.0/16`，公共子网 `10.0.0.0/24`，默认路由经 Internet Gateway；
   入站保留 TCP 22、UDP 41641、ICMP type 3/code 4，出站全部允许。
-- 配额语句保留 A1 2 核 / 12 GB（Always Free 已减半）、10 个卷、200 GB 总存储限制；这些语句不是费用保证。
+- 配额语句为 A1 4 核 / 24 GB（暂时放宽，用于验证 PAYG 是否仍按旧额度免费，见 `a1-payg-probe.tf`）、10 个卷、200 GB 总存储限制；这些语句不是费用保证。
 - Bucket 自身不在 state 内，不由此根模块管理。
 - 费用告警不用 OCI Budget：`platform/observability/metrics/exporters/cloud-cost.yaml` 经 `finops.tf` 的
   只读用户读 Usage API，告警走 Alertmanager。账户已升级 PAYG，Always Free 之外的用量直接计费。
@@ -123,9 +123,9 @@ Ubuntu 24.04 x86_64，50 GB / 10 VPU 启动盘。复用现有公共子网和 SSH
 - ARM：`ssh ubuntu@oci-arm.ddupan.top`
 - AMD：`ssh ubuntu@oci-amd.ddupan.top`
 
-公网 A 记录在 Cloudflare 上关闭代理，TTL 300 秒：`oci-arm` → `129.225.138.179`，
-`oci-amd` → `129.225.176.134`。当前在 Cloudflare 手工维护，未加入任何 Terraform state；
-公网 IP 变化时需同步记录。
+公网 A 记录在 Cloudflare 上关闭代理，TTL 300 秒，连同 Gitea 的 `git.ddupan.top`（开代理）由
+`terraform/dns.tf` 管理，内容直接取实例的公网 IP，删除重建实例时随 apply 更新。
+Cloudflare token 与 zone ID 由 tf.py 从 Bao `kv/infra/terraform/cloudflared` 注入，与 cloudflared root 共用。
 
 ## WireGuard/BGP 与 DN42
 

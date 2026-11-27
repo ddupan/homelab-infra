@@ -23,6 +23,16 @@ spec:
     - {address: 10.60.0.11, port: 30080}
     - {address: 10.60.0.12, port: 30080}
 ---
+# spire-identity-exchange 的 NodePort（platform/sandbox-identity-exchange/service-lan.yaml），
+# 供 GitHub 托管 runner 经 tailnet 换 SVID。
+apiVersion: network.ayatori.ddupan.top/v1alpha1
+kind: Backend
+metadata: {name: identity-exchange, namespace: sandbox}
+spec:
+  endpoints:
+    - {address: 10.60.0.11, port: 30544}
+    - {address: 10.60.0.12, port: 30544}
+---
 apiVersion: network.ayatori.ddupan.top/v1alpha1
 kind: LoadBalancer
 metadata: {name: k8s, namespace: sandbox}
@@ -31,3 +41,4 @@ spec:
     - {name: k3s-api, port: 6443, backendRef: {name: k3s-api}}
     # 沙箱创建与命令执行是长请求；VyOS 上同样是 600s。
     - {name: opensandbox-api, port: 8080, backendRef: {name: opensandbox-api}, idleTimeout: 10m}
+    - {name: identity-exchange, port: 8544, backendRef: {name: identity-exchange}}

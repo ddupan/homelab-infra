@@ -1,0 +1,47 @@
+// Tailnet policy file, applied by this Terraform root (infrastructure/tailscale/terraform).
+// Edits in the admin console are reverted by the next apply on main. This repository is public:
+// name people through autogroups or groups, never by email.
+{
+	"acls": [
+		// Everything that existed before 2026-11-27 keeps the old allow-all. It used to be src "*",
+		// which also matches tag:ci; listing the sources is what lets tag:ci be narrower below.
+		// Untagged devices (laptop, homelab-vm, phones) are autogroup:member.
+		{
+			"action": "accept",
+			"src":    ["autogroup:member", "autogroup:shared", "tag:k8s", "tag:k8s-operator"],
+			"dst":    ["*:*"],
+		},
+		// GitHub-hosted runners (ephemeral, tag:ci, homelab-infra terraform.yml): only what
+		// Terraform talks to on the LAN, through the laptop's subnet route.
+		{
+			"action": "accept",
+			"src":    ["tag:ci"],
+			"dst": [
+				"192.168.10.8:8200",   // OpenBao
+				"192.168.10.127:443",  // Envoy: s3.lab (state), terraform.lab, nexus.lab, spire-bundle.lab
+				"192.168.10.127:8443", // Incus
+				"192.168.10.127:8053", // PowerDNS API
+				"10.62.0.1:8544",      // spire-identity-exchange (sandbox-k8s LB)
+				"192.168.10.127:53",   // split DNS: lab.ddupan.top (Blocky)
+				"192.168.10.5:53",     // split DNS: ad.ddupan.top (DC)
+			],
+		},
+	],
+
+	"ssh": [
+		// Allow all users to SSH into their own devices in check mode.
+		{
+			"action": "check",
+			"src":    ["autogroup:member"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot", "root"],
+		},
+	],
+
+	"tagOwners": {
+		"tag:k8s-operator": [],
+		"tag:k8s":          ["tag:k8s-operator"],
+		// Assigned only by the ci_runner federated identity (main.tf).
+		"tag:ci": ["autogroup:admin"],
+	},
+}

@@ -1,8 +1,12 @@
 # spire-identity-exchange v0.6.0 config (keys: internal/config/config.go at that tag).
-# Only the composite stack "arc" exists (passthroughPlugins: false): a caller must present BOTH
-# the ARC runner Pod's projected token (it runs in our sandbox, k8s_psat + TokenReview) AND the
-# job's GitHub OIDC token (which repo/workflow/ref/event, signed by GitHub). The SPIFFE ID comes
-# from the SPIRE entry those selectors match (platform/spire/github-ci.yaml), never from here.
+# Two stacks (passthroughPlugins: false, so a plugin is never addressable on its own):
+# - "arc": a caller must present BOTH the ARC runner Pod's projected token (it runs in our sandbox,
+#   k8s_psat + TokenReview) AND the job's GitHub OIDC token (which repo/workflow/ref/event).
+# - "hosted": the GitHub OIDC token alone, for jobs on GitHub-hosted runners that reach the exchange
+#   over the tailnet (service-lan.yaml). Every entry carries a stack:name selector, so an ARC
+#   identity can never be minted here; only entries registered for "hosted" match.
+# The SPIFFE ID comes from the SPIRE entry those selectors match (platform/spire/github-ci.yaml),
+# never from here.
 name: spire-identity-exchange
 logLevel: info
 # One token, one SVID; single replica, so the in-memory replay cache is sufficient.
@@ -41,3 +45,7 @@ auth:
       # What these identities may be presented to; anything else is refused before SPIRE.
       # gcp/oci: tf.py trades these for cloud tokens; iam-login: terraform-provider-homelab.
       mintAudiences: [zot, openbao, gcp, oci, iam-login]
+    hosted:
+      plugins: [github-actions]
+      # No zot: images are pushed from the homelab runner only. gcp/oci/iam-login: tf.py.
+      mintAudiences: [openbao, gcp, oci, iam-login]

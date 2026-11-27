@@ -39,3 +39,14 @@ variable "gitea_backup_drive_crypt_password" {
   type      = string
   sensitive = true
 }
+
+# CI 由 tf.py 从 Bao kv/infra/terraform/cloudflared 注入，与 cloudflared root 共用同一把 token。
+variable "cloudflare_api_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "cloudflare_zone_id" {
+  type        = string
+  description = "ddupan.top 的 Cloudflare zone ID"
+}
