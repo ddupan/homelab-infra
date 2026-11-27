@@ -5,6 +5,8 @@
 #   github_actions:*  GitHub signed which repo (numeric IDs survive renames), workflow file, ref
 #                     and event it is.
 # A fork PR or another branch never matches; a token from a GitHub-hosted runner lacks the PSAT.
+# Exception: entries with stack:name:hosted (GitHub token alone, runner on the tailnet) — only for
+# jobs moved to GitHub-hosted runners, listed after their ARC counterparts.
 # The token has no job claim, so an identity is per workflow file: split a job out to its own
 # workflow when it needs its own identity. Read-only (plan/why-run) identities may match
 # event_name pull_request; writing ones bind ref=refs/heads/main + event_name=push.
@@ -223,6 +225,46 @@ spec:
     - k8s_psat:cluster_name:sandbox
     - k8s_psat:namespace:arc-runners
     - k8s_psat:service_account_name:homelab-gha-rs-no-permission
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/terraform.yml
+    - github_actions:ref:refs/heads/main
+    - github_actions:event_name:push
+---
+# Terraform on GitHub-hosted runners (trial from 2026-11-27): same SPIFFE IDs, so Bao, GCP/OCI
+# federation and iam-login need no change. Only GitHub's claims bind them; the PSAT only ever proved
+# "ran on our runner", while fork PRs get no id-token either way. Delete the ARC twins above once
+# terraform.yml stays on hosted; delete these to roll back.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-terraform-plan-hosted
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-plan
+  selectors:
+    - spire_identity_exchange:stack:name:hosted
+    - github_actions:repository_owner_id:354319238
+    - github_actions:repository_id:1450974219
+    - github_actions:job_workflow_ref:path:.github/workflows/terraform.yml
+    - github_actions:base_ref:main
+    - github_actions:event_name:pull_request
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: ci-github-ddupan-homelab-infra-terraform-apply-hosted
+  labels:
+    spire.spiffe.io/class-name: spire-mgmt-spire
+spec:
+  className: spire-mgmt-spire
+  parentID: spiffe://ddupan.top/node/sandbox-agents
+  spiffeID: spiffe://ddupan.top/ci/github/ddupan/homelab-infra/terraform-apply
+  selectors:
+    - spire_identity_exchange:stack:name:hosted
     - github_actions:repository_owner_id:354319238
     - github_actions:repository_id:1450974219
     - github_actions:job_workflow_ref:path:.github/workflows/terraform.yml

@@ -12,3 +12,4 @@ resources:
   - clusterspiffeid.yaml
   - deployment.yaml
   - service.yaml
+  - service-lan.yaml
