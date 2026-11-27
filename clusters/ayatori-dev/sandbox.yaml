@@ -1,0 +1,20 @@
+# sandbox k3s 集群在 Ayatori 中的 namespace。集群内的 cloud-provider（platform/sandbox-cloud-provider）以
+# SPIFFE ID 写这里的 LoadBalancer 与 Backend；ClusterRole ayatori:cloud-provider 由 Ayatori release 发布。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sandbox
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloud-provider
+  namespace: sandbox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ayatori:cloud-provider
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: spiffe://ddupan.top/sandbox/ns/ayatori-cloud-provider/sa/ayatori-cloud-provider

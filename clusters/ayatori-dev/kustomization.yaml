@@ -1,7 +1,8 @@
 # Ayatori dev 控制面的期望状态，由 ayatori-dev LXC 上的 Flux 从 main 同步。
-# 只允许 Namespace、PostgreSQLTenant、PostgreSQLDatabase、LoadBalancerHost，其他对象会被拒绝；从这里移除
-# Tenant 即释放其 Database（默认 Retain，不删数据）。用法见 wiki services/ayatori.md。
+# 只允许 Namespace、PostgreSQLTenant、PostgreSQLDatabase、LoadBalancer、Backend、LoadBalancerHost 与
+# RoleBinding，其他对象会被拒绝；从这里移除 Tenant 即释放其 Database（默认 Retain，不删数据）。用法见 wiki services/ayatori.md。
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 # LoadBalancerHost 由各 LB 主机的 lb-agent 自行注册（ADR-0022），不在这里声明。
-resources: []
+resources:
+  - sandbox.yaml

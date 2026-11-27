@@ -14,3 +14,4 @@ resources:
   - apps/dynamic-runner.yaml
   - apps/arc.yaml
   - apps/identity-exchange.yaml
+  - apps/cloud-provider.yaml
