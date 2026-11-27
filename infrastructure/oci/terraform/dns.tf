@@ -31,20 +31,3 @@ resource "cloudflare_dns_record" "gitea" {
   proxied = true
   ttl     = 1
 }
-
-# 接管现有记录。git 原在 cloudflared root（那边用 removed 块放手，不删除）；另两条原是手工维护。
-# 合并 apply 后删掉这些 import 块。
-import {
-  to = cloudflare_dns_record.oci_arm
-  id = "${var.cloudflare_zone_id}/fee9eb5ceecacde38194bafd4ec5c01f"
-}
-
-import {
-  to = cloudflare_dns_record.oci_amd
-  id = "${var.cloudflare_zone_id}/49ef08afcefabd3e6e4e055d23aaffaa"
-}
-
-import {
-  to = cloudflare_dns_record.gitea
-  id = "${var.cloudflare_zone_id}/bd7c44e0da83d745f060b94deeaee6d8"
-}
