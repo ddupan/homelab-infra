@@ -4,8 +4,12 @@
 2026-11-27 之前这些都在 admin console 里手改；从这里接管后，console 里的改动会被 main 的下一次 apply 回滚。
 
 不管的：设备本身（登录、key expiry，laptop 与 homelab-vm 已关闭 expiry）、subnet route 的通告
-（`apps/tailscale/subnet-routes.sh`，laptop 上 `tailscale set`）。route 的**批准**交给 policy 的
-`autoApprovers`，不逐台写 Terraform。
+（`apps/tailscale/subnet-routes.sh`，laptop 上 `tailscale set`）。新 route 仍需在 console 批准；
+`10.60.0.0/14` 汇总已覆盖 labnet 以后的新网段，所以很少需要。
+
+接管时现网是 Tailscale 的默认 allow-all（`*` → `*:*`）。`policy.hujson` 把 `*` 换成显式的
+来源（成员设备、shared 用户、k8s operator 的 tag），现有设备行为不变，只有 `tag:ci` 收窄到
+terraform 用到的几个 LAN 地址。
 
 ## 凭据
 
