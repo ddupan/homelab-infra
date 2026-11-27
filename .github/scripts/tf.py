@@ -7,8 +7,9 @@
 
 依赖 spiffe-openbao-login 写入的 BAO_ADDR/BAO_TOKEN（role ci-terraform）。
 JWT-SVID（GCP、OCI、iam-login）：有 SPIRE Workload API socket 时用 spire-agent（本机、Gitea executor），
-否则在 homelab ARC runner 上经 spire-identity-exchange 换（runner Pod 的 PSAT + job 的 GitHub OIDC token，
-job 需要 permissions: id-token: write）。与 ddupan/ci-actions lib/svid.js 同一协议。
+否则经 spire-identity-exchange 换：homelab ARC runner 上交 runner Pod 的 PSAT + job 的 GitHub OIDC token
+（stack arc），GitHub 托管 runner 经 tailnet 只交 GitHub OIDC token（stack hosted）。job 需要
+permissions: id-token: write。与 ddupan/ci-actions lib/svid.js 同一协议。
 """
 import base64
 import hashlib
@@ -31,8 +32,9 @@ MAX_COMMENT = 60000
 
 # spire-identity-exchange（homelab-infra platform/sandbox-identity-exchange）。它用自己的 X509-SVID 提供
 # HTTPS，只有 URI SAN：按 SPIFFE ID 校验对端，信任锚取自 WebPKI 的 SPIFFE bundle endpoint。
-EXCHANGE_HOST = 'spire-identity-exchange.spire-identity-exchange.svc'
-EXCHANGE_PATH = '/api/v1/svid/arc/jwt?format=token'
+EXCHANGE_ARC = ('spire-identity-exchange.spire-identity-exchange.svc', 443, '/api/v1/svid/arc/jwt?format=token')
+# Ayatori LB → sandbox NodePort（homelab-infra clusters/ayatori-prod/sandbox-k8s.yaml）。
+EXCHANGE_HOSTED = ('sandbox-k8s.lab.ddupan.top', 8544, '/api/v1/svid/hosted/jwt?format=token')
 EXCHANGE_ID = 'spiffe://ddupan.top/sandbox/spire-identity-exchange'
 BUNDLE_URL = 'https://spire-bundle.lab.ddupan.top/'
 PSAT_PATH = '/var/run/secrets/spire-identity-exchange/token'
@@ -67,7 +69,7 @@ def spire_jwt(env, audience):
 
 
 def exchange_jwt(audience):
-    """A JWT-SVID from spire-identity-exchange (homelab ARC runner)."""
+    """A JWT-SVID from spire-identity-exchange (ARC runner or GitHub-hosted runner on the tailnet)."""
     if not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL'):
         raise SystemExit('没有 SPIRE socket，也没有 GitHub OIDC token：job 需要 permissions: id-token: write')
     with urllib.request.urlopen(BUNDLE_URL, timeout=30) as response:
@@ -76,20 +78,24 @@ def exchange_jwt(audience):
             for k in keys if k.get('use') == 'x509-svid' and k.get('x5c')]
     context = ssl.create_default_context(cadata=''.join(pems))
     context.check_hostname = False  # identity is the SPIFFE ID below, not a DNS name
-    psat = Path(PSAT_PATH).read_text().strip()
+    # projected token 只存在于 ARC runner Pod；没有它就是托管 runner，走 hosted stack。
+    psat = Path(PSAT_PATH).read_text().strip() if Path(PSAT_PATH).exists() else None
+    host, port, path = EXCHANGE_ARC if psat else EXCHANGE_HOSTED
     last = None
     # Each GitHub OIDC token is single-use at the exchange (replay cache): a fresh one per attempt.
     for attempt in range(3):
         oidc = request(os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=spire-identity-exchange',
                        headers={'Authorization': f"Bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})['value']
         try:
-            conn = http.client.HTTPSConnection(EXCHANGE_HOST, context=context, timeout=30)
+            conn = http.client.HTTPSConnection(host, port, context=context, timeout=30)
             conn.connect()
             sans = [v for k, v in conn.sock.getpeercert().get('subjectAltName', ()) if k == 'URI']
             if EXCHANGE_ID not in sans:
                 raise SystemExit(f'exchange 的身份是 {sans}，不是 {EXCHANGE_ID}')
-            conn.request('POST', EXCHANGE_PATH, json.dumps({'audiences': [audience]}),
-                         {'Authorization': f'Bearer k8s={psat}:github-actions={oidc}',
+            # 单插件 stack 的 token 不带插件名前缀。
+            auth = f'k8s={psat}:github-actions={oidc}' if psat else oidc
+            conn.request('POST', path, json.dumps({'audiences': [audience]}),
+                         {'Authorization': f'Bearer {auth}',
                           'Content-Type': 'application/json'})
             response = conn.getresponse()
             body = response.read().decode()
