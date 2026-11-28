@@ -4,7 +4,7 @@
 
 # --- Release ---
 # renovate: datasource=github-releases depName=openbao/openbao
-openbao_version: "2.7.2"
+openbao_version: "2.7.3"
 openbao_download_checksum: ""           # "sha256:..."  REQUIRED — set in group_vars
 openbao_download_url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_version }}/openbao_{{ openbao_version }}_linux_amd64.tar.gz"
 
