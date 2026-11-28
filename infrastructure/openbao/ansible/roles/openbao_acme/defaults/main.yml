@@ -4,8 +4,8 @@
 # --- lego (ACME client) release ---
 # Exact git tag + the tarball's sha256, both kept current by Renovate (renovate.json, renovate-attachment).
 # renovate-attachment: depName=go-acme/lego
-openbao_acme_release: "v5.6.0"
-openbao_acme_checksum: "sha256:f02fc11b6f56b97e387fa7caa0268f86f5a336953b22458e6430e4651fea439a"
+openbao_acme_release: "v5.8.1"
+openbao_acme_checksum: "sha256:0f0c1448b100e240772077bb426d268120eaf68082744349b65c9aae1bb4f005"
 openbao_acme_version: "{{ openbao_acme_release | regex_replace('^v', '') }}"
 openbao_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ openbao_acme_version }}/lego_v{{ openbao_acme_version }}_linux_amd64.tar.gz"
 openbao_acme_bin: "/usr/local/bin/lego"
