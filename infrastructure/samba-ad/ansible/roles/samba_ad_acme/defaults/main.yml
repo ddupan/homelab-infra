@@ -9,8 +9,8 @@
 # --- lego (ACME client). Same pinned release as openbao_acme, deliberately. ---
 # Exact git tag + the tarball's sha256, both kept current by Renovate (renovate.json, renovate-attachment).
 # renovate-attachment: depName=go-acme/lego
-samba_ad_acme_release: "v5.6.0"
-samba_ad_acme_checksum: "sha256:f02fc11b6f56b97e387fa7caa0268f86f5a336953b22458e6430e4651fea439a"
+samba_ad_acme_release: "v5.8.1"
+samba_ad_acme_checksum: "sha256:0f0c1448b100e240772077bb426d268120eaf68082744349b65c9aae1bb4f005"
 samba_ad_acme_version: "{{ samba_ad_acme_release | regex_replace('^v', '') }}"
 samba_ad_acme_url: "https://github.com/go-acme/lego/releases/download/v{{ samba_ad_acme_version }}/lego_v{{ samba_ad_acme_version }}_linux_amd64.tar.gz"
 samba_ad_acme_bin: "/usr/local/bin/lego"
